@@ -652,6 +652,16 @@ Any later storage reader requires its own qualification and finite grant.
 Existing fixed protected-preparation Android D0 and post-closure retained-log
 D0 retain their exact scope. Other targets and consumed approvals do not change.
 
+The separately reviewed transition variant adopts only the policy's exact
+two-file `post-autoboot-p432-v1` historical selection and bounded five-actor
+stock-logger observations. The fixed same-returned-boot retained-log D0 is
+available only after full healthy closure of that qualified variant: maximum
+4 MiB/30 seconds, raw capture, closed-owner/source binding and before/after
+Android health. No arbitrary read, new workload gate or persistent file is
+added. P435's physical startup follows separate P434 complete-root recovery
+proof and healthy closure; uncertain or unexpected post-replay data is not
+silently admitted.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
@@ -670,6 +680,12 @@ handoff is selected. Fully observed settled negatives may use normal fixed
 return; incomplete output, timeout or I/O uncertainty selects the original
 attended physical recovery without retry. Original A does not undo partial
 native_data changes. P410/P411 and their consumed grants remain immutable.
+
+The separately qualified `post-autoboot-p432-v1` selection adopts only the
+policy's two exact historical immutable rows and canonical boot-count bound;
+the pathless strict replayer remains unchanged. Missing, changed, linked or
+unexpected files fail complete post-replay admission. No new repair, removal,
+retry or installed execution follows from that failure.
 
 ### Fixed installed-Debian userspace probe V1
 

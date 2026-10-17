@@ -7,6 +7,7 @@
 #include "s22plus_debian_handoff_common_v1.inc.c"
 #include "s22plus_debian_evidence_v1.inc.c"
 static __attribute__((noreturn)) void dh_hook_fail(int error) {
+    at_stop(error);
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     dprintf(2,"DHVM_HOOK_PARK errno=%d\n",error);
 #endif
@@ -174,9 +175,12 @@ static int dh_retire_acm(void) {
 #include "s22plus_debian_handoff_observer_v2.inc.c"
 int main(int argc,char **argv) {
     struct dh_state state={0};int error;
+    /* Only the synchronous initial invocation owns transition observations. */
+    if(argc==2 && !strcmp(argv[1],"init"))AT_POINT(AT_HOOK_ENTRY,0,0);
+    else at_disable();
     if(argc!=2 || getpid()<=1 || (strcmp(argv[1],"init") && strcmp(argv[1],"rcs") &&
        strcmp(argv[1],"runlevel") && strcmp(argv[1],"park")))dh_hook_fail(EINVAL);
-    if((error=dh_load(&state)))dh_hook_fail(error);
+    if((error=AT_CHECK(AT_HOOK_STATE,dh_load(&state))))dh_hook_fail(error);
     sw_last_stage=SW_WITNESS;
     if(!strcmp(argv[1],"park"))dh_hook_fail(EIO);
     if(strcmp(argv[1],"init")) {
@@ -185,8 +189,8 @@ int main(int argc,char **argv) {
         dh_later(&state,argv[1]);
     }
     if(S22_DEBIAN_FAULT==1)dh_hook_fail(EPROTO);
-    if((error=dh_actual_init(&state)))dh_hook_fail(error);
-    if((error=de_begin(&state)) || (error=de_event(DE_INIT,0,0,1,0,0)))dh_hook_fail(error);
+    if((error=AT_CHECK(AT_ACTUAL_INIT_CHECK,dh_actual_init(&state))))dh_hook_fail(error);
+    if((error=AT_CHECK(AT_RUNTIME_FILE_BEGIN,de_begin(&state))) || (error=de_event(DE_INIT,0,0,1,0,0)))dh_hook_fail(error);
 #if defined(S22_ROOT_INSPECT_VIRT_TEST) && S22_DEBIAN_FAULT == 31
     if((error=de_begin(&state)))dh_hook_fail(error);
 #endif

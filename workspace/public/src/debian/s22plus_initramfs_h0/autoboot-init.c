@@ -103,16 +103,18 @@ static int ab_initial_fds(void) {
 }
 int main(int argc,char **argv) {
     (void)argv;
+    AT_POINT(AT_ENTRY,0,0);
     if(argc!=1 || getpid()!=1 || getuid() || geteuid() || getgid() || getegid())sw_park();
     memset(&sw,0,sizeof(sw));sw.magic=SW_STATE_MAGIC;sw.version=SW_STATE_VERSION;sw.sequence=SW_SEQUENCE;
     memcpy(sw.run,sw_run,16);sw.deadline_ms=300000;
     /* No renewed timer and no inherited helper/console descriptor. */
-    int error=sw_now()>=sw.deadline_ms ? ETIMEDOUT : ab_receipt();
-    if(!error)error=sw_no_children();
-    if(!error)error=sw_userspace();
-    if(!error)error=ab_initial_fds();
+    int error=sw_now()>=sw.deadline_ms ? ETIMEDOUT : AT_CHECK(AT_RECEIPT_CHECK,ab_receipt());
+    if(!error)error=AT_CHECK(AT_CHILDREN,sw_no_children());
+    if(!error)error=AT_CHECK(AT_USERSPACE,sw_userspace());
+    if(!error)error=AT_CHECK(AT_INITIAL_FDS,ab_initial_fds());
     if(error)sw_stop(error);
-    if(mount(NULL,"/",NULL,MS_REC|MS_PRIVATE,NULL) || syscall(SYS_close_range,3U,UINT_MAX,0U))sw_park();
+    if(AT_SYS(AT_MOUNT_PRIVATE,mount(NULL,"/",NULL,MS_REC|MS_PRIVATE,NULL)) ||
+       AT_SYS(AT_CLOSE_INITIAL_FDS,syscall(SYS_close_range,3U,UINT_MAX,0U)))sw_stop(fs1_error());
     int nullfd=open("/dev/null",O_RDWR|O_NOFOLLOW|O_CLOEXEC);if(nullfd<0)sw_park();
     for(int i=0;i<3;++i)if(dup2(nullfd,i)!=i)sw_park();
     if(nullfd>2 && close(nullfd))sw_park();
@@ -126,11 +128,12 @@ int main(int argc,char **argv) {
      * empty configfs mount preserves the checked transition mount ABI; no
      * gadget is created before the installed Debian service runs. */
     struct statfs fs;
+    AT_POINT(AT_WORK_MOUNT_CHECK,0,0);
     if(lstat("/s22-root-work",&st) || st.st_mode!=(S_IFDIR|0700) || st.st_uid || st.st_gid ||
        statfs("/s22-root-work",&fs) || fs.f_type!=0x01021994L ||
        (fs.f_flags&(ST_NOSUID|ST_NODEV|ST_NOEXEC))!=(ST_NOSUID|ST_NODEV|ST_NOEXEC) ||
        fs1_empty_directory("/s22-root-work"))sw_stop(EPROTO);
-    if(mkdir("/config",0755) || mount("configfs","/config","configfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL))sw_stop(fs1_error());
+    if(mkdir("/config",0755) || AT_SYS(AT_CONFIG_MOUNT,mount("configfs","/config","configfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL)))sw_stop(fs1_error());
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     /* The fixed VM kernel has CONFIG_USB_SUPPORT=n. Its real empty configfs
      * mount substitutes only the absent Samsung gadget subsystem. */
@@ -141,5 +144,5 @@ int main(int argc,char **argv) {
     int state=open("/dev/null",O_RDONLY|O_NOFOLLOW|O_CLOEXEC);if(state!=4)sw_stop(EPROTO);
     sw_require(sw_save_state());
     char *args[]={"/s22-switch-root","staged",(char *)fs1_run_id,NULL};
-    int result=ri_run(3,args,"staged",sw_next);sw_stop(result ? EIO : EPROTO);
+    int result=AT_CHECK(AT_SECOND_ADMISSION,ri_run(3,args,"staged",sw_next));sw_stop(result ? EIO : EPROTO);
 }

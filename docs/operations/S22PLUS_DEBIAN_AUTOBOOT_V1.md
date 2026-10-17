@@ -82,6 +82,15 @@ and SHA-256 derived from the authenticated closed P430/P431 retrieval. It is
 read-only historical input, not proof of the current boot. Old tables, approvals
 and consumed artifacts retain their original bytes and provenance.
 
+The separately reviewed `post-autoboot-p432-v1` successor adds exactly P432's
+early file, authenticated by the closed P433 reader, as a second immutable
+historical row with the same exact metadata, length, hash and single-link
+requirements. The original one-file selection remains unchanged. An unobserved
+P432 runtime file is not admitted. P435 requires the separate P434 recovery's
+complete selected-root proof and healthy Android closure before its physical
+startup; an unexpected post-replay file requires separate retrieval and H0
+qualification, never automatic admission or another replay.
+
 The first lifetime creates only `var/lib/lab/s22-early-<sealed-run>`, exclusively,
 root-owned 0600 with one link, at most 16384 bytes. It adopts the storage-first
 checked header, six client begin/end pairs and final pre-unmount record. Every
@@ -151,7 +160,33 @@ absent, physical return still proceeds through the retained recovery owner;
 later native_data retrieval requires its own separately qualified reader and
 fresh finite grant. It is not part of this operation or a prerequisite for
 return. Existing bounded same-returned-boot retained-log D0 remains available
-only under its own unchanged profile after complete healthy closure.
+only under its own selected profile after complete healthy closure.
+
+The separately qualified transition variant records file/parent/root close,
+unmount, RO restoration and post-checks, RAM receipt publication, actual
+supervisor wait/status/completion, automatic entry and second admission, root
+activation and mount moves, RAM witness, and installed-hook validation before
+runtime-file creation. It uses five existing actors, the existing stock logger
+and a new independent MAC record, binding the run, boot, actual executable,
+PID/parent, sequence and absolute BOOTTIME. The host matches each executable to
+the actual qualified physical build. VM executables retain separate identities.
+
+Each actor publishes at most 96 records of at most 512 bytes within a cumulative
+2000 ms userspace logging budget and the unchanged absolute device deadline.
+No log fd survives an observation, mount move or exec. BEGIN is a pre-call
+observation; RETURN contains the immediate syscall result/errno or the declared
+checked-function result. They are distinct from logging loss. An isolated
+authenticated return remains usable; duplicates or contradictions cannot form
+a complete progress claim. A missing return never proves a stall. The observer
+is best effort and does not gate the workload or replace its original errors.
+No new process, persistent file, writable lifetime or USB prerequisite is added.
+
+Only this qualified variant adopts the existing fixed post-closure D0 command
+`su -c 'cat /proc/last_kmsg'`, at most 4 MiB and 30 seconds, after exact closed-
+owner/source binding and with before/after health on the same returned Android
+boot. Save bounded raw bytes before decoding; retain independent partial facts
+without promoting missing retention to non-execution. This scope does not
+retroactively qualify P432 or any other image for a new action.
 
 Kernel stalls cannot be interrupted by userspace deadlines. This profile
 claims no thermal service, quiescence, watchdog or automatic recovery. Physical

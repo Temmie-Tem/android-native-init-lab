@@ -1,0 +1,53 @@
+"""Declared VM substitutions in copies of the actual transition producers."""
+from pathlib import Path
+from s22plus_native_records_v3 import require,pin
+from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES as CASES
+
+
+def source(out,original,fault,native):
+    require(fault in CASES,'unselected transition fault')
+    folder=out/(original.stem+'-transition-fault');folder.mkdir()
+    here=Path(__file__).parent
+    for base in (here,native):
+        for path in base.iterdir():
+            if path.suffix in ('.c','.h','.def'):(folder/path.name).write_bytes(path.read_bytes())
+    def edit(name,old,new,count=1):
+        path=folder/name;text=path.read_text()
+        require(text.count(old)==count,'transition fixture anchor differs: '+name)
+        path.write_text(text.replace(old,new))
+    if fault in ('trace-file-close','trace-parent-close','trace-root-close'):
+        stage,fd={'trace-file-close':('FILE_CLOSE','fd'),'trace-parent-close':('PARENT_CLOSE','parent'),
+            'trace-root-close':('ROOT_CLOSE','root')}[fault]
+        edit('file-log.c',f'AT_SYS(AT_{stage},close({fd}))',f'AT_SYS(AT_{stage},close(-1))',2 if fd=='root' else 1)
+    elif fault=='trace-unmount':edit('file-log.c','umount2(fl_root,0)','umount2(fl_root,INT_MAX)')
+    elif fault in ('trace-ro','trace-post-super'):
+        stage,call=('RESTORE_RO','ri_ro(&e,true)') if fault=='trace-ro' else ('SUPER_READ','fs1_read_super(&e,false)')
+        edit('file-log.c',f'AT_CHECK(AT_{stage},{call})',
+            f'AT_CHECK(AT_{stage},(unlinkat(e.node_fd,"native",0),{call}))')
+    elif fault=='trace-receipt':edit('file-log.c','AT_CHECK(AT_RECEIPT,fl_publish())',
+        'AT_CHECK(AT_RECEIPT,(mkdir("/run/initramfs/autoboot-early",0400),fl_publish()))')
+    elif fault=='trace-second-admission':edit('autoboot-init.c','ri_run(3,args,"staged",sw_next)',
+        'ri_run(3,args,"invalid-fixture-command",sw_next)')
+    elif fault=='trace-root-activate':edit('s22plus_debian_handoff_prepare_v1.inc.c',
+        'mount(fs1_node,ri_root,"ext4",0,"errors=remount-ro,nodiscard")',
+        'mount(fs1_node,ri_root,"absent-fixture-filesystem",0,"errors=remount-ro,nodiscard")')
+    elif fault=='trace-move-dev':edit('s22plus_switch_root_v1.c','mount(from,to,NULL,MS_MOVE,NULL)',
+        'mount(from,stage==AT_MOVE_DEV?"/absent-fixture-destination":to,NULL,MS_MOVE,NULL)')
+    elif fault=='trace-switch-exec':edit('s22plus_switch_root_v1.c','execve("/s22-switch-busybox",args,env)',
+        'execve("/absent-fixture-busybox",args,env)')
+    elif fault=='trace-witness':edit('s22plus_switch_root_witness_v1.c','sw_require(AT_CHECK(AT_WITNESS_CHECK,sw_witness()));',
+        'sw.witness_digest[0]^=1;sw_require(AT_CHECK(AT_WITNESS_CHECK,sw_witness()));')
+    elif fault=='trace-init-exec':edit('s22plus_debian_handoff_witness_v1.inc.c','execve("/sbin/init",args,env)',
+        'execve("/absent-fixture-init",args,env)')
+    elif fault=='trace-init-identity':
+        edit('s22plus_debian_handoff_hook_v1.c','if((error=AT_CHECK(AT_ACTUAL_INIT_CHECK,dh_actual_init(&state))))',
+            'state.hook_sha[0]^=1;\n    if((error=AT_CHECK(AT_ACTUAL_INIT_CHECK,dh_actual_init(&state))))')
+        edit('s22plus_debian_handoff_hook_v1.c','dprintf(2,"DHVM_HOOK_PARK errno=%d\\n",error);',
+            'dprintf(2,"DHVM_HOOK_PARK errno=%d\\n",error);\n    (void)syscall(SYS_reboot,LINUX_REBOOT_MAGIC1,LINUX_REBOOT_MAGIC2,LINUX_REBOOT_CMD_POWER_OFF,0);')
+    elif fault=='trace-logger-loss':edit('s22plus_autoboot_transition_v1.h',
+        'at_moved?"/newroot/dev/kmsg":"/dev/kmsg"','"/absent-fixture-kmsg"')
+    elif fault=='trace-pending':edit('file-log.c','AT_SYS(AT_FILE_CLOSE,close(fd))',
+        'AT_SYS(AT_FILE_CLOSE,({for(;;)pause();close(fd);}))')
+    target=folder/original.name
+    target.write_text('#ifndef S22_ROOT_INSPECT_VIRT_TEST\n#error "transition fault is VM-only"\n#endif\n'+target.read_text())
+    return target,[pin(path) for path in sorted(folder.iterdir())]

@@ -31,15 +31,25 @@ class Builder(previous.Builder):
         rows[str(Path(__file__).relative_to(ROOT))]=packaging.identity(packaging.stable(Path(__file__)))
         return dict(sorted(rows.items()))
 
+    def native_selection(self):
+        return dict(super().native_selection(),runtime_profile=source.profile_contract(
+            selection=self.declaration.JOURNAL_RECOVERY_SELECTION))
+
+    def runtime_value(self,out,resident,thermal):
+        return dict(super().runtime_value(out,resident,thermal),profile=source.profile_contract(
+            selection=self.declaration.JOURNAL_RECOVERY_SELECTION))
+
     def build_native_init(self,out,resident):
         previous.previous.Builder.build_native_init(self,out,resident)
-        producer.build(out/'root-inspector',self.declaration.IDENTITY.run_id_hex)
+        producer.build(out/'root-inspector',self.declaration.IDENTITY.run_id_hex,
+            selection=self.declaration.JOURNAL_RECOVERY_SELECTION)
 
     def inspection_value(self,out):
-        return producer.audit(out/'root-inspector',self.declaration.IDENTITY.run_id_hex)
+        return producer.audit(out/'root-inspector',self.declaration.IDENTITY.run_id_hex,
+            selection=self.declaration.JOURNAL_RECOVERY_SELECTION)
 
     def replacements(self,runtime):
-        rows=super().replacements(runtime);selected=source.profile.execution_binding()
+        rows=super().replacements(runtime);selected=source.profile.execution_binding(self.declaration.JOURNAL_RECOVERY_SELECTION)
         rows['s22-fs-e2fsck']=verify(selected['checker']).read_bytes()
         rows['s22-journal-replay']=verify(selected['replayer']).read_bytes()
         import s22plus_memory_manifest_v1 as memory
@@ -52,4 +62,5 @@ class Builder(previous.Builder):
         return rows
 
     def result_value(self,runtime,image,transform,packages):
-        return dict(super().result_value(runtime,image,transform,packages),journal_recovery=source.profile.execution_binding())
+        return dict(super().result_value(runtime,image,transform,packages),
+            journal_recovery=source.profile.execution_binding(self.declaration.JOURNAL_RECOVERY_SELECTION))

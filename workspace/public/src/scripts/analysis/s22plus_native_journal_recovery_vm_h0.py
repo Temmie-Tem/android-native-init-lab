@@ -17,14 +17,41 @@ from s22plus_native_records_v3 import pin,private_path,publish,read,require,veri
 ROOT=vm.ROOT
 SEED=ROOT/'workspace/private/outputs/s22plus-debian-handoff-p411-h0-20261001-1/vm-final-positive-2/native.ext4'
 CASES=('replay','clean','orphan-before','orphan-replayed','journal-corrupt','checker-reject')
+HISTORY_CASES=('history-missing','history-changed','history-linked','history-mode','history-runtime',
+    'history-count-invalid','history-count-maximum')
 
 
 def setup(out,helper,case,*,binary=None,supervisor=None,fault=None):
     out=private_path(ROOT,out,exists=False);helper=private_path(ROOT,helper)
-    require(not out.exists() and case in CASES,'fresh declared replay VM required')
+    require(not out.exists() and case in CASES+HISTORY_CASES,'fresh declared replay VM required')
     built=read(helper/'result.json');require(built['virt'] is True,'explicit virtual discovery helper required')
     out.mkdir(mode=0o700,parents=True)
     native=out/'native.ext4';vm.run(['cp','--reflink=auto','--sparse=always',SEED,native],out,'copy-root')
+    if built['journal_recovery'].get('history_selection') is not None:
+        import s22plus_debian_autoboot_profile_v1 as automatic
+        for index,item in enumerate(automatic.histories(True)):
+            if case=='history-missing' and index==1:continue
+            body=verify(item['source']).read_bytes()
+            if case=='history-changed' and index==1:body=body[:-1]+bytes([body[-1]^1])
+            file=out/f'history-{index}.bin';file.write_bytes(body)
+            vm.debug(native,out,f'history-write-{index}',f'write {file} /{item["path"]}')
+            vm.debug(native,out,f'history-mode-{index}',f'set_inode_field /{item["path"]} mode 0100600')
+            if index==1 and case in ('history-linked','history-mode'):
+                if case=='history-linked':
+                    vm.debug(native,out,'history-alias',f'ln /{item["path"]} /var/lib/lab/unqualified-history-alias')
+                field='links_count 2' if case=='history-linked' else 'mode 0100644'
+                vm.debug(native,out,'bad-history-metadata',f'set_inode_field /{item["path"]} {field}')
+        if case=='history-runtime':
+            (out/'runtime.bin').write_bytes(b'NOT_ADMITTED\n')
+            path='/var/lib/lab/s22-evidence-'+automatic.additional_history()['path'].rsplit('-',1)[1]
+            vm.debug(native,out,'runtime-write',f'write {out}/runtime.bin {path}')
+            vm.debug(native,out,'runtime-mode',f'set_inode_field {path} mode 0100600')
+        if case in ('history-count-invalid','history-count-maximum'):
+            (out/'count.bin').write_bytes(b'01\n' if case=='history-count-invalid' else b'99999\n')
+            vm.debug(native,out,'count-remove','rm /var/lib/lab/boot-count')
+            vm.debug(native,out,'count-write',f'write {out}/count.bin /var/lib/lab/boot-count')
+            vm.debug(native,out,'count-mode','set_inode_field /var/lib/lab/boot-count mode 0100644')
+    else:require(case not in HISTORY_CASES,'history case requires the selected comparison')
     if case!='clean':
         if case=='orphan-replayed':
             with native.open('rb') as f:data=bytearray(f.read(4096))
@@ -101,8 +128,9 @@ def run(out):
     after=vm.fixture_tools.sparse_digest(out/'disk.img');outside_after=previous.outside_native(out/'disk.img')
     require(outside==outside_after,'replay modified outside native_data')
     text=raw.replace(b'\r\n',b'\n')
+    rejected_admission=case in ('history-missing','history-count-invalid','history-linked')
     require(text.count(b'JR_VM_BEGIN\n')==1 and b'reboot: Power down' in text and
-        b'JR_VM_EXIT status=0\n' in text,
+        (b'JR_VM_EXIT status=1\n' if rejected_admission else b'JR_VM_EXIT status=0\n') in text,
         'VM settlement, return or partition-only RO differs')
     stdout=b'\n'.join(line for line in text.splitlines() if line.startswith((b'RI1_',b'UP1_',b'JR1_')))+b'\n'
     (out/'owner.stdout').write_bytes(stdout)
@@ -116,10 +144,29 @@ def run(out):
         require(re.search(rb'JR_VM_RO partition=[01] disk=0 userdata=0\n',text),'fault changed unrelated RO control')
         if setup['fault']['kind']==1:require(before==after,'pre-exec writer fault changed disk')
         proof=dict(status='NO_PROOF',fault=setup['fault'],outer_group_settled=True)
+    elif rejected_admission:
+        # The unchanged owner reports an admission error as incomplete. Its
+        # live consumer must retain NO_PROOF and choose physical recovery.
+        require(b'JR_VM_RO partition=1 disk=0 userdata=0\n' in text and
+            b'RI1_RESULT complete=0 stage=8 errno=71 cleanup_errno=0 partition_ro=1 clean=1 mounted=1 unmounted=1\n' in stdout and
+            stdout.endswith(b'JR1_RESULT complete=0 attempted=1 writer_complete=1 checker_complete=1 root_match=0 stopped=0 io_error=0\n'),
+            'negative comparison lost its actual rejection or cleanup')
+        lines=stdout.decode('ascii').splitlines();at=lines.index('JR1_BLOCK_RW partition=1')
+        writer=profile._writer(lines[at+1:at+5]);at=lines.index('JR1_CHECKER begin=1')
+        checker=profile.staged._child('checker',lines[at+1:at+5])
+        require(writer['complete']==1 and checker['proved']==1,'negative comparison lacks settled writer/checker')
+        try:profile.decode(stdout,b'',binding)
+        except ValueError:pass
+        else:raise ValueError('incomplete admission was promoted to completed recovery')
+        proof=dict(status='NO_PROOF',recovery_proved=False,writer=writer,checker=checker,
+            admission_rejected=True,protected_cleanup_observed=True)
     else:
         require(b'JR_VM_RO partition=1 disk=0 userdata=0\n' in text,'partition RO restore absent')
         proof=profile.decode(stdout,b'',binding)
-        require(proof['recovery_proved']==(case in ('replay','clean')),'replay VM result differs')
+        require(proof['recovery_proved']==(case in ('replay','clean','history-count-maximum')),'replay VM result differs')
+        if case in HISTORY_CASES:
+            require(proof['writer']['complete']==1 and proof['checker']['proved']==1,
+                'history comparison did not follow completed replay and separate checker')
     if case in ('clean','orphan-before','journal-corrupt'):require(before==after,'rejected/skipped fixture was changed')
     if case=='replay' and not setup['fault']:
         with (out/'disk.img').open('rb') as f:

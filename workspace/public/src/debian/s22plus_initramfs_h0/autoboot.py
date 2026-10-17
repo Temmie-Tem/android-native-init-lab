@@ -22,6 +22,9 @@ def sources():
     return sorted(set(handoff.source_files())|set(file_log.admission.source_files())|
         {p for p in h0.HERE.iterdir() if p.is_file() and p.suffix in ('.py','.c','.h')}|
         {Path(profile.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
+         handoff.base.NATIVE/'s22plus_autoboot_transition_v1.h',
+         handoff.base.NATIVE/'s22plus_autoboot_transition_stages_v1.def',
+         profile.ROOT/'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_transition_v1.py',
          profile.ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-autoboot',
          profile.ROOT/'workspace/public/src/debian/s22plus_v1/device/virt-binding.inc.c'})
 
@@ -48,10 +51,14 @@ fyg8_stop
     return text[:-len('fyg8_stop\n')]+tail
 
 
-def compile_unit(out,name,source,headers,virt):
+def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None):
     flags=[*integrated.FLAGS,'-DS22_DEBIAN_HANDOFF','-DS22_DEBIAN_AUTOBOOT',
         '-I',out,'-I',headers,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE]
+    if transition:flags+=['-DS22_AUTOBOOT_TRACE='+str(dict(entry=2,witness=3,hook=4)[name]),'-DS22_AUTOBOOT_HISTORY']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
+    if transition_fault:
+        import autoboot_transition_faults
+        source,_=autoboot_transition_faults.source(out,source,transition_fault,fyg8.ext4.NATIVE)
     for side in 'ab':
         h0.run(['aarch64-linux-gnu-gcc',*flags,source,'-o',out/(name+'-'+side)],out/(name+'-'+side+'.compile.log'))
     h0.require((out/(name+'-a')).read_bytes()==(out/(name+'-b')).read_bytes(),'automatic helper A/B differs')
@@ -59,13 +66,16 @@ def compile_unit(out,name,source,headers,virt):
     return pin(out/(name+'-a'),maximum=8*1024**2)
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None):
+    h0.require(transition_fault is None or virt and transition,'transition fault requires virtual observation')
     out=h0.private(out,fresh=fresh);saved=snapshot(out) if fresh else read(out/'source-inputs.json')
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
+    namespace=profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.TRANSITION_VERSION if transition else profile.VERSION
     prefix=out/'early';prefix.mkdir(mode=0o700)
     file_log.snapshot(prefix)
     first=file_log.prepare(prefix,inputs,packages,run=run,key=key,virt=virt,fresh=False,
-        storage_first=True,diagnostic=True,autoboot=True,namespace=profile.NAMESPACE,version=profile.VERSION)
+        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault)
     destination=out/'installed';destination.mkdir(mode=0o700)
     base=handoff.base
     for name in ('s22plus_native_ext4_seal_v1.h','s22plus_native_root_inspect_seal_v1.h',
@@ -73,16 +83,16 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True):
         (destination/name).write_bytes((prefix/name).read_bytes())
     (destination/'s22plus_native_staged_preflight_seal_v1.h').write_bytes(base.staged.header())
     (destination/'s22plus_switch_root_seal_v1.h').write_bytes(base.seal(run,key))
-    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(profile.NAMESPACE,profile.VERSION,run,virt=virt))
+    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition))
     installed_init,assets=profile.payloads(run,virt=virt)
     for name,data in assets.items():(destination/name).write_bytes(data)
-    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt)
+    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault)
     handoff.payload_header(destination,hook,virt)
-    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt)
+    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
-    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt)
+    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault)
     (out/'fyg8-dev').write_text(dev_script())
-    result=dict(namespace=profile.NAMESPACE,version=profile.VERSION,profile=profile.PROFILE,
+    result=dict(namespace=namespace,version=version,profile=profile.PROFILE,
         run_id=run,virtual=virt,inputs=str(h0.private(inputs)),packages=str(h0.private(packages)),
         key=pin(prefix/'key'),startup_script=pin(out/'fyg8-dev'),modules=first['modules'],measured=first['measured'],history=first['history'],
         helper=pin(prefix/'fyg8-prepare'),writer=pin(prefix/'file-log'),entry=entry,hook=hook,witness=witness,
@@ -92,6 +102,9 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True):
         deadline_ms=300000,observer_revision=5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
             sorted(list(prefix.glob('*.h'))+list(destination.glob('*.h')))})
+    if transition:result.update(transition_observer=profile.TRANSITION_OBSERVER,additional_history=first['additional_history'])
+    if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
+        first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
     for row in saved:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'automatic source changed')
     h0.publish(out/'request.json',result);return result
 
@@ -123,9 +136,9 @@ def inside(out):
     h0.generate_archives(out,tree,fyg8.KERNEL_RELEASE)
 
 
-def build(out,inputs,packages):
+def build(out,inputs,packages,*,transition=False):
     out=h0.private(out,fresh=True);saved=snapshot(out)
-    selected=prepare(out,inputs,packages,fresh=False)
+    selected=prepare(out,inputs,packages,fresh=False,transition=transition)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out],out/'namespace-build.log',timeout=700)
     h0.require((out/'initramfs-a.cpio.gz').read_bytes()==(out/'initramfs-b.cpio.gz').read_bytes(),'automatic initramfs A/B differs')

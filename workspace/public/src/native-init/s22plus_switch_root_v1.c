@@ -121,17 +121,23 @@ static int sw_root_eligible(int root,struct fs1_endpoint *e,const struct ri_coun
     }
     return 0;
 }
-static void sw_move(const char *from,const char *to) {
+static void sw_move(unsigned stage,const char *from,const char *to) {
+    (void)stage;
 #if S22_SWITCH_ROOT_FAULT == 2
     to="/missing-move-destination";
 #endif
-    if(mount(from,to,NULL,MS_MOVE,NULL))sw_stop(fs1_error());
+    AT_BEGIN(stage,1);
+    int result=mount(from,to,NULL,MS_MOVE,NULL),saved=errno;
+    if(!result && stage==AT_MOVE_DEV)at_moved_dev();
+    AT_RETURN(stage,1,result,(unsigned)saved);errno=saved;
+    if(result)sw_stop(fs1_error());
 }
 static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *counts,
                    const struct ri_compare *comparison,int started,int complete,int witness) {
-    int error=sw_root_eligible(root,e,counts,comparison,started,complete,witness);if(error)return error;
+    int error=AT_CHECK(AT_ROOT_ELIGIBLE,sw_root_eligible(root,e,counts,comparison,started,complete,witness));if(error)return error;
     sw.root_admitted=1;sw.root_device=(uint64_t)e->partition;
     sw_require(sw_record(SW_ROOT,0,"exact-root-checker",18));
+    AT_POINT(AT_PROTECTED_CHECKS,0,0);
     sw_require(sw_userspace());sw_require(sw_no_children());sw_require(ri_ro(e,false));
     uint8_t before[1024];memcpy(before,e->superblock,sizeof(before));
     sw_require(fs1_read_super(e,true));
@@ -151,12 +157,12 @@ static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *count
        mount("tmpfs","/s22-handoff-run","tmpfs",MS_NOSUID|MS_NODEV|
            (S22_SWITCH_ROOT_FAULT==1 ? MS_NOEXEC : 0),"size=8m,nr_inodes=64,mode=0700") ||
        mkdir("/s22-handoff-run/config",0700))sw_stop(fs1_error());
-    sw_require(sw_copy_witness());memcpy(sw.witness_digest,sw_witness_sha256,32);
+    sw_require(AT_CHECK(AT_RAM_WITNESS,sw_copy_witness()));memcpy(sw.witness_digest,sw_witness_sha256,32);
 #ifdef S22_DEBIAN_HANDOFF
-    sw_require(dh_stage_assets());
+    sw_require(AT_CHECK(AT_RAM_ASSETS,dh_stage_assets()));
 #endif
 #ifdef SW_STAGE_ADDITIONAL_RAM
-    sw_require(SW_STAGE_ADDITIONAL_RAM());
+    sw_require(AT_CHECK(AT_EARLY_RAM_COPY,SW_STAGE_ADDITIONAL_RAM()));
 #endif
     int busybox=fs1_pin_file("/s22-switch-busybox",sw_busybox_size,sw_busybox_sha256,true);
     if(busybox<0)sw_stop(fs1_error());
@@ -169,14 +175,14 @@ static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *count
      * into the Debian writable lifetime through a remount. */
     dh_activate_root(e);
 #endif
-    sw_move(ri_root,"/newroot");
-    sw_move("/s22-handoff-run","/newroot/run");
-    sw_move("/config","/newroot/run/config");
-    sw_move("/dev","/newroot/dev");
-    sw_move("/sys","/newroot/sys");
-    sw_move("/proc","/newroot/proc");
+    sw_move(AT_MOVE_ROOT,ri_root,"/newroot");
+    sw_move(AT_MOVE_RUN,"/s22-handoff-run","/newroot/run");
+    sw_move(AT_MOVE_CONFIG,"/config","/newroot/run/config");
+    sw_move(AT_MOVE_DEV,"/dev","/newroot/dev");
+    sw_move(AT_MOVE_SYS,"/sys","/newroot/sys");
+    sw_move(AT_MOVE_PROC,"/proc","/newroot/proc");
     if(chdir("/") || syscall(SYS_close_range,5U,UINT_MAX,0U) ||
-       umount2("/run",0) || umount2("/s22-root-work",0))sw_stop(fs1_error());
+       AT_SYS(AT_OLD_RUN_UNMOUNT,umount2("/run",0)) || AT_SYS(AT_WORK_UNMOUNT,umount2("/s22-root-work",0)))sw_stop(fs1_error());
     sw_mountinfo="/newroot/proc/self/mountinfo";
     memset(mounts,0,sizeof(mounts));sw_require(sw_mounts(mounts,&count,"/newroot"));
     if(count<6)sw_stop(EPROTO);
@@ -190,7 +196,7 @@ static int sw_next(int root,struct fs1_endpoint *e,const struct ri_counts *count
 #endif
     char *args[]={"busybox","switch_root","/newroot","/run/s22-witness",NULL};
     char *env[]={"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LC_ALL=C",NULL};
-    execve("/s22-switch-busybox",args,env);sw_stop(fs1_error());
+    AT_SYS_GUARD(AT_SWITCH_ROOT_EXEC,sw_require(sw_now()>=sw.deadline_ms?ETIMEDOUT:0),execve("/s22-switch-busybox",args,env));sw_stop(fs1_error());
 }
 #ifndef S22_SWITCH_ROOT_LIBRARY
 int main(int argc,char **argv) {

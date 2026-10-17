@@ -52,6 +52,9 @@ static int fo_supervise(unsigned helper,int (*work)(int,char **),int argc,char *
         fo_set(FO_RESULT,(unsigned)result);fo_phase(FO_FINISHED);fo_set(FO_DONE,1);
         _exit(result?1:0);
     }
+#ifdef S22_AUTOBOOT_TRACE
+    at_select(5);
+#endif
     (void)fo_publish(helper,1,0,0,0);
     for(;;) {
         int status=0;pid_t got=waitpid(worker,&status,WNOHANG);
@@ -62,6 +65,10 @@ static int fo_supervise(unsigned helper,int (*work)(int,char **),int argc,char *
             int result=!boundary && outcome==1 && WEXITSTATUS(status)==0 &&
                 atomic_load(&fo_state->field[FO_DONE])==1 &&
                 atomic_load(&fo_state->field[FO_RESULT])==0?0:1;
+#ifdef S22_AUTOBOOT_TRACE
+            at_emit(AT_WAIT_RESULT,4,3,result,(unsigned)boundary,(unsigned)worker,(unsigned)status,
+                atomic_load(&fo_state->field[FO_DONE]),atomic_load(&fo_state->field[FO_RESULT]));
+#endif
             (void)munmap(fo_state,sizeof(*fo_state));fo_state=NULL;return result;
         }
         int error=got<0 && errno!=EINTR?fs1_error():0;
@@ -71,12 +78,19 @@ static int fo_supervise(unsigned helper,int (*work)(int,char **),int argc,char *
             (void)fo_publish(helper,2,error?4:3,0,error);
             /* Never release the shell to its next helper after pending state.
              * No signal asserts cancellation of a blocked module syscall. */
+#ifdef S22_AUTOBOOT_TRACE
+            at_emit(AT_WAIT_STOP,4,3,-1,(unsigned)(error?error:ETIMEDOUT),(unsigned)worker,0,0,0);
+#endif
             fo_park();
         }
         struct timespec delay={0,10000000};
         if(nanosleep(&delay,NULL) && errno!=EINTR) {
             error=fs1_error();atomic_store(&fo_state->stop,1);
-            (void)fo_publish(helper,2,4,0,error);fo_park();
+            (void)fo_publish(helper,2,4,0,error);
+#ifdef S22_AUTOBOOT_TRACE
+            at_emit(AT_WAIT_STOP,4,3,-1,(unsigned)error,(unsigned)worker,0,0,0);
+#endif
+            fo_park();
         }
     }
 }

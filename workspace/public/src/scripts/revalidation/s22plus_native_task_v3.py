@@ -21,7 +21,7 @@ STAGED_PREFLIGHT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus
 SWITCH_ROOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_switch_root_v1_review.json'
 DEBIAN_HANDOFF_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_handoff_p413_review.json'
 ROOT_EVIDENCE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_root_evidence_p433_review.json'
-JOURNAL_RECOVERY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_journal_recovery_v1_review.json'
+JOURNAL_RECOVERY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_journal_recovery_p434_review.json'
 DEBIAN_EARLY_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_early_v1_review.json'
 DEBIAN_USB_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_usb_first_v1_review.json'
 DEBIAN_FILE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_pilot_v1_review.json'
@@ -29,7 +29,7 @@ DEBIAN_FAILURE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_d
 DEBIAN_FILE_FIRST_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_first_v1_review.json'
 DEBIAN_STAGE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_stage_probe_v1_review.json'
 DEBIAN_INTEGRATED_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_integrated_v1_review.json'
-DEBIAN_AUTOBOOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_autoboot_v1_review.json'
+DEBIAN_AUTOBOOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_autoboot_p435_review.json'
 LOG_CALIBRATION_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_log_calibration_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
@@ -52,6 +52,7 @@ def source_paths(root):
     forbidden={'device_action_f1_v2.py','device_action_f1_live_v2.py','s22plus_native_baseline_owner_v1.py'}
     require(not forbidden.intersection(path.name for path in paths),'legacy live owner is reachable from V3')
     paths.update(root/name for name in ('AGENTS.md',DETAILS,TARGET_CONTRACT,POLICY,PROFILE,
+        'workspace/public/src/native-init/s22plus_autoboot_transition_stages_v1.def',
         'docs/operations/S22PLUS_ANDROID_STORAGE_CENSUS_V1.md',
         'docs/operations/S22PLUS_NATIVE_UFS_V1.md',
         'docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md',

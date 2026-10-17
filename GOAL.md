@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P434/P435 selected: observe cleanup through installed-init entry
+## P434/P435 H0 ready: recovery first, then observe cleanup through installed init
 
-The [selected design](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) adds bounded retained observation across cleanup and root transition.
-Prepare separate strict recovery P434 and automatic observer P435; no new grant or device effect exists.
+The [qualified implementation](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) adds bounded retained observation across cleanup and root transition.
+P434 strict recovery has a 1800-second/one-operation attended offline proposal; P435 has a qualified image; no new grant or device effect exists.
 The [P433 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P433_RUN_2026-10-18.md) proves P432 initial PID1, 76+6 module returns and 14 records through 3,565 ms, before close/unmount.
 The runtime file is absent in dirty home blocks (`state=1 recover=1 orphan=0`); cleanup and installed init/services remain unproved.
 P435 requires separate proved clean-root admission with exact historical files; post-replay absence is not assumed.
 P432/P433 remain consumed and **ANDROID_CLOSED_HEALTHY**, each with one N/A pair and no F1 owner; original terminals are preserved.
-H0 implementation, actual qualification and independent review remain; A90/S20+ are outside scope.
+Both capabilities are independently PASS_GO; 30 automatic and nine recovery VM cases, 76 host tests and actual AP consumers pass; A90/S20+ are outside scope.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

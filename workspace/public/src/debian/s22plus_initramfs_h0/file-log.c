@@ -12,6 +12,9 @@ static int fl_finish_child(pid_t,unsigned);
 #undef main
 #include "early-seal.h"
 #include "early-protocol.h"
+#define AT_KEY early_key
+#define AT_RUN early_run
+#include "s22plus_autoboot_transition_v1.h"
 static uint8_t log_bytes[EARLY_LIMIT],proof[176];
 static size_t log_size;
 #include "failure-state.h"
@@ -237,10 +240,10 @@ static int fl_file(int root,dev_t device) {
     }
     if(!error)error=fl_record(fd,4,0,0); /* Last in-file fact precedes unmount. */
     if(fd>=0) {
-        fo_log_begin(FO_FILE_CLOSE);int ce=close(fd)?fs1_error():0;fo_log_result(FO_FILE_CLOSE,ce);
+        fo_log_begin(FO_FILE_CLOSE);int ce=AT_SYS(AT_FILE_CLOSE,close(fd))?fs1_error():0;fo_log_result(FO_FILE_CLOSE,ce);
         if(!error)error=ce;
     }
-    fo_log_begin(FO_FILE_CLOSE);int ce=close(parent)?fs1_error():0;fo_log_result(FO_FILE_CLOSE,ce);
+    fo_log_begin(FO_FILE_CLOSE);int ce=AT_SYS(AT_PARENT_CLOSE,close(parent))?fs1_error():0;fo_log_result(FO_FILE_CLOSE,ce);
     if(!error)error=ce;
     return error;
 }
@@ -262,30 +265,30 @@ static int fl_write_mount(void) {
     mounted=true;root=open(fl_root,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     if(root<0){error=fs1_error();goto done;}
     if(!(error=fl_directory(root,e.partition)))error=fl_file(root,e.partition);
-    if(close(root) && !error)error=fs1_error();
+    if(AT_SYS(AT_ROOT_CLOSE,close(root)) && !error)error=fs1_error();
     root=-1;
 done:
     fo_phase(FO_CLEANUP);
-    if(root>=0 && close(root) && !error)error=fs1_error();
+    if(root>=0 && AT_SYS(AT_ROOT_CLOSE,close(root)) && !error)error=fs1_error();
     /* Attempt each owned unmount once; never restore RO over an uncertain mount. */
     if(mounted) {
-        if(umount2(fl_root,0)){int ce=fs1_error();fo_failure(FO_CLEANUP,ce);if(!error)error=ce;goto leave;}
+        if(AT_SYS(AT_FILE_UNMOUNT,umount2(fl_root,0))){int ce=fs1_error();fo_failure(FO_CLEANUP,ce);if(!error)error=ce;goto leave;}
         mounted=false;
     }
     if(e.node_fd>=0 && e.node_created) {
-        int cleanup=ri_ro(&e,true);
-        if(!cleanup)cleanup=fs1_not_mounted(e.partition);
-        if(!cleanup)cleanup=fs1_read_super(&e,false);
-        if(!cleanup && !fs1_superblock(e.superblock,1024,fs1_uuid,FS1_BLOCKS))cleanup=EPROTO;
-        if(!cleanup)cleanup=fs1_gpt_exact(&e);
+        int cleanup=AT_CHECK(AT_RESTORE_RO,ri_ro(&e,true));
+        if(!cleanup)cleanup=AT_CHECK(AT_NOT_MOUNTED,fs1_not_mounted(e.partition));
+        if(!cleanup)cleanup=AT_CHECK(AT_SUPER_READ,fs1_read_super(&e,false));
+        if(!cleanup)cleanup=AT_CHECK(AT_SUPER_CLEAN,fs1_superblock(e.superblock,1024,fs1_uuid,FS1_BLOCKS)?0:EPROTO);
+        if(!cleanup)cleanup=AT_CHECK(AT_GPT_CHECK,fs1_gpt_exact(&e));
         fo_failure(FO_CLEANUP,cleanup);if(!error)error=cleanup;
     }
 leave:
-    if(e.node_created && unlinkat(e.node_fd,"native",0) && !error)error=fs1_error();
-    if(e.disk_created && unlinkat(e.node_fd,"lu0",0) && !error)error=fs1_error();
-    if(e.node_fd>=0 && close(e.node_fd) && !error)error=fs1_error();
-    if(nodes && rmdir("/dev/.s22-ext4-v1") && !error)error=fs1_error();
-    if(directory && !mounted && rmdir(fl_root) && !error)error=fs1_error();
+    if(e.node_created && AT_SYS(AT_UNLINK_NATIVE,unlinkat(e.node_fd,"native",0)) && !error)error=fs1_error();
+    if(e.disk_created && AT_SYS(AT_UNLINK_DISK,unlinkat(e.node_fd,"lu0",0)) && !error)error=fs1_error();
+    if(e.node_fd>=0 && AT_SYS(AT_NODE_CLOSE,close(e.node_fd)) && !error)error=fs1_error();
+    if(nodes && AT_SYS(AT_NODE_DIRECTORY,rmdir("/dev/.s22-ext4-v1")) && !error)error=fs1_error();
+    if(directory && !mounted && AT_SYS(AT_ROOT_DIRECTORY,rmdir(fl_root)) && !error)error=fs1_error();
     return error;
 }
 static int fl_work(int argc,char **argv) {
@@ -307,12 +310,14 @@ static int fl_work(int argc,char **argv) {
     error=fl_write_mount();fo_failure(FO_WRITABLE,error);
 #ifdef S22_DEBIAN_AUTOBOOT
     if(!error)error=fl_time();
-    if(!error)error=fl_publish();
+    if(!error)error=AT_CHECK(AT_RECEIPT,fl_publish());
 #endif
 #if defined(FL_STORAGE_FIRST) && defined(S22_ROOT_INSPECT_VIRT_TEST)
     dprintf(1,"FILE_VM_CLIENTS inserted=%u\n",fl_test_inserted);
 #endif
     dprintf(1,"FILE_PILOT result=%s error=%d records=%u bytes=%u\n",error?"REJECTED":"CLOSED",error,fl_sequence,fl_bytes);
+    AT_POINT(AT_FILE_RESULT,error?1:0,(unsigned)error);
+    if(error)at_stop(error);
     return error?1:0;
 }
 

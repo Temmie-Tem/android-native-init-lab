@@ -50,13 +50,25 @@ def tool_inputs():
     return value,fs
 
 
-def execution_binding():
+def execution_binding(selection=None):
     value,fs=tool_inputs();prior_inputs()
-    return dict(replayer_build=REPLAYER_BUILD,replayer=value['replayer'],checker=fs['checker'],
+    result=dict(replayer_build=REPLAYER_BUILD,replayer=value['replayer'],checker=fs['checker'],
         predecessor=PREDECESSOR,write_scope='internal-jbd2-replay-and-exact-finalization',
         child_uid=0,all_child_capabilities_zero=True,no_new_privs=True,inherited_command_group=True,
         child_seconds=150,output_maximum=4096,persistent_writes=True,pid1_handoff=False,
         mutable=[list(row) for row in handoff.MUTABLE])
+    if selection is not None:
+        import s22plus_debian_autoboot_profile_v1 as automatic
+        require(selection==automatic.HISTORY_SELECTION,'unselected journal admission successor')
+        table,count,boot=automatic.retained_comparison(True)
+        result.update(history_selection=selection,historical_files=automatic.histories(True),
+            history_retrieval=automatic.AUTO_RETRIEVAL,
+            predecessor=read(verify(automatic.AUTO_RETRIEVAL))['reader_closed'],
+            table_sha256=hashlib.sha256(table).hexdigest(),table_count=count,boot_count=boot,
+            boot_count_encoding='canonical-ascii-1-through-99999-newline')
+        for row in result['mutable']:
+            if row[0]=='var/lib/lab/boot-count':row[4]=6
+    return result
 
 
 def header():
@@ -66,10 +78,16 @@ def header():
 
 
 def image_binding(image):
-    require(image['profile']==PROFILE and image['journal_recovery']==execution_binding(),
+    selected=image['journal_recovery'];selection=selected.get('history_selection')
+    require(image['profile']==PROFILE and selected==execution_binding(selection),
         'journal recovery image scope differs')
     # This binding describes only the subsequent protected inspection segment.
-    return inspection.image_binding(dict(image,profile=inspection.PROFILE))
+    bound=inspection.image_binding(dict(image,profile=inspection.PROFILE))
+    if selection is not None:
+        require(bound['table']['sha256']==selected['table_sha256'] and
+            bound['table_count']==selected['table_count'] and bound['boot_count']==selected['boot_count'],
+            'journal successor comparison table differs')
+    return bound
 
 
 def _writer(lines):

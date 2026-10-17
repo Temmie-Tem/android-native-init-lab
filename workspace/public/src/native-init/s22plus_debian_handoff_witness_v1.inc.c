@@ -57,7 +57,7 @@ static __attribute__((noreturn)) void dh_exec_init(void) {
     int trace_copy=fs1_pin_file("/run/s22-debian/transition",(uint64_t)trace.st_size,trace_hash,false);
     if(trace_copy<0 || close(trace_copy))sw_stop(EIO);
 #endif
-    sw_require(dh_pin_init());sw_require(sw_no_children());sw_require(sw_userspace());
+    sw_require(AT_CHECK(AT_INSTALLED_INIT_PIN,dh_pin_init()));sw_require(sw_no_children());sw_require(sw_userspace());
     if(mount(NULL,"/run",NULL,MS_REMOUNT|MS_NOSUID|MS_NODEV,"size=32m,nr_inodes=4096,mode=0755") ||
        chmod("/run",0755))sw_stop(fs1_error());
     sw_require(dh_write("/run/.tmpfs","",0,0600));
@@ -108,5 +108,6 @@ static __attribute__((noreturn)) void dh_exec_init(void) {
 #endif
     char *args[]={"/sbin/init",NULL};char *env[]={"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LC_ALL=C",NULL};
     if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
-    execve("/sbin/init",args,env);sw_stop(fs1_error());
+    AT_POINT(AT_INSTALLED_ASSETS_READY,0,0);
+    AT_SYS_GUARD(AT_INSTALLED_INIT_EXEC,sw_require(sw_now()>=sw.deadline_ms?ETIMEDOUT:0),execve("/sbin/init",args,env));sw_stop(fs1_error());
 }

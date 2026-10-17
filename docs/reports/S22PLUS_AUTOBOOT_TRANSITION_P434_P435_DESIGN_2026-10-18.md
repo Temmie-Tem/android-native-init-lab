@@ -1,6 +1,6 @@
 # S22+ P434/P435: observe cleanup through installed-init entry
 
-Status: **H0_DESIGN_SELECTED**. The operator requested stronger observation and
+Status: **H0_READY_RECOVERY_FIRST**. The operator requested stronger observation and
 preparation of the next experiment. This unit grants no device effect. P432 and
 P433 remain consumed and closed healthy; only S22+ FYG8 is selected.
 
@@ -26,10 +26,10 @@ record precedes file close and unmount. The runtime file was absent in the
 dirty home-block view, with `state=1 recover=1 orphan=0`. This cannot locate a
 failed call or prove post-replay file absence.
 
-The current file helper retains only broad cleanup state in its supervisor.
-The automatic entry and witness write their transition trace into a RAM memfd;
+P432's retained file helper has only broad cleanup state in its supervisor.
+Its automatic entry and witness write their transition trace into a RAM memfd;
 without installed SSH that trace is not recovered after physical return.
-The current retained-log D0 dispatcher also excludes the automatic-boot profile.
+The pre-change retained-log D0 dispatcher excludes the automatic-boot profile.
 Existing VM-only console messages are diagnostic aids, not physical observation.
 
 Prepare P434 as a separate fresh strict-journal-recovery candidate under the
@@ -50,9 +50,10 @@ P435 transfer is authorized by this design.
 ## Selected observation mechanism
 
 Use the stock logger and checked bounded kernel-log transport already present
-in the physical boot. Add a fixed optional observer to four existing actors:
-the file worker, automatic PID1 entry, post-switch RAM witness and the installed
-init hook's initial invocation. Each actor emits a finite set of independently
+in the physical boot. Add a fixed optional observer to five existing actors:
+the file worker and its existing supervisor, automatic PID1 entry, post-switch
+RAM witness and the installed init hook's initial invocation. No new process
+is added. Each actor emits a finite set of independently
 authenticated BEGIN, RETURN and STOP observations. Records bind the run,
 kernel boot, actor, sequence, absolute BOOTTIME, PID/parent and measured producer
 executable. The host must match the executable hash to the qualified physical
@@ -66,11 +67,13 @@ authenticated RETURN remains useful if its BEGIN was lost. Contradictory or
 duplicate authenticated records must not become a complete execution story.
 
 Instrumentation covers file and parent close, unmount, partition RO restore,
-post-cleanup checks and RAM-receipt publication; successful supervisor
-settlement remains a separate fact. It then covers automatic-entry checks,
+post-cleanup checks and RAM-receipt publication. The existing supervisor emits
+its independently measured wait outcome and shared completion state, preserving
+settlement and publication failure as separate facts. It then covers automatic-entry checks,
 second protected admission/checker, root activation, fixed mount moves,
 switch-root attempt, actual witness entry, installed-init exec attempt and the
-hook's validated installed-PID1 observation. A pre-exec marker alone never
+hook's validated installed-PID1 observation immediately after `dh_actual_init`
+and before runtime-file creation. A pre-exec marker alone never
 proves installed init ran. Existing explicit STOP paths publish their error
 through the same physical channel before parking where possible.
 
@@ -125,3 +128,72 @@ PERSIST/ROUTE/ARTIFACT for production presence and actual retrieval; AUDIT for
 the exact P432/P433 evidence; RETURN for one original-A closure. Display and
 kernel changes are outside this unit. Independent review must resolve concrete
 findings before any capability is declared ready.
+
+## Implementation and observed validation
+
+The implementation adds an optional measured five-actor observer, a shared
+fixed stage declaration and an independent retained-log consumer. Existing
+record formats and writable lifetimes are unchanged. The recovery successor
+selects two exact historical table rows; its strict replay tool is unchanged.
+
+Independent instrumentation review found and resolved two timing defects:
+BEGIN logging could cross the workload deadline, and executable measurement
+could exceed the actor logging budget. Actual-header host and static ARM64
+harnesses now preserve single-call/errno/fd behavior and bound settled short
+reads to 2000 ms. These controlled I/O checks are distinct from kernel VM tests.
+
+Actual ARM64 normal and network-absent executions produced 103 authenticated
+transition records across all five actors. Their initial decoder rejected the
+installed hook's observed intermediate-shell parent. The corrected consumer
+retains the measured parent and relies on the hook's actual installed-PID1
+check. Duplicate or contradictory stage lifecycles suppress aggregate claims;
+pre-exec evidence and absent returns remain distinct from completed execution.
+
+The new recovery comparison was exercised after actual strict replay and its
+separate checker. Exact files and the canonical maximum count pass; missing,
+changed, linked, wrong-mode or unexpected runtime files and noncanonical count
+are rejected. Missing/link/count admission errors retain the owner's original
+incomplete `NO_PROOF` outcome and physical-return requirement. They were not
+converted into complete recovery results to satisfy the VM harness.
+
+The final automatic-boot corpus passes all 30 ARM64 VM cases, including the
+pending-call and logger-loss cases. Nine selected recovery VM cases pass their
+expected positive or negative predicates. These use ARM64 virtual hardware
+with declared Samsung platform substitutions; they do not prove physical
+Samsung boot, retention or installed services. The 76 focused host tests
+(15 transition, 24 automatic-boot/retention, eight recovery, 17 file-first and
+12 repository-boundary tests), touched-Python compilation and whitespace
+checks pass.
+
+The actual P434 image initially failed the V3 consumer because its top-level
+runtime selection retained the legacy journal binding. The builder now carries
+the selected recovery declaration through that binding. Fresh A/B packaging
+and the actual consumer pass; helper, replay/checker and comparison-table
+bytes are unchanged. The rejected package is retained privately, not promoted.
+Independent P434 review passes against the exact 139 host and 169 runtime
+sources, including actual AP/CPIO bytes and the nine recovery cases.
+
+P434 has a concrete offline proposal for one 1800-second attended operation.
+Its status is `READY_H0_PRELIVE_ONLY`: no grant is open, no current connected
+health or current root admission is claimed and no image has been transferred.
+P435's final A/B package and actual V3 image consumer also pass. Its independent
+review binds the same 139 host sources, 146 runtime sources, actual AP/boot/CPIO
+and all 30 cases through the unmodified production qualification consumer.
+The separate per-case audit rederives raw authenticated records and checks the
+actual virtual archives and unchanged disk bytes outside native_data.
+
+The new [P434 capability](../../workspace/public/src/device-action/bindings/s22plus_native_journal_recovery_p434_review.json)
+and [P435 capability](../../workspace/public/src/device-action/bindings/s22plus_debian_autoboot_p435_review.json)
+are independently `PASS_GO`, with no remaining findings and no device
+authority. Old capability files retain their original provenance. The exact
+365-file union of reviewed host/runtime sources and both capability records
+is preserved privately. Review binds those actual working-tree bytes;
+pre-existing unrelated changes are excluded from this unit's commit.
+
+The next permitted device proposal is P434 only. P435 has a qualified image,
+but no live task or grant is prepared before P434's complete selected-root
+proof and healthy Android closure. Unexpected post-replay files still stop
+admission. Fresh exact attended authority and current machine checks remain
+required for each lane. No device action has been performed by this preparation
+unit; the physical close-to-init stop location remains unknown. A90 and S20+
+were untouched.

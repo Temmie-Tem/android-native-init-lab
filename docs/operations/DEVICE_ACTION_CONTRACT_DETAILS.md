@@ -1030,6 +1030,14 @@ Independent review must cover this permanent write exception, source/tool
 provenance, real ARM64 failure tests and the existing no-replay owner. H0 and
 retained bindings open no grant and prove no current device health.
 
+Its separately qualified `post-autoboot-p432-v1` comparison selection adds only
+the two exact authenticated closed-run historical files adopted by automatic
+boot V1 and canonical boot-count values 1 through 99999. The strict writer is
+unchanged. All immutable metadata/content, single-link checks and complete
+finite accounting remain required after replay. An unexpected file, including
+a previously unseen runtime record, is a comparison failure, never authority
+to delete, admit, repair or repeat replay.
+
 ## S22+ Debian-owned integrated initial boot and services
 
 The separately reviewed [integrated boot V1](S22PLUS_DEBIAN_INTEGRATED_V1.md)
@@ -1084,7 +1092,8 @@ admission precedes each of exactly two sequential writable lifetimes: one
 bounded exclusive early file with checked sync/unmount/RO restoration, followed
 by one installed-root lifetime. The second admission requires RO already set,
 repeats complete root checks and verifies the exact owned early file against
-its authenticated RAM copy. One privately sealed historical file and bounded
+its authenticated RAM copy. The original one-file selection or the separately
+qualified exact two-file `post-autoboot-p432-v1` selection and bounded
 canonical boot count are the only changes to the retained immutable/mutable
 admission. No wildcard history, repair, replay, formatter, installation, raw
 block-data writer, GPT change or other-partition write is added.
@@ -1100,6 +1109,19 @@ Download/original-A return and complete health close the owner; uncertain
 control never replays. A does not roll back native_data. No quiescence, watchdog
 or automatic recovery is claimed. Later storage retrieval requires a separate
 qualified finite reader. All other permanent boundaries remain unchanged.
+
+The separately qualified transition observer uses the existing stock logger
+from five existing actors only: file worker, its supervisor, automatic entry,
+RAM witness and initial installed hook. Independent authenticated bounded
+records observe calls, results and explicit stops without adding a process,
+storage file or workload prerequisite. Each actor has at most 96 records of
+512 bytes and a 2000 ms cumulative userspace logging budget, clipped to the
+unchanged device deadline; kernel stalls are not cancellable. Only this
+qualified variant may select the fixed post-closure, same-returned-Android-boot
+`last_kmsg` D0 read, at most 4 MiB in 30 seconds, with exact closed owner,
+reviewed sources, raw-first capture and before/after health. This adds no
+pre-closure read or new control. Missing returns/retention never locate a stall,
+prove non-execution or authorize replay.
 
 ## S22+ native-first installed-Debian handoff
 

@@ -64,15 +64,27 @@ def copy_readback(row,parts):
 
 
 def producer(built,*,virtual):
-    require(built['profile']==profile.PROFILE and built['namespace']==profile.NAMESPACE and
-        built['version']==profile.VERSION and built['virtual'] is virtual and
+    transition='transition_observer' in built
+    namespace=profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.TRANSITION_VERSION if transition else profile.VERSION
+    require(built['profile']==profile.PROFILE and built['namespace']==namespace and
+        built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
         built['observer_revision']==5 and built['trace_maximum']==protocol.TRACE_MAXIMUM and
         'development_derivative' not in built,'automatic producer scope differs')
     require(re.fullmatch('[0-9a-f]{32}',built['run_id']) and
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
-    table,count,boot_count=profile.retained_comparison()
+    if transition:
+        require(built['transition_observer']==profile.TRANSITION_OBSERVER and
+            built['additional_history']==profile.additional_history(),'transition admission/observation differs')
+    else:require('additional_history' not in built,'legacy producer cannot adopt new history')
+    if 'transition_fault' in built:
+        require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES,
+            'physical producer includes a test fault')
+        for row in built['transition_fault_sources']:verify(row)
+    else:require('transition_fault_sources' not in built,'unselected transition fault sources')
+    table,count,boot_count=profile.retained_comparison(transition)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -96,7 +108,7 @@ def producer(built,*,virtual):
 
 def vm_results(tested,built,key):
     require(tested['status']=='PASS' and tested['device_actions']==0 and
-        tuple(row['case'] for row in tested['cases'])==profile.CASES,'automatic VM corpus differs')
+        tuple(row['case'] for row in tested['cases'])==profile.cases('transition_observer' in built),'automatic VM corpus differs')
     sources={r['path']:r['sha256'] for r in built['source_inputs']}
     require(len(sources)==len(built['source_inputs']) and
         sources=={r['path']:r['sha256'] for r in tested['source_inputs']},'automatic VM source closure differs')
@@ -120,7 +132,15 @@ def vm_results(tested,built,key):
         require(sources[str(source.relative_to(profile.ROOT))]==setup['source']['sha256'],
             'VM harness does not join its frozen source')
         verify(row['serial'],maximum=4*1024**2)
-        if row['case']=='normal':
+        if 'transition_observer' in built:
+            from s22plus_debian_autoboot_transition_v1 import retained,sources as transition_sources,qualify_case
+            projected=retained(verify(row['serial'],maximum=4*1024**2).read_bytes(),key=key,
+                run=bytes.fromhex(built['run_id']),expected=transition_sources(helper))
+            require(projected==row['transition'],'actual VM transition projection differs')
+            qualify_case(projected,row['case'])
+            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES else None),
+                'VM fault producer selection differs')
+        if row['case'] in ('normal','trace-logger-loss'):
             capture=raw.load_handle(verify(row['proof_capture']));raw.require_success(capture)
             require(not raw.read_stderr(capture,maximum=16384),'automatic VM evidence has SSH diagnostics')
             proof,_=protocol.envelope(raw.read_stdout(capture,maximum=protocol.MAXIMUM),key=key,selected=helper)
@@ -145,8 +165,8 @@ def vm_results(tested,built,key):
         else:
             require(row['proof'] is None and row['local'] is None and row['proof_capture'] is None and
                 row['ssh_health'] is None and row['shutdown'] is None and row['filesystem'] is None and
-                row['forced_host_stop'] is False,'automatic negative advanced to service or external proof')
-            if row['case'] in ('changed-receipt','fd-leak','module-error'):
+                row['forced_host_stop'] is (row['case']=='trace-pending'),'automatic negative advanced to service or external proof')
+            if row['case'] in ('changed-receipt','fd-leak','module-error') or row['case'].startswith('trace-'):
                 require(row['runtime_absent'] is True,'failed automatic entry ran installed services')
             else:require(row['disk_before']==row['disk_after'],'pre-admission rejection changed storage')
     return tested

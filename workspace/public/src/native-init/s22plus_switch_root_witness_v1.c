@@ -42,9 +42,9 @@ static int sw_witness(void) {
     return sw_fd_whitelist(0);
 }
 int main(int argc,char **argv) {
-    (void)argv;if(getpid()!=1)return 111;
+    (void)argv;AT_POINT(AT_WITNESS_ENTRY,0,0);if(getpid()!=1)return 111;
     sw_require(argc==1 ? sw_load_state() : EINVAL);sw_last_stage=SW_EXEC;
-    sw_require(sw_witness());
+    sw_require(AT_CHECK(AT_WITNESS_CHECK,sw_witness()));
     uint8_t proof[120]={0};
     sw_put32(proof,1);sw_put32(proof+4,(uint32_t)major((dev_t)sw.root_device));
     sw_put32(proof+8,(uint32_t)minor((dev_t)sw.root_device));sw_put32(proof+12,sw.mount_count);

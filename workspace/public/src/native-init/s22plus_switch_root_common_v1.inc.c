@@ -9,6 +9,9 @@
 #include <time.h>
 #include "s22plus_switch_root_v1.h"
 #include "s22plus_switch_root_seal_v1.h"
+#define AT_KEY sw_key
+#define AT_RUN sw_run
+#include "s22plus_autoboot_transition_v1.h"
 
 static struct sw_state sw;
 static int sw_broken;
@@ -125,6 +128,7 @@ static __attribute__((noreturn)) void sw_park(void) {
     for (;;) {struct timespec delay={1,0};(void)nanosleep(&delay,NULL);}
 }
 static __attribute__((noreturn)) void sw_stop(int error) {
+    at_stop(error);
     uint32_t failed=sw_last_stage;
     if (error<=0 || error>4095) error=EPROTO;
 #if defined(S22_DEBIAN_AUTOBOOT) && defined(S22_ROOT_INSPECT_VIRT_TEST)

@@ -100,7 +100,20 @@ partition RO and verify it. Then run the separate pinned `e2fsck -fn` and
 protected `ro,noload,nodev,noexec,nosuid` mount. Require original installation
 markers/witness, all P401 archive paths and immutable bytes, empty lost+found
 and precisely the [P410 mutable-data bounds](S22PLUS_DEBIAN_HANDOFF_V2.md#current-root-admission-after-p410).
-No additional mutable path or byte exception is introduced.
+The original selection adds no additional mutable path or byte exception.
+
+The separately reviewed `post-autoboot-p432-v1` selection uses the same strict
+replayer and checker. It binds the two historical files defined by
+[automatic boot V1](S22PLUS_DEBIAN_AUTOBOOT_V1.md), with exact private paths,
+root-owned 0600 single-link metadata, lengths and SHA-256 values, to its
+immutable comparison table. It adopts only that lane's canonical 1-through-
+99999 newline boot count. P433's authenticated retrieval and both closed owners
+bind the new second file. This does not adopt a runtime file that was absent
+from the dirty home-block view. A runtime or other unexpected file appearing
+after replay must fail the complete comparison; retrieve and qualify it through
+a separate owner, without deletion, wildcard admission or replay retry. Clean
+superblock, checker success and healthy Android alone do not establish the
+selected complete root.
 
 The post-replay protected segment must preserve its new superblock baseline
 and the original GPT through unmount/cleanup. This new baseline does not

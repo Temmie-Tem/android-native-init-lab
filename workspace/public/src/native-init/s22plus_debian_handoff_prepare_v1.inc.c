@@ -23,18 +23,18 @@ static int dh_stage_assets(void) {
     return 0;
 }
 static void dh_activate_root(struct fs1_endpoint *e) {
-    if(chdir("/") || syscall(SYS_close_range,5U,UINT_MAX,0U) || umount2(ri_root,0))sw_stop(fs1_error());
-    sw_require(fs1_not_mounted(e->partition));
+    if(chdir("/") || AT_SYS(AT_CLOSE_ADMISSION_FDS,syscall(SYS_close_range,5U,UINT_MAX,0U)) || AT_SYS(AT_ADMISSION_UNMOUNT,umount2(ri_root,0)))sw_stop(fs1_error());
+    sw_require(AT_CHECK(AT_ACTIVATION_NOT_MOUNTED,fs1_not_mounted(e->partition)));
     int fd=fs1_open_block(fs1_node,e->partition,FS1_BYTES),value=0,actual=-1;
     if(fd<0)sw_stop(fs1_error());
     /* The compound host intent owns this sole RO-clear and writable mount.
      * Any failure parks; no cleanup branch clears/remounts/retries again. */
     if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
-    if(ioctl(fd,BLKROSET,&value) || ioctl(fd,BLKROGET,&actual) || actual)sw_stop(fs1_error());
+    if(AT_SYS_GUARD(AT_CLEAR_RO,sw_require(sw_now()>=sw.deadline_ms?ETIMEDOUT:0),ioctl(fd,BLKROSET,&value)) || AT_SYS(AT_READ_RO,ioctl(fd,BLKROGET,&actual)) || actual)sw_stop(fs1_error());
     uint64_t ro=1;sw_require(fs1_number(e->sys_partition,"ro",&ro));if(ro)sw_stop(EPROTO);
-    if(close(fd))sw_stop(fs1_error());
+    if(AT_SYS(AT_ACTIVATION_NODE_CLOSE,close(fd)))sw_stop(fs1_error());
     if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
-    if(mount(fs1_node,ri_root,"ext4",0,"errors=remount-ro,nodiscard"))sw_stop(fs1_error());
+    if(AT_SYS_GUARD(AT_WRITABLE_MOUNT,sw_require(sw_now()>=sw.deadline_ms?ETIMEDOUT:0),mount(fs1_node,ri_root,"ext4",0,"errors=remount-ro,nodiscard")))sw_stop(fs1_error());
     struct stat st;struct statfs fs;
     if(stat(ri_root,&st) || statfs(ri_root,&fs) || st.st_dev!=e->partition || fs.f_type!=0xef53 ||
        (fs.f_flags&(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID)))sw_stop(EPROTO);
