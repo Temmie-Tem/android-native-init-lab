@@ -31,10 +31,11 @@ def validate_identity(namespace,version):
         'file candidate version differs')
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
     h0.require(not autoboot or diagnostic and storage_first,'autoboot requires supervised storage-first')
     h0.require(not transition or autoboot,'transition observer requires automatic startup')
+    h0.require(not rcs or transition,'rcS observation requires automatic transition observation')
     h0.require(transition_fault is None or transition and virt,'transition fault requires the VM')
     validate_identity(namespace,version)
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
@@ -66,7 +67,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
             h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
     if autoboot:
         import s22plus_debian_autoboot_profile_v1 as automatic
-        generated=automatic.admission_headers(run,transition)
+        generated=automatic.admission_headers(run,transition,rcs)
     else:generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])
@@ -111,6 +112,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if diagnostic:result.update(diagnostic=True,diagnostic_fault=diagnostic_fault)
     if autoboot:result.update(profile=automatic.PROFILE,history=generated['history'],automatic=True)
     if transition:result['additional_history']=generated['additional_history']
+    if rcs:result['runtime_history']=generated['runtime_history']
     if transition_fault:result['transition_fault_sources']=fault_sources
     if storage_first:
         if sources is None:sources=json.loads((out/'source-inputs.json').read_text())

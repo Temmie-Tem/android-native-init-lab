@@ -210,6 +210,11 @@ static int de_begin(struct dh_state *state) {
 }
 static int de_event(unsigned kind,unsigned phase,unsigned event,uint64_t a,uint64_t b,uint64_t c) {
     uint64_t now=sw_now();int error=0,fd=-1;
+#ifdef S22_AUTOBOOT_RCS_TRACE
+    bool traced=kind==DE_BOUNDARY && phase==1 && event==3;
+#else
+    bool traced=false;
+#endif
     if(!de_loaded || de_failed || now>=sw.deadline_ms || sw.deadline_ms-now>SW_TIMEOUT_MS || de.count>=DE_RECORDS)
         {de_failed=1;return EPROTO;}
     uint8_t record[DE_RECORD]={0};memcpy(record,"S22DER1\0",8);sw_put32(record+8,de.count);sw_put32(record+12,kind);
@@ -226,16 +231,20 @@ static int de_event(unsigned kind,unsigned phase,unsigned event,uint64_t a,uint6
 #if defined(S22_ROOT_INSPECT_VIRT_TEST) && S22_DEBIAN_FAULT == 18
     if(kind==DE_START)record_size--;
 #endif
-    if(write(fd,record,record_size)!=DE_RECORD){error=EIO;goto done;}
+    ssize_t written=traced ? AT_SYS_GUARD(AT_RCS_RECORD_WRITE,
+        if((error=de_time()))goto done;,write(fd,record,record_size)) : write(fd,record,record_size);
+    if(written!=DE_RECORD){error=EIO;goto done;}
 #if defined(S22_ROOT_INSPECT_VIRT_TEST) && S22_DEBIAN_FAULT == 19
     if(kind==DE_START){error=EIO;goto done;}
 #endif
-    if(fsync(fd)){error=fs1_error();goto done;}
+    if(traced ? AT_SYS(AT_RCS_RECORD_FSYNC,fsync(fd)) : fsync(fd)){error=fs1_error();goto done;}
     uint8_t back[DE_RECORD];struct stat st;
+    if(traced)AT_BEGIN(AT_RCS_RECORD_VERIFY,2);
     if(de_file_stat(fd,&st) || st.st_size!=(off_t)(DE_HEADER+next.count*DE_RECORD) ||
        pread(fd,back,DE_RECORD,DE_HEADER+de.count*DE_RECORD)!=DE_RECORD || memcmp(back,record,DE_RECORD))error=EIO;
+    if(traced)AT_RETURN(AT_RCS_RECORD_VERIFY,2,error,(unsigned)error);
  done:
-    if(fd>=0 && close(fd) && !error)error=fs1_error();
+    if(fd>=0 && (traced ? AT_SYS(AT_RCS_RECORD_CLOSE,close(fd)) : close(fd)) && !error)error=fs1_error();
     if(error || sw_now()>=sw.deadline_ms){de_failed=1;return error ? error : ETIMEDOUT;}
     de=next;return 0;
 }

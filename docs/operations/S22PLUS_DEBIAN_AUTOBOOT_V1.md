@@ -91,6 +91,24 @@ complete selected-root proof and healthy Android closure before its physical
 startup; an unexpected post-replay file requires separate retrieval and H0
 qualification, never automatic admission or another replay.
 
+The separately reviewed `post-autoboot-p436-v1` successor adds exactly the
+P432 runtime file authenticated by the closed P436 reader, as a third immutable
+historical row. Its sealed path, root-owned 0600 mode, one link, exact size and
+SHA-256 are fixed from that retrieval; P430/P432 early rows retain their original
+provenance. No new parent-directory rule or wildcard is added. The existing
+finite mutable extras are validated and counted dynamically in each admission.
+The third row is not the current run's exclusive early or runtime output.
+
+This new selection performs the existing clean-superblock, protected checker,
+markers/witness, complete table and full-tree admission in the same boot before
+its first writable lifetime. A mismatch or dirty view stops before that write.
+The second complete admission separately adds only the current run's owned
+early file matched to its authenticated RAM receipt. A prior read is not a
+substitute for either current admission. P434's failed selected-root result
+and P435's separate-P434 prerequisite stay unchanged; neither is promoted or
+reopened by this new selection. No separate read-only N is required before
+the new selection's own two mandatory admissions.
+
 The first lifetime creates only `var/lib/lab/s22-early-<sealed-run>`, exclusively,
 root-owned 0600 with one link, at most 16384 bytes. It adopts the storage-first
 checked header, six client begin/end pairs and final pre-unmount record. Every
@@ -180,6 +198,25 @@ authenticated return remains usable; duplicates or contradictions cannot form
 a complete progress claim. A missing return never proves a stall. The observer
 is best effort and does not gate the workload or replace its original errors.
 No new process, persistent file, writable lifetime or USB prerequisite is added.
+
+The `post-autoboot-p436-v1` rcS variant retains those five actors and adds only
+the existing rcS hook invocation and its immediate fork child as actors six
+and seven. It observes the fork-boundary record's actual write, fsync, checked
+readback and close, the first parent wait/sleep and heartbeat, reaped status
+and completed rcS phase. The child observes descriptor cleanup, descriptor-3
+absence and exec attempt/failed return. Its source/boot measurement may be
+inherited only across that same pre-exec fork; its sequence and logging budget
+are distinct. When both sides survive, actual parent/child and fork-result
+identities must join. The runlevel hook gains no new actor.
+
+The same per-actor limits and absolute deadline apply to all seven actors.
+After BEGIN logging, the existing deadline is rechecked before a fork, record
+write or exec; owned synchronization, descriptor closure and child settlement
+remain necessary cleanup. No logging descriptor survives a call or fork.
+Logging failure cannot change the original syscall result/errno or create a
+retry. A fork result, pre-exec marker or failed exec does not prove successful
+rcS execution. The checked rcS completion point follows the existing successful
+child reaping, actual-init check and durable completion record.
 
 Only this qualified variant adopts the existing fixed post-closure D0 command
 `su -c 'cat /proc/last_kmsg'`, at most 4 MiB and 30 seconds, after exact closed-

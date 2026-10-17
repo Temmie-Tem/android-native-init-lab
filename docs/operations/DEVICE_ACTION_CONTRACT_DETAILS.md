@@ -1092,10 +1092,17 @@ admission precedes each of exactly two sequential writable lifetimes: one
 bounded exclusive early file with checked sync/unmount/RO restoration, followed
 by one installed-root lifetime. The second admission requires RO already set,
 repeats complete root checks and verifies the exact owned early file against
-its authenticated RAM copy. The original one-file selection or the separately
-qualified exact two-file `post-autoboot-p432-v1` selection and bounded
-canonical boot count are the only changes to the retained immutable/mutable
-admission. No wildcard history, repair, replay, formatter, installation, raw
+its authenticated RAM copy. The original one-file and separately qualified
+exact two-file `post-autoboot-p432-v1` selections retain their original meaning.
+The separately reviewed `post-autoboot-p436-v1` adds only the third exact
+historical P432 runtime file authenticated by the closed P436 reader, with
+sealed path, root-owned 0600 single-link metadata, exact size and content hash.
+Its two existing complete same-boot admissions remain mandatory before their
+respective writes; the second additionally admits only the current owned early
+file. Existing bounded mutable extras and canonical boot count remain unchanged.
+No separate read-only N is required for this new selection; P434's old result
+and P435's separate-P434 prerequisite remain unchanged. No wildcard history,
+repair, replay, formatter, installation, raw
 block-data writer, GPT change or other-partition write is added.
 
 The fixed RAM witness and installed SysVinit use one absolute 300000 ms device
@@ -1110,7 +1117,7 @@ control never replays. A does not roll back native_data. No quiescence, watchdog
 or automatic recovery is claimed. Later storage retrieval requires a separate
 qualified finite reader. All other permanent boundaries remain unchanged.
 
-The separately qualified transition observer uses the existing stock logger
+The original separately qualified transition observer uses the existing stock logger
 from five existing actors only: file worker, its supervisor, automatic entry,
 RAM witness and initial installed hook. Independent authenticated bounded
 records observe calls, results and explicit stops without adding a process,
@@ -1122,6 +1129,18 @@ qualified variant may select the fixed post-closure, same-returned-Android-boot
 reviewed sources, raw-first capture and before/after health. This adds no
 pre-closure read or new control. Missing returns/retention never locate a stall,
 prove non-execution or authorize replay.
+
+The separately qualified `post-autoboot-p436-v1` rcS variant adds only the
+already existing rcS hook invocation and its immediate fork child as two
+distinct actors, for seven total under those same per-actor limits. It observes
+the existing record-write/sync/readback/close tail, first wait/sleep/heartbeat,
+child reaping, rcS completion and child descriptor cleanup/exec attempt.
+Source measurement inheritance is limited to the same pre-exec fork, with
+separate sequence/budget and parent/fork identity joins. Post-BEGIN deadline
+checks precede fork, record write and exec; original cleanup and failure
+semantics remain. No new process, persistent output, writable lifetime or
+workload prerequisite is added. The same fixed post-closure D0 and proof limits
+apply; a pre-exec record alone never proves successful execution.
 
 ## S22+ native-first installed-Debian handoff
 

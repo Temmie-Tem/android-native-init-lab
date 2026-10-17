@@ -40,6 +40,11 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
     /* The finite parent owns ACM while it waits. Before executing any script,
      * the child closes every non-stdio descriptor and verifies fd 3 is gone. */
     int error=0;
+#ifdef S22_AUTOBOOT_RCS_TRACE
+    bool traced=phase==1;
+#else
+    bool traced=false;
+#endif
 #ifdef S22_DEBIAN_AUTOBOOT
     if((error=dh_reporting_open()))dh_hook_fail(error);
 #else
@@ -47,12 +52,21 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
     else if((error=sw_fd_type()))dh_hook_fail(error);
 #endif
     if((error=de_time()))dh_hook_fail(error);
-    pid_t child=fork();if(child<0)dh_hook_fail(fs1_error());
+    if(traced) {
+        AT_BEGIN(AT_RCS_FORK,1);
+        if((error=de_time()))dh_hook_fail(error);
+    }
+    pid_t child=fork();int fork_errno=errno;
     if(!child) {
-#if S22_DEBIAN_FAULT != 14
-        if(syscall(SYS_close_range,3U,UINT_MAX,0U))_exit(125);
+#ifdef S22_AUTOBOOT_RCS_TRACE
+        if(traced){at_fork_child(7);AT_POINT(AT_RCS_CHILD_ENTRY,0,0);}
 #endif
-        if(fcntl(3,F_GETFD)!=-1 || errno!=EBADF)_exit(125);
+#if S22_DEBIAN_FAULT != 14
+        if(traced ? AT_SYS(AT_RCS_CHILD_CLOSE_FDS,syscall(SYS_close_range,3U,UINT_MAX,0U)) :
+            syscall(SYS_close_range,3U,UINT_MAX,0U))_exit(125);
+#endif
+        int probe=traced ? AT_SYS(AT_RCS_CHILD_FD_PROBE,fcntl(3,F_GETFD)) : fcntl(3,F_GETFD);
+        if(probe!=-1 || errno!=EBADF)_exit(125);
 #if S22_DEBIAN_FAULT == 7
         if(!strcmp(path,"/etc/init.d/rcS"))_exit(23);
 #endif
@@ -64,23 +78,42 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
         signal(SIGTERM,SIG_DFL);kill(getpid(),SIGTERM);_exit(127);
 #endif
         if(sw_now()>=sw.deadline_ms)_exit(124);
-        char *args[]={(char *)path,(char *)argument,NULL};execv(path,args);_exit(126);
+        char *args[]={(char *)path,(char *)argument,NULL};
+        if(traced) {
+            (void)AT_SYS_GUARD(AT_RCS_CHILD_EXEC,if(sw_now()>=sw.deadline_ms)_exit(124);,execv(path,args));
+        } else execv(path,args);
+        _exit(126);
     }
+    if(traced)AT_RETURN(AT_RCS_FORK,1,child,(unsigned)fork_errno);
+    errno=fork_errno;if(child<0)dh_hook_fail(fs1_error());
+    if(traced)AT_BEGIN(AT_RCS_FORK_RECORD,2);
     dh_boundary(phase,3,child,0,0);
-    int status;uint64_t heartbeat=sw_now();
+    if(traced)AT_RETURN(AT_RCS_FORK_RECORD,2,0,0);
+    int status;uint64_t heartbeat=sw_now();bool first_wait=true,first_sleep=true,first_heartbeat=true;
     for(;;) {
-        pid_t got=waitpid(child,&status,WNOHANG);
+        pid_t got=traced && first_wait ? AT_SYS(AT_RCS_WAIT_FIRST,waitpid(child,&status,WNOHANG)) :
+            waitpid(child,&status,WNOHANG);
+        first_wait=false;
         if(got==child)break;
         if(got<0 && errno!=EINTR)dh_hook_fail(fs1_error());
         if(sw_now()>=sw.deadline_ms) {
             (void)kill(child,SIGKILL);dh_hook_fail(ETIMEDOUT);
         }
         if(sw_now()-heartbeat>=DH_SAMPLE_MS) {
+            if(traced && first_heartbeat)AT_BEGIN(AT_RCS_HEARTBEAT,2);
             if((error=dh_actual_init(state)))dh_hook_fail(error);
             dh_boundary(phase,4,child,0,0);heartbeat=sw_now();
+            if(traced && first_heartbeat)AT_RETURN(AT_RCS_HEARTBEAT,2,0,0);
+            first_heartbeat=false;
         }
-        struct timespec delay={0,10000000};if(nanosleep(&delay,NULL) && errno!=EINTR)dh_hook_fail(fs1_error());
+        struct timespec delay={0,10000000};
+        int slept=traced && first_sleep ? AT_SYS(AT_RCS_SLEEP_FIRST,nanosleep(&delay,NULL)) : nanosleep(&delay,NULL);
+        first_sleep=false;
+        if(slept && errno!=EINTR)dh_hook_fail(fs1_error());
     }
+#ifdef S22_AUTOBOOT_RCS_TRACE
+    if(traced)at_emit(AT_RCS_CHILD_REAPED,4,3,0,0,(unsigned)child,(unsigned)status,1,0);
+#endif
     dh_boundary(phase,5,child,(unsigned)status,0);
     if(!WIFEXITED(status) || WEXITSTATUS(status))dh_hook_fail(ECHILD);
 }
@@ -124,7 +157,13 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     int error;
     if(!strcmp(mode,"rcs")) {
         dh_claim("rcs-started","init-started");
-        if((error=dh_actual_init(state)) || (error=dh_reporting_open()))dh_hook_fail(error);
+        if((error=
+#ifdef S22_AUTOBOOT_RCS_TRACE
+            AT_CHECK(AT_RCS_ACTUAL_INIT,dh_actual_init(state))
+#else
+            dh_actual_init(state)
+#endif
+            ) || (error=dh_reporting_open()))dh_hook_fail(error);
         dh_progress(0,1,0,0,0);
         dh_boundary(1,1,0,0,0);
         if((error=dh_reporting_close()))dh_hook_fail(error);
@@ -137,6 +176,9 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
         dh_wait_script(state,1,"/etc/init.d/rcS",NULL);
         if((error=dh_actual_init(state)))dh_hook_fail(error);
         dh_claim("rcs-complete","rcs-started");dh_progress(1,2,0,0,0);
+#ifdef S22_AUTOBOOT_RCS_TRACE
+        AT_POINT(AT_RCS_COMPLETE,0,0);
+#endif
         if((error=dh_reporting_close()))dh_hook_fail(error);
         _exit(0);
     }

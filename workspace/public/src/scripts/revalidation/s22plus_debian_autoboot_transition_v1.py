@@ -13,6 +13,7 @@ DOMAIN=b'S22PLUS-FYG8-AUTOBOOT-TRANSITION-v1'
 MAXIMUM=4*1024**2
 LINE=re.compile(rb'S22AT1 run=([0-9a-f]{32}) boot=([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}) mac=([0-9a-f]{64}) data=([0-9a-f]{256})')
 ACTORS={1:'file_worker',2:'automatic_entry',3:'ram_witness',4:'installed_hook',5:'file_supervisor'}
+RCS_ACTORS={**ACTORS,6:'rcs_parent',7:'rcs_child'}
 
 
 def stages():
@@ -24,13 +25,90 @@ def stages():
 
 
 def sources(selected):
-    return {actor:selected[name]['sha256'] for actor,name in
+    result={actor:selected[name]['sha256'] for actor,name in
         ((1,'writer'),(2,'entry'),(3,'witness'),(4,'hook'),(5,'writer'))}
+    if selected.get('transition_observer',{}).get('schema')=='s22plus-autoboot-rcs-v1':
+        result.update({6:selected['hook']['sha256'],7:selected['hook']['sha256']})
+    return result
+
+
+def rcs_conflicts(parents,children):
+    """Reject co-present impossibilities without requiring lost observations."""
+    conflicts=[]
+    def found(rows,stage,kind='RETURN'):
+        return [r for r in rows if r['stage_id']==stage and r['kind']==kind]
+    # The parent records the fork after the child may already have run. Only
+    # each actor's own sequence orders its work; cross-actor clocks do not.
+    ranks={60:0,61:1,62:2,63:3,64:4,75:6,76:7,77:8,78:9,
+        66:11,67:12,68:12,69:13,70:14}
+    for rows in (parents,children):
+        previous=-1;stopped=False
+        for row in sorted(rows,key=lambda r:r['sequence']):
+            if row['kind']=='STOP':stopped=True;continue
+            stage=row['stage_id']
+            rank=(5 if row['kind']=='BEGIN' else 10) if stage==65 else ranks.get(stage,stage-71)
+            if stopped or rank<previous:conflicts.append('rcs_stage_order')
+            previous=rank
+    forks=found(parents,64);waits=found(parents,66)
+    reaped=found(parents,69,'POINT');complete=found(parents,70,'POINT')
+    # BOOTTIME is shared by the authenticated boot. These causal bounds do
+    # not order the child's work against the parent's delayed fork RETURN.
+    fork_begin=found(parents,64,'BEGIN')
+    if any(child['boottime_ms']<begin['boottime_ms'] for child in children for begin in fork_begin) or any(
+        child['boottime_ms']>end['boottime_ms'] for child in children for end in reaped+complete):
+        conflicts.append('rcs_child_causal_time')
+    child_ids={r['pid'] for r in children}
+    child_ids.update(r['result'] for r in forks+waits if r['result']>1)
+    child_ids.update(r['child_pid'] for r in reaped)
+    if len(child_ids)>1:conflicts.append('rcs_wait_join')
+    if parents and any(r['ppid']!=parents[0]['pid'] for r in children):
+        conflicts.append('rcs_parent_join')
+    if any(r['result']==-1 for r in forks) and (children or any(
+        r['kind']!='STOP' and r['stage_id'] not in (60,61,62,63,64) for r in parents)):
+        conflicts.append('rcs_failed_fork_progress')
+    for stage in (61,62,63):
+        if any(r['result']!=0 for r in found(parents,stage)) and (children or any(
+            r['kind']!='STOP' and r['stage_id']>stage for r in parents)):
+            conflicts.append('rcs_failed_admission_progress')
+    # A failed record still owns its close. It cannot subsequently verify the
+    # failed write/sync or complete the enclosing record and enter the wait.
+    for stage,success in ((75,128),(76,0),(77,0),(78,0),(65,0)):
+        if any(r['result']!=success for r in found(parents,stage)):
+            forbidden=({76,77} if stage==75 else {77} if stage==76 else set())|{66,67,68,69,70}
+            if any(r['kind']!='STOP' and (r['stage_id'] in forbidden or
+                (r['stage_id']==65 and r['kind']=='RETURN' and r['result']==0)) for r in parents):
+                conflicts.append('rcs_failed_record_progress')
+    for stage in (66,67):
+        for failed in found(parents,stage):
+            fatal=failed['result']==-1 and failed['errno_snapshot']!=4
+            if fatal and any(r['kind']!='STOP' and r['sequence']>failed['sequence'] for r in parents):
+                conflicts.append('rcs_failed_wait_progress')
+    if any(r['result']>1 for r in waits) and any(
+        r['stage_id'] in (67,68) and r['kind']!='STOP' for r in parents):
+        conflicts.append('rcs_reaped_wait_progress')
+    if any(r['result']!=0 for r in found(parents,68)) and (reaped or complete):
+        conflicts.append('rcs_failed_heartbeat_progress')
+    child_failures=[]
+    for stage in (72,73,74):
+        for row in found(children,stage):
+            failed=(row['result']!=0 if stage==72 else
+                (row['result']!=-1 or row['errno_snapshot']!=9) if stage==73 else True)
+            if failed:
+                child_failures.append(row)
+                if any(r['kind']!='STOP' and r['sequence']>row['sequence'] for r in children):
+                    conflicts.append('rcs_failed_child_progress')
+    if child_failures and (complete or any(r['wait_status']==0 for r in reaped)):
+        conflicts.append('rcs_failed_child_success')
+    if complete and any(r['wait_status']!=0 for r in reaped):
+        conflicts.append('rcs_failed_reap_completion')
+    return conflicts
 
 
 def retained(data,*,key,run,expected,boot=None):
     require(isinstance(data,bytes) and len(data)<=MAXIMUM and len(key)==32 and len(run)==16 and
-        set(expected)==set(ACTORS),'transition input scope differs')
+        set(expected) in (set(ACTORS),set(RCS_ACTORS)),'transition input scope differs')
+    rcs=set(expected)==set(RCS_ACTORS);actors=RCS_ACTORS if rcs else ACTORS
+    if rcs:require(expected[4]==expected[6]==expected[7],'rcS fork executable identity differs')
     declared=stages();records=[];rejected={};conflicts=[];seen={};identities={}
     def reject(reason):rejected[reason]=rejected.get(reason,0)+1
     for candidate in re.finditer(rb'S22AT1[^\r\n]*',data):
@@ -44,14 +122,15 @@ def retained(data,*,key,run,expected,boot=None):
         actor,seq,kind,stage,convention,error=struct.unpack_from('<6I',body,8)
         value,ms,pid,ppid,lost,log_error,spent,child,status,done,worker_result=struct.unpack_from('<qQIIIIQIIII',body,32)
         digest=body[88:120].hex()
-        if actor not in ACTORS or digest!=expected.get(actor):reject('producer');continue
+        if actor not in actors or digest!=expected.get(actor):reject('producer');continue
         if boot is not None and boot_hash.hex()!=boot:reject('other_boot');continue
         if (body[:8]!=b'S22AT01\0' or any(body[120:]) or not 1<=seq<=96 or
             kind not in (1,2,3,4) or error>4095 or log_error>4095 or lost>=seq or spent>=2000 or
             ms>=300000 or pid<1 or (actor in (2,3) and pid!=1) or
             (actor in (1,4,5) and pid<=1) or (actor==5 and ppid!=1) or
             (actor==4 and ppid<1) or
-            (actor==1 and ppid<=1)):
+            (actor==1 and ppid<=1) or (actor==6 and (pid<=1 or ppid<1)) or
+            (actor==7 and (pid<=1 or ppid<=1))):
             reject('shape');continue
         if kind==3:
             valid=convention==3 and value==0 and error>0 and (stage==0 or stage in declared)
@@ -61,16 +140,23 @@ def retained(data,*,key,run,expected,boot=None):
             if kind==1:valid=valid and value==error==0
             if kind==2 and convention==2:valid=valid and 0<=value<=4095 and error==value
             if kind==2 and convention==1:
-                valid=valid and value in (0,-1) and (stage not in (50,55) or value==-1)
+                if stage==64:valid=valid and (value==-1 or 1<value<=2**31-1)
+                elif stage==66:valid=valid and (value in (-1,0) or 1<value<=2**31-1)
+                elif stage==73:valid=valid and -1<=value<=2**31-1
+                elif stage==75:valid=valid and -1<=value<=128
+                else:valid=valid and value in (0,-1) and (stage not in (50,55,74) or value==-1)
         if actor==5:
             valid=valid and child>1 and done in (0,1) and status<=65535
             if stage==17 and value==0:valid=valid and error==status==worker_result==0 and done==1
+        elif actor==6 and stage==69 and kind==4:
+            valid=valid and value==error==worker_result==0 and child>1 and status<=65535 and done==1
         else:valid=valid and child==status==done==worker_result==0
+        if kind==4 and stage in (60,70,71):valid=valid and value==error==0
         if not valid:reject('semantics');continue
         identity=(boot_hash.hex(),pid,ppid,digest)
         if actor in identities and identities[actor]!=identity:conflicts.append('actor_identity')
         identities[actor]=identity
-        record=dict(actor=ACTORS[actor],actor_id=actor,sequence=seq,kind={1:'BEGIN',2:'RETURN',3:'STOP',4:'POINT'}[kind],
+        record=dict(actor=actors[actor],actor_id=actor,sequence=seq,kind={1:'BEGIN',2:'RETURN',3:'STOP',4:'POINT'}[kind],
             stage=declared[stage][0] if stage else 'UNOBSERVED',stage_id=stage,
             convention={1:'syscall',2:'checked_result',3:'observation'}[convention],result=value,
             errno_snapshot=error if convention==1 else None,error=error if convention!=1 else None,
@@ -81,11 +167,11 @@ def retained(data,*,key,run,expected,boot=None):
         if index in seen:
             conflicts.append('duplicate_sequence' if seen[index]==body else 'contradictory_sequence');continue
         seen[index]=body;records.append(record)
-        require(len(records)<=5*96,'transition authenticated record budget exceeded')
+        require(len(records)<=len(actors)*96,'transition authenticated record budget exceeded')
     boots={record['boot_sha256'] for record in records}
     if len(boots)>1:conflicts.append('kernel_boot')
     unpaired_begin=[];isolated_return=[]
-    for actor in ACTORS:
+    for actor in actors:
         rows=sorted((r for r in records if r['actor_id']==actor),key=lambda r:r['sequence'])
         previous=None;pending={};begun=set();completed=set()
         for row in rows:
@@ -110,11 +196,17 @@ def retained(data,*,key,run,expected,boot=None):
     for row in (r for r in records if r['actor_id']==5):
         if workers and any(r['pid']!=row['child_pid'] or r['ppid']!=row['pid'] for r in workers):
             conflicts.append('supervisor_child_join')
+    parents=[r for r in records if r['actor_id']==6]
+    children=[r for r in records if r['actor_id']==7]
+    forks=[r['result'] for r in parents if r['stage_id']==64 and r['kind']=='RETURN' and r['result']>1]
+    if rcs:conflicts.extend(rcs_conflicts(parents,children))
     valid=not conflicts
     installed=valid and any(r['actor_id']==4 and r['stage_id']==58 and r['kind']=='RETURN' and r['result']==0 for r in records)
     observed=[r for r in records if r['kind'] in ('RETURN','POINT')]
-    highest=max(observed,key=lambda r:r['stage_id'])['stage'] if observed and valid else None
-    return dict(schema='s22plus-autoboot-transition-projection-v1',
+    highest=max(observed,key=lambda r:(r['boottime_ms'],r['actor_id'],r['sequence']) if rcs else r['stage_id'])['stage'] if observed and valid else None
+    complete=valid and any(r['stage_id']==70 and r['kind']=='POINT' for r in parents)
+    if complete:highest='RCS_COMPLETE'
+    result=dict(schema='s22plus-autoboot-transition-projection-v1',
         status='AUTHENTICATED_TRANSITION_FACTS' if records and valid else 'CONFLICTING_TRANSITION_FACTS' if conflicts else 'NO_AUTHENTICATED_TRANSITION_FACTS',
         records=records,rejected=rejected,conflicts=sorted(set(conflicts)),progress_claim_valid=valid,
         highest_authenticated_stage=highest,installed_debian_pid1=installed,
@@ -122,6 +214,11 @@ def retained(data,*,key,run,expected,boot=None):
         boot_sha256=next(iter(boots)) if len(boots)==1 else None,retained_any_stage=bool(records),
         logging_complete=False,absence_proves_nonexecution=False,stopped_at_last_record=False,
         pending_call_proves_stall=False,ssh_access_proved=False,clean_shutdown_proved=False,replay_authorized=False)
+    if rcs:
+        result.update(rcs_child_fork_proved=valid and bool(forks),rcs_completed=complete,
+            rcs_child_exec_proved=complete,
+            rcs_fork_record_completed=valid and any(r['stage_id']==65 and r['kind']=='RETURN' and r['result']==0 for r in parents))
+    return result
 
 
 def qualify_case(proof,case):
@@ -134,10 +231,11 @@ def qualify_case(proof,case):
     def found(stage,kind,result=None):
         return [r for r in rows if r['stage']==stage and r['kind']==kind and
             (result is None or r['result']==result)]
+    rcs='rcs_completed' in proof
     if case=='trace-logger-loss':
         require(not rows and not proof['installed_debian_pid1'],'lost logger invented retained evidence')
     elif case in ('normal','network-absent'):
-        require(proof['installed_debian_pid1'] and {r['actor_id'] for r in rows}==set(ACTORS),
+        require(proof['installed_debian_pid1'] and {r['actor_id'] for r in rows}==set(RCS_ACTORS if rcs else ACTORS),
             'successful VM lacks all measured transition actors')
         for stage in ('FILE_CLOSE','PARENT_CLOSE','ROOT_CLOSE','FILE_UNMOUNT','RESTORE_RO',
             'SUPER_CLEAN','GPT_CHECK','RECEIPT','WAIT_RESULT','ROOT_ELIGIBLE','WRITABLE_MOUNT',
@@ -147,6 +245,37 @@ def qualify_case(proof,case):
         require(found('SWITCH_ROOT_EXEC','BEGIN') and found('INSTALLED_INIT_EXEC','BEGIN') and
             not found('SWITCH_ROOT_EXEC','RETURN') and not found('INSTALLED_INIT_EXEC','RETURN'),
             'successful exec claims a returning syscall')
+        if rcs:
+            require(proof['rcs_completed'] and proof['rcs_child_fork_proved'] and proof['rcs_fork_record_completed'] and
+                found('RCS_RECORD_WRITE','RETURN',128) and found('RCS_RECORD_FSYNC','RETURN',0) and
+                found('RCS_RECORD_VERIFY','RETURN',0) and found('RCS_RECORD_CLOSE','RETURN',0) and
+                found('RCS_CHILD_CLOSE_FDS','RETURN',0) and
+                any(r['errno_snapshot']==9 for r in found('RCS_CHILD_FD_PROBE','RETURN',-1)) and
+                found('RCS_CHILD_EXEC','BEGIN') and not found('RCS_CHILD_EXEC','RETURN') and
+                any(r['wait_status']==0 for r in found('RCS_CHILD_REAPED','POINT')),
+                'successful rcS VM lacks its actual parent/child/record completion')
+    elif case.startswith('rcs-'):
+        require(rcs and proof['installed_debian_pid1'] and proof['rcs_child_fork_proved'] and
+            not proof['rcs_completed'] and not proof['rcs_child_exec_proved'],'rcS negative promoted to completion')
+        if case=='rcs-pending-record':
+            require(found('RCS_RECORD_FSYNC','BEGIN') and not found('RCS_RECORD_FSYNC','RETURN') and
+                not proof['rcs_fork_record_completed'] and not found('RCS_WAIT_FIRST','BEGIN'),
+                'pending record produced a fabricated completion')
+        elif case=='rcs-pending-child':
+            require(proof['rcs_fork_record_completed'] and found('RCS_WAIT_FIRST','RETURN',0) and
+                found('RCS_SLEEP_FIRST','RETURN',0) and found('RCS_HEARTBEAT','RETURN',0) and
+                not found('RCS_CHILD_EXEC','BEGIN') and not found('RCS_CHILD_REAPED','POINT'),
+                'pending child lost wait progress or fabricated completion')
+        else:
+            stage,number={'rcs-record-fsync':('RCS_RECORD_FSYNC',9),
+                'rcs-close-range':('RCS_CHILD_CLOSE_FDS',22),'rcs-exec':('RCS_CHILD_EXEC',2),
+                'rcs-wait':('RCS_WAIT_FIRST',22),'rcs-sleep':('RCS_SLEEP_FIRST',22)}[case]
+            require(any(r['errno_snapshot']==number for r in found(stage,'RETURN',-1)),
+                'rcS failure lacks its actual syscall errno')
+            if case in ('rcs-close-range','rcs-exec'):
+                expected_status=(125 if case=='rcs-close-range' else 126)<<8
+                require(any(r['wait_status']==expected_status for r in found('RCS_CHILD_REAPED','POINT')),
+                    'rcS child failure lacks its actual reaped status')
     elif case=='trace-pending':
         require(found('FILE_CLOSE','BEGIN') and not found('FILE_CLOSE','RETURN') and
             not proof['installed_debian_pid1'],'pending VM fabricated a return')

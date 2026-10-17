@@ -26,7 +26,7 @@ def automatic_projection(directory,task_directory):
     task=read(task_directory/'task.json');closed=read(task_directory/'closed.json')
     require(task['N']['profile']==automatic.PROFILE,'not an automatic transition capture')
     artifact=automatic.image_binding(task['N']);built=read(verify(artifact['build']))
-    require(built.get('transition_observer')==automatic.TRANSITION_OBSERVER,
+    require(built.get('transition_observer') in (automatic.TRANSITION_OBSERVER,automatic.RCS_OBSERVER),
         'legacy automatic image has no transition-retention selection')
     outcome=read(verify(closed['current_android_terminal']))
     bound=closed_operation(Path(verify(outcome['operation_record'])).parent,automatic.PROFILE)
@@ -177,7 +177,7 @@ def capture(directory,task_directory):
     first_selected=task['N'].get('profile') in (file_first.PROFILE,failure.PROFILE)
     artifact=automatic.image_binding(task['N']) if automatic_selected else integrated.image_binding(task['N']) if integrated_selected else calibration.image_binding(task['N']) if calibration_selected else read(verify(task['N']['early_boot']))
     if automatic_selected:
-        require(read(verify(artifact['build'])).get('transition_observer')==automatic.TRANSITION_OBSERVER,
+        require(read(verify(artifact['build'])).get('transition_observer') in (automatic.TRANSITION_OBSERVER,automatic.RCS_OBSERVER),
             'legacy automatic image has no transition-retention selection')
     stage=task['N'].get('profile')==profile.STAGE_PROFILE
     if stage or calibration_selected or integrated_selected or first_selected or automatic_selected:

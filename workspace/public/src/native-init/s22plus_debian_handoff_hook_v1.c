@@ -175,17 +175,29 @@ static int dh_retire_acm(void) {
 #include "s22plus_debian_handoff_observer_v2.inc.c"
 int main(int argc,char **argv) {
     struct dh_state state={0};int error;
-    /* Only the synchronous initial invocation owns transition observations. */
+    /* The separately selected rcS invocation has a distinct bounded actor. */
     if(argc==2 && !strcmp(argv[1],"init"))AT_POINT(AT_HOOK_ENTRY,0,0);
+#ifdef S22_AUTOBOOT_RCS_TRACE
+    else if(argc==2 && !strcmp(argv[1],"rcs")){at_select(6);AT_POINT(AT_RCS_ENTRY,0,0);}
+#endif
     else at_disable();
     if(argc!=2 || getpid()<=1 || (strcmp(argv[1],"init") && strcmp(argv[1],"rcs") &&
        strcmp(argv[1],"runlevel") && strcmp(argv[1],"park")))dh_hook_fail(EINVAL);
-    if((error=AT_CHECK(AT_HOOK_STATE,dh_load(&state))))dh_hook_fail(error);
+    unsigned state_stage=AT_HOOK_STATE;
+#ifdef S22_AUTOBOOT_RCS_TRACE
+    if(!strcmp(argv[1],"rcs"))state_stage=AT_RCS_STATE;
+#endif
+    (void)state_stage;
+    if((error=AT_CHECK(state_stage,dh_load(&state))))dh_hook_fail(error);
     sw_last_stage=SW_WITNESS;
     if(!strcmp(argv[1],"park"))dh_hook_fail(EIO);
     if(strcmp(argv[1],"init")) {
         de_mode=!strcmp(argv[1],"rcs") ? 1 : 2;
-        if((error=de_load(&state)) || !de.started || de.stopped || de.complete)dh_hook_fail(error ? error : EPROTO);
+        if((error=
+#ifdef S22_AUTOBOOT_RCS_TRACE
+            de_mode==1 ? AT_CHECK(AT_RCS_RUNTIME_LOAD,de_load(&state)) :
+#endif
+            de_load(&state)) || !de.started || de.stopped || de.complete)dh_hook_fail(error ? error : EPROTO);
         dh_later(&state,argv[1]);
     }
     if(S22_DEBIAN_FAULT==1)dh_hook_fail(EPROTO);

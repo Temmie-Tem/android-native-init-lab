@@ -21,12 +21,14 @@ import s22plus_debian_autoboot_transition_v1 as transition_protocol
 import device_action_raw_capture_v1 as raw
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
-CASES=build_api.profile.cases(True)
+CASES=build_api.profile.cases(True,True)
 
 
 def prepare(out,build,helper,case):
     require(case in CASES,'unknown automatic VM case');out.mkdir(mode=0o700)
     physical=read(build/'build.json');selected=read(helper/'request.json')
+    rcs=selected.get('transition_observer')==build_api.profile.RCS_OBSERVER
+    require(case in build_api.profile.cases('transition_observer' in selected,rcs),'case does not belong to selected variant')
     require(selected['virtual'] is True and physical['virtual'] is False and selected['run_id']==physical['run_id'] and
         selected['modules']==physical['modules'] and
         selected['measured']['init_sha256']==physical['measured']['init_sha256'] and
@@ -59,18 +61,24 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
-    for index,history in enumerate(build_api.profile.histories('transition_observer' in selected)):
+    for index,history in enumerate(build_api.profile.histories('transition_observer' in selected,rcs)):
         if case=='missing-second-history' and index==1:continue
+        if case=='missing-runtime-history' and index==2:continue
         body=verify(history['source']).read_bytes()
-        if case=='changed-history':body=body[:-1]+bytes([body[-1]^1])
+        if case=='changed-history' or case=='changed-runtime-history' and index==2:body=body[:-1]+bytes([body[-1]^1])
         file=out/f'history-{index}.bin';file.write_bytes(body)
         vm.fixture.debug(native,out,f'history-write-{index}',f'write {file} /{history["path"]}')
         vm.fixture.debug(native,out,f'history-mode-{index}',f'set_inode_field /{history["path"]} mode 0100600')
-        if case=='linked-second-history' and index==1:
+        if case=='linked-second-history' and index==1 or case=='linked-runtime-history' and index==2:
             vm.fixture.debug(native,out,'history-links',f'set_inode_field /{history["path"]} links_count 2')
+        if case=='mode-runtime-history' and index==2:
+            vm.fixture.debug(native,out,'history-bad-mode',f'set_inode_field /{history["path"]} mode 0100644')
     if case=='extra-runtime-history':
         (out/'extra-runtime').write_bytes(b'UNQUALIFIED_RUNTIME_FILE\n')
-        path='/var/lib/lab/s22-evidence-'+build_api.profile.additional_history()['path'].rsplit('-',1)[1]
+        suffix='f'*32 if rcs else build_api.profile.additional_history()['path'].rsplit('-',1)[1]
+        path='/var/lib/lab/s22-evidence-'+suffix
+        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs)} and
+            suffix!=selected['run_id'],'unexpected-history fixture overlaps selected files')
         vm.fixture.debug(native,out,'extra-runtime',f'write {out}/extra-runtime {path}')
         vm.fixture.debug(native,out,'extra-runtime-mode',f'set_inode_field {path} mode 0100600')
     if case=='boot-count-leading-zero':
@@ -141,10 +149,10 @@ def run(out,build,helper,case):
                 handle=raw.acquire_command(ssh_command(plan,port,'shutdown'),out,'shutdown',timeout=20,
                     stdout_maximum=65536,stderr_maximum=16384)
                 shutdown=lifecycle.access.shutdown_projection(handle,plan['link']['ssh_address'])
-            if case in ('network-absent','trace-pending'):
+            if case in ('network-absent','trace-pending','rcs-pending-record','rcs-pending-child'):
                 # Test-only external stop after the full autonomous service
                 # window. This is not a target watchdog or shutdown proof.
-                until=time.monotonic()+(25 if case=='trace-pending' else 165)
+                until=time.monotonic()+(165 if case=='network-absent' else 25)
                 while process.poll() is None and time.monotonic()<until:time.sleep(1)
                 require(process.poll() is None,'network-absent VM unexpectedly exited')
                 process.kill();process.wait();forced_stop=True
@@ -163,6 +171,8 @@ def run(out,build,helper,case):
                 vm.fixture.debug(native,out,kind+'-dump',f'dump /var/lib/lab/{prefix}{selected["run_id"]} {path}')
                 bodies.append(path.read_bytes())
             local=protocol.local_records(*bodies,key=key,selected=selected,root_device=dict(major=259,minor=25))
+        elif case in build_api.profile.RCS_CASES:
+            require(before!=after,'rcS fault did not reach its owned writable boot')
         elif case not in ('changed-receipt','fd-leak','module-error') and not case.startswith('trace-'):
             require(before==after,'pre-admission rejection changed the disk')
         else:
@@ -183,6 +193,7 @@ def run(out,build,helper,case):
             runtime_absent=runtime_absent,setup=pin(out/'setup.json'),
             local_files={name:pin(out/(name+'.bin')) for name in ('early','runtime')} if local is not None else None,scope='REAL_DEBIAN_AUTOBOOT_WITH_SAMSUNG_HARDWARE_SUBSTITUTIONS')
         if transition is not None:value['transition']=transition
+        if case in build_api.profile.RCS_CASES:value['runtime_observation']='NOT_ACQUIRED_AFTER_RCS_FAULT'
         publish(out/'result.json',value);print(case,'PASS',flush=True);return value
     finally:
         if process is not None and process.poll() is None:process.kill();process.wait()
@@ -191,17 +202,18 @@ def run(out,build,helper,case):
 def suite(out,build):
     from concurrent.futures import ThreadPoolExecutor
     out=h0.private(out,fresh=True);build=h0.private(build);built=read(build/'build.json')
+    rcs=built.get('transition_observer')==build_api.profile.RCS_OBSERVER
     prepared=build_api.prepare(out/'virtual',Path(built['inputs']),Path(built['packages']),
-        run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition='transition_observer' in built)
+        run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition='transition_observer' in built,rcs=rcs)
     require(prepared['source_inputs']==built['source_inputs'],'suite sources differ from the physical build')
-    cases=build_api.profile.cases('transition_observer' in built)
+    cases=build_api.profile.cases('transition_observer' in built,rcs)
     def single(case):
         helper=out/'virtual'
-        if case in build_api.profile.TRANSITION_CASES:
+        if case in build_api.profile.TRANSITION_CASES+build_api.profile.RCS_CASES:
             helper=out/(case+'-helper')
             prepared=build_api.prepare(helper,Path(built['inputs']),Path(built['packages']),
                 run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,
-                transition=True,transition_fault=case)
+                transition=True,transition_fault=case,rcs=rcs)
             require(prepared['source_inputs']==built['source_inputs'],'fault sources differ from physical build')
         return run(out/case,build,helper,case)
     with ThreadPoolExecutor(max_workers=2) as pool:

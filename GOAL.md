@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P436 closed: P432 installed PID1 and rcS child fork proved
+## P437 H0: exact retained root and rcS progress
 
-The [P436 physical read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) authenticated P432's unchanged early file and a newly visible 1,024-byte runtime file after P434 replay; both join the same writer boot/nonce.
-The runtime chain proves installed Debian PID1 at 6,045 ms and the rcS hook's successful child fork at 6,067 ms; the last record does not prove child exec, a stop time or the return of its own final I/O.
-There is no authenticated wait/exit, rcS/rc2 completion, service, NCM/SSH or clean-shutdown evidence; the reader's clean superblock is not complete-root proof.
-The [P434 result](docs/reports/S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md) retains its 8,977-versus-8,976 tree mismatch and RECOVERY_NOT_PROVED; identifying the runtime file does not retroactively admit that complete root.
-P435's [qualified observation image](docs/reports/S22PLUS_AUTOBOOT_TRANSITION_P434_P435_DESIGN_2026-10-18.md) remains unstarted; its old current-host review is stale, and complete selected-root qualification remains required.
-Next bounded H0 work: qualify exact accounting for the recovered runtime file and choose the smallest rcS child/progress observation needed for services; no new device effect is authorized.
-P436 consumed its exact one-operation/1800-second attended grant, read under partition RO without mount/replay/data write, and returned ANDROID_CLOSED_HEALTHY with one N/A pair; P432–P434 remain consumed, no F1 owner remains, and A90/S20+ are untouched.
+The [P437 qualified successor](docs/reports/S22PLUS_AUTOBOOT_RCS_P437_DESIGN_2026-10-18.md) is ready as one finite attended proposal with the exact third historical runtime row and bounded rcS parent/child observations; no execution grant is open.
+The [P436 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) proved P432 installed PID1 and rcS child fork at 6,045/6,067 ms; child exec, completion, services/SSH and a precise stop remain unproved.
+The prospective table preserves all 8,971 old rows and adds one authenticated 1,024-byte runtime file; with P434's same fixed/mutable counts the expected total is 8,977, not current full-root proof.
+Both existing same-boot clean protected checker/full-root admissions remain mandatory before their respective writes; the second separately binds its owned current early file. No separate read-only N is selected.
+The [P434 result](docs/reports/S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md) remains RECOVERY_NOT_PROVED, and P435 remains unstarted with its original separate-P434 prerequisite; no historical result or review is repinned.
+P437 passed 41 actual ARM64 cases, 60 focused host tests, A/B packaging and independent source-bound PASS_GO; normal VM rcS/services/SSH/clean ext4 after shutdown and network-absent local services are proved only in H0.
+Fixed Android D0 preparation passed current original-A health/GPT/Android32 capacity; native_data is unobserved, no mode change/transfer/write or F1 owner exists, P432–P434/P436 remain consumed and ANDROID_CLOSED_HEALTHY, and A90/S20+ are untouched.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

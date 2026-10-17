@@ -662,6 +662,20 @@ added. P435's physical startup follows separate P434 complete-root recovery
 proof and healthy closure; uncertain or unexpected post-replay data is not
 silently admitted.
 
+The separately reviewed `post-autoboot-p436-v1` automatic successor adopts the
+policy's exact third historical row: P432 runtime bytes authenticated by the
+closed P436 reader. The existing first same-boot clean protected checker and
+full-root admission must pass before its first write; the second admission
+also verifies its exact owned current early file before installed-root RW.
+It adds no wildcard, new mutable directory, repair or replay. Its bounded
+stock-logger observation adds only the existing rcS parent and immediate fork
+child to the five original actors, under the same per-actor/deadline limits.
+The existing fixed post-closure retained-log D0 applies to this qualified
+variant. P434's old result and P435's separate-P434 prerequisite remain intact;
+the new selection needs no separate read-only N before its own mandatory
+admissions. It still requires independent current review, actual qualification
+and its own returned attended one-operation/3600-second grant.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

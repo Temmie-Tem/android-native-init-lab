@@ -101,6 +101,18 @@ end:
 }
 static void at_stop(int error){at_emit(at_last,3,3,0,(unsigned)error,0,0,0,0);}
 static void at_select(unsigned actor){at_actor=actor;}
+#ifdef S22_AUTOBOOT_RCS_TRACE
+/* Called only by the immediate pre-exec fork child. The executable/boot
+ * measurement is inherited from that same running parent, not another image.
+ * No observation descriptor exists across fork. This is a distinct fixed
+ * actor, with its own sequence/budget; a disabled observer stays disabled. */
+static void at_fork_child(unsigned actor) {
+    int saved=errno;
+    at_actor=actor;at_sequence=at_last=at_lost=at_error=0;at_spent=0;
+    if(!at_ready)at_disabled=1;
+    errno=saved;
+}
+#endif
 static void at_moved_dev(void){at_moved=1;}
 static void at_disable(void){at_disabled=1;}
 #define AT_POINT(stage,result,error) at_emit(stage,4,3,result,error,0,0,0,0)

@@ -65,8 +65,9 @@ def copy_readback(row,parts):
 
 def producer(built,*,virtual):
     transition='transition_observer' in built
-    namespace=profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.TRANSITION_VERSION if transition else profile.VERSION
+    rcs=built.get('transition_observer')==profile.RCS_OBSERVER
+    namespace=profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
@@ -76,15 +77,17 @@ def producer(built,*,virtual):
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
     if transition:
-        require(built['transition_observer']==profile.TRANSITION_OBSERVER and
+        require(built['transition_observer']==profile.observer(rcs) and
             built['additional_history']==profile.additional_history(),'transition admission/observation differs')
     else:require('additional_history' not in built,'legacy producer cannot adopt new history')
+    if rcs:require(built['runtime_history']==profile.runtime_history(),'rcS runtime history differs')
+    else:require('runtime_history' not in built,'legacy producer cannot adopt runtime history')
     if 'transition_fault' in built:
-        require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES,
+        require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
-    table,count,boot_count=profile.retained_comparison(transition)
+    table,count,boot_count=profile.retained_comparison(transition,rcs)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -107,8 +110,9 @@ def producer(built,*,virtual):
 
 
 def vm_results(tested,built,key):
+    rcs=built.get('transition_observer')==profile.RCS_OBSERVER
     require(tested['status']=='PASS' and tested['device_actions']==0 and
-        tuple(row['case'] for row in tested['cases'])==profile.cases('transition_observer' in built),'automatic VM corpus differs')
+        tuple(row['case'] for row in tested['cases'])==profile.cases('transition_observer' in built,rcs),'automatic VM corpus differs')
     sources={r['path']:r['sha256'] for r in built['source_inputs']}
     require(len(sources)==len(built['source_inputs']) and
         sources=={r['path']:r['sha256'] for r in tested['source_inputs']},'automatic VM source closure differs')
@@ -138,7 +142,7 @@ def vm_results(tested,built,key):
                 run=bytes.fromhex(built['run_id']),expected=transition_sources(helper))
             require(projected==row['transition'],'actual VM transition projection differs')
             qualify_case(projected,row['case'])
-            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES else None),
+            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES+profile.RCS_CASES else None),
                 'VM fault producer selection differs')
         if row['case'] in ('normal','trace-logger-loss'):
             capture=raw.load_handle(verify(row['proof_capture']));raw.require_success(capture)
@@ -165,8 +169,13 @@ def vm_results(tested,built,key):
         else:
             require(row['proof'] is None and row['local'] is None and row['proof_capture'] is None and
                 row['ssh_health'] is None and row['shutdown'] is None and row['filesystem'] is None and
-                row['forced_host_stop'] is (row['case']=='trace-pending'),'automatic negative advanced to service or external proof')
-            if row['case'] in ('changed-receipt','fd-leak','module-error') or row['case'].startswith('trace-'):
+                row['forced_host_stop'] is (row['case'] in ('trace-pending','rcs-pending-record','rcs-pending-child')),
+                'automatic negative advanced to service or external proof')
+            if row['case'] in profile.RCS_CASES:
+                require(rcs and row['runtime_absent'] is False and
+                    row['runtime_observation']=='NOT_ACQUIRED_AFTER_RCS_FAULT' and
+                    row['disk_before']!=row['disk_after'],'rcS fault was promoted to a pre-write stop or storage read')
+            elif row['case'] in ('changed-receipt','fd-leak','module-error') or row['case'].startswith('trace-'):
                 require(row['runtime_absent'] is True,'failed automatic entry ran installed services')
             else:require(row['disk_before']==row['disk_after'],'pre-admission rejection changed storage')
     return tested
