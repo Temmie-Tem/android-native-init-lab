@@ -1,9 +1,10 @@
 # S22+ P436: fixed P432 evidence read after journal recovery
 
-Status: **READY_FOR_RETURNED_ATTENDED_GRANT**. Only S22+ FYG8 is selected.
-The operator requested the next step after P434's completed journal operation.
-Fixed Android D0 preparation is complete. No experiment grant is open and no
-mode change, image transfer or native_data file acquisition has occurred.
+Status: **CONSUMED; ANDROID_CLOSED_HEALTHY**. Only S22+ FYG8 is selected.
+The [subsequent physical read](S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md)
+consumed the returned grant and recovered authenticated P432 runtime progress.
+The preparation record below preserves the qualified pre-execution state;
+its readiness statements grant no repeat or new operation.
 
 ## Bounded unit
 
