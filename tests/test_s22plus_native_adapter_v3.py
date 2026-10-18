@@ -104,6 +104,57 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(len(intents),1)
         self.assertFalse(list(self.client.folder(step.name).glob('attempt-*/odin.capture.json')))
 
+    def test_ticket_observers_do_not_repeat_full_guard_inside_ten_second_window(self):
+        step=owner.Step('recover-android','transfer','A');calls=[]
+        def guard():calls.append('guard')
+        def revalidate(*args,**kwargs):
+            self.assertEqual(kwargs['timeout_sec'],10)
+            self.assertEqual(calls[-1],'guard')
+            before=len(calls)
+            for _ in range(2):kwargs['endpoint_observer_factory']()
+            self.assertEqual(len(calls),before)
+            calls.append('ticket')
+            return {'fixture':True}
+        with self.environment(),mock.patch.object(adapter.transition,'measured_usbfs_observer',return_value=object()),\
+                mock.patch.object(adapter.transition,'revalidate_endpoint_ticket',side_effect=revalidate):
+            self.client.transfer(step,self.request,guard=guard,before_launch=self.dispatch(step))
+        self.assertEqual(calls,['guard','guard','ticket','guard'])
+
+    def test_changed_inputs_at_dispatch_guard_stop_before_actual_subprocess(self):
+        step=owner.Step('recover-android','transfer','A');calls=[]
+        def guard():
+            calls.append('guard')
+            if len(calls)==3:raise ValueError('bound source changed')
+        with self.environment(),self.assertRaisesRegex(ValueError,'bound source changed'):
+            self.client.transfer(step,self.request,guard=guard,before_launch=self.dispatch(step))
+        self.assertFalse(list(self.client.folder(step.name).glob('attempt-*/odin.capture.json')))
+        failures=list(self.client.folder(step.name).glob('attempt-*/failure.json'));self.assertEqual(len(failures),1)
+        failure=records.read(failures[0])
+        self.assertEqual(failure['stage'],'dispatch-guard')
+        self.assertEqual(failure['message'],'bound source changed')
+        self.assertIn('ValueError: bound source changed',failure['traceback'])
+        self.assertGreaterEqual(failure['elapsed_ns'],failure['stage_elapsed_ns'])
+        self.assertEqual(failure['source'],records.pin(Path(adapter.__file__).resolve()))
+
+    def test_endpoint_failure_is_saved_before_owner_and_record_failure_keeps_original(self):
+        step=owner.Step('recover-android','transfer','A');dispatch=mock.Mock()
+        original=adapter.transition.OdinTransitionError('endpoint generation changed')
+        with self.environment(),mock.patch.object(adapter.transition,'revalidate_endpoint_ticket',side_effect=original):
+            with self.assertRaises(adapter.transition.OdinTransitionError) as caught:
+                self.client.transfer(step,self.request,guard=lambda:None,before_launch=dispatch)
+        self.assertIs(caught.exception,original);dispatch.assert_not_called()
+        failure=records.read(records.verify(original.transfer_failure))
+        self.assertEqual(failure['stage'],'endpoint-revalidation')
+        self.assertEqual(failure['message'],str(original))
+        other=adapter.transition.OdinTransitionError('second independent H0 fixture')
+        with self.environment(),mock.patch.object(adapter.transition,'revalidate_endpoint_ticket',side_effect=other),\
+                mock.patch.object(adapter,'publish',side_effect=OSError('diagnostic disk full')):
+            with self.assertRaises(adapter.transition.OdinTransitionError) as caught:
+                self.client.transfer(step,self.request,guard=lambda:None,before_launch=dispatch)
+        self.assertIs(caught.exception,other)
+        self.assertEqual(other.__notes__,['Private transfer diagnostics failed: OSError'])
+        self.assertFalse(list(self.client.folder(step.name).glob('attempt-*/odin.capture.json')))
+
     def test_prior_tail_attempt_is_shared_across_operation_directories(self):
         prior=self.private/'terminal.json'; records.publish(prior,dict(fixture=True))
         request=dict(prior_terminal=records.pin(prior))

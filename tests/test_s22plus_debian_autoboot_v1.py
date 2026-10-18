@@ -58,6 +58,19 @@ class OwnerTests(unittest.TestCase):
         session.recover(attended=True)
         self.assertEqual(device.installed,['N','A'])
 
+    def test_transfer_diagnostics_survive_owner_stop_and_cleanup_failure(self):
+        session,device=self.operation()
+        failure=previous.records.publish(session.directory/'fixture-failure.json',dict(message='endpoint deadline'))
+        error=ValueError('endpoint deadline');error.transfer_failure=failure
+        coordinator=automatic_session.Coordinator(session)
+        with mock.patch.object(session,'has_recovery_basis',return_value=True),\
+                mock.patch.object(coordinator,'cleanup',side_effect=OSError('cleanup cut')):
+            with self.assertRaisesRegex(OSError,'cleanup cut'):coordinator.stopped(error)
+        stopped=[row['data'] for row in session.rows() if row['event']=='stopped']
+        self.assertEqual(len(stopped),1)
+        self.assertEqual(stopped[0]['error_message'],'endpoint deadline')
+        self.assertEqual(stopped[0]['transfer_failure'],failure)
+
     def test_completed_a_then_failed_health_continues_health_only(self):
         session,device=self.operation();session.execute(attended=True);device.mode='Download';device.health_failure=True
         self.assertEqual(session.resume(attended=True)['state'],'AWAITING_ATTENDED_RECOVERY')

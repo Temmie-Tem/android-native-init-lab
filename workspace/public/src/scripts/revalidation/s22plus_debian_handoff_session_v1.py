@@ -113,7 +113,8 @@ class Coordinator:
         from s22plus_native_session_v3 import ResultPublicationError
         session=self.session
         if isinstance(error,ResultPublicationError) or getattr(error,'protocol_completed',False):raise error
-        session.journal.append('stopped',error_type=type(error).__name__,effect_intended=session.has_effect())
+        session.journal.append('stopped',error_type=type(error).__name__,error_message=str(error)[:4096],
+            transfer_failure=getattr(error,'transfer_failure',None),effect_intended=session.has_effect())
         if not session.has_recovery_basis():return session.close_unused()
         self.cleanup()
         return dict(state='AWAITING_ATTENDED_RECOVERY',recovery_required=True,owner_retained=True,

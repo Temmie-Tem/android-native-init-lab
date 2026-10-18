@@ -29,7 +29,7 @@ DEBIAN_FAILURE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_d
 DEBIAN_FILE_FIRST_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_first_v1_review.json'
 DEBIAN_STAGE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_stage_probe_v1_review.json'
 DEBIAN_INTEGRATED_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_integrated_v1_review.json'
-DEBIAN_AUTOBOOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_autoboot_p437_review.json'
+DEBIAN_AUTOBOOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_autoboot_p437_transfer_review.json'
 LOG_CALIBRATION_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_log_calibration_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
@@ -202,7 +202,9 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
         'task target identity differs')
     target.lane.validate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
     require(task['review']==capability(root,recovery=recovery,profile=task['N']['profile']),'task capability review changed')
-    if not recovery: image_valid(task['N'])
+    # The protected-root task consumer already runs this exact autoboot
+    # qualification. Other profiles retain their additional adapter checks.
+    if not recovery and task['N']['profile']!=autoboot_profile: image_valid(task['N'])
     require(task['runtime_scope']==task['N']['runtime_sources']==read(verify(task['review']))['runtime_sources'],
         'native runtime scope is not the independently reviewed source closure')
     start=task.get('bootstrap_start')

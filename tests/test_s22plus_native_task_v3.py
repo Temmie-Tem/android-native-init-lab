@@ -106,6 +106,20 @@ class TaskTests(unittest.TestCase):
         with mock.patch.object(task,'capability',return_value=value['review']), \
                 mock.patch.object(adapter.target.lane,'validate_binding'),mock.patch.object(task,'validate_recovery'):
             task.validate_task(self.root,value)
+            automatic=copy.deepcopy(value)
+            automatic.update(operations=['debian-autoboot'],seconds=3600,debian_access=dict.fromkeys(
+                ('link','client_key','known_hosts','nmcli','ssh','root_run_id','network_uuid')))
+            automatic['N']['profile']=adapter.autoboot.PROFILE
+            import s22plus_debian_access_v1 as access
+            with mock.patch.object(adapter.autoboot,'image_binding') as binding,\
+                    mock.patch.object(adapter.inspection_session,'android_basis_for_image'),\
+                    mock.patch.object(access,'inputs',return_value=automatic['debian_access']),\
+                    mock.patch.object(adapter,'image_valid',side_effect=AssertionError('duplicate qualification')):
+                task.validate_task(self.root,automatic)
+                binding.assert_called_once_with(automatic['N'])
+                binding.side_effect=ValueError('changed qualification')
+                with self.assertRaisesRegex(ValueError,'changed qualification'):
+                    task.validate_task(self.root,automatic)
             wrong=copy.deepcopy(value);wrong['runtime_scope']={}
             with self.assertRaisesRegex(ValueError,'independently reviewed'):
                 task.validate_task(self.root,wrong)

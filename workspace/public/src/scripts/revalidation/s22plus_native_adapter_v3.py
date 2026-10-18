@@ -4,6 +4,7 @@ from contextlib import contextmanager
 import os
 from pathlib import Path
 import time
+import traceback
 import uuid
 
 import consumed_candidate_registry_v1 as registry
@@ -33,6 +34,8 @@ from s22plus_native_records_v3 import (SCHEMA, Journal, clock, digest, pin, priv
 from s22plus_native_session_v3 import steps, operation_steps
 
 AP_MAXIMUM=128*1024*1024
+# Retain module-load provenance even if a later guard detects on-disk edits.
+TRANSFER_SOURCE=pin(Path(__file__).resolve())
 
 
 def before_window_transfer(image,grant,now):
@@ -446,6 +449,31 @@ class Adapter:
         else: require(False,'unselected native restoration')
 
     def transfer(self, step, request, *, guard, before_launch):
+        base=self.folder(step.name); base.mkdir(mode=0o700,exist_ok=True)
+        folder=base/('attempt-'+uuid.uuid4().hex); folder.mkdir(mode=0o700)
+        started=clock(); phase=dict(name='preparation',started_ns=started)
+        def mark(name):phase.update(name=name,started_ns=clock())
+        try:
+            return self._transfer(step,request,guard=guard,before_launch=before_launch,
+                folder=folder,mark=mark)
+        except Exception as error:
+            # Persist private diagnostics before owner classification/cleanup.
+            # No locals are captured, and a diagnostic failure never hides the
+            # original transport error or permits another dispatch.
+            try:
+                failed=clock(); message=str(error); trace=''.join(traceback.format_exception(error,limit=24))
+                error.transfer_failure=publish(folder/'failure.json',dict(
+                    schema='s22plus-native-transfer-failure-v1',step=step.name,role=step.role,
+                    stage=phase['name'],started_ns=started,stage_started_ns=phase['started_ns'],
+                    failed_ns=failed,elapsed_ns=failed-started,stage_elapsed_ns=failed-phase['started_ns'],
+                    error_type=type(error).__name__,message=message[:8192],message_truncated=len(message)>8192,
+                    traceback=trace[:32768],traceback_truncated=len(trace)>32768,
+                    source=TRANSFER_SOURCE,task=request.get('task')))
+            except Exception as recording_error:
+                error.add_note('Private transfer diagnostics failed: '+type(recording_error).__name__)
+            raise
+
+    def _transfer(self, step, request, *, guard, before_launch, folder, mark):
         if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
             inspection_session.android_basis(self, request)
         if request['N'].get('profile') in fs.PROFILES and step.role=='A':
@@ -455,10 +483,10 @@ class Adapter:
             from s22plus_native_gpt_session_v1 import android_basis
             android_basis(self,request)
         task=self.configuration(request); artifact=request[step.role]['ap']
-        base=self.folder(step.name); base.mkdir(mode=0o700,exist_ok=True)
-        folder=base/('attempt-'+uuid.uuid4().hex); folder.mkdir(mode=0o700)
         endpoints=folder/'endpoints'; endpoints.mkdir(mode=0o700)
+        mark('initial-guard')
         guard()
+        mark('arrival-binding')
         if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
         elif request['operation']==calibration.OPERATION and step.name=='install-android':
@@ -494,17 +522,23 @@ class Adapter:
                 self.original_android(request) as android, \
                 transition.transaction_session(endpoints) as lease:
             def observer():
-                guard(); transport.revalidate_pinned_path(odin)
+                transport.revalidate_pinned_path(odin)
                 # Keep the primitive's default raw-first command producer.
                 return transition.measured_usbfs_observer(endpoints)
+            def guarded_observer():
+                guard()
+                return observer()
+            mark('endpoint-arrival')
             found=transition.wait_for_single_live_endpoint(odin.path,endpoints,timeout_sec=(arrival_deadline-clock())/1e9,
-                lease=lease,endpoint_observer_factory=observer,
+                lease=lease,endpoint_observer_factory=guarded_observer,
                 monotonic=lambda:clock()/1e9)
             require(found.ticket is not None and not found.timed_out,'exact Download arrival is unproved')
             ticket=found.ticket
             identity=target.download_identity(ticket.device)
             def launch():
+                mark('prelaunch-guard')
                 guard()
+                mark('prelaunch-binding')
                 if step.role=='N':before_window_transfer(request['N'],read(verify(request['grant'])),clock())
                 if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
                     inspection_session.android_basis(self, request)
@@ -512,26 +546,34 @@ class Adapter:
                 if request.get('operation')=='gpt-reserve' and step.role=='A':android_basis(self,request)
                 self.native_host(request).holders()
                 target.lane.revalidate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
+                mark('endpoint-revalidation')
+                # The synchronous primitive constructs its observer twice.
+                # Full guards bracket it; repeating H0 qualification inside
+                # its unchanged 10-second endpoint window exhausts that window.
                 checked=transition.revalidate_endpoint_ticket(odin.path,endpoints,ticket,
                     sequence=found.next_sequence,lease=lease,timeout_sec=10,
                     endpoint_observer_factory=observer,monotonic=lambda:clock()/1e9)
                 require(target.download_identity(ticket.device)==identity,'Download target changed before launch')
                 require(clock()<arrival_deadline,'original Download arrival window expired before dispatch')
                 transport.revalidate_pinned_path(android)
+                mark('intent-publication')
                 detail=dict(step=step.name,role=step.role,ap=artifact,member=request[step.role]['member'],
                     ticket=asdict(ticket),target=identity,revalidation=checked,boottime_ns=clock(),
                     arrival_deadline_ns=arrival_deadline)
                 launch_receipt=publish(folder/'launch.json',detail)
                 before_launch(dict(launch=launch_receipt))
+                mark('dispatch-guard')
                 guard()
                 transport.revalidate_pinned_path(android)
                 require(clock()<arrival_deadline,'original Download deadline expired during intent publication')
                 if step.role=='N':before_window_transfer(request['N'],read(verify(request['grant'])),clock())
+                mark('odin-dispatch')
             receipt,handle=transport.execute_odin_boot_only(odin.path,Path(artifact['path']),ticket.device,
                 odin_size=task['odin']['size'],odin_sha256=task['odin']['sha256'],
                 ap_size=artifact['size'],ap_sha256=artifact['sha256'],label=step.role,
                 require_deterministic_metadata=step.role!='A',capture_dir=folder,capture_name='odin',
                 stdout_name='stdout.bin',stderr_name='stderr.bin',before_launch=launch)
+        mark('transport-result')
         target.transfer_completed(handle)
         publish(folder/'transport.json',receipt)
         return self.recover_transfer_result(step,request)
