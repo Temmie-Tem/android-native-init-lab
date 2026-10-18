@@ -69,7 +69,7 @@ The projection has no sequence/source/boot conflicts. Observed records report
 zero prior logger losses and at most 17 ms of prior logging budget use; this
 only describes the retained prefix. Child exec success and rcS completion are
 not inferred from the lack of an exec RETURN. No native_data reader, journal
-replay, repair, new workload or second candidate boot was performed.
+replay, repair, new workload or second host candidate transfer was performed.
 
 ## Canonical host timeline
 
@@ -109,3 +109,14 @@ The original P437 runtime build/41-case VM evidence remains unchanged.
 The bounded experiment is complete. The candidate is now globally consumed.
 Any prospective change must preserve these results and separately resolve its
 current-root admission and execution authority; this run grants no replay.
+
+## Subsequent H0 raw-log analysis
+
+The [boot-requirements audit](S22PLUS_P437_BOOT_REQUIREMENTS_WATCHDOG_H0_2026-10-19.md)
+subsequently separated two candidate boot identities in this same preserved raw
+capture. The first boot's kernel-log tail records watchdog bark/bite and warm
+reset at about 12.739 seconds; the first parent heartbeat was only due at about
+16.175 seconds. The later 317-second kernel messages belong to the second boot.
+This adds a concrete system-failure observation without changing the original
+transition projection, terminal, transfers, grant consumption or Android health.
+The missed-pet cause, rcS completion and second-boot writes remain unproved.

@@ -29,14 +29,14 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P437 physical run closed healthy; rcS initial progress authenticated
+## P437 closed healthy; H0 reanalysis identifies watchdog reset
 
 The [fresh P437 physical run](docs/reports/S22PLUS_P437_RCS_OBSERVATION_RUN_2026-10-19.md) completed one N/A pair and is consumed ANDROID_CLOSED_HEALTHY, with no F1 owner. The host transfer correction passed physically; no qualified NCM/SSH arrived in the original 360-second window.
 Same-returned-boot retained-log D0 authenticated 132 records across all seven actors with no conflicts/rejections: installed Debian PID1, successful rcS fork, checked fork-record write/fsync/readback/close, child fd cleanup, exec attempt, first WNOHANG wait and first 10ms sleep return.
 The last observed stage is RCS_SLEEP_FIRST; rcS completion, child exec completion, services/SSH and clean native shutdown remain unproved. Missing later records do not identify a stall; successful syscall errno snapshots are not failures. No native_data reader or repair was performed, and current native_data consistency remains unknown.
 One post-A ADB device-not-found read was preserved, then health-only continuation proved changed-boot original root/boot/GPT/Android32 health without another transfer. The 16-capture retained-log D0 also passed both same-boot health brackets; A90/S20+ were untouched.
 The [earlier pre-transfer attempt](docs/reports/S22PLUS_P437_PRETRANSFER_STOP_2026-10-19.md) remains separately consumed/closed N=0/A=1. The [host correction](docs/reports/S22PLUS_P437_TRANSFER_GUARD_H0_2026-10-19.md) retains 43 tests, six H0 integration cases and independent PASS_GO; P437 runtime/41 VM cases were reused unchanged.
-Next bounded analysis may narrow the unobserved rcS child-execution/parent-loop interval from these records; it must not reopen the consumed candidate or mistake its last marker for the exact failure. No new device operation is prepared by this result.
+The [boot-requirements H0 audit](docs/reports/S22PLUS_P437_BOOT_REQUIREMENTS_WATCHDOG_H0_2026-10-19.md) separates two authenticated candidate boots in the preserved raw capture. The first rcS boot records RT throttling in gh-watchdog context at 11.988s, watchdog bark/bite at 12.739s and warm reset; the 317s kernel messages belong to the second boot. First heartbeat was not due until about 16.175s. The missed watchdog renewal cause and second-boot write/rejection state remain unknown. P430's same-module preparation/park contrast survives about 369s; actual legacy rcS is sequential and seven core startup files match the successful VM. Next bounded work should distinguish the first watchdog timer/thread/CPU-ping/pet boundary, retaining existing runtime/41-case evidence. No new candidate, grant or device operation is prepared.
 The [P436 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) retains P432 installed PID1/rcS-fork proof; P432–P434/P436 remain consumed and healthy, P434 remains RECOVERY_NOT_PROVED, and P435 remains unstarted with its original prerequisite.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
