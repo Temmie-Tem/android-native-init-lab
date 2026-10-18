@@ -1,8 +1,14 @@
 # S22+ P437: exact retained root and rcS progress
 
-Status: **H0_QUALIFIED_READY_ATTENDED_PROPOSAL**. Only S22+ FYG8 is
+Status: **H0_QUALIFIED; FIRST_LIVE_ATTEMPT_CLOSED_BEFORE_N_TRANSFER**. Only S22+ FYG8 is
 selected. This prospective design grants no device effect. P432, P433, P434
 and P436 remain consumed and Android-healthy; P435 remains unstarted.
+
+This document records the completed H0 qualification and preparation. The
+[subsequent P437 attempt](S22PLUS_P437_PRETRANSFER_STOP_2026-10-19.md) stopped
+before candidate transfer and closed with one original-A return and healthy
+Android. Its finite proposal/grant is closed; prospective transfer work needs
+the documented host-guard correction and review. The N image remains unclaimed.
 
 ## Bounded objective and completion
 

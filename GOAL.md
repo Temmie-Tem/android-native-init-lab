@@ -29,15 +29,15 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P437 H0: exact retained root and rcS progress
+## P437 first attempt closed before candidate transfer; Android healthy
 
-The [P437 qualified successor](docs/reports/S22PLUS_AUTOBOOT_RCS_P437_DESIGN_2026-10-18.md) is ready as one finite attended proposal with the exact third historical runtime row and bounded rcS parent/child observations; no execution grant is open.
-The [P436 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) proved P432 installed PID1 and rcS child fork at 6,045/6,067 ms; child exec, completion, services/SSH and a precise stop remain unproved.
-The prospective table preserves all 8,971 old rows and adds one authenticated 1,024-byte runtime file; with P434's same fixed/mutable counts the expected total is 8,977, not current full-root proof.
-Both existing same-boot clean protected checker/full-root admissions remain mandatory before their respective writes; the second separately binds its owned current early file. No separate read-only N is selected.
-The [P434 result](docs/reports/S22PLUS_JOURNAL_RECOVERY_P434_RUN_2026-10-18.md) remains RECOVERY_NOT_PROVED, and P435 remains unstarted with its original separate-P434 prerequisite; no historical result or review is repinned.
-P437 passed 41 actual ARM64 cases, 60 focused host tests, A/B packaging and independent source-bound PASS_GO; normal VM rcS/services/SSH/clean ext4 after shutdown and network-absent local services are proved only in H0.
-Fixed Android D0 preparation passed current original-A health/GPT/Android32 capacity; native_data is unobserved, no mode change/transfer/write or F1 owner exists, P432–P434/P436 remain consumed and ANDROID_CLOSED_HEALTHY, and A90/S20+ are untouched.
+The [P437 physical attempt](docs/reports/S22PLUS_P437_PRETRANSFER_STOP_2026-10-19.md) stopped after Android Download and before N launch with OdinTransitionError; the attended task is consumed and ANDROID_CLOSED_HEALTHY, with N=0/A=1 and no remaining F1 owner.
+The candidate has no transfer intent, launch receipt or global claim; no P437 Debian execution or native_data write occurred. Its exact grant is closed, and the N image remains unclaimed.
+The two retained Download observations have the same immutable endpoint/generation; repeated full qualification inside a 10-second transfer revalidation window is an independently examined host-side timing defect, while the original type-only error does not prove the precise historical predicate.
+Next H0 priority is a scoped guard/diagnostic correction and independent review before prospective transfer; preserve current binding, existing deadlines and no-replay rules. No runner, consumed record or prior review was changed during recovery.
+Final root/boot/GPT/Android32 health passed after one post-A ADB read failure and health-only continuation; Android returned in a changed boot, native_data remains unobserved, and A90/S20+ are untouched.
+The [P437 H0 qualification](docs/reports/S22PLUS_AUTOBOOT_RCS_P437_DESIGN_2026-10-18.md) retains 41 ARM64 cases, 60 host tests, A/B packaging, its exact third history row and mandatory two same-boot protected admissions; these are not physical rcS/service/SSH proof.
+The [P436 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) retains P432 installed PID1/rcS-fork proof; P432–P434/P436 remain consumed and healthy, P434 remains RECOVERY_NOT_PROVED, and P435 remains unstarted with its original prerequisite.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
