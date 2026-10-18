@@ -14,6 +14,11 @@ MAXIMUM=4*1024**2
 LINE=re.compile(rb'S22AT1 run=([0-9a-f]{32}) boot=([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}) mac=([0-9a-f]{64}) data=([0-9a-f]{256})')
 ACTORS={1:'file_worker',2:'automatic_entry',3:'ram_witness',4:'installed_hook',5:'file_supervisor'}
 RCS_ACTORS={**ACTORS,6:'rcs_parent',7:'rcs_child'}
+WATCHDOG_ACTORS={**RCS_ACTORS,8:'runlevel_parent'}
+WATCHDOG_STAGES={79,80,81,82}
+WATCHDOG_DUE=(0,9000,10000,11000,12000)
+WATCHDOG_WCHAN=('zero_running_unavailable_or_hidden','qcom_wdt_kthread','smp_call_function_single',
+    'csd_lock_wait','wait_for_completion','schedule_timeout','other')
 
 
 def stages():
@@ -27,9 +32,55 @@ def stages():
 def sources(selected):
     result={actor:selected[name]['sha256'] for actor,name in
         ((1,'writer'),(2,'entry'),(3,'witness'),(4,'hook'),(5,'writer'))}
-    if selected.get('transition_observer',{}).get('schema')=='s22plus-autoboot-rcs-v1':
+    schema=selected.get('transition_observer',{}).get('schema')
+    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1'):
         result.update({6:selected['hook']['sha256'],7:selected['hook']['sha256']})
+    if schema=='s22plus-autoboot-watchdog-v1':result[8]=selected['hook']['sha256']
     return result
+
+
+def watchdog_sample(stage,kind,value,error,child,status,properties,sample,ms):
+    """Decode a separate observation payload, never a child/wait result."""
+    slot=sample&7;acquired=sample>>3
+    if kind!=4 or slot>=len(WATCHDOG_DUE) or not WATCHDOG_DUE[slot]<=acquired<12500 or acquired>ms:return None
+    if error:
+        if value or child or status or properties:return None
+        return dict(slot=slot,acquired_boottime_ms=acquired,read_error=error,task=None)
+    if acquired>=(WATCHDOG_DUE[slot]+250 if slot else 8500) or not 2<child<=2**31-1:return None
+    result=dict(slot=slot,acquired_boottime_ms=acquired,read_error=0,
+        task=dict(pid=child,starttime_ticks=status))
+    if stage==79:
+        state=chr(properties&255);cpu=(properties>>8)&255
+        policy=(properties>>16)&255;priority=properties>>24
+        if value<0 or state not in 'RSDTtXZPI' or cpu>=32 or policy>6 or priority>99:return None
+        result.update(cpu_time_ticks=value,state=state,last_cpu=cpu,scheduling_policy=policy,rt_priority=priority)
+    else:
+        if properties or not 0<=value<len(WATCHDOG_WCHAN):return None
+        result['wait_symbol_class']=WATCHDOG_WCHAN[value]
+    return result
+
+
+def watchdog_conflicts(rows):
+    conflicts=[];pairs={};identities=set()
+    for actor in (6,8):
+        previous=None;failed=False;seen=set()
+        for row in sorted((r for r in rows if r['actor_id']==actor),key=lambda r:r['sequence']):
+            sample=row['watchdog'];slot=sample['slot'];index=(row['stage_id'],slot)
+            order=(slot,row['stage_id'])
+            if index in seen:conflicts.append('repeated_watchdog_slot')
+            if failed or (previous and (order<=previous[0] or sample['acquired_boottime_ms']<previous[1])):
+                conflicts.append('watchdog_sample_order')
+            seen.add(index);previous=(order,sample['acquired_boottime_ms']);failed=bool(sample['read_error'])
+            pairs.setdefault((actor,slot),[]).append(sample)
+            if sample['task']:identities.add(tuple(sample['task'].values()))
+    if len(identities)>1:conflicts.append('watchdog_task_identity')
+    for samples in pairs.values():
+        if len({r['acquired_boottime_ms'] for r in samples})>1:conflicts.append('watchdog_pair_time')
+    ticks=sorted((r['watchdog']['acquired_boottime_ms'],r['watchdog']['cpu_time_ticks'])
+        for r in rows if 'cpu_time_ticks' in r['watchdog'])
+    if any(later[0]>earlier[0] and later[1]<earlier[1] for earlier,later in zip(ticks,ticks[1:])):
+        conflicts.append('watchdog_cpu_time_reversal')
+    return sorted(set(conflicts))
 
 
 def rcs_conflicts(parents,children):
@@ -106,9 +157,12 @@ def rcs_conflicts(parents,children):
 
 def retained(data,*,key,run,expected,boot=None):
     require(isinstance(data,bytes) and len(data)<=MAXIMUM and len(key)==32 and len(run)==16 and
-        set(expected) in (set(ACTORS),set(RCS_ACTORS)),'transition input scope differs')
-    rcs=set(expected)==set(RCS_ACTORS);actors=RCS_ACTORS if rcs else ACTORS
+        set(expected) in (set(ACTORS),set(RCS_ACTORS),set(WATCHDOG_ACTORS)),'transition input scope differs')
+    watchdog=set(expected)==set(WATCHDOG_ACTORS)
+    rcs=watchdog or set(expected)==set(RCS_ACTORS)
+    actors=WATCHDOG_ACTORS if watchdog else RCS_ACTORS if rcs else ACTORS
     if rcs:require(expected[4]==expected[6]==expected[7],'rcS fork executable identity differs')
+    if watchdog:require(expected[8]==expected[4],'watchdog owner executable identity differs')
     declared=stages();records=[];rejected={};conflicts=[];seen={};identities={}
     def reject(reason):rejected[reason]=rejected.get(reason,0)+1
     for candidate in re.finditer(rb'S22AT1[^\r\n]*',data):
@@ -130,8 +184,9 @@ def retained(data,*,key,run,expected,boot=None):
             (actor in (1,4,5) and pid<=1) or (actor==5 and ppid!=1) or
             (actor==4 and ppid<1) or
             (actor==1 and ppid<=1) or (actor==6 and (pid<=1 or ppid<1)) or
-            (actor==7 and (pid<=1 or ppid<=1))):
+            (actor==7 and (pid<=1 or ppid<=1)) or (actor==8 and (pid<=1 or ppid<1))):
             reject('shape');continue
+        if stage in WATCHDOG_STAGES and not watchdog:reject('unselected_watchdog');continue
         if kind==3:
             valid=convention==3 and value==0 and error>0 and (stage==0 or stage in declared)
         else:
@@ -145,13 +200,17 @@ def retained(data,*,key,run,expected,boot=None):
                 elif stage==73:valid=valid and -1<=value<=2**31-1
                 elif stage==75:valid=valid and -1<=value<=128
                 else:valid=valid and value in (0,-1) and (stage not in (50,55,74) or value==-1)
-        if actor==5:
+        observation=None
+        if stage in (79,80):
+            observation=watchdog_sample(stage,kind,value,error,child,status,done,worker_result,ms)
+            valid=valid and observation is not None
+        elif actor==5:
             valid=valid and child>1 and done in (0,1) and status<=65535
             if stage==17 and value==0:valid=valid and error==status==worker_result==0 and done==1
         elif actor==6 and stage==69 and kind==4:
             valid=valid and value==error==worker_result==0 and child>1 and status<=65535 and done==1
         else:valid=valid and child==status==done==worker_result==0
-        if kind==4 and stage in (60,70,71):valid=valid and value==error==0
+        if kind==4 and stage in (60,70,71,81):valid=valid and value==error==0
         if not valid:reject('semantics');continue
         identity=(boot_hash.hex(),pid,ppid,digest)
         if actor in identities and identities[actor]!=identity:conflicts.append('actor_identity')
@@ -163,6 +222,9 @@ def retained(data,*,key,run,expected,boot=None):
             boottime_ms=ms,pid=pid,ppid=ppid,source_sha256=digest,boot_sha256=boot_hash.hex(),
             prior_log_losses=lost,prior_log_error=log_error,prior_log_elapsed_ms=spent,
             child_pid=child,wait_status=status,worker_done=done,worker_result=worker_result)
+        if observation is not None:
+            for name in ('child_pid','wait_status','worker_done','worker_result'):record.pop(name)
+            record['watchdog']=observation
         index=(actor,seq)
         if index in seen:
             conflicts.append('duplicate_sequence' if seen[index]==body else 'contradictory_sequence');continue
@@ -189,20 +251,21 @@ def retained(data,*,key,run,expected,boot=None):
                 if stage in pending:pending.pop(stage)
                 else:isolated_return.append(row)
             elif row['kind']=='POINT':
-                if stage in completed:conflicts.append('repeated_stage_point')
-                completed.add(stage)
+                if 'watchdog' not in row:
+                    if stage in completed:conflicts.append('repeated_stage_point')
+                    completed.add(stage)
         unpaired_begin.extend(pending.values())
     workers=[r for r in records if r['actor_id']==1]
     for row in (r for r in records if r['actor_id']==5):
         if workers and any(r['pid']!=row['child_pid'] or r['ppid']!=row['pid'] for r in workers):
             conflicts.append('supervisor_child_join')
-    parents=[r for r in records if r['actor_id']==6]
+    parents=[r for r in records if r['actor_id']==6 and 'watchdog' not in r]
     children=[r for r in records if r['actor_id']==7]
     forks=[r['result'] for r in parents if r['stage_id']==64 and r['kind']=='RETURN' and r['result']>1]
     if rcs:conflicts.extend(rcs_conflicts(parents,children))
     valid=not conflicts
     installed=valid and any(r['actor_id']==4 and r['stage_id']==58 and r['kind']=='RETURN' and r['result']==0 for r in records)
-    observed=[r for r in records if r['kind'] in ('RETURN','POINT')]
+    observed=[r for r in records if r['kind'] in ('RETURN','POINT') and r['stage_id'] not in WATCHDOG_STAGES]
     highest=max(observed,key=lambda r:(r['boottime_ms'],r['actor_id'],r['sequence']) if rcs else r['stage_id'])['stage'] if observed and valid else None
     complete=valid and any(r['stage_id']==70 and r['kind']=='POINT' for r in parents)
     if complete:highest='RCS_COMPLETE'
@@ -218,6 +281,11 @@ def retained(data,*,key,run,expected,boot=None):
         result.update(rcs_child_fork_proved=valid and bool(forks),rcs_completed=complete,
             rcs_child_exec_proved=complete,
             rcs_fork_record_completed=valid and any(r['stage_id']==65 and r['kind']=='RETURN' and r['result']==0 for r in parents))
+    if watchdog:
+        samples=[r for r in records if 'watchdog' in r];issues=watchdog_conflicts(samples)
+        result.update(watchdog_observations=samples,watchdog_conflicts=issues,
+            watchdog_observations_consistent=valid and not issues,watchdog_phase_proved=False,
+            watchdog_pet_proved=False,watchdog_cause_proved=False,watchdog_samples_atomic=False)
     return result
 
 

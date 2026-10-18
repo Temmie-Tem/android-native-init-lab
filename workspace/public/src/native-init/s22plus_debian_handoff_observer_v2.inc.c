@@ -1,5 +1,6 @@
 /* Fixed, sequential children of installed SysVinit. No daemon, respawn,
  * shell console or native service manager survives this observation. */
+#include "s22plus_autoboot_watchdog_v1.h"
 static void dh_claim(const char *name,const char *previous) {
     char path[128];struct stat st;
     if(previous) {
@@ -91,6 +92,7 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
     if(traced)AT_RETURN(AT_RCS_FORK_RECORD,2,0,0);
     int status;uint64_t heartbeat=sw_now();bool first_wait=true,first_sleep=true,first_heartbeat=true;
     for(;;) {
+        aw_tick();
         pid_t got=traced && first_wait ? AT_SYS(AT_RCS_WAIT_FIRST,waitpid(child,&status,WNOHANG)) :
             waitpid(child,&status,WNOHANG);
         first_wait=false;
@@ -197,6 +199,7 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     for(unsigned sample=0;sample<=DH_SAMPLES;++sample) {
         uint64_t target=started+(uint64_t)sample*DH_SAMPLE_MS;
         while(sw_now()<target) {
+            aw_tick();
             struct timespec delay={0,100000000};
             if(nanosleep(&delay,NULL) && errno!=EINTR)dh_hook_fail(fs1_error());
         }
