@@ -29,15 +29,51 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P437 closed healthy; H0 reanalysis identifies watchdog reset
+## P437/P438 closed healthy; first watchdog renewal remains the runtime gap
 
-The [fresh P437 physical run](docs/reports/S22PLUS_P437_RCS_OBSERVATION_RUN_2026-10-19.md) completed one N/A pair and is consumed ANDROID_CLOSED_HEALTHY, with no F1 owner. The host transfer correction passed physically; no qualified NCM/SSH arrived in the original 360-second window.
-Same-returned-boot retained-log D0 authenticated 132 records across all seven actors with no conflicts/rejections: installed Debian PID1, successful rcS fork, checked fork-record write/fsync/readback/close, child fd cleanup, exec attempt, first WNOHANG wait and first 10ms sleep return.
-The last observed stage is RCS_SLEEP_FIRST; rcS completion, child exec completion, services/SSH and clean native shutdown remain unproved. Missing later records do not identify a stall; successful syscall errno snapshots are not failures. P437 closure itself included no native_data reader or repair; the separate P438 observation below updates storage evidence.
-One post-A ADB device-not-found read was preserved, then health-only continuation proved changed-boot original root/boot/GPT/Android32 health without another transfer. The 16-capture retained-log D0 also passed both same-boot health brackets; A90/S20+ were untouched.
-The [earlier pre-transfer attempt](docs/reports/S22PLUS_P437_PRETRANSFER_STOP_2026-10-19.md) remains separately consumed/closed N=0/A=1. The [host correction](docs/reports/S22PLUS_P437_TRANSFER_GUARD_H0_2026-10-19.md) retains 43 tests, six H0 integration cases and independent PASS_GO; P437 runtime/41 VM cases were reused unchanged.
-The [boot-requirements H0 audit](docs/reports/S22PLUS_P437_BOOT_REQUIREMENTS_WATCHDOG_H0_2026-10-19.md) separates two authenticated candidate boots in the preserved raw capture. The first rcS boot records RT throttling in gh-watchdog context at 11.988s, watchdog bark/bite at 12.739s and warm reset; the 317s kernel messages belong to the second boot. First heartbeat was not due until about 16.175s. The missed watchdog renewal cause and second-boot write/rejection state remain unknown. P430's same-module preparation/park contrast survives about 369s; actual legacy rcS is sequential and seven core startup files match the successful VM. The [inactive watchdog observer H0](docs/reports/S22PLUS_WATCHDOG_OBSERVER_H0_2026-10-19.md) now samples task state, CPU time and wait-symbol classes around the first renewal using existing parents, with host/ARM64 producer and failure-path checks. The disabled hook is identical to P437 and all 41 retained VM projections are unchanged. It remains disabled and unqualified for a new physical candidate. The [P438 physical read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P438_RUN_2026-10-20.md) is consumed ANDROID_CLOSED_HEALTHY after one N/A pair, with no F1 owner. Its complete 10,972-byte early file authenticates all 14 records and matches the first P437 boot; the runtime file is ABSENT_IN_HOME_VIEW under state=1/recover=1/orphan=0. No mount, journal replay or filesystem data write occurred. One post-A ADB read failure was preserved before health-only continuation completed. The dirty view and missing runtime leave exact root admission unresolved; next is H0 assessment of the existing fixed journal-recovery/history path, with no further device authority from this consumed grant.
-The [P436 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) retains P432 installed PID1/rcS-fork proof; P432–P434/P436 remain consumed and healthy, P434 remains RECOVERY_NOT_PROVED, and P435 remains unstarted with its original prerequisite.
+The [P437 run](docs/reports/S22PLUS_P437_RCS_OBSERVATION_RUN_2026-10-19.md) consumed
+one N/A pair and closed ANDROID_CLOSED_HEALTHY, with no F1 owner or qualified
+NCM/SSH in its 360-second window. Its 132 authenticated records prove installed
+Debian PID1, rcS fork, checked fork-record persistence, child fd cleanup, exec
+attempt, first WNOHANG wait and first 10ms sleep return. Last stage is
+RCS_SLEEP_FIRST; child exec/rcS completion, services/SSH and clean shutdown are
+unproved. One post-A ADB read failure was preserved before health-only closure;
+the 16-capture retained-log D0 passed both same-boot brackets. A90/S20+ were untouched.
+The [pre-transfer attempt](docs/reports/S22PLUS_P437_PRETRANSFER_STOP_2026-10-19.md)
+remains separately consumed/closed N=0/A=1. The
+[host correction](docs/reports/S22PLUS_P437_TRANSFER_GUARD_H0_2026-10-19.md) retains
+43 tests, six integration cases and PASS_GO; runtime/41 VM cases were unchanged.
+
+The [boot audit](docs/reports/S22PLUS_P437_BOOT_REQUIREMENTS_WATCHDOG_H0_2026-10-19.md)
+separates two candidate boots. The first has gh-watchdog RT throttling at
+11.988s and watchdog bark/bite/reset at 12.739s; the 317s messages belong to the
+second boot. First heartbeat was due only around 16.175s. Exact missed-renewal
+cause and second-boot write/rejection state remain unknown. The
+[inactive observer](docs/reports/S22PLUS_WATCHDOG_OBSERVER_H0_2026-10-19.md) has
+host/ARM64 task-state/CPU-time/wait-symbol checks using existing parents; it
+remains disabled and unqualified for a new physical candidate.
+
+The [P438 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P438_RUN_2026-10-20.md) consumed
+one N/A pair and closed ANDROID_CLOSED_HEALTHY, with no F1 owner. Its 10,972-byte
+early file authenticates all 14 records of the first P437 boot; runtime file is
+ABSENT_IN_HOME_VIEW with state=1/recover=1/orphan=0. No mount/replay/data write
+occurred. One post-A ADB read failure preceded health-only closure. Exact root
+admission remains unresolved; fixed journal-recovery/history assessment remains
+separate from watchdog diagnosis. The consumed grant gives no further authority.
+The [P436 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P436_RUN_2026-10-18.md) retains
+P432 installed PID1/rcS-fork proof. P432–P434/P436 are consumed/healthy; P434 is
+RECOVERY_NOT_PROVED and P435 remains unstarted with its original prerequisite.
+
+The [stock FYG8 comparison](docs/reports/S22PLUS_FYG8_STOCK_FIRST_WATCHDOG_H0_2026-10-20.md)
+joins original firmware, effective source, module binaries and retained boots.
+Stock selects qcom-cpu-lpm early; its compiled sleep_disabled default keeps
+state 0/WFI, whereas P437 omits qcom_lpm and initially selects menu. Stock's first
+periodic pet at 10.24s precedes post-boot scripts at 16s+. This is a concrete idle
+policy difference, not a proved cause: P430 has the same actual diagnostic
+kernel and 82 module rows as P437 and survives about 369s. Neither kernel is
+byte-identical to the shipping Image. Next useful H0 is a minimal early-idle
+policy comparison with existing bounded observation; missing Android services,
+watchdog disablement or unlimited RT budget are not established fixes.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
@@ -77,59 +113,27 @@ must distinguish module return, storage admission, recording and retention.
 
 ## P425 closed: logger/providers proved; USB unproved; Android healthy
 
-P425 `v0.6.0-rc.1` consumed its returned attended 3600-second/one-operation
-grant on 2026-10-13 KST. The [physical report](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_RUN_2026-10-13.md)
-records one N transfer, 90 seconds without the expected USB endpoint, no sent
-integrated-start request and one physical original-A recovery. A pre-dispatch
-Download wait ended with a host deadline-tail error; A still transferred only
-once. A preserved `error: closed` health read was followed by health-only
-continuation. Final original boot/root, changed-boot and Android32/GPT health
-pass: **ANDROID_CLOSED_HEALTHY**, `recovered=true`, `research_closed=true`.
-
-The same-returned-boot D0 captured 2,097,136 bytes. The full parser stopped on
-marker authentication, but H0 strict rederivation of unchanged raw spans proved
-146 ordered same-boot records: logger binding `phase=0 error=0`, module stages
-through `gpi` completion, the provider barrier `mask=7`, and `i2c_msm_geni` BEGIN.
-This is **PARTIAL_AUTHENTICATED_EARLY_PREPARATION**; it does not locate the exact
-stop or prove initial-parent measurement, installed PID1, services, SSH or clean
-Debian shutdown. The logger correction has physical positive evidence.
-The grant/candidate are closed/consumed, N/A counts are 1/1 and no F1 owner remains.
+The [P425 physical report](docs/reports/S22PLUS_DEBIAN_INTEGRATED_P425_RUN_2026-10-13.md)
+retains its consumed one-N/one-A ANDROID_CLOSED_HEALTHY closure, absent USB in
+90 seconds, unsent integrated-start, deadline-tail/ADB read failures and
+health-only continuation. Strict H0 rederivation of unchanged returned raw proves
+146 same-boot records through logger binding, gpi completion, provider mask=7
+and i2c_msm_geni BEGIN: PARTIAL_AUTHENTICATED_EARLY_PREPARATION. Exact stop,
+initial-parent measurement, installed PID1, services/SSH and clean shutdown
+remain unproved. No F1 owner remains; consumed authority is not renewed.
 
 ## P424 closed: authenticated PRE retained; Android healthy
 
-The operator selected establishing the observation path before adding early
-initialization. P424 `v0.5.0-rc.8` consumed its returned attended
-1800-second/one-operation grant on 2026-10-13 KST. The
-[physical report](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_RUN_2026-10-13.md)
-records authenticated native/helper execution, PRE kernel-ring readback and
-one successful stock module syscall return. The fixed binding conjunction
-returned stage 4 `ENODEV`; no POST or current `/proc/ap_klog` read followed.
-The settled live result is **CALIBRATION_NEGATIVE**.
-
-After healthy original-A closure, the fixed same-returned-boot D0 read acquired
-2097136 bytes and found the exact authenticated PRE once, with zero damaged
-or foreign frames: **PARTIAL_NATIVE_LOG_RETENTION**. One native-origin marker
-therefore survived the tested physical return. Complete live/backend/returned
-pair calibration, earliest Debian PID1 and historical P421/P423 execution
-remain unproved. H0 inspection found that the helper expects device name
-`soc:samsung,kernel_log_buf`, while the returned log names the driver probe's
-device `8.samsung,kernel_log_buf`. The aggregate check does not identify its
-failing predicate. P425 above corrects and qualifies that predicate as part of
-the integrated successor; the consumed P424 result retains its original meaning.
-
-Physical return encountered a USB inventory change before A dispatch. Existing
-attended recovery then transferred A once. A subsequent `error: closed` health
-read was preserved, and health-only continuation passed original boot/root,
-changed-boot and Android32/GPT checks: **ANDROID_CLOSED_HEALTHY**,
-`recovered=true`, `research_closed=true`. N/A counts are 1/1; no F1 owner
-remains. H0 closure rederived 676 captures and 264 frozen sources without
-changing the 18-row journal. The grant and candidate are consumed/closed.
-
+The [P424 physical report](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_RUN_2026-10-13.md)
+retains CALIBRATION_NEGATIVE (stage 4 ENODEV after module return, no POST) and
+one authenticated PRE after return: PARTIAL_NATIVE_LOG_RETENTION. The device-name
+predicate mismatch informed P425, without proving the old aggregate's exact
+failing predicate. One N/A pair closed ANDROID_CLOSED_HEALTHY after preserved
+USB inventory/ADB failures and health-only continuation; no F1 owner remains.
 The [H0 report](docs/reports/S22PLUS_NATIVE_LOG_CALIBRATION_P424_H0_2026-10-13.md)
-retains nine ARM64 cases, 108 focused tests, six malformed-qualification
-rejections and independent **PASS_GO**. P420–P424 are closed. This diagnostic
-carrier does not change Debian initial-PID1 ownership as the product goal.
-A90 and S20+ were untouched; full Debian/SSH ownership remains unachieved.
+retains nine ARM64 cases, 108 tests, six malformed negatives and PASS_GO.
+Complete calibration, earliest Debian PID1 and historical P421/P423 execution
+are unproved. P420–P424 are consumed/closed; A90/S20+ were untouched.
 
 ## P423 closed: no authenticated early stage; Android healthy
 
@@ -732,30 +736,24 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
-sets the next development priorities. These are objectives, not new device
-admission gates or authority. P425 physically proved the corrected logger and
-provider barrier. P426/P427 leave the file outcome unproved, with authenticated
-progress through the last UFS module's BEGIN. Compare that cold preparation
-boundary with the proved native path before selecting a successor; matching
-module lists and VM substitutions do not prove full hardware equivalence.
+The [stock-first-watchdog analysis](docs/reports/S22PLUS_FYG8_STOCK_FIRST_WATCHDOG_H0_2026-10-20.md)
+selects the next H0 comparison: early CPU idle policy and the first renewal
+under installed-init work, reusing bounded observations. Preserve P430 as the
+same-kernel/module surviving contrast and distinguish runtime state from
+compiled defaults. This is a functional investigation, not a new admission
+gate or permission to add modules, disable watchdog or alter RT budgets.
 
-Keep Debian shell as the initial userspace owner and use fixed temporary
-helpers for necessary platform work. Reuse the existing root-transition,
-installed-init and same-first-gadget work. The
+Keep Debian shell as initial owner and use fixed temporary preparation helpers.
+Reuse root-transition, installed-init and same-first-gadget work, with the
 [P414 observer](docs/reports/S22PLUS_DEBIAN_HANDOFF_P414_OBSERVER_H0_2026-10-03.md)
-already has H0 qualification for startup boundaries and child completion; it
-is not a physical repair claim. Separate startup progress from USB reporting
-and combine bounded early retained evidence with any separately admitted
-post-storage records. P421/P422's absent file and P424's retained PRE preserve
-their distinct limits; a new logging framework is not itself the product.
+and current watchdog observations where useful. The product remains services
+and same-boot SSH; diagnostics do not become a second general runtime.
 
-P420 proved full clean-root admission. P422 later observed a clean superblock
-and no P421 file, without repeating the full root comparison. P423/P424 selected
-no native_data work. Do not assume that P415's older dirty state still requires
-repair, or that P422 establishes complete present root integrity. The next
-writable operation must pass fresh protected root admission under its actual
-scope; only its findings determine whether separate recovery is needed.
+P438's latest protected read is dirty with the runtime file absent in its home
+view. Assess the existing fixed journal-recovery/history path before a future
+writable boot, and require that boot's actual protected root admission. Older
+clean-root observations do not establish current integrity. Android health,
+native_data cleanliness and watchdog functionality remain separate claims.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,
