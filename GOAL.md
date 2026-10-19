@@ -71,9 +71,10 @@ state 0/WFI, whereas P437 omits qcom_lpm and initially selects menu. Stock's fir
 periodic pet at 10.24s precedes post-boot scripts at 16s+. This is a concrete idle
 policy difference, not a proved cause: P430 has the same actual diagnostic
 kernel and 82 module rows as P437 and survives about 369s. Neither kernel is
-byte-identical to the shipping Image. Further H0 binds actual WFE response-wait
-code, identical boot command lines and the existing cpuidle.off-to-WFI path.
-The root cause remains unproved; missing Android services or RT budget are not established fixes.
+byte-identical to the shipping Image. Further H0 binds WFE/data references,
+the cpuidle.off-to-WFI path, actual ramdisk differences and FYG8 hyp pet/status
+shared locks. P437's successful bark-time status constrains permanent shared-lock
+deadlock; P430/P437 differ beyond rcS. The cause and a missing-service fix remain unproved.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

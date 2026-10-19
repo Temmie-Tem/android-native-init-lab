@@ -299,6 +299,120 @@ bounded task-state/CPU-time 관측과 위 한 변수 비교는 이 공백을 줄
 추가 firmware 정적 분석 자체가 불가능해진 것은 아니지만, 현재 기록은 실패한
 주기가 그 firmware 호출에 도달했는지조차 확정하지 못한다.
 
+## 추가 H0: FYG8 hypervisor, 데이터 참조와 실제 ramdisk 분기
+
+동적 관측이 부족하다는 사실을 정적 조사의 종료 조건으로 삼을 필요는 없었다.
+이어 원본 BL의 실제 hypervisor 코드, 앞에서 남긴 core 데이터 참조, P430/P437의
+소비된 boot 안 ramdisk를 대조했다. 다음 결과는 새 기기 관측 없이 얻었다.
+
+### 원본 hypervisor에서 pet과 status를 직접 연결했다
+
+원본 ZIP 안 BL의 CRC·해시와 압축 member 해시를 확인하고 `hypvm`, `tz`,
+`aop`, `cpucp`를 호스트 파일로 풀었다. 이 중 watchdog client의 직접 상대인
+`hypvm`의 AArch64 실행 구간을 분석했다. 다른 세 파일은 추출·형식·문자열 확인
+범위이며, 전체 secure firmware를 역분석했다고 하지 않는다. firmware는 실행하지 않았다.
+
+`hypvm`은 section table이 없지만 ELF load segment와 읽을 수 있는 기계어가
+있다. watchdog 진단 문자열의 실제 참조와 SMC dispatcher를 따라가 다음을
+확인했다. 단순히 문자열에 watchdog가 있다는 수준의 추론은 아니다.
+
+| Linux client의 SMC | 원본 FYG8 hypervisor에서 확인한 경로 |
+| --- | --- |
+| `0x86000005` | watchdog control dispatch |
+| `0x86000006` | enable/expired 값, 마지막 pet 이후 시간 계산 및 성공 결과 반환 |
+| `0x86000007` | 공용 queue 잠금 → enabled 검사 → pet 연산 → 잠금 해제와 반환 |
+| `0x86000008` | bark/bite 시간 설정 dispatch |
+
+실제 dispatcher의 owner·fast/SMC32 분기와 jump table을 검증했다. pet 연산은
+counter를 읽고 마지막 pet 시각을 저장하며 timeout queue를 다시 정렬한다.
+필요한 경우 hardware watchdog를 갱신하거나 hypervisor의 자체 IPI를 요청한다.
+이 경로에는 공용 queue 잠금과 별도의 hardware-counter 잠금, WFE 및 counter
+안정화 반복이 있다. 따라서 SMC가 무조건 즉시 반환한다고 가정할 수 없다.
+
+공개 [Qualcomm Gunyah watchdog 구현](https://github.com/quic/gunyah-hypervisor/blob/254727746fce809aba0e629a13711a954b246968/hyp/misc/watchdog/src/watchdog.c)은
+문자열과 queue/pet 구조를 이해하는 보조 자료로 사용했다. 그 공개 revision을
+FYG8 firmware의 정확한 소스라고 간주하지 않았으며, 위 SMC 연결과 공용 잠금
+동일성은 원본 배포 바이너리에서 별도로 확인했다.
+
+### 이미 남은 성공한 status가 영구 잠금 가설의 범위를 줄인다
+
+P437 첫 부팅의 약 12.739456초에는 `CTL=1`, 마지막 pet 후 `12000ms`,
+`expired=1`을 출력한 status 결과가 있다. 실제 `gh_virt_wdt.ko`에서 이 문자열은
+`SMC 0x86000006`의 성공 반환 분기에 있다. watchdog core도 status 조회를
+bite-time 변경과 강제 reset 호출보다 먼저 실행한다. 강제 reset이 먼저 잠금을
+풀었다고 해석할 순서가 아니다.
+
+원본 hypervisor의 이 status 경로는 **pet과 같은 공용 queue 잠금 및 같은
+hardware-counter 잠금을 실제로 획득하고 해제**한다. 따라서 이 배포 경로를
+따른다는 조건에서, 어느 한 잠금이 계속 잡힌 채 status 호출까지 영구 정지했다는
+설명은 성공한 status와 양립하지 않는다. hypervisor 전체가 전혀 응답하지
+않았다는 설명도 이 조회 결과와 맞지 않는다.
+
+이는 모든 firmware 원인을 배제하는 결론은 아니다. 실기기 hypervisor 메모리의
+바이트 일치나 실패 순간 PC를 읽은 것은 아니며, 일시적 경합·다른 경로·첫 pet
+SMC 진입 여부는 남는다. Linux의 CPU 응답 대기 가설도 유지된다. 또한 core는
+reset 함수가 오류로 반환해도 last-pet을 갱신하므로, **단순한 pet SMC 오류 반환만**으로
+초기 last-pet 값이 그대로 남은 현상을 설명하기도 어렵다. 관측 구간의 한계와
+코드의 반환 이후 경로를 함께 고려해야 한다.
+
+### CSD/IPI의 주요 변경 데이터 참조는 같은 대상을 가리킨다
+
+앞서 비교한 명령어 중 CPU 응답 대기에 가까운 6개 데이터 참조를 추가로
+해석했다. 실제 ADRP와 ADD/LDR의 주소 계산을 각각 수행하고 embedded symbol과
+파일 바이트를 대조했다.
+
+- `smp_call_function_single`의 32바이트 임시 CSD 초기값은 두 Image에서 같다.
+  flag는 두 쪽 모두 `CSD_FLAG_LOCK | CSD_TYPE_SYNC`에 해당하는 `0x11`이다.
+- 두 stack-guard load는 각 Image의 `__stack_chk_guard`를 정확히 가리킨다.
+- oops 검사 load는 각각 `oops_in_progress`를 가리킨다. 이 변수는 파일 밖
+  BSS이므로 빈 slice나 0을 읽었다고 해석하지 않았고, 실행 중 값도 알 수 없다.
+- `generic_exec_single`과 `__smp_call_single_queue`의 변경된 ADD는 모두
+  `cpu_bit_bitmap`으로 연결되며, 확인한 520바이트는 정확히 같다.
+
+따라서 이 선택 지점에서의 주소 차이는 잘못된 CSD flag나 다른 CPU bit table의
+증거가 아니다. 익명 초기값에 가장 가까운 앞쪽 symbol 이름을 붙이는 것도 피했다.
+이는 349개 변경 명령어 전체의 데이터 의미 또는 커널 전체 동등성 증명이 아니다.
+변수의 정적 정체성과 실패 순간의 값·queue 상태도 구분한다.
+
+### P430은 installed-init에 들어가는 한 변수 대조군이 아니다
+
+P430/P437 각각의 실제 boot image를 다시 해시 검증하고 압축 ramdisk를 풀어,
+보존된 build의 initramfs와 바이트 일치시켰다. 두 ramdisk의 공통 member는
+422개이며, 내용·mode·uid·gid·link count를 대조했을 때 4개가 다르다. archive
+mtime과 inode 번호는 이 동일성 판정에 포함하지 않았다. P437에는 추가 member
+9개가 있고, P430에만 있는 member는 없다.
+
+| 달라진 공통 member | 확인한 차이 |
+| --- | --- |
+| root inspection table | 각 시점의 root admission 내용 |
+| `scripts/fyg8-dev` | P430은 file-log 뒤 `fyg8_stop`; P437은 성공 확인 후 `exec autoboot-init` |
+| `file-log` | P437의 transition 관측과 성공 후 RAM receipt 게시 등 |
+| `fyg8-prepare` | 같은 module plan/준비 본체에 다른 seal 및 관측 포함 |
+
+초기 `/init`과 shell, module plan은 같다. P437에 추가된 전환 도구와 RAM asset은
+두 번째 root admission, writable root, mount 이동, `switch_root`, 설치된 init 및
+rcS 경로를 연다. P430 코드에는 그 installed-init 분기가 없다. 다만 P430의
+마지막 파일 기록은 unmount 전이므로, **실제 stop loop 진입 자체를 그 파일만으로
+증명하지 않는다.** 약 369초 생존과 코드상 끝점은 서로 다른 증거다.
+
+소스도 현재 checkout으로 대신하지 않았다. P430의 보존 source 204개와 P437의
+146개를 각 build의 pin에 맞췄다. 공통 준비 본체는 같지만 checked-kmsg의 예산
+계산, supervisor의 transition 기록, file-log의 RAM receipt 등도 달라져 있다.
+그러므로 P430/P437의 결과 차이를 rcS 하나 또는 특정 idle 상태 하나의 인과
+증명으로 사용할 수 없다. 관측 추가에 따른 실행 시각·부하 차이도 비교에 포함된다.
+
+P437에서는 설치된 PID1, rcS exec 시도, 첫 wait/sleep까지 실제 반환 기록이 있다.
+그 뒤의 mdev 시작·sysfs scan·각 rcS script 실행은 아직 관측되지 않았다.
+정적 script 순서만으로 mdev를 원인으로 지목하거나, 이미 반환한 첫 파일
+write/fsync/wait/sleep를 정지 지점으로 다시 제안하지 않는다.
+
+이번 추가 분석은 firmware의 영구 공용 잠금 설명과 선택 core 데이터 손상
+설명의 범위를 줄이고, P430 반례의 비교 한계를 더 명확히 했다. 실패 순간의
+timer/thread/ping/SMC 경계는 여전히 기록에 없으므로 원인은 미확정이다.
+남은 firmware 분기나 다른 core 참조도 정적으로 조사할 수 있지만, 그런 분석이
+첫 실패 주기의 실행 위치를 측정한 증거로 바뀌지는 않는다. 실제 기능 우선순위는
+기존 관측을 유지한 초기 idle 정책 한 변수 비교의 H0 준비다.
+
 ## 재현 자료와 검증
 
 private 작업 위치는
@@ -342,3 +456,13 @@ private에 보존했다. A90·S20+ 및 사전 존재하던 다른 작업은 변�
 `synthesis/final-audit.json`은 동일 command line, IRQ 집계, 실제 parameter와
 WFE/WFI·GICv3 명령어의 연결을 재검사한다. private Python compilation과
 실제 두 Image/보존 raw에 대한 producer/consumer 검증이 통과했다.
+
+세 번째 H0 자료는
+`workspace/private/outputs/s22plus-watchdog-firmware-delta-h0-20261020-1/`에 있다.
+`firmware/extraction.json`과 `firmware/watchdog-callgraph-audit.json`은 원본 BL,
+ELF segment, 실제 SMC dispatch·공용 잠금·status raw를 연결한다.
+`kernel/data-reference-audit.json`은 6개 참조와 파일/BSS 구분을 기록한다.
+`runtime/input-audit.json`은 실제 boot ramdisk 일치, member 차이와 보존 source
+pin을 검사한다. 선택 source diff도 함께 남겼다. private Python compilation 및
+세 실제 producer/consumer 감사가 통과했다. firmware 실행, 새 후보 빌드,
+기기 명령, runtime/runner/정책 변경은 없으며 기존 다른 대상 작업은 보존했다.
