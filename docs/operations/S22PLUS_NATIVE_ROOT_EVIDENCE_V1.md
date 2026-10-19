@@ -147,16 +147,19 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P436 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p436_review.json`.
+native_data, or transfers an image. The current prospective P438 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p438_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
 `s22plus_native_root_evidence_p431_review.json`, consumed P433 review
-`s22plus_native_root_evidence_p433_review.json`, and all retained
+`s22plus_native_root_evidence_p433_review.json`, consumed P436 review
+`s22plus_native_root_evidence_p436_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
-selects the two-file table and its declared binary bound. P436 uses that same
-sealed pair after P434's closed journal operation; it adds no file, replay,
-write or installed-root admission. P434's unmatched tree entry remains
-unidentified unless separately acquired evidence establishes its identity.
+selects the two-file table and its declared binary bound. P438 seals the pair
+for the closed P437 automatic writer, retaining the same sizes, metadata,
+mountless read and original-A return. It adds no path class, replay, write or
+installed-root admission. P436's P432 acquisition and P434's historical result
+remain unchanged; P437's current filesystem and second-boot effects remain
+unknown until separately observed, and missing home-block files stay unknown.
