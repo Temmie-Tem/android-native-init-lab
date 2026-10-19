@@ -71,9 +71,9 @@ state 0/WFI, whereas P437 omits qcom_lpm and initially selects menu. Stock's fir
 periodic pet at 10.24s precedes post-boot scripts at 16s+. This is a concrete idle
 policy difference, not a proved cause: P430 has the same actual diagnostic
 kernel and 82 module rows as P437 and survives about 369s. Neither kernel is
-byte-identical to the shipping Image. Next useful H0 is a minimal early-idle
-policy comparison with existing bounded observation; missing Android services,
-watchdog disablement or unlimited RT budget are not established fixes.
+byte-identical to the shipping Image. Further H0 binds actual WFE response-wait
+code, identical boot command lines and the existing cpuidle.off-to-WFI path.
+The root cause remains unproved; missing Android services or RT budget are not established fixes.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
@@ -737,11 +737,11 @@ assumed.
 ## Next bounded unit and milestones
 
 The [stock-first-watchdog analysis](docs/reports/S22PLUS_FYG8_STOCK_FIRST_WATCHDOG_H0_2026-10-20.md)
-selects the next H0 comparison: early CPU idle policy and the first renewal
-under installed-init work, reusing bounded observations. Preserve P430 as the
-same-kernel/module surviving contrast and distinguish runtime state from
-compiled defaults. This is a functional investigation, not a new admission
-gate or permission to add modules, disable watchdog or alter RT budgets.
+supports an H0 candidate comparison with cpuidle.off=1 as the single changed
+idle variable, retaining bounded observation of installed-init work. P430 is
+the same-kernel/module/command-line surviving contrast; actual idle and ping
+state remain unknown. This selects preparation only, not a new admission gate
+or device authority. Watchdog and RT budget changes are not established fixes.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the

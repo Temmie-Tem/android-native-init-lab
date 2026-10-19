@@ -186,14 +186,118 @@ P430의 동일 kernel/module 대조 때문에 일반적인 파일 누락 하나�
 이미 준비된 [비활성 watchdog 관측 H0](S22PLUS_WATCHDOG_OBSERVER_H0_2026-10-19.md)는
 기존 parent에서 thread 상태·CPU 시간·wait symbol을 제한적으로 샘플링한다.
 이를 재사용하되 표본 사이의 짧은 경계나 firmware 내부까지 자동으로 증명한다고
-하지 않는다. 다음 유용한 H0는 **초기 idle 정책을 하나의 변수로 비교할 수 있는
-최소 설계와 의존성 확인**이다. Android 모듈 전체 추가, watchdog 해제, RT 예산
+하지 않는다. 아래 추가 H0는 **초기 idle 정책을 하나의 변수로 비교할 수 있는
+기존 커널 옵션의 실제 경로**까지 확인했다. Android 모듈 전체 추가, watchdog 해제, RT 예산
 무제한 변경이나 새 상주 daemon을 정답으로 채택할 증거는 없다.
 
 별도로 [P438](S22PLUS_AUTOBOOT_EVIDENCE_P438_RUN_2026-10-20.md)은 dirty native_data
 view와 runtime file 부재를 관측했다. 다음 writable boot의 root admission/필요한
 고정 journal recovery 검토는 그대로 남는다. 파일 복구를 watchdog 원인 증명으로
 대체하지 않는다. 이 보고서는 새 gate·활성화·후보·grant 또는 기기 동작을 만들지 않는다.
+
+## 추가 H0: 실제 core 기계어와 남은 관측 공백
+
+앞의 비교만으로 사용 가능한 H0 자료가 소진된 것은 아니었다. 이어서 원본과
+후보 Image 내부의 export·kallsyms를 직접 해석하고, CPU/interrupt 기록과
+부팅 인자를 대조했다. 기존 vmlinux의 주소를 현재 Image에 대신 적용하지 않았다.
+
+### 현재 커널에도 실제 동기 응답 대기 코드가 있다
+
+두 Image의 PREL32 export에서 9개 core symbol을 각각 찾고 CFI branch를 따라갔다.
+이어 원본 112,355개, 후보 112,384개의 embedded kallsyms를 해석했다. 압축 이름,
+모든 marker, symbol 수와 embedded config의 address encoding을 확인하고,
+독립적으로 얻은 9개 export의 코드 주소와 모두 일치시켰다.
+
+기존 다른 대상용 도구에서는 문자열 압축의 공통 읽기 함수만 재사용했다.
+그 대상의 주소 보정·symbol 필수 목록·크기 가정은 적용하지 않았다. 처음의
+marker 크기 가정과 두 address 해석의 모호성은 거부되었고, 실제 table 및
+이 Image의 config/export 일치로 해소했다. 실패 버전도 private에 남겼다.
+
+CPU 호출·idle·timer·RT·wakeup 등 39개 symbol 구간을 다음 text symbol까지
+추출해 비교했다. 모두 길이가 같고 6개 구간은 바이트가 같다. 바뀐 349개
+명령어는 ADRP, BL, ADD, load/store 계열이었다. 그중 58개 BL은 모두 양쪽에서
+같은 이름의 함수로 향한다. 주소·데이터 참조의 전체 동등성까지 자동으로
+증명한 것은 아니므로 이것을 커널 전체의 동일 동작 판정으로 확대하지 않는다.
+
+특히 `smp_call_function_single(wait=1)`의 다음 경로를 실제 기계어로 확인했다.
+
+- preemption count를 올린 상태로 요청을 넣고 응답 flag를 기다린다.
+- 응답 대기에는 `SEVL → WFE → LDXR → … → WFE → LDAR → 반복`이 있다.
+  해당 32바이트 구간은 원본과 후보가 정확히 같다.
+- 이 대기는 scheduler의 sleep으로 전환하는 `schedule()` 대기가 아니다.
+  thread는 scheduler 관점에서 실행 중인 채 CPU의 WFE 명령으로 기다릴 수 있다.
+  따라서 실행 시간 증가나 RT throttling 문맥이 곧 유용한 작업 수행을 뜻하지 않는다.
+- 두 실제 Image 모두 `CONFIG_CSD_LOCK_WAIT_DEBUG`가 꺼져 있다. 이 옵션의
+  상세 대기 진단이 없다는 사실을 정상 응답의 증거로 사용할 수 없다.
+
+이 결과는 **P437에서 그 반복문이 실제로 실행됐다는 증명은 아니다.** 다만
+기존에 소스 수준의 가능성이던 경로가 실제 소비된 Image에도 있다는 점을
+확인했고, RT 경고만으로 Debian 작업의 CPU 과점유를 단정할 수 없는 이유를
+구체화했다. CPU 응답 대기를 우선 조사할 근거가 강화된다.
+
+### interrupt 전체가 멈춘 부팅은 아니다
+
+P437 첫 부팅의 bark 직전 보존 구간에는 8개 CPU 모두의 누적 IRQ가 0보다 크고,
+함수 호출 IPI 37,726회와 reschedule IPI 5,560회가 있다. CPU 0은 약 12.739초의
+bark interrupt도 처리했다. 따라서 모든 CPU의 GIC/IPI 기반이 처음부터 전혀
+작동하지 않았다는 설명은 배제할 수 있다.
+
+그러나 이 숫자는 **누적 집계**다. watchdog의 특정 ping이 어느 CPU에 전달되고
+언제 처리됐는지는 알려주지 않는다. alive mask 0과 함께 보아도 응답하지 않은
+CPU를 하나로 지목할 수 없다. P430의 손상·혼합된 후반 raw 문자열도 현재 부팅의
+완전한 IRQ trace로 사용하지 않았다.
+
+GIC callback도 이름만으로 고르지 않았다. Image에는 동명의 서로 다른 GIC
+구현이 있다. 단순 이름의 callback은 MMIO 쓰기를 사용하는 다른 구현이어서
+현재 GICv3의 실행 근거에서 제외했다. 별도로 선택한 실제 GICv3 송신 구간은
+두 Image 모두 404바이트이며 `DSB ST`, `ICC_SGI1R_EL1` 쓰기, `ISB`를 포함한다.
+이것도 배포 코드의 확인이고 실패 순간의 SGI 전달 성공을 뜻하지 않는다.
+
+### 비교할 변수는 기존 Image의 옵션 하나로 구체화할 수 있다
+
+P430/P437 첫 부팅의 **kernel command line 전체 40개 token도 동일**했다.
+따라서 실제 kernel·82개 module 행뿐 아니라 이 부팅 인자도 생존/실패의
+설명 변수로 사용할 수 없다. 두 줄 모두 `cpuidle.off` override가 없다.
+
+원본과 현재 Image의 parameter table에서 `cpuidle.off`를 직접 확인했다.
+실제 integer setter, 초기값 0의 argument 주소, `cpuidle_disabled()`의 load가
+같은 변수로 연결된다. 구조체 argument offset은 AArch64 기계어의 실제
+setter load와 대조했다. 소스에만 있는 옵션이나 문자열 검색 결과가 아니다.
+
+현재 Image의 `do_idle()`은 이 변수가 nonzero이면 default idle 경로로 분기한다.
+실제 call target은 `default_idle_call → arch_cpu_idle → cpu_do_idle → __cpu_do_idle`
+이며 마지막 구간에는 `DSB SY; WFI`가 있다. 이 작은 architecture idle 구간은
+원본과 후보에서 바이트가 같다. CPUIdle을 끈 경우 architecture의 기본 idle
+경로를 사용한다는 일반 의미는
+[커널 CPUIdle 문서](https://docs.kernel.org/admin-guide/pm/cpuidle.html)와도 일치한다.
+
+따라서 **기존 Image에 `cpuidle.off=1`만 다른 비교를 설계하는 H0 근거**가 생겼다.
+이는 watchdog를 끄는 옵션이 아니며 새 Qualcomm module dependency를 추가하지
+않고 깊은 CPUIdle 선택의 영향을 시험하는 방법이다. governor/driver를 건너뛰므로
+순정 qcom_lpm 정책 전체의 재현은 아니다. tick, IPI, firmware와 상호작용하는
+power 경로도 달라질 수 있어 성공하더라도 하나의 특정 race를 확정하지 않는다.
+전력·발열과 실제 첫 갱신 이후의 지속 실행도 비교 결과에 포함해야 한다.
+
+이 단계에서는 그 인자를 넣은 후보를 만들거나 활성화하지 않았다. 다음 H0
+후보 준비가 필요하면 기존 관측을 유지하고 이 변수만 분리해야 한다. 현재 dirty
+root의 admission/고정 복구 필요성, 실제 후보 qualification과 적용되는 authority는
+별도로 남는다. 이미 소비된 P430/P437을 반복할 권한이 생기는 것은 아니다.
+
+### 더 분석할 수 있는 것과 현재 기록에 없는 것
+
+이번 추가 작업으로 실제 core 경로, kernel command line 차이 여부, IRQ 전면
+부재설, 기존 idle 옵션의 적용 가능성은 더 좁혔다. 반면 다음 값은 보존 자료에 없다.
+
+1. 첫 timer callback 및 watchdog thread 재개 시각.
+2. CPU별 watchdog ping의 시작·응답과 당시 CPU_PM/idle 상태.
+3. 대기 중 CSD descriptor와 해당 CPU queue 상태.
+4. 실패한 주기에서 pet SMC까지 도달했는지와 실제 반환값.
+
+정적 기계어와 누적 IRQ 수로 이 동적 값을 복원했다고 주장할 수 없다. 기존의
+bounded task-state/CPU-time 관측과 위 한 변수 비교는 이 공백을 줄이는 수단이다.
+상세 원인 규명은 실제 첫 갱신 통과 및 Debian 지속 실행의 기능 판정과 구분한다.
+추가 firmware 정적 분석 자체가 불가능해진 것은 아니지만, 현재 기록은 실패한
+주기가 그 firmware 호출에 도달했는지조차 확정하지 못한다.
 
 ## 재현 자료와 검증
 
@@ -229,3 +333,12 @@ P430/P437 kernel 및 82개 module row equality, 초기 LPM data byte, 실제 tim
 FYG8 source를 대조했으며 core 전체의 기계어 일치나 device 실행 성공은 주장하지 않는다.
 후보 실행·전송·복구 변경 항목은 해당 없음이다. 모든 raw 로그·image·식별자는
 private에 보존했다. A90·S20+ 및 사전 존재하던 다른 작업은 변경하지 않았다.
+
+추가 H0 자료는
+`workspace/private/outputs/s22plus-watchdog-deeper-h0-20261020-1/`에 보존했다.
+`kernel/export-audit.json`, `kernel/kallsyms-audit.json`, `kernel/core-comparison.json`,
+`kernel/changed-call-targets.json`은 실제 두 Image와 선택한 명령어를 묶는다.
+`records/p437-late-cpu-ipi-lines.json`은 기존 첫 부팅의 raw offset을 보존하고,
+`synthesis/final-audit.json`은 동일 command line, IRQ 집계, 실제 parameter와
+WFE/WFI·GICv3 명령어의 연결을 재검사한다. private Python compilation과
+실제 두 Image/보존 raw에 대한 producer/consumer 검증이 통과했다.
