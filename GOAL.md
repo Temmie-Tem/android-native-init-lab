@@ -65,16 +65,16 @@ P432 installed PID1/rcS-fork proof. P432–P434/P436 are consumed/healthy; P434 
 RECOVERY_NOT_PROVED and P435 remains unstarted with its original prerequisite.
 
 The [stock FYG8 comparison](docs/reports/S22PLUS_FYG8_STOCK_FIRST_WATCHDOG_H0_2026-10-20.md)
-joins original firmware, effective source, module binaries and retained boots.
-Stock selects qcom-cpu-lpm early; its compiled sleep_disabled default keeps
-state 0/WFI, whereas P437 omits qcom_lpm and initially selects menu. Stock's first
-periodic pet at 10.24s precedes post-boot scripts at 16s+. This is a concrete idle
-policy difference, not a proved cause: P430 has the same actual diagnostic
-kernel and 82 module rows as P437 and survives about 369s. Neither kernel is
-byte-identical to the shipping Image. Further H0 binds WFE/data references,
-the cpuidle.off-to-WFI path, actual ramdisk differences and FYG8 hyp pet/status
-shared locks. P437's successful bark-time status constrains permanent shared-lock
-deadlock; P430/P437 differ beyond rcS. The cause and a missing-service fix remain unproved.
+joins original firmware/source, binaries and retained boots. Stock selects qcom-cpu-lpm
+with a compiled sleep_disabled default selecting state 0/WFI; P437 selects menu.
+Stock's 10.24s pet precedes 16s+ post-boot scripts. P430 has the same diagnostic
+kernel and 82 module rows as P437 yet survives about 369s; later userspace differs.
+This is an idle-policy lead, not a proved cause. H0 resolves 349 selected instruction
+differences, matches 336 alternative/66 static-key entries, and binds hyp locks,
+dynamic WFI trapping, ramdisk differences, early warnings and eight retained logs.
+No further static discriminator is identified. Timer/thread/ping/SMC execution and
+rcS child progress remain unobserved. Next is H0 preparation of one initial-idle-policy
+comparison with bounded observation; root admission and device-authority rules remain.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 

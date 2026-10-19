@@ -2,8 +2,9 @@
 
 날짜: 2026-10-20 KST. 대상: `SM-S906N/g0q/S906NKSS7FYG8`만.
 범위: 원본 펌웨어·소스·실제 모듈 및 이미 보존된 기록의 **H0 분석**.
-완료 기준은 첫 주기 갱신의 실행 경로, 순정의 선행 설정, 현재 후보의 차이와
-반증을 원본에 연결하는 것이다. 새 부팅·접속·기기 읽기·쓰기·후보 빌드는 없다.
+첫 주기 갱신의 실행 경로, 순정의 선행 설정, 현재 후보의 차이와 반증을 원본에
+연결하고, 남은 자료가 실패 가설을 더 구분할 수 있는지까지 조사했다.
+새 부팅·접속·기기 읽기·쓰기·후보 빌드는 없다.
 
 ## 확인된 결론
 
@@ -163,9 +164,9 @@ pet의 직접 호출 경로에 있는 구조는 아니다. 다만 간접 depende
 아니다. 배포 DTB에서 GH 노드를 찾지 못한 것을 실제 watchdog 미존재의 증거로
 쓰지 않았다. P437의 실제 초기화 및 bark/status 기록이 별도로 존재한다.
 
-이 H0는 secure/hypervisor firmware 내부를 의미적으로 역공학하거나 P437의
-실패 시점 SMC 반환값을 얻은 작업은 아니다. 현재 자료로 “firmware blob 누락”을
-원인으로 확정할 근거는 없으며, CPU idle 복귀·IPI 및 SMC 내부의 실제 원인은 남아 있다.
+배포 파일과 DTB의 존재만으로 firmware의 실제 실행이나 실패 시점 SMC 반환값을
+알 수는 없다. 아래에서 원본 hypervisor의 관련 코드를 별도로 분석했다.
+현재 자료에는 “firmware blob 누락”을 원인으로 확정할 근거가 없다.
 
 ## P437에 적용할 수 있는 해석
 
@@ -195,10 +196,9 @@ view와 runtime file 부재를 관측했다. 다음 writable boot의 root admiss
 고정 journal recovery 검토는 그대로 남는다. 파일 복구를 watchdog 원인 증명으로
 대체하지 않는다. 이 보고서는 새 gate·활성화·후보·grant 또는 기기 동작을 만들지 않는다.
 
-## 추가 H0: 실제 core 기계어와 남은 관측 공백
+## 실제 core 기계어와 동기 응답 대기
 
-앞의 비교만으로 사용 가능한 H0 자료가 소진된 것은 아니었다. 이어서 원본과
-후보 Image 내부의 export·kallsyms를 직접 해석하고, CPU/interrupt 기록과
+원본과 후보 Image 내부의 export·kallsyms를 직접 해석하고, CPU/interrupt 기록과
 부팅 인자를 대조했다. 기존 vmlinux의 주소를 현재 Image에 대신 적용하지 않았다.
 
 ### 현재 커널에도 실제 동기 응답 대기 코드가 있다
@@ -283,7 +283,7 @@ power 경로도 달라질 수 있어 성공하더라도 하나의 특정 race를
 root의 admission/고정 복구 필요성, 실제 후보 qualification과 적용되는 authority는
 별도로 남는다. 이미 소비된 P430/P437을 반복할 권한이 생기는 것은 아니다.
 
-### 더 분석할 수 있는 것과 현재 기록에 없는 것
+### 직접 관측이 필요한 실행 경계
 
 이번 추가 작업으로 실제 core 경로, kernel command line 차이 여부, IRQ 전면
 부재설, 기존 idle 옵션의 적용 가능성은 더 좁혔다. 반면 다음 값은 보존 자료에 없다.
@@ -296,14 +296,12 @@ root의 admission/고정 복구 필요성, 실제 후보 qualification과 적용
 정적 기계어와 누적 IRQ 수로 이 동적 값을 복원했다고 주장할 수 없다. 기존의
 bounded task-state/CPU-time 관측과 위 한 변수 비교는 이 공백을 줄이는 수단이다.
 상세 원인 규명은 실제 첫 갱신 통과 및 Debian 지속 실행의 기능 판정과 구분한다.
-추가 firmware 정적 분석 자체가 불가능해진 것은 아니지만, 현재 기록은 실패한
-주기가 그 firmware 호출에 도달했는지조차 확정하지 못한다.
+아래의 core·firmware 정적 분석으로도 이 네 값을 직접 복원할 수는 없다.
 
-## 추가 H0: FYG8 hypervisor, 데이터 참조와 실제 ramdisk 분기
+## FYG8 hypervisor, 데이터 참조와 실제 ramdisk 분기
 
-동적 관측이 부족하다는 사실을 정적 조사의 종료 조건으로 삼을 필요는 없었다.
-이어 원본 BL의 실제 hypervisor 코드, 앞에서 남긴 core 데이터 참조, P430/P437의
-소비된 boot 안 ramdisk를 대조했다. 다음 결과는 새 기기 관측 없이 얻었다.
+원본 BL의 실제 hypervisor 코드, core 데이터 참조, P430/P437의 소비된 boot 안
+ramdisk를 대조했다. 다음 결과는 새 기기 관측 없이 얻었다.
 
 ### 원본 hypervisor에서 pet과 status를 직접 연결했다
 
@@ -409,9 +407,125 @@ write/fsync/wait/sleep를 정지 지점으로 다시 제안하지 않는다.
 이번 추가 분석은 firmware의 영구 공용 잠금 설명과 선택 core 데이터 손상
 설명의 범위를 줄이고, P430 반례의 비교 한계를 더 명확히 했다. 실패 순간의
 timer/thread/ping/SMC 경계는 여전히 기록에 없으므로 원인은 미확정이다.
-남은 firmware 분기나 다른 core 참조도 정적으로 조사할 수 있지만, 그런 분석이
-첫 실패 주기의 실행 위치를 측정한 증거로 바뀌지는 않는다. 실제 기능 우선순위는
-기존 관측을 유지한 초기 idle 정책 한 변수 비교의 H0 준비다.
+남겨 둔 core 참조와 firmware 대기 경로를 더 조사한 결과와 현재의 조사 종료
+판정은 다음과 같다.
+
+## 남은 참조·대기 경로와 대안 설명의 검증
+
+### 선택한 349개 명령 차이와 런타임 패치 표
+
+39개 symbol 구간의 변경 명령 349개를 모두 분류했다. 58개 BL은 같은 함수로
+연결된다. 207개 ADRP는 각 주소를 소비하는 명령까지 추적했다. 168개는 보이는
+control-flow의 동일 상수 합류로, 나머지 39개는 짧은 local sequence로 확인했다.
+나머지 변경 84개는 같은 symbol-relative 주소 70개, 같은 128바이트 상수 prefix
+9개, 같은 완결 문자열 5개다. 알려지지 않은 BSS의 실제 값을 0으로 간주하지 않았다.
+
+가장 가까운 symbol과의 offset은 주소를 설명하는 기준이지 객체의 전체 크기나
+내용을 증명하는 기준이 아니다. local sequence도 그 경로의 실제 실행 증명은
+아니다. 이 결과는 선택한 차이를 주소 참조와 연결한 것이며 전체 커널의 형식적
+동등성 판정이나 모든 간접 호출·가변 데이터의 동등성 판정이 아니다.
+
+파일에서 곧바로 도달하지 않는 코드를 버리지 않고 `__alt_instructions`와
+`__jump_table`도 해석했다. 선택한 구간의 **alternative 336개와 static-key
+분기 66개**는 양쪽 Image에서 같은 상대 위치·기능·목적지로 대응한다.
+alternative의 replacement 명령과 jump의 key/목적지도 일치한다. 선택된 기능은
+IRQ priority masking, VHE, LDAPR, LSE다. 예를 들어 `cpu_pm_enter()`의 두
+조건 분기는 CPU capability key에 따라 바뀌므로 파일에 보이는 branch만으로
+뒤의 코드를 실행 불가능하다고 분류하면 안 된다.
+
+P430/P437의 첫 부팅에서 1초 이전 CPU-feature/EL 메시지 39개도 같은 내용이다.
+둘 다 LSE·LDAPR을 검출하고 EL1에서 시작하며, 같은 CPU-feature variation
+경고를 남겼다. 이것은 매 시점의 모든 capability/static-key 값 덤프가 아니다.
+특히 순정과 후보의 vendor-hook 등록 상태는 로딩 모듈이 달라 같다고 할 수 없다.
+
+### 실제 hypervisor의 WFE/WFI 처리와 hardware pet 끝부분
+
+원본 FYG8 `hypvm`에서 saved HCR의 초기 상수 생성과 실제 `HCR_EL2` 복원을
+연결했다. 확인한 초기값은 **TWI=1, TWE=0**이다. bit 13/14의 의미는
+[ARM64 HCR 정의](https://github.com/torvalds/linux/blob/v5.10/arch/arm64/include/asm/kvm_arm.h)와
+대조했다. 같은 바이너리의 context-switch/quiescent 경로는 vCPU 상태에 따라
+TWI를 바꾸고, exception table은 WFI/WFE를 구분한다.
+
+따라서 Linux의 CSD 대기에 WFE가 있다는 사실만으로 “hypervisor가 매번 WFE를
+trap하여 vCPU를 재우기 때문”이라고 설명할 근거는 없다. 반대로
+`cpuidle.off=1`의 기본 WFI 경로가 hypervisor의 idle 처리를 모두 우회하는 것도
+아니다. 공개 [Gunyah WFI 구현](https://github.com/quic/gunyah-hypervisor/blob/254727746fce809aba0e629a13711a954b246968/hyp/vm/vcpu/aarch64/src/wfi.c)은
+구조를 읽는 참고 자료로만 사용했다. 실제 FYG8의 코드 확인과 실패 당시
+HCR/vCPU scheduling 관측은 구분된다.
+
+hardware-pat 끝부분도 직접 확인했다. 앞에서 status와 연결한 동일한
+hardware-counter 잠금 아래에 counter 안정화 반복, 너무 가까운 pet의 생략,
+cached 시각 갱신과 실제 MMIO write가 있다. 따라서 성공한 status는 이 잠금을
+영구히 쥔 정지 설명을 계속 제한한다. 아직 pet SMC 진입 자체가 미관측이므로
+MMIO 뒤 firmware나 AOP/CPUCP 코드를 넓게 해독해도 어느 경로가 실패했는지
+선택할 근거가 생기지는 않는다.
+
+### timer·초기 경고·공개 수정의 적용 조건
+
+빠진 Qualcomm hook은 expiry에서 1 jiffy를 빼지만, timer wheel의 반올림 때문에
+효과가 항상 4ms인 것은 아니다. HZ=250, 기본 9,360ms/2,340-tick 상대 만료는
+level 2, 64-tick 버킷이다. 다른 입력이 같을 때 64개 residue 중 63개는 동일하고
+한 경우만 **256ms** 차이다. 선택 소스와 실제 hook 감산 명령을 대조했다.
+이것은 버킷 선택 차이의 한계이며 실제 timer 처리·scheduler·IPI 지연의 상한이
+아니다. hook 부재만으로 첫 pet의 미갱신을 확정하는 설명도 아니다.
+
+P430/P437에는 모두 0.5초 이전 sysfs permission 경고 두 건과 RCU 경고 한 건이
+있다. 실제 `__call_rcu+0x304` 경고는 head의 8바이트 정렬 검사에서 발생하며 enqueue
+경로로 돌아간다. KDP 쪽에는 head 주소를 4바이트 이동시켜 넘기는 경로가 있다.
+두 부팅에서 확인한 이 초기 stack을 12.739초의 watchdog stall stack으로 사용할
+수 없다. 공통 경고라는 이유만으로 일반적인 무해함이나 간접 영향 부재를
+증명한 것은 아니다.
+
+공개 수정 이력도 증상의 이름 대신 실제 전제 조건과 대조했다.
+
+| 확인한 수정 | 현재 입력에 대한 판정 |
+| --- | --- |
+| [idle에서 pending softirq 처리](https://kernel.googlesource.com/pub/scm/linux/kernel/git/stable/stable-queue/+/refs/tags/v4.14.232/releases/5.11.3/smp-process-pending-softirqs-in-flush_smp_call_funct.patch) | 선택 FYG8 소스에 있고 두 실제 Image도 해당 경로에서 `__do_softirq`를 호출한다. 이 처리의 단순 누락으로 설명할 수 없음 |
+| [PSCI 복귀의 pseudo-NMI/PMR 처리](https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux/+/630ca6c58fcfeaddd96dd46e7b11826013977955) | 두 실제 embedded config 모두 `CONFIG_ARM64_PSEUDO_NMI=n`. 이 수정의 전제를 충족하지 않음 |
+| [동기 IPI 대기 전 preemption 재활성화](https://lists.openwall.net/linux-kernel/2026/07/23/1274) | 대기 중 latency를 줄이는 변경. 현재 CSD completion 부재나 실제 대기 위치의 증거가 아니며, 응답하지 않는 CPU를 고친다는 근거도 없음 |
+
+검색한 공개 이력에서 현재 실패를 그대로 설명하는 수정은 확인하지 못했다.
+이는 알려진 모든 결함의 부재나 커널의 무결함 판정이 아니다.
+
+### 과거 반환 로그를 새로운 성공·실패 표본으로 셀 수 있는가
+
+기존 P418/P423/P424/P425/P426/P428/P430/P437의 `last_kmsg` 8건을 원시 capture
+receipt의 크기·해시와 다시 연결했다. 이 목록에서 bark/status/RT-warning 조합은
+P437에만 있다. 다른 파일의 그 문자열 부재는 watchdog 통과나 실행 부재 증명이
+아니며, candidate 부팅 앞의 오래된 Android pet 기록도 해당 candidate에 속하지 않는다.
+
+P425의 146개 원시 authenticated span은 그대로이며 whole-capture parser 실패를
+바꾸지 않았다. P426의 156개 partial preparation 기록, P428의 matching record
+부재도 기존 판정을 유지한다. P432는 원래 실행 보고서에 post-return retained-log
+읽기가 없었다고 명시되어 있다. 따라서 이들을 P437과 동일한 first-pet 실패의
+추가 재현으로 합칠 수 없다. 유효한 장시간 생존 반례는 P430이지만 그 userspace
+분기는 installed-init 비교와 다르다.
+
+## 현재 자료에 대한 조사 종료 판정
+
+**현재 보존 자료에서 실패 가설을 더 구분해 줄 유효한 정적 조사 항목은 소진됐다고
+판단한다. 원인이 확정됐다는 뜻은 아니다.** 조사 범위는 순정 startup/script,
+실제 watchdog/LPM 및 관련 모듈, core 참조와 patch table, hypervisor의 관련
+dispatch·잠금·대기·hardware pet, 실제 ramdisk 차이, 과거 반환 기록과 적용 가능한
+공개 수정이다.
+
+| 남은 질문 | 현재 자료로 결정할 수 없는 이유 | 판별에 필요한 새 정보 |
+| --- | --- | --- |
+| 첫 timer와 thread가 언제 실행됐는가 | 초기화와 bark 사이의 해당 경계 기록 없음 | 첫 wake 및 thread 단계/시간 |
+| 특정 CPU의 동기 ping에서 기다렸는가 | alive mask·누적 IRQ는 개별 요청과 연결되지 않음 | 요청 대상, 시작/응답, 당시 CPU_PM/idle 또는 task wait 위치 |
+| pet SMC 안에 도달했거나 그 안에서 멈췄는가 | bark의 status는 별도 호출이며 첫 pet 호출 trace가 없음 | pet 진입/반환 또는 실패 당시 PC |
+| rcS의 어느 작업과 상호작용했는가 | child exec 성공과 후속 script 진행이 미관측 | 실제 child 진행과 실패 경계의 같은-boot 연결 |
+
+전체 firmware의 아직 읽지 않은 명령이나 다른 kernel subsystem을 해독하는 일은
+가능하다. 하지만 지금은 그 코드가 실패 주기에 관여했다는 경로 선택 증거가 없어
+현재 원인 후보를 판별하는 다음 작업으로 삼을 근거가 없다. 새 증거가 그 경로를
+가리키면 해당 부분을 다시 조사한다. 이것은 새 gate나 연구 금지가 아니다.
+
+다음 유용한 단위는 기존 bounded 관측을 유지하면서 **초기 idle 정책만 바꾼 비교를
+H0로 준비하는 것**이다. 첫 pet 이후의 반복 갱신과 Debian 서비스 지속 실행을
+기능 판정으로 삼고, 상세 원인 규명은 별도로 둔다. `cpuidle.off=1`만으로 순정
+정책 전체나 firmware idle을 재현·배제했다고 하지 않는다. 현재 dirty root의
+고정 복구/admission, 후보 qualification과 실제 device authority는 그대로 남는다.
 
 ## 재현 자료와 검증
 
@@ -466,3 +580,15 @@ ELF segment, 실제 SMC dispatch·공용 잠금·status raw를 연결한다.
 pin을 검사한다. 선택 source diff도 함께 남겼다. private Python compilation 및
 세 실제 producer/consumer 감사가 통과했다. firmware 실행, 새 후보 빌드,
 기기 명령, runtime/runner/정책 변경은 없으며 기존 다른 대상 작업은 보존했다.
+
+최종 조사 자료는
+`workspace/private/outputs/s22plus-watchdog-frontier-h0-20261020-1/`에 있다.
+`kernel/changed-data-references.json`과 `kernel/runtime-patch-audit.json`은 나머지
+주소 참조와 336/66개 patch 항목을, `kernel/timer-config-audit.json`은 실제 config,
+softirq call, timer 산술과 두 부팅의 초기 feature 메시지를 연결한다.
+`kernel/early-warning-audit.json`은 실제 정렬 검사/분기와 초기 raw 문맥을 묶는다.
+`firmware/idle-and-pat-audit.json`은 HCR·WFx 및 hardware-pat 경로를,
+`records/retention-inventory-audit.json`은 기존 capture 8건의 범위를 보존한다.
+외부 수정의 링크와 적용 판정은 `synthesis/external-fix-assessment.json`에 있다.
+`synthesis/final-audit.json`은 이 결과와 public 문서, private Python compilation,
+기존 46개 변경의 보존을 확인한다. 새 실행 코드·정책·후보는 만들지 않았다.
