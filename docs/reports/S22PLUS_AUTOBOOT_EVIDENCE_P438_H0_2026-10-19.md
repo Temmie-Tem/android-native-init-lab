@@ -1,6 +1,9 @@
 # S22+ P438: fixed P437 file capture before the watchdog successor
 
-Status: **READY_FOR_RETURNED_ATTENDED_GRANT**. Only S22+ FYG8 is selected.
+Status: **CONSUMED; ANDROID_CLOSED_HEALTHY**. Only S22+ FYG8 is selected.
+The [2026-10-20 physical run](S22PLUS_AUTOBOOT_EVIDENCE_P438_RUN_2026-10-20.md)
+recovered the authenticated P437 early file; runtime was absent in the dirty
+home-block view. The preparation facts below describe the pre-grant state.
 
 ## Bounded next device unit
 
