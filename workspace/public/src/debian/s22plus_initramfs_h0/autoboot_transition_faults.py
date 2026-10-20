@@ -1,8 +1,8 @@
 """Declared VM substitutions in copies of the actual transition producers."""
 from pathlib import Path
 from s22plus_native_records_v3 import require,pin
-from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES,RCS_CASES
-CASES=TRANSITION_CASES+RCS_CASES
+from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES,RCS_CASES,SINGLECPU_FAULTS
+CASES=TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS
 
 
 def source(out,original,fault,native):
@@ -16,7 +16,9 @@ def source(out,original,fault,native):
         path=folder/name;text=path.read_text()
         require(text.count(old)==count,'transition fixture anchor differs: '+name)
         path.write_text(text.replace(old,new))
-    if fault in ('trace-file-close','trace-parent-close','trace-root-close'):
+    if fault=='singlecpu-disabled':
+        edit('s22plus_autoboot_singlecpu_v1.h','strcpy(disable,"0\\n")','strcpy(disable,"1\\n")')
+    elif fault in ('trace-file-close','trace-parent-close','trace-root-close'):
         stage,fd={'trace-file-close':('FILE_CLOSE','fd'),'trace-parent-close':('PARENT_CLOSE','parent'),
             'trace-root-close':('ROOT_CLOSE','root')}[fault]
         edit('file-log.c',f'AT_SYS(AT_{stage},close({fd}))',f'AT_SYS(AT_{stage},close(-1))',2 if fd=='root' else 1)

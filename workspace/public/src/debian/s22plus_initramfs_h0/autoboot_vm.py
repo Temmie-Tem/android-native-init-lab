@@ -21,7 +21,7 @@ import s22plus_debian_autoboot_transition_v1 as transition_protocol
 import device_action_raw_capture_v1 as raw
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
-CASES=build_api.profile.cases(True,True,True,True)
+CASES=tuple(dict.fromkeys(build_api.profile.cases(True,True,True,True)+build_api.profile.SINGLECPU_CASES))
 
 
 def prepare(out,build,helper,case):
@@ -29,10 +29,12 @@ def prepare(out,build,helper,case):
     physical=read(build/'build.json');selected=read(helper/'request.json')
     transition,rcs,watchdog=build_api.profile.variants(selected)
     phase=build_api.profile.phase_selected(selected)
-    require(case in build_api.profile.cases(transition,rcs,watchdog,phase),'case does not belong to selected variant')
+    single_cpu=build_api.profile.singlecpu_selected(selected)
+    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu),'case does not belong to selected variant')
     require(selected['virtual'] is True and physical['virtual'] is False and selected['run_id']==physical['run_id'] and
         build_api.profile.variants(physical)==(transition,rcs,watchdog) and
         build_api.profile.phase_selected(physical)==phase and
+        build_api.profile.singlecpu_selected(physical)==single_cpu and
         physical.get('idle_policy')==selected.get('idle_policy') and
         selected['modules']==physical['modules'] and
         selected['measured']['init_sha256']==physical['measured']['init_sha256'] and
@@ -65,7 +67,7 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
-    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase)):
+    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu)):
         if case=='missing-second-history' and index==1:continue
         if case=='missing-runtime-history' and index==2:continue
         selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime'}.get(index)
@@ -85,7 +87,7 @@ def prepare(out,build,helper,case):
         (out/'extra-runtime').write_bytes(b'UNQUALIFIED_RUNTIME_FILE\n')
         suffix='f'*32 if rcs else build_api.profile.additional_history()['path'].rsplit('-',1)[1]
         path='/var/lib/lab/s22-evidence-'+suffix
-        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs,watchdog,phase)} and
+        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs,watchdog,phase,single_cpu)} and
             suffix!=selected['run_id'],'unexpected-history fixture overlaps selected files')
         vm.fixture.debug(native,out,'extra-runtime',f'write {out}/extra-runtime {path}')
         vm.fixture.debug(native,out,'extra-runtime-mode',f'set_inode_field {path} mode 0100600')
@@ -115,7 +117,8 @@ def ssh_command(plan,port,command):
 def kernel_command_line(selected):
     # The retained VM command line contains "--"; kernel parameters must
     # precede it or they become additional, rejected PID1 arguments.
-    return ('cpuidle.off=1 ' if selected.get('idle_policy')=='cpuidle-off' else '')+vm.KERNEL_COMMAND_LINE
+    return ('maxcpus=1 ' if build_api.profile.singlecpu_selected(selected) else '')+(
+        'cpuidle.off=1 ' if selected.get('idle_policy')=='cpuidle-off' else '')+vm.KERNEL_COMMAND_LINE
 
 
 def run(out,build,helper,case):
@@ -129,23 +132,37 @@ def run(out,build,helper,case):
     if network.prefixlen>24:network=network.supernet(new_prefix=24)
     net=f'user,id=net,restrict=on,net={network},host={link["host_address"].split("/")[0]},'
     net+=f'dhcpstart={link["ssh_address"]},dns={network.network_address+254},hostfwd=tcp:127.0.0.1:{port}-{link["ssh_address"]}:22'
-    command=[vm.fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','2','-m','1024',
+    single_cpu=build_api.profile.singlecpu_selected(selected)
+    command=[vm.fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','8' if single_cpu else '2','-m','1024',
         '-netdev',net,'-device','virtio-net-device,netdev=net,mac='+link['device_mac'],
         '-display','none','-monitor','none','-serial',f'file:{out}/serial.log','-no-reboot',
         '-kernel',h0.regular(vm.KERNEL),'-initrd',out/'initramfs.cpio.gz','-append',
-        kernel_command_line(selected),
+        kernel_command_line(selected).removeprefix('maxcpus=1 ') if case=='singlecpu-unlimited' else kernel_command_line(selected),
         '-drive',f'if=none,id=root,file={out}/disk.img,format=raw',
         '-device','virtio-blk-device,drive=root,logical_block_size=4096,physical_block_size=4096']
     if case=='network-absent':
         begin=command.index('-netdev');command[begin:begin+4]=['-nic','none']
     publish(out/'command.json',list(map(str,command)));process=None;proof=health=shutdown=None
-    local=None;forced_stop=False;proof_capture=None;runtime_absent=False
+    local=None;forced_stop=False;proof_capture=None;runtime_absent=False;ssh_pair=None
     deadline=time.monotonic()+360
     try:
         with (out/'qemu.log').open('xb') as log:
             process=subprocess.Popen(list(map(str,command)),stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,
                 env=dict(os.environ,LD_LIBRARY_PATH=str(vm.fixture.QEMU/'usr/lib/x86_64-linux-gnu')))
             if case in ('normal','trace-logger-loss'):
+                if single_cpu:
+                    first_health=None
+                    for ordinal in range(1,30):
+                        require(time.monotonic()<deadline and process.poll() is None,'VM stopped before initial SSH')
+                        handle=raw.acquire_command(ssh_command(plan,port,'health'),out,f'initial-health-{ordinal:03d}',
+                            timeout=5,stdout_maximum=65536,stderr_maximum=16384)
+                        if handle.returncode==0:
+                            from s22plus_debian_autoboot_access_v1 import singlecpu_health_sample
+                            singlecpu_health_sample(handle,plan)
+                            first_health=handle;first_finished=time.monotonic();break
+                        require(not handle.output_exceeded and handle.producer_error_type is None,'initial VM SSH producer failed')
+                        time.sleep(3)
+                    require(first_health is not None,'initial VM SSH health missing')
                 for ordinal in range(1,121):
                     require(time.monotonic()<deadline and process.poll() is None,'automatic VM stopped before service proof')
                     handle=raw.acquire_command(ssh_command(plan,port,'evidence'),out,f'evidence-{ordinal:03d}',timeout=5,
@@ -158,9 +175,16 @@ def run(out,build,helper,case):
                         break
                     time.sleep(2)
                 require(proof is not None,'automatic VM service evidence missing')
+                if single_cpu:
+                    while time.monotonic()-first_finished<120.1:
+                        require(time.monotonic()<deadline and process.poll() is None,'VM stopped during SSH interval')
+                        time.sleep(0.1)
                 handle=raw.acquire_command(ssh_command(plan,port,'health'),out,'health',timeout=10,
                     stdout_maximum=65536,stderr_maximum=16384)
                 health=lifecycle.access.health_projection(handle,plan,boot_sha256=proof['kernel_boot_identity_sha256'],autoboot=True)
+                if single_cpu:
+                    from s22plus_debian_autoboot_access_v1 import singlecpu_health_pair
+                    ssh_pair=singlecpu_health_pair(first_health,handle,plan,proof['kernel_boot_identity_sha256'])
                 handle=raw.acquire_command(ssh_command(plan,port,'shutdown'),out,'shutdown',timeout=20,
                     stdout_maximum=65536,stderr_maximum=16384)
                 shutdown=lifecycle.access.shutdown_projection(handle,plan['link']['ssh_address'])
@@ -188,7 +212,7 @@ def run(out,build,helper,case):
             local=protocol.local_records(*bodies,key=key,selected=selected,root_device=dict(major=259,minor=25))
         elif case in build_api.profile.RCS_CASES:
             require(before!=after,'rcS fault did not reach its owned writable boot')
-        elif case not in ('changed-receipt','fd-leak','module-error') and not case.startswith('trace-'):
+        elif case not in ('changed-receipt','fd-leak','module-error','singlecpu-disabled') and not case.startswith('trace-'):
             require(before==after,'pre-admission rejection changed the disk')
         else:
             # First phase may have completed, but no installed-service record
@@ -210,6 +234,9 @@ def run(out,build,helper,case):
             runtime_absent=runtime_absent,setup=pin(out/'setup.json'),
             local_files={name:pin(out/(name+'.bin')) for name in ('early','runtime')} if local is not None else None,scope='REAL_DEBIAN_AUTOBOOT_WITH_SAMSUNG_HARDWARE_SUBSTITUTIONS')
         if transition is not None:value['transition']=transition
+        if ssh_pair is not None:value['ssh_120_seconds']=ssh_pair
+        if single_cpu:value['single_cpu_vm']=dict(exposed_cpus=8,watchdog_sysfs='MODEL_ONLY',
+            cpu_online='REAL_KERNEL_SYSFS',hardware_pet_proved=False)
         if case in build_api.profile.RCS_CASES:value['runtime_observation']='NOT_ACQUIRED_AFTER_RCS_FAULT'
         publish(out/'result.json',value);print(case,'PASS',flush=True);return value
     finally:
@@ -221,18 +248,19 @@ def suite(out,build):
     out=h0.private(out,fresh=True);build=h0.private(build);built=read(build/'build.json')
     transition,rcs,watchdog=build_api.profile.variants(built)
     phase=build_api.profile.phase_selected(built)
+    single_cpu=build_api.profile.singlecpu_selected(built)
     prepared=build_api.prepare(out/'virtual',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition=transition,
-        rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase)
+        rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase,single_cpu=single_cpu)
     require(prepared['source_inputs']==built['source_inputs'],'suite sources differ from the physical build')
-    cases=build_api.profile.cases(transition,rcs,watchdog,phase)
+    cases=build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu)
     def single(case):
         helper=out/'virtual'
-        if case in build_api.profile.TRANSITION_CASES+build_api.profile.RCS_CASES:
+        if case in build_api.profile.TRANSITION_CASES+build_api.profile.RCS_CASES+build_api.profile.SINGLECPU_FAULTS:
             helper=out/(case+'-helper')
             prepared=build_api.prepare(helper,Path(built['inputs']),Path(built['packages']),
                 run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,
-                transition=True,transition_fault=case,rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase)
+                transition=True,transition_fault=case,rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase,single_cpu=single_cpu)
             require(prepared['source_inputs']==built['source_inputs'],'fault sources differ from physical build')
         return run(out/case,build,helper,case)
     with ThreadPoolExecutor(max_workers=2) as pool:

@@ -39,10 +39,12 @@ def tag(key,body,*,autoboot=False):
 
 
 class Chain:
-    def __init__(self,first_tag,*,autoboot=False):
+    def __init__(self,first_tag,*,autoboot=False,single_cpu=False):
         self.tag=first_tag;self.rows=[];self.started=False;self.off=False;self.complete=False
         self.released=False;self.stopped=False;self.progress=[];self.boundaries=[];self.elapsed=0
         self.autoboot=autoboot
+        require(not single_cpu or autoboot,'single CPU evidence requires automatic startup')
+        self.single_cpu=single_cpu
 
     def append(self,raw,key):
         require(len(raw)==RECORD and raw[:8]==b'S22DER1\0','durable record framing differs')
@@ -84,7 +86,8 @@ class Chain:
         elif kind==PROGRESS:
             ordinal=len(self.progress);expected=ordinal+1 if ordinal<3 else 4
             require(self.started and not self.complete and ordinal<15 and phase==expected and
-                event==(0 if ordinal<3 else ordinal-2) and c==0 and
+                event==(0 if ordinal<3 else ordinal-2) and
+                (c==257 if self.single_cpu else c==0) and
                 ((a==b==0) if ordinal<2 else b==3 and event*10000<=a<=event*10000+10000 and a<=elapsed and
                     (ordinal<3 or a>self.progress[-1]['a'])),
                 'durable progress accounting differs')
@@ -92,6 +95,9 @@ class Chain:
                 prior=[r for r in self.boundaries if r['phase']==ordinal]
                 require(prior and prior[-1]['event']==5 and prior[-1]['b']==0,'local completion lacks successful child')
             self.progress.append(row)
+            if self.single_cpu:
+                row['platform']=dict(online_cpus=[0],watchdog_driver_enabled=True,
+                    hardware_pet_proved=False)
         elif kind==BOUNDARY:
             require(self.started and not self.complete and phase in (1,2) and len(self.progress)==phase,
                 'durable boundary phase differs')
@@ -124,18 +130,19 @@ class Chain:
         self.tag=raw[96:];self.elapsed=elapsed;self.rows.append(row)
 
 
-def decode(data,key,expected,*,allow_prefix=False,autoboot=False):
+def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False):
     """Expected identity comes from the retained qualified image/authenticated run.
 
     A valid historical prefix can survive a later malformed/torn tail. It
     grants no continuation and does not claim complete file or host delivery.
     """
+    require(not single_cpu or autoboot,'single CPU evidence requires automatic startup')
     require(type(data) is bytes and HEADER<=len(data)<=MAXIMUM and len(key)==32 and
         hashlib.sha256(key).hexdigest()==expected['key_sha256'],
         'durable file size or key differs')
     h=data[:HEADER]
     require(h[:8]==b'S22DE01\0' and struct.unpack_from('<II',h,8)==(1,HEADER) and
-        struct.unpack_from('<4I',h,112)==(5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and not any(h[200:224]) and
+        struct.unpack_from('<4I',h,112)==(6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and not any(h[200:224]) and
         hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot)),'durable header authentication or shape differs')
     origin,deadline=struct.unpack_from('<QQ',h,96);device=struct.unpack_from('<Q',h,192)[0]
     require(deadline>=300000 and deadline-origin==300000 and h[16:32].hex()==expected['run_id_hex'] and
@@ -144,7 +151,7 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False):
         device==os.makedev(expected['root_device']['major'],expected['root_device']['minor']),
         'durable identity does not join retained run/boot/init/root')
     require(not autoboot or (origin,deadline)==(0,300000),'automatic deadline was renewed')
-    chain=Chain(h[224:],autoboot=autoboot);error=None;pos=HEADER
+    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu);error=None;pos=HEADER
     while pos<len(data):
         try:chain.append(data[pos:pos+RECORD],key)
         except ValueError as failure:
@@ -162,4 +169,9 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False):
     if autoboot:
         result.update(schema='s22plus-debian-autoboot-durable-projection-v1',automatic_start=chain.started,
             start_authenticated=False,release_authenticated=False)
+    if single_cpu:
+        result['single_cpu']=dict(sample_count=len(chain.progress),
+            cpu0_and_enabled_watchdog_at_all_samples=bool(chain.progress),
+            service_window_120_seconds=chain.complete,hardware_pet_proved=False,
+            continuous_cpu_online_proved=False)
     return result

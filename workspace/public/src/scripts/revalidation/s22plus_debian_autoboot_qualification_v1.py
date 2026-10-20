@@ -66,18 +66,19 @@ def copy_readback(row,parts):
 def producer(built,*,virtual):
     transition,rcs,watchdog=profile.variants(built)
     phase=profile.phase_selected(built)
-    namespace=profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    single_cpu=profile.singlecpu_selected(built)
+    namespace=profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
-        built['observer_revision']==5 and built['trace_maximum']==protocol.TRACE_MAXIMUM and
+        built['observer_revision']==(6 if single_cpu else 5) and built['trace_maximum']==protocol.TRACE_MAXIMUM and
         'development_derivative' not in built,'automatic producer scope differs')
     require(re.fullmatch('[0-9a-f]{32}',built['run_id']) and
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
     if transition:
-        require(built['transition_observer']==profile.observer(rcs,watchdog,phase) and
+        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu) and
             built['additional_history']==profile.additional_history(),'transition admission/observation differs')
     else:require('additional_history' not in built,'legacy producer cannot adopt new history')
     if rcs:require(built['runtime_history']==profile.runtime_history(),'rcS runtime history differs')
@@ -99,12 +100,15 @@ def producer(built,*,virtual):
             [profile.phase_spec.MODULE_SHA],'phase callsites do not match the selected module')
     else:require('phase_history' not in built and 'phase_declaration' not in built and 'phase_vm_timing' not in built,
         'legacy producer cannot adopt phase history or observation')
+    if single_cpu:require(built['current_history']==profile.phase_history(),'single CPU authenticated history differs')
+    else:require('current_history' not in built,'legacy producer cannot adopt single CPU history')
     if 'transition_fault' in built:
-        require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ()),
+        require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ())+
+                (profile.SINGLECPU_FAULTS if single_cpu else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
-    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase)
+    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -117,7 +121,7 @@ def producer(built,*,virtual):
         'automatic fixed tools differ')
     require(built['measured']['helper_sha256']==built['helper']['sha256'] and
         set(built['measured'])=={'shell_sha256','init_sha256','helper_sha256'},'automatic measurements differ')
-    init,assets=profile.payloads(built['run_id'],virt=virtual)
+    init,assets=profile.payloads(built['run_id'],virt=virtual,single_cpu=single_cpu)
     require(built['installed_init']==dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()) and
         set(built['assets'])==set(assets)|{'hook'} and built['assets']['hook']==built['hook'],
         'automatic installed init/assets differ')
@@ -129,8 +133,9 @@ def producer(built,*,virtual):
 def vm_results(tested,built,key):
     transition,rcs,watchdog=profile.variants(built)
     phase=profile.phase_selected(built)
+    single_cpu=profile.singlecpu_selected(built)
     require(tested['status']=='PASS' and tested['device_actions']==0 and
-        tuple(row['case'] for row in tested['cases'])==profile.cases(transition,rcs,watchdog,phase),'automatic VM corpus differs')
+        tuple(row['case'] for row in tested['cases'])==profile.cases(transition,rcs,watchdog,phase,single_cpu),'automatic VM corpus differs')
     sources={r['path']:r['sha256'] for r in built['source_inputs']}
     require(len(sources)==len(built['source_inputs']) and
         sources=={r['path']:r['sha256'] for r in tested['source_inputs']},'automatic VM source closure differs')
@@ -139,9 +144,13 @@ def vm_results(tested,built,key):
             row['host_start_requests']==0 and
             row['scope']=='REAL_DEBIAN_AUTOBOOT_WITH_SAMSUNG_HARDWARE_SUBSTITUTIONS',
             'automatic VM hardware substitutions were promoted')
+        if single_cpu:
+            require(row['single_cpu_vm']==dict(exposed_cpus=8,watchdog_sysfs='MODEL_ONLY',
+                cpu_online='REAL_KERNEL_SYSFS',hardware_pet_proved=False),'single CPU VM substitution scope differs')
         helper=producer(read(verify(row['virtual_helper'])),virtual=True)
         require(profile.variants(helper)==(transition,rcs,watchdog) and
             profile.phase_selected(helper)==phase and
+            profile.singlecpu_selected(helper)==single_cpu and
             helper.get('idle_policy')==built.get('idle_policy') and
             helper['source_inputs']==built['source_inputs'] and helper['run_id']==built['run_id'] and
             helper['modules']==built['modules'] and helper['history']==built['history'] and
@@ -164,7 +173,7 @@ def vm_results(tested,built,key):
                 phase_window_ms=helper.get('phase_vm_timing',{}).get('absolute_window_ms',15000))
             require(projected==row['transition'],'actual VM transition projection differs')
             qualify_case(projected,row['case'])
-            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES+profile.RCS_CASES else None),
+            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES+profile.RCS_CASES+profile.SINGLECPU_FAULTS else None),
                 'VM fault producer selection differs')
         if row['case'] in ('normal','trace-logger-loss'):
             capture=raw.load_handle(verify(row['proof_capture']));raw.require_success(capture)
@@ -180,6 +189,12 @@ def vm_results(tested,built,key):
                 row['filesystem']['clean_ext4'] is True and row['filesystem']['home_view_readable'] is True and
                 row['filesystem']['boot_count_durability']=='CONTROLLED_SHUTDOWN_VERIFIED' and
                 row['disk_before']!=row['disk_after'],'automatic complete VM lifecycle differs')
+            if single_cpu:
+                from s22plus_debian_autoboot_access_v1 import singlecpu_health_pair
+                pair=row['ssh_120_seconds']
+                require(pair==singlecpu_health_pair(raw.load_handle(verify(pair['first']['health']['capture'])),
+                    raw.load_handle(verify(row['ssh_health']['capture'])),plan,
+                    proof['kernel_boot_identity_sha256']),'VM SSH interval does not rederive')
         elif row['case']=='network-absent':
             require(row['forced_host_stop'] is True and row['ssh_health'] is None and row['shutdown'] is None and
                 row['filesystem'] is None and row['proof'] is None and row['proof_capture'] is None,
@@ -197,7 +212,7 @@ def vm_results(tested,built,key):
                 require(rcs and row['runtime_absent'] is False and
                     row['runtime_observation']=='NOT_ACQUIRED_AFTER_RCS_FAULT' and
                     row['disk_before']!=row['disk_after'],'rcS fault was promoted to a pre-write stop or storage read')
-            elif row['case'] in ('changed-receipt','fd-leak','module-error') or row['case'].startswith('trace-'):
+            elif row['case'] in ('changed-receipt','fd-leak','module-error','singlecpu-disabled') or row['case'].startswith('trace-'):
                 require(row['runtime_absent'] is True,'failed automatic entry ran installed services')
             else:require(row['disk_before']==row['disk_after'],'pre-admission rejection changed storage')
     return tested

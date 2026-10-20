@@ -6,6 +6,7 @@ import re
 import s22plus_debian_file_protocol_v1 as early
 import s22plus_debian_evidence_v1 as durable
 import s22plus_switch_root_protocol_v1 as transition
+import s22plus_debian_autoboot_profile_v1 as profile
 from s22plus_native_records_v3 import require
 
 MAXIMUM=400000
@@ -34,7 +35,7 @@ def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot):
     expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),boot=boot.hex(),
         nonce_sha256=hashlib.sha256(nonce).hexdigest(),init_sha256=selected['installed_init']['sha256'],
         hook_sha256=selected['hook']['sha256'],root_device=state.proof['root_device'])
-    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True)
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected))
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and not runtime['required_check_stopped'] and
         runtime['automatic_start'] and not runtime['report_disabled'],'automatic service observation is incomplete')
     return dict(schema='s22plus-debian-autoboot-proof-v1',status='PASS_AUTOMATIC_DEBIAN_SERVICES',
@@ -66,7 +67,7 @@ def local_records(early_bytes,runtime_bytes,*,key,selected,root_device):
     expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),
         boot=first['kernel_boot_identity_sha256'],nonce_sha256=hashlib.sha256(nonce).hexdigest(),
         init_sha256=selected['installed_init']['sha256'],hook_sha256=selected['hook']['sha256'],root_device=root_device)
-    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True)
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected))
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and
         not runtime['required_check_stopped'] and runtime['automatic_start'] and
         not runtime['report_disabled'],'automatic local service evidence is incomplete')

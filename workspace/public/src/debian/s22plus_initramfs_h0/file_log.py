@@ -31,13 +31,14 @@ def validate_identity(namespace,version):
         'file candidate version differs')
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
     h0.require(not autoboot or diagnostic and storage_first,'autoboot requires supervised storage-first')
     h0.require(not transition or autoboot,'transition observer requires automatic startup')
     h0.require(not rcs or transition,'rcS observation requires automatic transition observation')
     h0.require(not watchdog or rcs,'watchdog history requires automatic rcS observation')
     h0.require(not phase or watchdog,'phase history requires the complete predecessor selection')
+    h0.require(not single_cpu or watchdog and not phase,'single CPU requires proc observation')
     h0.require(transition_fault is None or transition and virt,'transition fault requires the VM')
     validate_identity(namespace,version)
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
@@ -69,7 +70,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
             h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
     if autoboot:
         import s22plus_debian_autoboot_profile_v1 as automatic
-        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase)
+        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu)
     else:generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])
@@ -96,6 +97,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     h0.run([*flags,*(['-DS22_ROOT_INSPECT_VIRT_TEST'] if virt else []),
         *(['-DFL_STORAGE_FIRST'] if storage_first else []),*(['-DS22_FAILURE_OBSERVER'] if diagnostic else []),
         *(['-DS22_DEBIAN_AUTOBOOT'] if autoboot else []),
+        *(['-DS22_AUTOBOOT_SINGLECPU'] if single_cpu else []),
         *(['-DS22_AUTOBOOT_TRACE=1','-DS22_AUTOBOOT_HISTORY'] if transition else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')
     for name in ('fyg8-prepare','file-log'):
@@ -117,6 +119,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if rcs:result['runtime_history']=generated['runtime_history']
     if watchdog:result['watchdog_history']=generated['watchdog_history']
     if phase:result['phase_history']=generated['phase_history']
+    if single_cpu:result['current_history']=generated['current_history']
     if transition_fault:result['transition_fault_sources']=fault_sources
     if storage_first:
         if sources is None:sources=json.loads((out/'source-inputs.json').read_text())
@@ -133,7 +136,8 @@ def snapshot(out):
     import s22plus_debian_file_first_protocol_v1
     import s22plus_debian_file_first_profile_v1
     rows={r['path']:r for r in early.snapshot(out)}
-    paths=set(admission.source_files())|{h0.HERE/'file-hook',Path(protocol.__file__)}|set(h0.HERE.glob('*.h'))
+    paths=set(admission.source_files())|{h0.HERE/'file-hook',Path(protocol.__file__),
+        fyg8.ext4.NATIVE/'s22plus_autoboot_singlecpu_v1.h'}|set(h0.HERE.glob('*.h'))
     for path in sorted(paths):
         dest=out/'source-snapshot'/path.relative_to(h0.ROOT)
         dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(path.read_bytes())

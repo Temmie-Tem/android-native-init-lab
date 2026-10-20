@@ -18,7 +18,11 @@ static void dh_progress(unsigned ordinal,unsigned stage,unsigned sample,uint64_t
     sw_put32(body+8,1);sw_put32(body+12,services);
     for(unsigned i=0;i<8;++i)body[16+i]=(uint8_t)(elapsed>>(8*i));
     memcpy(body+24,sw.boot,32);
-    int error=de_event(DE_PROGRESS,stage,sample,elapsed,services,0);if(error)dh_hook_fail(error);
+    uint64_t platform=0;int error;
+#ifdef S22_AUTOBOOT_SINGLECPU
+    if((error=sc_observe(&platform)))dh_hook_fail(error);
+#endif
+    error=de_event(DE_PROGRESS,stage,sample,elapsed,services,platform);if(error)dh_hook_fail(error);
     error=dh_report(DH_PROGRESS,2000+ordinal,body,sizeof(body));if(error)dh_hook_fail(error);
 }
 /* Revision 4 retains the revision-3 wire boundaries; local records also bind

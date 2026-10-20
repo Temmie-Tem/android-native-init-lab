@@ -11,6 +11,7 @@ static int ab_owned_file(int,dev_t);
 #include "s22plus_switch_root_v1.c"
 #include "early-seal.h"
 #include "early-protocol.h"
+#include "s22plus_autoboot_singlecpu_v1.h"
 
 #define AB_EARLY_MAX 16384U
 static uint8_t ab_early[AB_EARLY_MAX],ab_hash[32];
@@ -112,6 +113,10 @@ int main(int argc,char **argv) {
     if(!error)error=AT_CHECK(AT_CHILDREN,sw_no_children());
     if(!error)error=AT_CHECK(AT_USERSPACE,sw_userspace());
     if(!error)error=AT_CHECK(AT_INITIAL_FDS,ab_initial_fds());
+#ifdef S22_AUTOBOOT_SINGLECPU
+    uint64_t platform;
+    if(!error)error=sc_observe(&platform);
+#endif
     if(error)sw_stop(error);
     if(AT_SYS(AT_MOUNT_PRIVATE,mount(NULL,"/",NULL,MS_REC|MS_PRIVATE,NULL)) ||
        AT_SYS(AT_CLOSE_INITIAL_FDS,syscall(SYS_close_range,3U,UINT_MAX,0U)))sw_stop(fs1_error());

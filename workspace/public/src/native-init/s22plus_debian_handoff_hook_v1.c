@@ -5,6 +5,7 @@
 #include "s22plus_native_ext4_v1.c"
 #include "s22plus_switch_root_common_v1.inc.c"
 #include "s22plus_debian_handoff_common_v1.inc.c"
+#include "s22plus_autoboot_singlecpu_v1.h"
 #include "s22plus_debian_evidence_v1.inc.c"
 #ifdef S22_AUTOBOOT_PHASE_TRACE
 static void ap_abort(void);

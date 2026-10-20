@@ -49,7 +49,9 @@ static void de_header(uint8_t h[DE_HEADER]) {
     memcpy(h+16,sw.run,16);memcpy(h+32,sw.boot,32);memcpy(h+64,sw.nonce,32);
     de_put64(h+96,sw.deadline_ms-SW_TIMEOUT_MS);de_put64(h+104,sw.deadline_ms);
     sw_put32(h+112,
-#ifdef S22_DEBIAN_AUTOBOOT
+#ifdef S22_AUTOBOOT_SINGLECPU
+        6
+#elif defined(S22_DEBIAN_AUTOBOOT)
         5
 #else
         4
@@ -91,7 +93,7 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
     } else if(kind==DE_PROGRESS) {
         unsigned ordinal=s->progress,expected=ordinal<3 ? ordinal+1 : 4;
         if(!s->started || s->complete || ordinal>=DH_SAMPLES+3 || phase!=expected ||
-           event!=(ordinal<3 ? 0 : ordinal-2) || c ||
+           event!=(ordinal<3 ? 0 : ordinal-2) || !sc_valid(c) ||
            (ordinal<2 ? a || b : b!=3 || a<(uint64_t)event*DH_SAMPLE_MS ||
              a>(uint64_t)event*DH_SAMPLE_MS+10000U || a>elapsed || (ordinal>=3 && a<=s->progress_ms)) ||
            (ordinal==1 && (s->last_event[0]!=5 || s->status[0])) ||

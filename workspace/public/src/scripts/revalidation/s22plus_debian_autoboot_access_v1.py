@@ -1,9 +1,38 @@
 """Bounded read-only observation of effects already owned by the N transfer."""
 import time
+import re
 
 import s22plus_debian_access_v1 as access
 import s22plus_debian_autoboot_protocol_v1 as protocol
 from s22plus_native_records_v3 import Journal,clock,pin,publish,read,require,verify
+
+
+def singlecpu_health_sample(handle,plan,boot=None):
+    output=access.raw.read_stdout(handle,maximum=65536)
+    if boot is None:
+        # Early shape/candidate checks are provisional. The final pair is
+        # rederived against the independently authenticated runtime boot.
+        boots=re.findall(rb'^boot_id=([0-9a-f-]{36})$',output,re.M)
+        require(len(boots)==1,'initial single CPU health lacks one boot identity')
+        boot=access.digest(boots[0])
+    health=access.health_projection(handle,plan,boot_sha256=boot,autoboot=True)
+    require(re.findall(rb'^S22_SINGLECPU_ONLINE (.*)$',output,re.M)==[b'0'],
+        'SSH endpoint does not observe CPU0 alone')
+    rows=re.findall(rb'^S22_SINGLECPU_UPTIME ([0-9]{1,3})\.([0-9]{2})$',output,re.M)
+    require(len(rows)==1,'single CPU SSH uptime is missing or malformed')
+    seconds,fraction=rows[0];ms=int(seconds)*1000+int(fraction)*10
+    require(0<=ms<300000,'single CPU SSH uptime exceeds original device deadline')
+    return dict(health=health,boottime_ms=ms,online_cpus=[0])
+
+
+def singlecpu_health_pair(first,last,plan,boot):
+    """Two authenticated SSH endpoints separated by >=120 device seconds."""
+    values=[singlecpu_health_sample(handle,plan,boot) for handle in (first,last)]
+    require(values[1]['boottime_ms']-values[0]['boottime_ms']>=120000 and
+        values[0]['health']['boot_count']==values[1]['health']['boot_count'],
+        'SSH endpoints do not span 120 seconds in the same installed boot')
+    return dict(status='PASS_SAME_BOOT_SSH_120_SECONDS',first=values[0],last=values[1],
+        continuous_connection_proved=False)
 
 
 class Access(access.Access):
@@ -51,6 +80,17 @@ class Access(access.Access):
             time.sleep(min(2,max(0,(deadline-clock())/1_000_000_000)))
         require(found is not None,'automatic Debian NCM did not arrive')
         publish(folder/'endpoint.json',found);self.configure_link(folder,found,current)
+        from s22plus_debian_autoboot_profile_v1 import singlecpu_selected
+        single_cpu=singlecpu_selected(self.selection());first_health=None;health_ordinal=0
+        if single_cpu:
+            for health_ordinal in range(1,30):
+                current();handle=self.ssh('health',folder,f'health-{health_ordinal:03d}',found,current,deadline_ns=deadline)
+                if handle.returncode==0:
+                    singlecpu_health_sample(handle,self.plan)
+                    first_health=handle;first_finished=clock();break
+                require(not handle.output_exceeded and handle.producer_error_type is None,'initial health producer failed')
+                time.sleep(min(3,max(0,(deadline-clock())/1_000_000_000)))
+            require(first_health is not None,'initial single CPU SSH health budget exhausted')
         for ordinal in range(1,181):
             current();handle=self.ssh('evidence',folder,f'evidence-{ordinal:03d}',found,current,deadline_ns=deadline)
             if handle.returncode==0:
@@ -63,13 +103,21 @@ class Access(access.Access):
             require(not handle.output_exceeded and handle.producer_error_type is None,'automatic evidence producer failed')
             time.sleep(min(2,max(0,(deadline-clock())/1_000_000_000)))
         else:raise TimeoutError('automatic SSH evidence sample budget exhausted')
-        for ordinal in range(1,31):
+        if single_cpu:
+            # This wait consumes the original window. It creates no new
+            # lifetime, command, grant or device deadline.
+            while clock()-first_finished<120_100_000_000:
+                current();time.sleep(min(1,max(0,(deadline-clock())/1_000_000_000)))
+        for ordinal in range(health_ordinal+1,31):
             current();handle=self.ssh('health',folder,f'health-{ordinal:03d}',found,current,deadline_ns=deadline)
             if handle.returncode==0:
                 health=access.health_projection(handle,self.plan,boot_sha256=proof['kernel_boot_identity_sha256'],autoboot=True)
                 current();require(access.endpoint(self.plan['link'])==found,'automatic NCM changed during health')
                 value=dict(action='debian-health',health=health,evidence=pin(folder/'evidence.json'),
                     endpoint=pin(folder/'endpoint.json'),observed_ns=clock(),window=pin(folder/'window.json'))
+                if single_cpu:
+                    value['ssh_120_seconds']=singlecpu_health_pair(first_health,handle,self.plan,
+                        proof['kernel_boot_identity_sha256'])
                 publish(folder/'result.json',value);return self.rederive_health()
             require(not handle.output_exceeded and handle.producer_error_type is None,'automatic health producer failed')
             time.sleep(min(1,max(0,(deadline-clock())/1_000_000_000)))
@@ -83,6 +131,14 @@ class Access(access.Access):
         expected=access.health_projection(access.raw.load_handle(verify(value['health']['capture'])),self.plan,
             boot_sha256=evidence['proof']['kernel_boot_identity_sha256'],autoboot=True)
         require(value['health']==expected,'automatic health raw proof differs')
+        from s22plus_debian_autoboot_profile_v1 import singlecpu_selected
+        if singlecpu_selected(self.selection()):
+            pair=value['ssh_120_seconds']
+            require(pair==singlecpu_health_pair(
+                access.raw.load_handle(verify(pair['first']['health']['capture'])),
+                access.raw.load_handle(verify(value['health']['capture'])),self.plan,
+                evidence['proof']['kernel_boot_identity_sha256']),'single CPU SSH interval does not rederive')
+        else:require('ssh_120_seconds' not in value,'legacy health cannot claim a sampled SSH interval')
         window=read(verify(value['window']));found=read(verify(value['endpoint']))
         require(evidence['observed_ns']<=value['observed_ns']<window['basis']['deadline_ns'] and
             all(found['fields'][name]==v for name,v in dict(idVendor='1d6b',idProduct='0104',

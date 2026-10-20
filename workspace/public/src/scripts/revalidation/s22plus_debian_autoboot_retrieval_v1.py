@@ -46,8 +46,9 @@ def runtime_prefix(data,key,selected):
         boot=header[32:64].hex(),nonce_sha256=hashlib.sha256(header[64:96]).hexdigest(),
         init_sha256=selected['installed_init']['sha256'],hook_sha256=selected['hook']['sha256'],
         root_device=root_device)
-    durable.decode(header,key,expected,autoboot=True)
-    proof=durable.decode(data,key,expected,allow_prefix=True,autoboot=True)
+    single_cpu=writer_profile.singlecpu_selected(selected)
+    durable.decode(header,key,expected,autoboot=True,single_cpu=single_cpu)
+    proof=durable.decode(data,key,expected,allow_prefix=True,autoboot=True,single_cpu=single_cpu)
     return dict(proof=proof,header=dict(authenticated=True,boot=expected['boot'],
         nonce=header[64:96].hex(),root_device=root_device,
         binding='AUTHENTICATED_LOCAL_PRODUCER_OBSERVATION',external_binding_proved=False))

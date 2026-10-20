@@ -12,6 +12,7 @@ static int fl_finish_child(pid_t,unsigned);
 #undef main
 #include "early-seal.h"
 #include "early-protocol.h"
+#include "s22plus_autoboot_singlecpu_v1.h"
 #define AT_KEY early_key
 #define AT_RUN early_run
 #include "s22plus_autoboot_transition_v1.h"
@@ -298,6 +299,9 @@ static int fl_work(int argc,char **argv) {
     fo_failure(FO_MEASURE,error);
     if(error || log_size>FL_MAXIMUM-FL_HEADER-FL_RECORDS*FL_RECORD)return 102;
     if(fl_time())return 102;
+#ifdef S22_AUTOBOOT_SINGLECPU
+    if((error=sc_cpu())){fo_failure(FO_ADMISSION,error);return 103;}
+#endif
     char *arguments[]={"file-admission","recover-journal",(char *)fs1_run_id,NULL};
     fo_phase(FO_ADMISSION);
     int result=ri_run(3,arguments,"recover-journal",fl_admission);

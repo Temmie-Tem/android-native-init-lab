@@ -41,6 +41,16 @@ WATCHDOG_OBSERVER=dict(RCS_OBSERVER,schema='s22plus-autoboot-watchdog-v1',actors
     proc_budget_ms_per_owner=250,discovery_budget_ms=100,sample_budget_ms=25,
     latest_sample_ms=12500)
 IDLE_POLICIES=('retained-default','cpuidle-off')
+SINGLECPU_NAMESPACE='p446'
+SINGLECPU_VERSION='v0.15.0-rc.0'
+SINGLECPU_POLICY='maxcpus-1'
+SINGLECPU_FAULTS=('singlecpu-disabled',)
+SINGLECPU_CASES=('normal','dirty','changed-history','extra-runtime-history',
+    'missing-p441-early','changed-p441-runtime','existing-early','existing-runtime',
+    'trace-second-admission','rcs-record-fsync','network-absent',
+    'singlecpu-unlimited',*SINGLECPU_FAULTS,'changed-receipt','fd-leak','module-error',
+    'changed-p441-early','linked-p441-early','mode-p441-early',
+    'missing-p441-runtime','linked-p441-runtime','mode-p441-runtime')
 WATCHDOG_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p440-h0-20261020-1/retrieval-1/result.json'),
     size=7421,sha256='f22ab47e8a835da42576b634d9650a267edb93f528fd498ddb17358f5a81bd61')
 PHASE_NAMESPACE='p445'
@@ -48,6 +58,8 @@ PHASE_VERSION='v0.14.0-rc.0'
 PHASE_HISTORY_SELECTION='post-autoboot-p444-v1'
 PHASE_OBSERVER=dict(RCS_OBSERVER,schema='s22plus-autoboot-phase-v1',actors=8,
     history_selection=PHASE_HISTORY_SELECTION,**phase_spec.LIMITS)
+SINGLECPU_OBSERVER=dict(WATCHDOG_OBSERVER,schema='s22plus-autoboot-singlecpu-v1',
+    history_selection=PHASE_HISTORY_SELECTION)
 PHASE_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p444-h0-20261020-1/retrieval-1/result.json'),
     size=7462,sha256='51f0de292ecb49e077a10b3c91347e6c64ce2076251ec9acc5e6f5070a6ec2a9')
 IDLE_VENDOR_BOOT=dict(path=str(ROOT/'workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/vendor_boot.img'),
@@ -66,10 +78,12 @@ PHASE_HISTORY_CASES=tuple(action+'-p441-'+kind for kind in ('early','runtime')
     for action in ('missing','changed','linked','mode'))
 
 
-def cases(transition=False,rcs=False,watchdog=False,phase=False):
+def cases(transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     require(not rcs or transition,'rcS observer requires the transition variant')
     require(not watchdog or rcs,'watchdog observer requires the rcS variant')
     require(not phase or watchdog,'phase observer requires the complete predecessor history')
+    require(not single_cpu or watchdog and not phase,'single CPU requires the P441 proc observer')
+    if single_cpu:return SINGLECPU_CASES
     return CASES+(HISTORY_CASES+TRANSITION_CASES if transition else ())+(
         RUNTIME_HISTORY_CASES+RCS_CASES if rcs else ())+(WATCHDOG_HISTORY_CASES if watchdog else ())+(
         PHASE_HISTORY_CASES if phase else ())
@@ -79,15 +93,16 @@ RUNTIME_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot
     size=7473,sha256='bf4c7e15eead496e9483b83340b9c037609c1d2f4ee46c01528712d2d9b35a37')
 
 
-def observer(rcs=False,watchdog=False,phase=False):
+def observer(rcs=False,watchdog=False,phase=False,single_cpu=False):
     require(not watchdog or rcs,'watchdog observer requires rcS observation')
     require(not phase or watchdog,'phase observer requires the watchdog predecessor')
-    return PHASE_OBSERVER if phase else WATCHDOG_OBSERVER if watchdog else RCS_OBSERVER if rcs else TRANSITION_OBSERVER
+    require(not single_cpu or watchdog and not phase,'single CPU requires the proc observer')
+    return SINGLECPU_OBSERVER if single_cpu else PHASE_OBSERVER if phase else WATCHDOG_OBSERVER if watchdog else RCS_OBSERVER if rcs else TRANSITION_OBSERVER
 
 
 def variants(built):
     selected=built.get('transition_observer')
-    watchdog=selected in (WATCHDOG_OBSERVER,PHASE_OBSERVER)
+    watchdog=selected in (WATCHDOG_OBSERVER,PHASE_OBSERVER,SINGLECPU_OBSERVER)
     return selected is not None,watchdog or selected==RCS_OBSERVER,watchdog
 
 
@@ -103,6 +118,16 @@ def phase_history():
 
 def phase_selected(built):
     return built.get('transition_observer')==PHASE_OBSERVER
+
+
+def singlecpu_selected(built):
+    policy=built.get('cpu_policy')
+    require(policy in (None,SINGLECPU_POLICY),'unselected CPU policy')
+    if policy is not None:
+        require(built.get('transition_observer')==SINGLECPU_OBSERVER and
+            built.get('idle_policy')=='cpuidle-off','single CPU requires the P441 proc/idle path')
+    else:require(built.get('transition_observer')!=SINGLECPU_OBSERVER,'single CPU declaration lacks CPU selection')
+    return policy is not None
 
 
 def closed_pair_history(receipt,label):
@@ -143,9 +168,9 @@ def closed_pair_history(receipt,label):
 
 
 def boot_carrier(original,built):
-    """Select only the retained header or its one exact cpuidle.off=1 addition."""
+    """Select exact idle/CPU arguments; all other carrier bytes stay fixed."""
     import s22plus_boot_verify as boot
-    _,_,watchdog=variants(built)
+    _,_,watchdog=variants(built);single_cpu=singlecpu_selected(built)
     if not watchdog:
         require('idle_policy' not in built and 'watchdog_history' not in built,
             'legacy producer cannot select watchdog/idle controls')
@@ -157,8 +182,12 @@ def boot_carrier(original,built):
     require(not any(token.split('=',1)[0].startswith(('cpuidle.','idle'))
         for token in (command+' '+vendor.cmdline).split()),'retained idle command line conflicts')
     require(original[44:1580]==command.encode().ljust(1536,b'\0'),'retained command-line padding differs')
+    if single_cpu:
+        tokens=(command+' '+vendor.cmdline).split()
+        require('--' not in tokens and not any(token.split('=',1)[0] in
+            ('maxcpus','nr_cpus','nosmp') for token in tokens),'retained CPU command line conflicts')
     if built['idle_policy']=='retained-default':return original
-    command=(command+(' ' if command else '')+'cpuidle.off=1').encode()
+    command=(command+(' ' if command else '')+'cpuidle.off=1'+(' maxcpus=1' if single_cpu else '')).encode()
     require(len(command)<1536,'selected idle command line does not fit')
     return original[:44]+command.ljust(1536,b'\0')+original[1580:]
 
@@ -205,12 +234,13 @@ def additional_history():
         nlink=1,size=len(raw),sha256=hashlib.sha256(raw).hexdigest(),source=result['raw']['early'])
 
 
-def histories(transition=False,rcs=False,watchdog=False,phase=False):
+def histories(transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     require(not rcs or transition,'runtime history requires the reviewed rcS selection')
     require(not watchdog or rcs,'P437 history requires the watchdog selection')
     require(not phase or watchdog,'P441 history requires the phase selection')
+    require(not single_cpu or watchdog and not phase,'P441 history requires the selected single CPU variant')
     return [history()]+([additional_history()] if transition else [])+([runtime_history()] if rcs else [])+(
-        watchdog_history() if watchdog else [])+(phase_history() if phase else [])
+        watchdog_history() if watchdog else [])+(phase_history() if phase or single_cpu else [])
 
 
 def history():
@@ -228,7 +258,7 @@ def history():
         nlink=1,size=len(raw),sha256=hashlib.sha256(raw).hexdigest(),source=result['raw'])
 
 
-def comparison_table(old,count,transition=False,rcs=False,watchdog=False,phase=False):
+def comparison_table(old,count,transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     """Add only the exact previously retrieved file to a verified base table."""
     require(old[:8]==b'S22RI01\0' and struct.unpack_from('<I',old,8)[0]==count,'base table identity differs')
     rows={};at=12
@@ -237,49 +267,50 @@ def comparison_table(old,count,transition=False,rcs=False,watchdog=False,phase=F
         name=old[at:at+plen];at+=plen+llen
         require(name not in rows,'duplicate immutable path');rows[name]=old[start:at]
     require(at==len(old),'immutable table framing differs')
-    for item in histories(transition,rcs,watchdog,phase):
+    for item in histories(transition,rcs,watchdog,phase,single_cpu):
         name=item['path'].encode();require(name not in rows,'history overlaps archive')
         rows[name]=struct.pack('<IIIQHH',item['mode'],item['uid'],item['gid'],item['size'],len(name),0)+\
             bytes.fromhex(item['sha256'])+b'\0'+name
     return b'S22RI01\0'+struct.pack('<I',len(rows))+b''.join(rows[n] for n in sorted(rows))
 
 
-def retained_comparison(transition=False,rcs=False,watchdog=False,phase=False):
+def retained_comparison(transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     # Reuse the hash-pinned historical base table without importing an old
     # installer or H0 builder into the reachable device-session owner.
     result=read(verify(RETRIEVAL));artifact=read(verify(result['writer_artifact']))
     built=read(verify(artifact['build']));admission=built['admission']
     old=verify(admission['table']).read_bytes()
-    return (comparison_table(old,admission['table_count'],transition,rcs,watchdog,phase),
-        admission['table_count']+len(histories(transition,rcs,watchdog,phase)),admission['boot_count'])
+    return (comparison_table(old,admission['table_count'],transition,rcs,watchdog,phase,single_cpu),
+        admission['table_count']+len(histories(transition,rcs,watchdog,phase,single_cpu)),admission['boot_count'])
 
 
-def admission_headers(run,transition=False,rcs=False,watchdog=False,phase=False):
+def admission_headers(run,transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     """H0 generator: verify the current archive-derived table against history."""
     import s22plus_native_journal_recovery_h0 as admission
-    selected=admission.headers(run);table=comparison_table(selected['table'],selected['count'],transition,rcs,watchdog,phase)
-    count=selected['count']+len(histories(transition,rcs,watchdog,phase))
-    require((table,count,selected['boot'])==retained_comparison(transition,rcs,watchdog,phase),'archive/history table differs')
+    selected=admission.headers(run);table=comparison_table(selected['table'],selected['count'],transition,rcs,watchdog,phase,single_cpu)
+    count=selected['count']+len(histories(transition,rcs,watchdog,phase,single_cpu))
+    require((table,count,selected['boot'])==retained_comparison(transition,rcs,watchdog,phase,single_cpu),'archive/history table differs')
     selected.update(table=table,count=count,history=history())
     if transition:selected['additional_history']=additional_history()
     if rcs:selected['runtime_history']=runtime_history()
     if watchdog:selected['watchdog_history']=watchdog_history()
     if phase:selected['phase_history']=phase_history()
+    if single_cpu:selected['current_history']=phase_history()
     selected['headers']['s22plus_native_root_inspect_seal_v1.h']=admission.base.header(table,selected['count'],selected['boot'])
-    selected['headers']['s22plus_native_journal_mutable_seal_v1.h']=mutable_header(transition,rcs,watchdog,phase)
+    selected['headers']['s22plus_native_journal_mutable_seal_v1.h']=mutable_header(transition,rcs,watchdog,phase,single_cpu)
     return selected
 
 
-def mutable_header(transition=False,rcs=False,watchdog=False,phase=False):
+def mutable_header(transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     original=handoff.mutable_header();needle='"var/lib/lab/boot-count",33188U,0U,2ULL,2ULL'
     require(original.count(needle)==1,'boot-count declaration differs')
     paths=('static const char *const ab_history_paths[]={'+
-        ','.join(json.dumps(item['path']) for item in histories(True,rcs,watchdog,phase))+'};\n') if transition else (
+        ','.join(json.dumps(item['path']) for item in histories(True,rcs,watchdog,phase,single_cpu))+'};\n') if transition else (
         'static const char ab_history_path[]='+json.dumps(history()['path'])+';\n')
     return (original.replace(needle,'"var/lib/lab/boot-count",33188U,0U,2ULL,6ULL')+paths).encode()
 
 
-def payloads(run,*,virt=False):
+def payloads(run,*,virt=False,single_cpu=False):
     init,assets=handoff.payloads(virt=virt);assets=dict(assets)
     if not virt:assets['usb']=(ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-autoboot').read_bytes()
     # Ordinary rc2 invokes this one RAM overlay once, before sshd. The original
@@ -309,13 +340,22 @@ def payloads(run,*,virt=False):
   ;;
 '''.encode()
     assets['qualify']=script.replace(needle,evidence+needle)
+    if single_cpu:
+        marker=b"  printf 'DEBIAN_HEALTH_PASS\\n'\n"
+        require(assets['qualify'].count(marker)==1,'health completion marker differs')
+        assets['qualify']=assets['qualify'].replace(marker,
+            b"  IFS= read -r online < /sys/devices/system/cpu/online\n"
+            b"  test \"$online\" = 0\n"
+            b"  printf 'S22_SINGLECPU_ONLINE %s\\n' \"$online\"\n"
+            b"  IFS=' ' read -r uptime idle < /proc/uptime\n"
+            b"  printf 'S22_SINGLECPU_UPTIME %s\\n' \"$uptime\"\n"+marker)
     return init,assets
 
 
-def header(namespace,version,run,*,virt=False,transition=False,rcs=False,watchdog=False,phase=False):
+def header(namespace,version,run,*,virt=False,transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False):
     original=handoff.header(namespace,version,run,virt=virt)
-    original=original.replace(handoff.mutable_header().encode(),mutable_header(transition,rcs,watchdog,phase))
-    _,old=handoff.payloads(virt=virt);_,new=payloads(run,virt=virt)
+    original=original.replace(handoff.mutable_header().encode(),mutable_header(transition,rcs,watchdog,phase,single_cpu))
+    _,old=handoff.payloads(virt=virt);_,new=payloads(run,virt=virt,single_cpu=single_cpu)
     def declaration(data):
         return (f'static const uint64_t dh_usb_size={len(data)}ULL;\n'+
             'static const uint8_t dh_usb_sha256[]={'+','.join(map(str,hashlib.sha256(data).digest()))+'};\n').encode()

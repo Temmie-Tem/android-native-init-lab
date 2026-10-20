@@ -23,9 +23,15 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-The operator requested continuation through a new physical experiment.
+The latest authorized H0 unit is complete:
+[P446 single-CPU implementation and validation](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P446_H0_2026-10-21.md).
+Its 22-case ARM64 VM corpus, exact boot-only archive and independent H0 review
+pass. Physical use remains unactivated and current P445-era native_data is
+still unknown.
+
+The preceding physical phase-observer campaign is closed.
 The [bounded phase-observer design](docs/reports/S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
-selects H0 implementation of actual watchdog/rcS progress observation while
+selected implementation of actual watchdog/rcS progress observation while
 preserving the Debian service/SSH goal. [P442](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P442_RUN_2026-10-20.md)
 consumed one attended N/A pair and closed `ANDROID_CLOSED_HEALTHY`.
 It captured the complete 10,972-byte early file: all 14 records authenticate
@@ -85,14 +91,17 @@ consistency remains unknown. P445 is consumed, its grant is closed and no
 F1 owner remains. The [P441/P445 comparison and next-experiment decision](docs/reports/S22PLUS_P441_P445_COMPARISON_NEXT_EXPERIMENT_H0_2026-10-21.md)
 is now complete in H0. Retained export bytes do not resolve the actual failure
 frontier; the selected early code and table comparison finds no specific new
-pre-PID1 control-flow defect. The next proposed functional variable is
+pre-PID1 control-flow defect. The selected functional variable is
 `maxcpus=1` on the P441-style Debian startup/proc-observer path, with current
 authenticated history and both complete root admissions; P445 phase
 instrumentation is excluded. The intended outcome is sustained same-boot
-services/SSH and controlled shutdown, not more tail logging. This candidate
-is selected but unimplemented, unbuilt and unauthorised for device use.
-Current native_data state/history and existing qualification/review/grant
-requirements remain separate prerequisites for a future writable candidate.
+services/SSH and controlled shutdown. P446 now implements that candidate in
+H0, checks CPU0 and actual watchdog driver-enabled state, and observes two
+same-boot SSH endpoints 120.57 seconds apart in the normal VM. The VM models
+the Samsung watchdog attribute; it proves no physical pet success.
+Current native_data state/history, policy adoption and the existing
+qualification/review/grant requirements remain separate prerequisites for
+a future physical writable candidate. No device authority was added.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.
@@ -325,12 +334,12 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P441 consumed the idle-policy comparison without proving services or access.
-Its [follow-up analysis](docs/reports/S22PLUS_P441_WATCHDOG_FOLLOWUP_H0_2026-10-20.md)
-closes the current-data questions while retaining multiple failure branches.
-The next H0 design should preserve the Debian functional aim and obtain bounded
-same-boot watchdog phase/return and rcS child progress evidence. Repeating zero
-wchan samples cannot supply the missing PC or pet result. No fix is established.
+The P446 implementation/H0 unit is complete. The
+[single-CPU report](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P446_H0_2026-10-21.md)
+records the exact candidate, two root admissions, actual sampled CPU state,
+driver-enabled checks, 120-second service/SSH evidence and controlled VM
+shutdown. This is functional H0 evidence, not a physical fix or watchdog-cause
+proof. No additional phase instrumentation is selected.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -338,10 +347,11 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P441's grant is consumed. Current native_data consistency is unknown; its bounded
-retrieval/admission remains separate from watchdog diagnosis. New runtime or
-kernel/module instrumentation needs its own H0 implementation, review and
-qualification before any separately authorized effect. No new gate is added.
+P445's grant is consumed. Before physical P446 readiness, resolve its unknown
+native_data state and any unadmitted historical files through the applicable
+separate owner; then adopt the CPU selection under the binding policy and
+qualify the current exact candidate. Existing health, review, finite grant
+and attended original-A recovery conditions remain. H0 opens no such owner.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,

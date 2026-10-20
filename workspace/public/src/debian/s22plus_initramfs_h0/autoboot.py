@@ -23,10 +23,14 @@ def sources():
         {p for p in h0.HERE.iterdir() if p.is_file() and p.suffix in ('.py','.c','.h')}|
         {Path(profile.__file__),Path(profile.phase_spec.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
          handoff.base.NATIVE/'s22plus_autoboot_transition_v1.h',
+         handoff.base.NATIVE/'s22plus_autoboot_singlecpu_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_transition_stages_v1.def',
          handoff.base.NATIVE/'s22plus_autoboot_phase_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_phase_parse_v1.h',
          profile.ROOT/'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_transition_v1.py',
+         *(profile.ROOT/'workspace/public/src/scripts/revalidation'/name for name in (
+             's22plus_debian_autoboot_access_v1.py','s22plus_debian_autoboot_protocol_v1.py',
+             's22plus_debian_autoboot_qualification_v1.py','s22plus_debian_autoboot_retrieval_v1.py')),
          profile.ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-autoboot',
          profile.ROOT/'workspace/public/src/debian/s22plus_v1/device/virt-binding.inc.c'})
 
@@ -53,13 +57,14 @@ fyg8_stop
     return text[:-len('fyg8_stop\n')]+tail
 
 
-def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False):
+def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False):
     flags=[*integrated.FLAGS,'-DS22_DEBIAN_HANDOFF','-DS22_DEBIAN_AUTOBOOT',
         '-I',out,'-I',headers,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE]
     if transition:flags+=['-DS22_AUTOBOOT_TRACE='+str(dict(entry=2,witness=3,hook=4)[name]),'-DS22_AUTOBOOT_HISTORY']
     if rcs:flags+=['-DS22_AUTOBOOT_RCS_TRACE']
     if watchdog:flags+=['-DS22_AUTOBOOT_WATCHDOG_TRACE']
     if phase:flags+=['-DS22_AUTOBOOT_PHASE_TRACE']
+    if single_cpu:flags+=['-DS22_AUTOBOOT_SINGLECPU']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
     if transition_fault:
         import autoboot_transition_faults
@@ -71,21 +76,23 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     return pin(out/(name+'-a'),maximum=8*1024**2)
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None,phase=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False):
     h0.require(transition_fault is None or virt and transition,'transition fault requires virtual observation')
     h0.require(not rcs or transition,'rcS observation requires the transition variant')
     h0.require(not watchdog or rcs,'watchdog observation requires the rcS variant')
     h0.require(not phase or watchdog,'phase observation requires the complete predecessor selection')
+    h0.require(not single_cpu or watchdog and not phase and idle_policy=='cpuidle-off',
+        'single CPU requires the P441 proc/idle selection')
     h0.require(idle_policy in profile.IDLE_POLICIES if watchdog else idle_policy is None,
         'idle policy requires the selected watchdog variant')
     out=h0.private(out,fresh=fresh);saved=snapshot(out) if fresh else read(out/'source-inputs.json')
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
-    namespace=profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    namespace=profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     prefix=out/'early';prefix.mkdir(mode=0o700)
     file_log.snapshot(prefix)
     first=file_log.prepare(prefix,inputs,packages,run=run,key=key,virt=virt,fresh=False,
-        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog,phase=phase)
+        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu)
     destination=out/'installed';destination.mkdir(mode=0o700)
     base=handoff.base
     for name in ('s22plus_native_ext4_seal_v1.h','s22plus_native_root_inspect_seal_v1.h',
@@ -93,15 +100,15 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         (destination/name).write_bytes((prefix/name).read_bytes())
     (destination/'s22plus_native_staged_preflight_seal_v1.h').write_bytes(base.staged.header())
     (destination/'s22plus_switch_root_seal_v1.h').write_bytes(base.seal(run,key))
-    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog,phase=phase))
+    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu))
     if phase:(destination/'s22plus_autoboot_phase_seal_v1.h').write_bytes(profile.phase_spec.header(virt=virt))
-    installed_init,assets=profile.payloads(run,virt=virt)
+    installed_init,assets=profile.payloads(run,virt=virt,single_cpu=single_cpu)
     for name,data in assets.items():(destination/name).write_bytes(data)
-    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase)
+    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu)
     handoff.payload_header(destination,hook,virt)
-    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase)
+    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
-    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase)
+    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu)
     (out/'fyg8-dev').write_text(dev_script())
     result=dict(namespace=namespace,version=version,profile=profile.PROFILE,
         run_id=run,virtual=virt,inputs=str(h0.private(inputs)),packages=str(h0.private(packages)),
@@ -110,14 +117,15 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         busybox=base.busybox(),checker=pin(prefix/'s22-fs-e2fsck'),table=pin(prefix/'table.bin'),
         admission=first['admission'],assets=dict(handoff.asset_rows(destination,hook,virt)),
         installed_init=dict(size=len(installed_init),sha256=fyg8.digest(installed_init)),
-        deadline_ms=300000,observer_revision=5,trace_maximum=262144,device_actions=0,active=False,
+        deadline_ms=300000,observer_revision=6 if single_cpu else 5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
             sorted(list(prefix.glob('*.h'))+list(destination.glob('*.h')))})
-    if transition:result.update(transition_observer=profile.observer(rcs,watchdog,phase),additional_history=first['additional_history'])
+    if transition:result.update(transition_observer=profile.observer(rcs,watchdog,phase,single_cpu),additional_history=first['additional_history'])
     if rcs:result['runtime_history']=first['runtime_history']
     if watchdog:result.update(watchdog_history=first['watchdog_history'],idle_policy=idle_policy)
     if phase:result.update(phase_history=first['phase_history'],phase_declaration=profile.phase_spec.declaration())
     if phase and virt:result['phase_vm_timing']=profile.phase_spec.VM_TIMING
+    if single_cpu:result.update(cpu_policy=profile.SINGLECPU_POLICY,current_history=first['current_history'])
     if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
         first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
     for row in saved:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'automatic source changed')
@@ -151,9 +159,9 @@ def inside(out):
     h0.generate_archives(out,tree,fyg8.KERNEL_RELEASE)
 
 
-def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False):
+def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False):
     out=h0.private(out,fresh=True);saved=snapshot(out)
-    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy,phase=phase)
+    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy,phase=phase,single_cpu=single_cpu)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out],out/'namespace-build.log',timeout=700)
     h0.require((out/'initramfs-a.cpio.gz').read_bytes()==(out/'initramfs-b.cpio.gz').read_bytes(),'automatic initramfs A/B differs')
@@ -179,7 +187,10 @@ def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_p
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action',choices=('prepare','build','inside'))
     for name in ('output','inputs','packages'):parser.add_argument('--'+name,type=Path,required=name=='output')
-    parser.add_argument('--virt',action='store_true');args=parser.parse_args()
+    parser.add_argument('--virt',action='store_true')
+    parser.add_argument('--single-cpu',action='store_true',help='H0 P446: P441 proc observer, current sealed history, cpuidle.off=1 maxcpus=1')
+    args=parser.parse_args()
+    options=dict(transition=True,rcs=True,watchdog=True,idle_policy='cpuidle-off',single_cpu=True) if args.single_cpu else {}
     if args.action=='inside':inside(h0.private(args.output))
-    elif args.action=='prepare':prepare(args.output,args.inputs,args.packages,virt=args.virt)
-    else:build(args.output,args.inputs,args.packages)
+    elif args.action=='prepare':prepare(args.output,args.inputs,args.packages,virt=args.virt,**options)
+    else:build(args.output,args.inputs,args.packages,**options)
