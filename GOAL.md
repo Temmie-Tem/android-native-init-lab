@@ -26,11 +26,16 @@ A90 and S20+ remain isolated.
 The operator requested continuation through a new physical experiment.
 The [bounded phase-observer design](docs/reports/S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
 selects H0 implementation of actual watchdog/rcS progress observation while
-preserving the Debian service/SSH goal. [P442 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P442_H0_2026-10-20.md)
-now qualifies a fresh mountless reader for the closed P441 pair: A/B packages,
-two new ARM64 cases, 33 tests, independent PASS_GO and fresh fixed D0 pass.
-Its concrete one-operation/1800-second attended proposal is ready; no grant is
-open. Its capture will inform any later recovery and exact history admission.
+preserving the Debian service/SSH goal. [P442](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P442_RUN_2026-10-20.md)
+consumed one attended N/A pair and closed `ANDROID_CLOSED_HEALTHY`.
+It captured the complete 10,972-byte early file: all 14 records authenticate
+through `EARLY_PRE_UNMOUNT` and match P441's first boot. The source is dirty
+(state 1/RECOVER 1/orphan 0); runtime is `ABSENT_IN_HOME_VIEW`, not non-execution.
+Closure rederived 649 captures and the unchanged 20-row journal; one post-A
+read failure required only health continuation. No F1 owner remains.
+Any strict replay, post-replay retrieval and new writable-root admission remain
+separate. The [qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P442_H0_2026-10-20.md)
+retains A/B packages, ARM64 cases, 33 tests and independent PASS_GO.
 The private phase prototype passes ARM64 dispatcher/channel feasibility with
 normal, full-queue and disconnected-peer conditions; actual services and the
 watchdog observer still require implementation and integrated qualification.
