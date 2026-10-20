@@ -23,6 +23,18 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P450 fixed journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_H0_2026-10-21.md)
+and its separate [P451 post-replay reader](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_H0_2026-10-21.md)
+are qualified and ready after P449's dirty read: actual A/B packages, five new
+ARM64 cases, focused tests, both independent PASS_GO reviews and 17 successful
+fixed Android D0 captures per task. No grant, mode change, image transfer or
+native_data access occurred. They retain the existing strict replayer/checker/
+comparison and fixed two-file reader scopes. Known later files remain outside
+the old comparison table, so
+replay/checker success is not complete root admission. P451 follows only after
+P450's healthy closure and fresh machine checks; each retains its own returned
+one-operation/1800-second attended grant.
+
 [P449's fixed read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. It recovered P448's complete
 10,972-byte early file: all 14 records authenticate through `EARLY_PRE_UNMOUNT`
@@ -380,9 +392,10 @@ and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
 P449 recovered the authenticated first-boot early file but found a dirty
-home-block view and no runtime file. Prepare a fresh fixed native_data strict
-journal-recovery operation, then separately retrieve the same pair after
-healthy closure. The reader's three superblock fields do not prove complete
+home-block view and no runtime file. P450 and P451 are now qualified proposals
+for fixed native_data strict journal recovery and the separate post-closure
+read. Each awaits its own returned attended grant; P451 follows P450's healthy
+closure and fresh machine checks. The reader's three superblock fields do not prove complete
 writer eligibility; its exact current checks, reviewed scope, qualification
 and returned attended grant remain required. Do not fabricate unseen history,
 infer clean native_data from original-A health or admit an unknown runtime
