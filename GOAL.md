@@ -29,6 +29,18 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
+## P439 fixed journal recovery preparation
+
+[P439 H0](docs/reports/S22PLUS_JOURNAL_RECOVERY_P439_H0_2026-10-20.md) prepares a
+fresh instance of the existing strict journal recovery after P438's dirty read.
+The original two-history comparison remains exact; known later files are
+expected to prevent full-root proof even after successful replay/checking.
+Separate P437-pair retrieval and exact history qualification must precede the
+planned watchdog comparison. Actual A/B package, 3 fresh/9 retained ARM64 cases,
+14 tests and independent PASS_GO are complete. Fixed connected D0 preparation
+proves current original-A/Android32 health. The one-operation/1800-second attended
+proposal is ready; no grant, transfer or filesystem-write effect exists.
+
 ## P437/P438 closed healthy; first watchdog renewal remains the runtime gap
 
 The [P437 run](docs/reports/S22PLUS_P437_RCS_OBSERVATION_RUN_2026-10-19.md) consumed
@@ -205,48 +217,20 @@ collector supplies the separate final file verdict without rewriting that run.
 P420–P422 are all closed. This result motivated P423's bounded early-stage
 observation above; it did not authorize a replay or locate the writer's failure.
 
-## P420 proved clean native_data and returned Android healthy
+## P420 clean-root proof remains historical
 
-The operator selected native_data consistency first, then initial-Debian-PID1
-file logging and retrieval of the same run after Android recovery on
-2026-10-12 KST. The bounded route is P420 strict native_data recovery/check,
-P421 `debian-file-pilot-v1`, then P422's separate sealed mountless reader.
-Each has its own original-A closure; no old candidate or consumed grant is
-reused. P420 consumed its one attended grant on 2026-10-13 KST. The
-[physical report](docs/reports/S22PLUS_NATIVE_DATA_P420_RUN_2026-10-13.md)
-records initial `state=1/recover=1/orphan=0`, successful strict journal
-finalization, then `clean=1/recover=0/orphan=0`, a successful read-only checker
-and all 8969 expected root entries matching with zero findings or extra paths:
-**PROVED_CLEAN_ROOT**. Only the two finalization writes occurred (5120 bytes).
-No ordinary filesystem repair or installed Debian execution was selected.
+The [P420 run](docs/reports/S22PLUS_NATIVE_DATA_P420_RUN_2026-10-13.md)
+proved clean native_data after strict journal finalization: two writes/5120
+bytes, read-only checker success and all 8969 expected entries with no extras.
+Its original-A return closed ANDROID_CLOSED_HEALTHY after health-only
+continuation, with N/A 1/1 and no remaining F1 owner. This observation predates
+P421 and cannot establish current cleanliness or file retention.
 
-Normal authenticated Download and one original-A transfer completed. The first
-Android-final ADB read lost the target; health-only continuation then proved
-full original boot/root, changed-boot and Android32 GPT/capacity health without
-another transfer. Terminal: **ANDROID_CLOSED_HEALTHY**, `recovered=true`,
-N/A counts 1/1. The candidate and grant are consumed/closed, with no F1 owner.
-P420 established the first route prerequisite. Its filesystem observation
-predates P421 and does not prove P421 file retention or Debian boot.
-
-P421 keeps Debian shell `/init` as initial PID1, reuses the 73+8 fixed module
-plan, requires fresh complete clean-root admission, then creates one exclusive
-run-bound file of at most 16 KiB. It needs no gadget or USB challenge. Checked
-file/parent sync and one normal unmount are required; the final persistent
-record is explicitly before unmount. Original Android return is physical.
-After its healthy closure, P422 reads that exact file without mounting or
-replaying a journal. H0 analysis joins the two closed operations and verifies
-the file's run, source, boot and chained authentication from raw captured bytes.
-Missing records do not prove non-execution, and Android health does not prove
-native_data cleanliness. Records cannot exist before storage/root admission.
-
-The [preparation report](docs/reports/S22PLUS_DEBIAN_FILE_ROUTE_P420_P422_H0_2026-10-13.md)
-records actual A/B qualification, 12 file-route and six strict-recovery ARM64
-cases, 110 focused tests and independent PASS_GO. P420 closure additionally
-rederived 578 raw captures and 263 frozen source paths without device commands
-or journal changes. P421 subsequently consumed its separate grant as recorded
-above. P422 subsequently consumed its separate grant and closed with the
-absent-file result and healthy Android return recorded at the top. All three
-candidates remain consumed. A90 and S20+ remain untouched.
+The [P420–P422 preparation](docs/reports/S22PLUS_DEBIAN_FILE_ROUTE_P420_P422_H0_2026-10-13.md)
+retains the full historical design, 12 file-route/six recovery ARM64 cases,
+110 tests and independent review. All three candidates are consumed/closed;
+P421's physical return and P422's absent-file outcome are recorded above.
+Missing records never prove non-execution. A90 and S20+ remained untouched.
 
 ## P419 RAM-only trial closed healthy; USB still unproved
 
