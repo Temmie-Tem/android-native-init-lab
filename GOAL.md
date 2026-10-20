@@ -26,9 +26,11 @@ A90 and S20+ remain isolated.
 The operator requested continuation through a new physical experiment.
 The [bounded phase-observer design](docs/reports/S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
 selects H0 implementation of actual watchdog/rcS progress observation while
-preserving the Debian service/SSH goal. First prepare P442, a fresh mountless
-reader for the closed P441 pair; its capture will inform any later recovery
-and exact history admission. No fresh device grant is open.
+preserving the Debian service/SSH goal. [P442 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P442_H0_2026-10-20.md)
+now qualifies a fresh mountless reader for the closed P441 pair: A/B packages,
+two new ARM64 cases, 33 tests, independent PASS_GO and fresh fixed D0 pass.
+Its concrete one-operation/1800-second attended proposal is ready; no grant is
+open. Its capture will inform any later recovery and exact history admission.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.

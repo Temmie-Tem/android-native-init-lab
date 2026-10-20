@@ -147,15 +147,16 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P440 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p440_review.json`.
+native_data, or transfers an image. The current prospective P442 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p442_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
 `s22plus_native_root_evidence_p431_review.json`, consumed P433 review
 `s22plus_native_root_evidence_p433_review.json`, consumed P436 review
 `s22plus_native_root_evidence_p436_review.json`, consumed P438 review
-`s22plus_native_root_evidence_p438_review.json`, and all retained
+`s22plus_native_root_evidence_p438_review.json`, consumed P440 review
+`s22plus_native_root_evidence_p440_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
 selects the two-file table and its declared binary bound. P440 seals the same
@@ -167,3 +168,12 @@ The later read may observe newly checkpointed bytes; it cannot identify the
 three unaccounted entries from their count alone, prove second-boot effects
 without authenticated records, or turn missing home-block files into
 non-execution evidence.
+
+P442 seals exactly the early/runtime pair for the closed P441 automatic writer.
+Its Android closure and retained-stage records do not establish current
+native_data consistency or complete home-block file visibility. The reader
+retains the same metadata, byte limits, partition-only RO and mountless
+semantics, with no journal replay, repair, writer, installed execution or root
+admission. The new identity/path data require fresh artifact qualification;
+the unchanged reader machinery retains its reviewed semantics. P440 and P441
+remain consumed. Any later recovery or history-table admission is separate.
