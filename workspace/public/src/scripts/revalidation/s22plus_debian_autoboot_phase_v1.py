@@ -180,4 +180,3 @@ def header(*,virt=False):
                   f"static const uint8_t ap_{label}_sha[]={{" +
                   ",".join(map(str, hashlib.sha256(body).digest())) + "};"]
     return ("\n".join(lines) + "\n").encode()
-
