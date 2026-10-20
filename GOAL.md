@@ -24,18 +24,22 @@ A90 and S20+ remain isolated.
 ## Current synthesis and functional priority
 
 The operator selected continuation through physical experimentation.
-[P447 fixed P445-pair preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_H0_2026-10-21.md)
-now passes actual A/B qualification, two fresh ARM64 reader cases, 33 tests,
-independent source-bound PASS_GO and current fixed Android D0 preparation.
-Its concrete one-operation/1800-second attended proposal is ready; no grant,
-mode change, transfer or native_data acquisition has occurred. The P445
-files/current filesystem remain unknown until that separate reader executes.
+[P447's fixed P445-pair read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_RUN_2026-10-21.md)
+consumed one attended N/A pair and closed `ANDROID_CLOSED_HEALTHY`. Its clean
+partition-RO home view contains P445's complete authenticated 10,972-byte early
+file, with 14 records and a boot identity matching the retained P445 evidence.
+Runtime is `ABSENT_IN_HOME_VIEW`, not non-execution. All 606 captures and the
+unchanged 20-row journal rederive; one post-A read failure required only health
+continuation. The grant is closed and no F1 owner remains. Its
+[qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_H0_2026-10-21.md)
+retains A/B packages, two fresh ARM64 cases, 33 tests and independent PASS_GO.
 
 The latest authorized H0 unit is complete:
 [P446 single-CPU implementation and validation](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P446_H0_2026-10-21.md).
 Its 22-case ARM64 VM corpus, exact boot-only archive and independent H0 review
-pass. Physical use remains unactivated and current P445-era native_data is
-still unknown.
+pass. Physical use remains unactivated. P447 now supplies the authenticated
+P445 early file and a clean observed home view; exact history qualification,
+policy adoption and complete current-root admission remain required.
 
 The preceding physical phase-observer campaign is closed.
 The [bounded phase-observer design](docs/reports/S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
@@ -355,13 +359,13 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P445's grant is consumed. The next device unit is P447's already qualified
-mountless read of its sealed early/runtime pair, subject to the exact returned
-attended grant. Use that capture to resolve the unknown native_data view and
-historical records; any necessary journal recovery remains a separate owner.
-Then adopt the CPU selection under the binding policy and qualify the current
-exact candidate with only authenticated history. Existing health, review,
-finite grant and attended original-A recovery conditions remain.
+P445 and P447 are consumed and closed. Qualify the single-CPU successor with
+P447's authenticated P445 early file as one additional immutable history row;
+do not invent a runtime row or treat absence as non-execution. Adopt the CPU
+selection under the binding policy and retain both complete current-root
+admissions. The clean observed home view does not require a preliminary replay.
+Existing health, review, finite grant and attended original-A recovery
+conditions remain. Unexpected current-root contents still reject execution.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,

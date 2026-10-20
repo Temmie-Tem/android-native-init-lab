@@ -3,6 +3,11 @@
 Status: **PASS_GO / READY_CONNECTED_FIXED_D0; no grant or experimental transfer**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
+The preparation below preceded the now-consumed
+[P447 physical read](S22PLUS_AUTOBOOT_EVIDENCE_P447_RUN_2026-10-21.md), which
+retrieved the authenticated P445 early file and closed healthy. Its original
+grant is consumed.
+
 Prepare a fresh instance of the existing
 [mountless pair reader](../operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
 for exactly the closed P445 automatic writer's early/runtime files. P445
