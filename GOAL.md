@@ -23,6 +23,14 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+The operator selected continuation through physical experimentation.
+[P447 fixed P445-pair preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_H0_2026-10-21.md)
+now passes actual A/B qualification, two fresh ARM64 reader cases, 33 tests,
+independent source-bound PASS_GO and current fixed Android D0 preparation.
+Its concrete one-operation/1800-second attended proposal is ready; no grant,
+mode change, transfer or native_data acquisition has occurred. The P445
+files/current filesystem remain unknown until that separate reader executes.
+
 The latest authorized H0 unit is complete:
 [P446 single-CPU implementation and validation](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P446_H0_2026-10-21.md).
 Its 22-case ARM64 VM corpus, exact boot-only archive and independent H0 review
@@ -347,11 +355,13 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P445's grant is consumed. Before physical P446 readiness, resolve its unknown
-native_data state and any unadmitted historical files through the applicable
-separate owner; then adopt the CPU selection under the binding policy and
-qualify the current exact candidate. Existing health, review, finite grant
-and attended original-A recovery conditions remain. H0 opens no such owner.
+P445's grant is consumed. The next device unit is P447's already qualified
+mountless read of its sealed early/runtime pair, subject to the exact returned
+attended grant. Use that capture to resolve the unknown native_data view and
+historical records; any necessary journal recovery remains a separate owner.
+Then adopt the CPU selection under the binding policy and qualify the current
+exact candidate with only authenticated history. Existing health, review,
+finite grant and attended original-A recovery conditions remain.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,

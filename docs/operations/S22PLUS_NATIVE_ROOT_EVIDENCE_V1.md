@@ -147,8 +147,8 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P444 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p444_review.json`.
+native_data, or transfers an image. The current prospective P447 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p447_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
@@ -157,7 +157,8 @@ The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p436_review.json`, consumed P438 review
 `s22plus_native_root_evidence_p438_review.json`, consumed P440 review
 `s22plus_native_root_evidence_p440_review.json`, consumed P442 review
-`s22plus_native_root_evidence_p442_review.json`, and all retained
+`s22plus_native_root_evidence_p442_review.json`, consumed P444 review
+`s22plus_native_root_evidence_p444_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
 selects the two-file table and its declared binary bound. P440 seals the same
@@ -185,3 +186,13 @@ are unchanged. P442's dirty capture remains original evidence. P443's clean
 superblock/checker result and negative complete-root comparison do not prove
 these files' present contents or identify its unaccounted tree paths. This
 fresh reader makes no repair, replay, filesystem write or root admission.
+
+P447 seals exactly the early/runtime pair for the closed P445 automatic writer.
+The writer's healthy Android closure and retained early-cleanup/second-admission
+start records leave current native_data consistency and later execution
+unknown. This prospective reader changes only its identity and sealed writer
+run. It retains the same two paths, metadata rules, whole-file byte limits,
+partition-only RO and mountless semantics. It adds no replay, repair, write,
+installed execution or current-root admission. Authentication uses the actual
+P445 writer artifacts; missing home-block records never prove non-execution.
+Later recovery and writable-history admission require their separate scopes.
