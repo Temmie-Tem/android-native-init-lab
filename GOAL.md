@@ -31,6 +31,9 @@ now qualifies a fresh mountless reader for the closed P441 pair: A/B packages,
 two new ARM64 cases, 33 tests, independent PASS_GO and fresh fixed D0 pass.
 Its concrete one-operation/1800-second attended proposal is ready; no grant is
 open. Its capture will inform any later recovery and exact history admission.
+The private phase prototype passes ARM64 dispatcher/channel feasibility with
+normal, full-queue and disconnected-peer conditions; actual services and the
+watchdog observer still require implementation and integrated qualification.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.

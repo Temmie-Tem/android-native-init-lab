@@ -92,3 +92,31 @@ Report functional progress, retained evidence, shutdown/filesystem state and
 Android closure separately. A90 and S20+ receive no command. Preserve unrelated
 working-tree changes. The 800-line prior goal is archived byte-for-byte at
 `docs/archive/roadmaps/GOAL_THROUGH_P441_FOLLOWUP_2026-10-20.md`.
+
+## First H0 feasibility result
+
+The retained Image/module review supports twelve fixed entry/offset probes,
+using the actual function bodies and no return-address interception. A full
+eight-CPU cycle would produce at most 26 events. Probe registration, timing,
+loss accounting, handover and cleanup remain unimplemented and unqualified.
+
+A private rcS prototype now uses a RAM copy of the exact serial dispatcher
+and a nonblocking Unix datagram socket to its existing parent. In an isolated,
+diskless ARM64 VM, the selected Debian dash and dispatcher execute sixteen
+fixture services in their exact original order. Normal observation yields
+34 complete datagrams, including one deliberately nonzero service return.
+Full-queue and deterministically disconnected-peer cases preserve the same
+sequence and final dispatcher status. Invoked helpers and services inherit
+no extra descriptor, including any shell-saved copy of the socket, and retain
+the normal SIGPIPE disposition. The receiver checks truncation and empty
+packets, drains after child reaping, and does not treat a closed datagram peer
+as stream EOF.
+
+The first feasibility VM checked only fd 3 and did not order peer closure
+before the fork. Independent review identified those fixture limitations;
+a distinct second VM strengthens both checks and verifies every script name
+and order. Both runs, source snapshots and raw output remain private under
+`workspace/private/outputs/s22plus-autoboot-phase-h0-20261020-1/`.
+These are channel/dispatcher results with fixture services, not real service
+functionality, physical-kernel behavior, production observer qualification or
+device authority. Public execution sources remain frozen for prepared P442.
