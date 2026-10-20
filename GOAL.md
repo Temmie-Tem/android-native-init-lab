@@ -46,6 +46,14 @@ read failure required only health continuation. No F1 owner remains.
 The five-entry difference does not identify paths. A fresh fixed P441-pair
 reader must establish post-replay contents before history qualification and
 another writable Debian boot. P443 cannot be replayed.
+The [P444 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P444_H0_2026-10-20.md)
+selects the same exact P441 pair under the existing mountless read-only profile.
+Fresh A/B packages, actual image consumption and two ARM64 reader cases pass;
+27 unchanged tests retain their original provenance and six fresh task tests pass.
+Independent PASS_GO binds 139 host and 165 unchanged runtime sources.
+Fresh fixed D0 preparation passes 17 captures, same-boot Android health,
+exact GPT and Android32 capacity. The concrete attended proposal is ready;
+no P444 grant, mode change, transfer or native_data read/write has occurred.
 The private phase prototype passes ARM64 dispatcher/channel feasibility with
 normal, full-queue and disconnected-peer conditions; actual services and the
 watchdog observer still require implementation and integrated qualification.

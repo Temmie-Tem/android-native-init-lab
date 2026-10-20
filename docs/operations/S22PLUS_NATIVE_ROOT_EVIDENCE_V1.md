@@ -147,8 +147,8 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P442 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p442_review.json`.
+native_data, or transfers an image. The current prospective P444 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p444_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
@@ -156,7 +156,8 @@ The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p433_review.json`, consumed P436 review
 `s22plus_native_root_evidence_p436_review.json`, consumed P438 review
 `s22plus_native_root_evidence_p438_review.json`, consumed P440 review
-`s22plus_native_root_evidence_p440_review.json`, and all retained
+`s22plus_native_root_evidence_p440_review.json`, consumed P442 review
+`s22plus_native_root_evidence_p442_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
 selects the two-file table and its declared binary bound. P440 seals the same
@@ -177,3 +178,10 @@ semantics, with no journal replay, repair, writer, installed execution or root
 admission. The new identity/path data require fresh artifact qualification;
 the unchanged reader machinery retains its reviewed semantics. P440 and P441
 remain consumed. Any later recovery or history-table admission is separate.
+
+P444 selects the same exact P441 pair after P443's closed strict replay.
+Path selection, metadata, sizes, partition RO and mountless read semantics
+are unchanged. P442's dirty capture remains original evidence. P443's clean
+superblock/checker result and negative complete-root comparison do not prove
+these files' present contents or identify its unaccounted tree paths. This
+fresh reader makes no repair, replay, filesystem write or root admission.

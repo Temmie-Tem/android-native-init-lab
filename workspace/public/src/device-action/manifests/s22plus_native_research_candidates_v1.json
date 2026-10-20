@@ -254,6 +254,15 @@
       "image_sha256": "59f8858f05aa70f08abd92bbbf70d85f8efc006928c25a951423e445d27022ab",
       "profile": "thermal-v3-reconnect-ufs-drain-journal-recovery-v1",
       "journal_selection": "post-autoboot-p432-v1"
+    },
+    {
+      "namespace": "p444",
+      "run_id": "41eb1ce6ac47444892e10627fdcdb714",
+      "version": "v0.13.0-rc.1",
+      "image_sha256": "e8f94d8225c6954b8811032480bfa0632adde7a1aa9bdf75c35d9ff3ba763181",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
+      "evidence_run": "2681c4b86886483c9c74ec5b9a7dee1b",
+      "evidence_selection": "autoboot-pair"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"
