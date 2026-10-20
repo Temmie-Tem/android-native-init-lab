@@ -1,6 +1,6 @@
 # S22+ P451: fixed P448-pair retrieval after P450
 
-Status: **PASS_GO / READY_CONNECTED_FIXED_D0; no grant or experimental transfer**.
+Status: **PASS_GO; approval returned; waiting for P450; no grant or device effect**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
 Prepare a fresh instance of the existing mountless reader for exactly P448's
@@ -70,3 +70,10 @@ grant is independent of P450's grant; it grants no replay or extra P450 budget.
 The planned order remains P450 healthy closure followed by P451 with fresh
 current checks. Preparation health is a point-in-time observation, not a
 prediction of P450's outcome or P451's future starting state.
+
+Both exact approvals were subsequently returned. P450's host-only grant
+preflight stopped because the command process cannot gain the privilege needed
+for the mandatory read-only tty census; see its linked preparation report.
+P451's exact task, capability, artifacts and source snapshots revalidated, but
+its grant has not opened and no operation or device command has started.
+P450's healthy closure and P451's fresh checks remain prerequisites.

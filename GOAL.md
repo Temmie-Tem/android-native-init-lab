@@ -27,13 +27,20 @@ A90 and S20+ remain isolated.
 and its separate [P451 post-replay reader](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_H0_2026-10-21.md)
 are qualified and ready after P449's dirty read: actual A/B packages, five new
 ARM64 cases, focused tests, both independent PASS_GO reviews and 17 successful
-fixed Android D0 captures per task. No grant, mode change, image transfer or
-native_data access occurred. They retain the existing strict replayer/checker/
+fixed Android D0 captures per task. Both exact attended approvals have now been
+returned, but P450 stopped before opening a grant: the current host command
+process has `NoNewPrivs=1`, so the mandatory privileged read-only tty census
+could not run. The root-owned setuid `pkexec` installation is intact. All six
+raw host-preflight files are preserved with a byte-verified relocation record.
+No grant, operation, device command, mode change, image transfer or native_data
+access occurred. P451 has not started. They retain the strict replayer/checker/
 comparison and fixed two-file reader scopes. Known later files remain outside
 the old comparison table, so
 replay/checker success is not complete root admission. P451 follows only after
 P450's healthy closure and fresh machine checks; each retains its own returned
-one-operation/1800-second attended grant.
+one-operation/1800-second attended grant. Continuing requires a host execution
+environment that can perform the unchanged census; the existing approvals do
+not bypass that check or permit repeated effects.
 
 [P449's fixed read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. It recovered P448's complete

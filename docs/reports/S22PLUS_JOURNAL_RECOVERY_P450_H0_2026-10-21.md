@@ -1,6 +1,6 @@
 # S22+ P450: fixed journal recovery preparation after P449
 
-Status: **PASS_GO / READY_CONNECTED_FIXED_D0; no grant or replay effect**.
+Status: **PASS_GO; approval returned; HOST_PREGRANT_BLOCKED; no device effect**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
 The operator selected fixed journal recovery followed by a separate read of
@@ -84,7 +84,32 @@ F1 owner pass; the actual task/proposal reopen. The host capability and runtime
 sources were preserved before these reads. No mode change, image transfer,
 native_data access or grant opening occurred.
 
-The returned proposal permits only one attended journal-recovery operation
-within 1800 original BOOTTIME seconds, with one N and one original A. Its
-exact returned operator grant remains required. No P451 approval extends this
-budget or supplies replay authority after a P450 uncertainty.
+The proposal permits only one attended journal-recovery operation within 1800
+original BOOTTIME seconds, with one N and one original A. Its exact returned
+approval is recorded below; the grant still requires successful host preflight.
+No P451 approval extends this budget or supplies replay authority after a
+P450 uncertainty.
+
+## Approved start blocked before device access
+
+The operator returned both exact one-operation/1800-second attended approval
+strings. The unchanged P450/P451 task, capability, artifacts and frozen source
+snapshots revalidated, with no F1 owner. P450's grant opener then stopped in
+its host-only tty-holder census: `pkcheck` succeeded, but `pkexec` returned 127
+with `pkexec must be setuid root`. The binary is root-owned mode 4755; the
+current command process has `NoNewPrivs=1`, which prevents its privilege gain.
+
+No grant or operation exists and no device command was issued. Preserve this
+as a host preflight failure, not a device-session failure or consumed candidate.
+The six raw files were retained byte-for-byte in the private task's
+`grant-host-preflight-failed-1` directory, with immutable relocation intent,
+source/destination hashes and successful raw-receipt reopening. No check,
+installed file, capability, approval, task or runtime source was changed.
+P451 remains unopened until P450 completes and closes healthy.
+
+A private operator-terminal entry point calls the original grant opener and
+reviewed CLI with the returned approval. It stops before any attempt if its
+process still has `NoNewPrivs`, or if a grant, operation or new preflight attempt
+already exists. Its syntax and current-environment refusal were checked; that
+refusal is not a successful host census or physical qualification. The current
+agent environment cannot execute the required privileged census.
