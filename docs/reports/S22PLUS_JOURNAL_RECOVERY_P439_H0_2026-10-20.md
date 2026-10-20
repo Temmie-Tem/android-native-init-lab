@@ -1,7 +1,9 @@
 # S22+ P439 journal recovery preparation
 
-Status: **PASS_GO / READY_CONNECTED_FIXED_D0**. No P439 grant, transfer or
-filesystem-write effect. Fixed connected preparation reads completed.
+Preparation status: **PASS_GO / READY_CONNECTED_FIXED_D0**. The preparation
+opened no grant, transfer or filesystem-write effect. The subsequent
+[P439 physical run](S22PLUS_JOURNAL_RECOVERY_P439_RUN_2026-10-20.md) is now
+consumed and closed healthy, with a negative complete-root comparison.
 Target: `SM-S906N/g0q/S906NKSS7FYG8`; A90 and S20+ are outside this work.
 
 ## Bounded task

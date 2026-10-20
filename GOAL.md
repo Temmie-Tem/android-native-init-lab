@@ -29,17 +29,21 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P439 fixed journal recovery preparation
+## P439 closed healthy; replay/checker complete, full-root comparison negative
 
-[P439 H0](docs/reports/S22PLUS_JOURNAL_RECOVERY_P439_H0_2026-10-20.md) prepares a
-fresh instance of the existing strict journal recovery after P438's dirty read.
-The original two-history comparison remains exact; known later files are
-expected to prevent full-root proof even after successful replay/checking.
-Separate P437-pair retrieval and exact history qualification must precede the
-planned watchdog comparison. Actual A/B package, 3 fresh/9 retained ARM64 cases,
-14 tests and independent PASS_GO are complete. Fixed connected D0 preparation
-proves current original-A/Android32 health. The one-operation/1800-second attended
-proposal is ready; no grant, transfer or filesystem-write effect exists.
+The [P439 run](docs/reports/S22PLUS_JOURNAL_RECOVERY_P439_RUN_2026-10-20.md)
+consumed one attended N/A pair and closed ANDROID_CLOSED_HEALTHY. The strict
+writer completed 24 writes/95,232 bytes, followed by clean superblock,
+read-only checker success, partition RO and protected unmount. All 8,971
+selected entries match, but 8,979 observed versus 8,976 admitted tree entries
+leave three unaccounted entries: RECOVERY_NOT_PROVED. Their paths are not
+identified by this aggregate result. One post-A ADB read failure led only to
+health continuation; no transfer or writer repeated. H0 closure rederived 617
+captures and the unchanged 20-row journal; no F1 owner remains.
+
+Separate fresh P437-pair retrieval and exact history qualification precede the
+planned watchdog comparison. P439 proves neither full-root admission nor a new
+effect's authority. A90 and S20+ were untouched.
 
 ## P437/P438 closed healthy; first watchdog renewal remains the runtime gap
 
@@ -734,11 +738,11 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P438's latest protected read is dirty with the runtime file absent in its home
-view. Assess the existing fixed journal-recovery/history path before a future
-writable boot, and require that boot's actual protected root admission. Older
-clean-root observations do not establish current integrity. Android health,
-native_data cleanliness and watchdog functionality remain separate claims.
+P439's post-P438 replay/checker is complete and its protected superblock clean,
+but three tree entries remain outside the selected comparison. Retrieve the
+fixed P437 pair after replay and qualify exact historical bytes before a future
+writable boot's complete protected admission. Android health, full-root
+consistency and watchdog functionality remain separate claims.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,
