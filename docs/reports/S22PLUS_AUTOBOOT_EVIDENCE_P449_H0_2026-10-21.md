@@ -1,7 +1,12 @@
 # S22+ P449: fixed P448-pair acquisition preparation
 
-Status: **PASS_GO / READY_CONNECTED_FIXED_D0; no grant or experimental transfer**.
+Status: **PASS_GO / READY_CONNECTED_FIXED_D0 at preparation; subsequently consumed**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
+
+The subsequent [P449 physical read](S22PLUS_AUTOBOOT_EVIDENCE_P449_RUN_2026-10-21.md)
+retrieved P448's complete authenticated early file from a dirty home-block
+view, with runtime absent, and closed healthy. Its one N/A grant is consumed.
+The preparation and remaining-authority descriptions below are historical.
 
 The operator requested P448's early/runtime files and current native_data
 state before choosing the next experiment. P448 is consumed and closed

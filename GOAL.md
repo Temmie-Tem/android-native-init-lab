@@ -23,15 +23,20 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P449 fixed-reader preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_H0_2026-10-21.md)
-is selected to retrieve exactly P448's early/runtime pair and observe current
-native_data state before choosing the next experiment. A/B packages, two new
-ARM64 cases, 33 focused tests, independent PASS_GO and 17 successful fixed
-Android D0 captures pass. The concrete one-operation/1800-second attended
-proposal is ready; no new grant or experimental transfer has occurred. The reader
-retains partition RO and mountless acquisition, without replay, repair,
-filesystem write or installed execution. Missing home-block files remain
-unknown. The next writable candidate is not selected from absent evidence.
+[P449's fixed read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_RUN_2026-10-21.md)
+is consumed and `ANDROID_CLOSED_HEALTHY`. It recovered P448's complete
+10,972-byte early file: all 14 records authenticate through `EARLY_PRE_UNMOUNT`
+and join the first retained P448 boot. Runtime is `ABSENT_IN_HOME_VIEW` with
+`state=1, recover=1, orphan=0`; no mount, replay or filesystem write occurred.
+The missing peer does not prove non-execution or permit a paired boot/nonce
+join. Closure rederived 628 captures and the unchanged 20-row journal, with
+one post-A read failure and health-only continuation. One N/A pair is consumed,
+the grant is closed and no F1 owner remains. The selected next unit is fresh
+fixed journal-recovery preparation followed by a separate post-replay read;
+another writable Debian boot awaits current storage/history admission.
+The [qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_H0_2026-10-21.md)
+retains A/B packages, two new ARM64 cases, 33 tests, independent PASS_GO and
+17 fixed preparation reads. A90 and S20+ were untouched.
 
 [P448's single-CPU physical experiment](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`: one N and one original A, all 704 raw
@@ -44,7 +49,8 @@ PID1 and rcS fork are proved, but rcS completion, 120-second services and SSH
 are not. The kernel reports the selected maxcpus setting and one processor.
 Two distinct candidate boots are authenticated in retention; reset timing,
 cause and relation to physical recovery remain unknown. Current native_data
-consistency and current-run files are not yet established.
+consistency and current-run files were unknown at P448 closure; P449 above
+now supplies the early file and dirty home-view observation.
 
 [P448 H0 qualification](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_H0_2026-10-21.md)
 retains the actual A/B archive, 27 ARM64 cases, policy adoption and independent
@@ -361,7 +367,7 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The P448 physical unit is closed. Its partial progress reaches installed PID1
+The P448 physical unit and P449 read are closed. P448's partial progress reaches installed PID1
 and rcS fork/first sleep, but the usable service/SSH criterion is still open.
 Keep the live NO_PROOF result, positive retained facts and healthy Android
 return distinct. The selected CPU setting alone did not establish the product
@@ -373,11 +379,14 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P449 is qualified as the separate fixed reader for P448's current early/runtime
-files, awaiting its returned attended grant. Retrieve those files and observe
-current storage before selecting the next writable candidate. Do not fabricate
-unseen history or infer clean native_data from original-A
-health. Any eligible journal recovery needs its own exact reviewed scope.
+P449 recovered the authenticated first-boot early file but found a dirty
+home-block view and no runtime file. Prepare a fresh fixed native_data strict
+journal-recovery operation, then separately retrieve the same pair after
+healthy closure. The reader's three superblock fields do not prove complete
+writer eligibility; its exact current checks, reviewed scope, qualification
+and returned attended grant remain required. Do not fabricate unseen history,
+infer clean native_data from original-A health or admit an unknown runtime
+file. Replay/checker success is distinct from complete root admission.
 Compare only source-bound per-boot facts when choosing a functional successor;
 optional cause analysis does not replace current-root admission or reopen a
 consumed action. All new work starts from the closed healthy Android state.
