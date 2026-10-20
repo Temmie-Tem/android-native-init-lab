@@ -147,19 +147,23 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P438 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p438_review.json`.
+native_data, or transfers an image. The current prospective P440 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p440_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
 `s22plus_native_root_evidence_p431_review.json`, consumed P433 review
 `s22plus_native_root_evidence_p433_review.json`, consumed P436 review
-`s22plus_native_root_evidence_p436_review.json`, and all retained
+`s22plus_native_root_evidence_p436_review.json`, consumed P438 review
+`s22plus_native_root_evidence_p438_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
-selects the two-file table and its declared binary bound. P438 seals the pair
-for the closed P437 automatic writer, retaining the same sizes, metadata,
-mountless read and original-A return. It adds no path class, replay, write or
-installed-root admission. P436's P432 acquisition and P434's historical result
-remain unchanged; P437's current filesystem and second-boot effects remain
-unknown until separately observed, and missing home-block files stay unknown.
+selects the two-file table and its declared binary bound. P440 seals the same
+pair for the closed P437 automatic writer after P439's closed strict replay,
+retaining the same sizes, metadata, mountless read and original-A return.
+It adds no path class, replay, write or installed-root admission. P438's dirty
+pre-replay capture and P439's negative complete-root comparison remain unchanged.
+The later read may observe newly checkpointed bytes; it cannot identify the
+three unaccounted entries from their count alone, prove second-boot effects
+without authenticated records, or turn missing home-block files into
+non-execution evidence.

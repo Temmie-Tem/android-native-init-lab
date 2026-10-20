@@ -739,10 +739,14 @@ and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
 P439's post-P438 replay/checker is complete and its protected superblock clean,
-but three tree entries remain outside the selected comparison. Retrieve the
-fixed P437 pair after replay and qualify exact historical bytes before a future
-writable boot's complete protected admission. Android health, full-root
-consistency and watchdog functionality remain separate claims.
+but three tree entries remain outside the selected comparison.
+[P440 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P440_H0_2026-10-20.md)
+is ready for a fresh mountless read of the same fixed P437 pair after replay:
+actual A/B, two fresh VMs, 33 tests, independent PASS_GO and connected D0 pass.
+Its one-operation/1800-second attended proposal has no returned grant yet.
+Qualify exact historical bytes before a future writable boot's complete
+protected admission. Android health, full-root consistency and watchdog
+functionality remain separate claims.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,
