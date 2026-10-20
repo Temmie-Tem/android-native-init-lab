@@ -300,10 +300,12 @@ def qualify_case(proof,case):
         return [r for r in rows if r['stage']==stage and r['kind']==kind and
             (result is None or r['result']==result)]
     rcs='rcs_completed' in proof
+    watchdog='watchdog_observations' in proof
     if case=='trace-logger-loss':
         require(not rows and not proof['installed_debian_pid1'],'lost logger invented retained evidence')
     elif case in ('normal','network-absent'):
-        require(proof['installed_debian_pid1'] and {r['actor_id'] for r in rows}==set(RCS_ACTORS if rcs else ACTORS),
+        require(proof['installed_debian_pid1'] and
+            {r['actor_id'] for r in rows}==set(WATCHDOG_ACTORS if watchdog else RCS_ACTORS if rcs else ACTORS),
             'successful VM lacks all measured transition actors')
         for stage in ('FILE_CLOSE','PARENT_CLOSE','ROOT_CLOSE','FILE_UNMOUNT','RESTORE_RO',
             'SUPER_CLEAN','GPT_CHECK','RECEIPT','WAIT_RESULT','ROOT_ELIGIBLE','WRITABLE_MOUNT',

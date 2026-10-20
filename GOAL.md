@@ -29,6 +29,19 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
+## P441 watchdog/idle candidate: qualified and prepared; fresh grant pending
+
+The [P441 qualification](docs/reports/S22PLUS_AUTOBOOT_WATCHDOG_P441_H0_2026-10-20.md)
+selects the bounded eight-actor observer, exact P440-authenticated history and
+`cpuidle.off=1` on the retained kernel/modules. Matched H0 archives differ only
+in the boot command line. Normal VM services/SSH/controlled shutdown and the
+49-case corpus pass, with independent PASS_GO on 139 host/147 runtime sources.
+The 11-item past-failure checklist records H0 checks and the fresh 17-capture
+fixed D0 preparation: Android32 health/GPT/capacity, host/recovery binding and
+actual task/proposal reopen pass. Current native_data admission and physical
+service/return proof remain pending. No P441 grant, transfer or write has
+occurred; P437/P439/P440 remain consumed and unchanged.
+
 ## P440 retrieved the P437 pair and closed healthy
 
 The [P440 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P440_RUN_2026-10-20.md)

@@ -109,6 +109,15 @@ and P435's separate-P434 prerequisite stay unchanged; neither is promoted or
 reopened by this new selection. No separate read-only N is required before
 the new selection's own two mandatory admissions.
 
+The separately reviewed `post-autoboot-p440-v1` selection adds exactly P437's
+early and runtime files authenticated by the closed P440 reader, for five
+historical rows. Each is sealed by exact path, root-owned 0600 single-link
+metadata, full captured length and SHA-256. No new parent-directory rule or
+mutable exception is added. The new selection retains both same-boot clean
+protected admissions and admits only its own current early file in the second.
+P439's aggregate incomplete root result remains RECOVERY_NOT_PROVED; P440's
+historical records do not replace current root checks or authorize replay.
+
 The first lifetime creates only `var/lib/lab/s22-early-<sealed-run>`, exclusively,
 root-owned 0600 with one link, at most 16384 bytes. It adopts the storage-first
 checked header, six client begin/end pairs and final pre-unmount record. Every
@@ -218,7 +227,39 @@ retry. A fork result, pre-exec marker or failed exec does not prove successful
 rcS execution. The checked rcS completion point follows the existing successful
 child reaping, actual-init check and durable completion record.
 
-Only this qualified variant adopts the existing fixed post-closure D0 command
+The separately qualified `post-autoboot-p440-v1` variant enables
+`S22_AUTOBOOT_WATCHDOG_TRACE` and adds actor eight, the existing runlevel hook.
+Only the existing rcS/runlevel parents sample one uniquely identified
+`gh-watchdog` kernel thread using bounded proc comm/stat/wchan reads. Each
+owner has at most five opportunities: one before 8.5 seconds, then at
+9/10/11/12 seconds BOOTTIME with 250 ms lateness. Expired opportunities are
+skipped; there is no waiting or extension of the workload. Discovery examines
+at most 4096 entries with a 100 ms limit; subsequent samples have 25 ms limits.
+The total 250 ms proc budget per owner shares its existing 2000 ms observation
+budget and absolute device deadline. Descriptors close within each call;
+errors or logging loss disable that owner's further sampling and preserve
+workload errno and progress. A blocked kernel call remains uncancellable.
+
+Authenticated task identity, CPU ticks, scheduling properties and classified
+wait symbols remain observations only. No raw addresses or arbitrary symbols
+are emitted. Samples are not atomic and may perturb timing; they prove neither
+watchdog renewal, timer/IPI/SMC execution, successful rcS exec nor cause.
+No new process, timer, persistent file, pet/control write, scheduler setting,
+workload gate or lifetime is added. The same post-closure retained-log D0 applies.
+
+This variant selects the retained kernel/modules and either their unchanged
+boot command line or exactly one appended `cpuidle.off=1`. The packager and
+actual-archive consumer positively bind the selected bytes and reject
+conflicting retained boot/vendor-boot idle options. Apart from existing
+ramdisk size/offset changes, every other header, kernel and signature byte
+remains fixed. Both choices use the same observer and startup. Disabling
+cpuidle may increase idle power; it provides no automatic-recovery guarantee.
+The original 300000 ms device deadline, 360-second host observation, 120-second
+local service proof, physical attendance and Download/original-A return remain.
+This selection requires fresh artifact/ARM64 qualification, independent
+current review and its own returned attended one-operation/3600-second grant.
+
+These separately qualified observation variants adopt the fixed post-closure D0 command
 `su -c 'cat /proc/last_kmsg'`, at most 4 MiB and 30 seconds, after exact closed-
 owner/source binding and with before/after health on the same returned Android
 boot. Save bounded raw bytes before decoding; retain independent partial facts

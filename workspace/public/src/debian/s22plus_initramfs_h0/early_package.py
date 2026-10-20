@@ -33,12 +33,16 @@ def package_archive(out,built):
     baseline=fyg8.retained.RETAINED/'candidate-a/boot.img'
     expected=previous['candidate']['a']['boot_img']
     verify(dict(path=str(baseline),**expected),maximum=128*1024**2)
-    original=baseline.read_bytes();parsed=fyg8.boot.parse_boot_v4(original)
+    original=baseline.read_bytes()
+    if built['profile']=='debian-autoboot-v1':
+        import s22plus_debian_autoboot_profile_v1 as automatic
+        original=automatic.boot_carrier(original,built)
+    parsed=fyg8.boot.parse_boot_v4(original)
     initramfs=verify(built['initramfs'],maximum=16*1024**2)
     ramdisk=gzip.decompress(initramfs.read_bytes());fyg8.debian_entries(initramfs)
     tools=early.packaging.shared.packager._bind_tools()
     for side in 'ab':
-        folder=out/('pack-'+side);folder.mkdir(mode=0o700);shutil.copyfile(baseline,folder/'base.img')
+        folder=out/('pack-'+side);folder.mkdir(mode=0o700);(folder/'base.img').write_bytes(original)
         for argv,name in (([tools['magiskboot'],'unpack','-h','base.img'],'unpack'),):
             with (folder/(name+'.log')).open('xb') as log:
                 subprocess.run(argv,cwd=folder,stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
@@ -47,7 +51,8 @@ def package_archive(out,built):
             subprocess.run([tools['magiskboot'],'repack','base.img','boot.img'],cwd=folder,
                 stdout=log,stderr=subprocess.STDOUT,check=True,timeout=60)
         image=(folder/'boot.img').read_bytes();actual=fyg8.boot.parse_boot_v4(image)
-        require(len(image)==len(original) and actual.kernel==parsed.kernel and actual.signature==parsed.signature and
+        require(len(image)==len(original) and image[:12]+image[16:4096]==original[:12]+original[16:4096] and
+            actual.kernel==parsed.kernel and actual.signature==parsed.signature and
             footer(image,actual)==footer(original,parsed) and
             {k:v for k,v in actual.header.items() if k not in ('ramdisk_size','ramdisk_end','signature_start','signature_end')}==
             {k:v for k,v in parsed.header.items() if k not in ('ramdisk_size','ramdisk_end','signature_start','signature_end')} and

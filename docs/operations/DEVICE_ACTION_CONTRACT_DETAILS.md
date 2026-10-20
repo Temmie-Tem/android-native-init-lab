@@ -1142,6 +1142,31 @@ semantics remain. No new process, persistent output, writable lifetime or
 workload prerequisite is added. The same fixed post-closure D0 and proof limits
 apply; a pre-exec record alone never proves successful execution.
 
+The separately qualified `post-autoboot-p440-v1` watchdog/idle variant adds
+exactly the P437 early/runtime pair authenticated by the closed P440 reader,
+for five immutable historical rows. Each row retains sealed path, root-owned
+0600 single-link metadata, exact size and hash; both complete same-boot clean
+admissions and existing mutable rules remain unchanged. It selects the same
+retained kernel/modules with either the unchanged boot command line or exactly
+one appended `cpuidle.off=1`, positively checked against the actual AP/boot and
+fixed vendor-boot command line. No other header change or kernel modification
+is permitted by this selection. Disabling cpuidle can increase idle power; the
+existing deadlines and attended physical recovery remain required.
+
+This variant selects the existing bounded watchdog observer in both idle
+choices. Actor eight is the existing runlevel parent; the existing rcS parent
+and runlevel parent may each make at most five proc observations before
+12.5 seconds BOOTTIME, with 250 ms cumulative proc work per owner, 100 ms
+discovery and 25 ms cached-read limits, within the same 2000 ms logging budget.
+Only bounded comm/stat/wchan reads of one uniquely identified gh-watchdog
+kernel thread are selected. No process, persistent file, watchdog/control
+write, scheduler setting, workload prerequisite or deadline extension is added.
+Read/logging failures end sampling without changing workload behavior; kernel
+stalls remain uncancellable. The same fixed post-closure D0 applies. Samples
+can perturb timing and prove neither pet success nor cause or recovery.
+The variant still needs its own returned attended finite grant and current
+qualification/review; consumed P437/P439/P440 actions are never reused.
+
 ## S22+ native-first installed-Debian handoff
 
 The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes

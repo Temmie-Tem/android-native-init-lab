@@ -211,6 +211,9 @@ def archive_binding(image,artifact):
         'integrated packaged ramdisk differs from the qualified initramfs')
     retained=read(verify(carrier.RETAINED_RESULT))['candidate']['a']['boot_img']
     original=verify(dict(path=str(carrier.RETAINED/'candidate-a/boot.img'),**retained),maximum=128*1024**2).read_bytes()
+    if built['profile']=='debian-autoboot-v1':
+        import s22plus_debian_autoboot_profile_v1 as automatic
+        original=automatic.boot_carrier(original,built)
     old=boot.parse_boot_v4(original)
     def header(value):return {k:v for k,v in value.header.items() if k not in
         ('ramdisk_size','ramdisk_end','signature_start','signature_end')}
@@ -220,6 +223,7 @@ def archive_binding(image,artifact):
             footer['vbmeta_offset']==boot.align(end+16,4096) and not any(data[end+16:footer['vbmeta_offset']]) and
             not any(data[footer['vbmeta_offset']+footer['vbmeta_size']:-64]),'integrated boot trailer differs')
         return {k:footer[k] for k in ('version_major','version_minor','vbmeta_size','vbmeta_sha256')}
-    require(len(actual)==len(original) and parsed.kernel==old.kernel and parsed.signature==old.signature and
+    require(len(actual)==len(original) and actual[:12]+actual[16:4096]==original[:12]+original[16:4096] and
+        parsed.kernel==old.kernel and parsed.signature==old.signature and
         header(parsed)==header(old) and trailer(actual,parsed)==trailer(original,old),
         'integrated carrier/kernel/header/signature changed')

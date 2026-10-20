@@ -676,6 +676,18 @@ the new selection needs no separate read-only N before its own mandatory
 admissions. It still requires independent current review, actual qualification
 and its own returned attended one-operation/3600-second grant.
 
+The separately reviewed `post-autoboot-p440-v1` variant adopts only the policy's
+two exact P437 historical rows authenticated by the closed P440 reader, the
+bounded eight-actor watchdog observer and the retained/default versus exact
+`cpuidle.off=1` boot-command-line selection. Both current clean protected-root
+admissions, two writable lifetimes, unchanged device/host deadlines, one NCM
+attempt and original physical A remain mandatory. The same kernel/modules and
+observer apply to both idle choices. No pet/control write, scheduler setting,
+new process/file or automatic recovery is added. Current artifact/VM
+qualification and independent review precede its own returned attended
+one-operation/3600-second grant. P439's incomplete full-root result and all
+consumed candidates retain their meaning.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

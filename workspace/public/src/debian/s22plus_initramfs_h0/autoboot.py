@@ -51,11 +51,12 @@ fyg8_stop
     return text[:-len('fyg8_stop\n')]+tail
 
 
-def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False):
+def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False):
     flags=[*integrated.FLAGS,'-DS22_DEBIAN_HANDOFF','-DS22_DEBIAN_AUTOBOOT',
         '-I',out,'-I',headers,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE]
     if transition:flags+=['-DS22_AUTOBOOT_TRACE='+str(dict(entry=2,witness=3,hook=4)[name]),'-DS22_AUTOBOOT_HISTORY']
     if rcs:flags+=['-DS22_AUTOBOOT_RCS_TRACE']
+    if watchdog:flags+=['-DS22_AUTOBOOT_WATCHDOG_TRACE']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
     if transition_fault:
         import autoboot_transition_faults
@@ -67,17 +68,20 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     return pin(out/(name+'-a'),maximum=8*1024**2)
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None):
     h0.require(transition_fault is None or virt and transition,'transition fault requires virtual observation')
     h0.require(not rcs or transition,'rcS observation requires the transition variant')
+    h0.require(not watchdog or rcs,'watchdog observation requires the rcS variant')
+    h0.require(idle_policy in profile.IDLE_POLICIES if watchdog else idle_policy is None,
+        'idle policy requires the selected watchdog variant')
     out=h0.private(out,fresh=fresh);saved=snapshot(out) if fresh else read(out/'source-inputs.json')
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
-    namespace=profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    namespace=profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     prefix=out/'early';prefix.mkdir(mode=0o700)
     file_log.snapshot(prefix)
     first=file_log.prepare(prefix,inputs,packages,run=run,key=key,virt=virt,fresh=False,
-        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs)
+        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog)
     destination=out/'installed';destination.mkdir(mode=0o700)
     base=handoff.base
     for name in ('s22plus_native_ext4_seal_v1.h','s22plus_native_root_inspect_seal_v1.h',
@@ -85,14 +89,14 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         (destination/name).write_bytes((prefix/name).read_bytes())
     (destination/'s22plus_native_staged_preflight_seal_v1.h').write_bytes(base.staged.header())
     (destination/'s22plus_switch_root_seal_v1.h').write_bytes(base.seal(run,key))
-    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs))
+    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog))
     installed_init,assets=profile.payloads(run,virt=virt)
     for name,data in assets.items():(destination/name).write_bytes(data)
-    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs)
+    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog)
     handoff.payload_header(destination,hook,virt)
-    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs)
+    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
-    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs)
+    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog)
     (out/'fyg8-dev').write_text(dev_script())
     result=dict(namespace=namespace,version=version,profile=profile.PROFILE,
         run_id=run,virtual=virt,inputs=str(h0.private(inputs)),packages=str(h0.private(packages)),
@@ -104,8 +108,9 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         deadline_ms=300000,observer_revision=5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
             sorted(list(prefix.glob('*.h'))+list(destination.glob('*.h')))})
-    if transition:result.update(transition_observer=profile.observer(rcs),additional_history=first['additional_history'])
+    if transition:result.update(transition_observer=profile.observer(rcs,watchdog),additional_history=first['additional_history'])
     if rcs:result['runtime_history']=first['runtime_history']
+    if watchdog:result.update(watchdog_history=first['watchdog_history'],idle_policy=idle_policy)
     if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
         first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
     for row in saved:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'automatic source changed')
@@ -139,9 +144,9 @@ def inside(out):
     h0.generate_archives(out,tree,fyg8.KERNEL_RELEASE)
 
 
-def build(out,inputs,packages,*,transition=False,rcs=False):
+def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None):
     out=h0.private(out,fresh=True);saved=snapshot(out)
-    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs)
+    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out],out/'namespace-build.log',timeout=700)
     h0.require((out/'initramfs-a.cpio.gz').read_bytes()==(out/'initramfs-b.cpio.gz').read_bytes(),'automatic initramfs A/B differs')
