@@ -1,7 +1,12 @@
 # S22+ P451: fixed P448-pair retrieval after P450
 
-Status: **PASS_GO; approval returned; P450 closed healthy; no P451 device effect**.
+Status: **H0 PASS_GO; physical read consumed and closed healthy**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
+
+The later [physical result](S22PLUS_AUTOBOOT_EVIDENCE_P451_RUN_2026-10-21.md)
+retrieved the complete authenticated P448 pair and closed healthy through the
+reviewed operator-terminal entry point. The preparation chronology below
+does not renew either consumed grant.
 
 Prepare a fresh instance of the existing mountless reader for exactly P448's
 early/runtime pair, to follow P450's healthy journal-recovery closure. P449
@@ -81,5 +86,6 @@ against that closed owner and the same target/original-A binding. Its private
 terminal entry point rederives the pinned P450 closure before calling the
 original grant opener and `root-evidence` CLI. The agent process's privilege
 restriction remains, so the terminal entry point is still needed.
-No P451 grant, operation or device command has started. Fresh host and Android
-checks remain mandatory, with no repeated P450 effect or expanded grant.
+At that preparation point no P451 grant, operation or device command had
+started. The subsequent physical result passed fresh host and Android checks,
+with no repeated P450 effect or expanded grant.

@@ -33,17 +33,27 @@ writable Debian boot. Closure rederived 683 raw captures and the unchanged
 20-row journal, with one post-A read failure and health-only continuation.
 One N/A pair is consumed; the grant is closed and no F1 owner remains.
 
-The separate [P451 post-replay reader](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_H0_2026-10-21.md)
-has its exact returned approval and required P450 healthy closure. Its task,
-capability and frozen sources revalidate. It will read only P448's sealed pair,
-with its own fresh host/Android checks and one-operation/1800-second attended
-grant. No P451 grant or operation has started. The agent process still has
-`NoNewPrivs=1`, preventing the mandatory privileged read-only host census;
-the unchanged runner therefore needs the operator-terminal entry point.
-P450's analogous host-only failure was preserved before its successful manual
-launch, without changing checks or replacing approvals. The retained
+The separate [P451 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_RUN_2026-10-21.md)
+also closed `ANDROID_CLOSED_HEALTHY`. It captured P448's complete early/runtime
+pair: 10,972/1,024 bytes and 14/6 authenticated records, matching boot and nonce.
+The early bytes equal P449's original capture; both files join only P448's
+first retained boot. Runtime reaches installed-init/rcS entry and fork, with
+one CPU0/watchdog-enabled sample. It proves no hardware renewal, continuous
+CPU state, rcS completion, 120-second services, SSH or clean shutdown.
+The partition-RO mountless view is state 1 / RECOVER 0 / orphan 0. Closure
+rederived 616 raw captures and the unchanged 20-row journal, with one post-A
+read failure and health-only continuation. One N/A pair is consumed; both
+tasks are closed and no F1 owner remains. P450's complete-root rejection and
+P448's second-boot/reset uncertainty remain unchanged. Current history
+qualification and complete protected admission precede another writable boot.
+
+Both approved operations ran through reviewed operator-terminal entry points
+because the agent process's `NoNewPrivs=1` blocked the mandatory host census.
+The original checks and approvals stayed intact; P450's initial host-only
+failure remains preserved. The retained
 [P450 qualification](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_H0_2026-10-21.md)
-and P451 qualification include actual A/B packages, five fresh ARM64 cases,
+and [P451 qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_H0_2026-10-21.md)
+include actual A/B packages, five fresh ARM64 cases,
 focused tests, both independent PASS_GO reviews and 17 preparation D0 captures
 per task. A90 and S20+ were untouched.
 
@@ -55,9 +65,9 @@ and join the first retained P448 boot. Runtime is `ABSENT_IN_HOME_VIEW` with
 The missing peer does not prove non-execution or permit a paired boot/nonce
 join. Closure rederived 628 captures and the unchanged 20-row journal, with
 one post-A read failure and health-only continuation. One N/A pair is consumed,
-the grant is closed and no F1 owner remains. The selected next unit is fresh
-fixed journal-recovery preparation followed by a separate post-replay read;
-another writable Debian boot awaits current storage/history admission.
+the grant is closed and no F1 owner remains. Its selected journal-recovery and
+post-replay read are now completed by P450/P451 above; another writable Debian
+boot still awaits current storage/history admission.
 The [qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_H0_2026-10-21.md)
 retains A/B packages, two new ARM64 cases, 33 tests, independent PASS_GO and
 17 fixed preparation reads. A90 and S20+ were untouched.

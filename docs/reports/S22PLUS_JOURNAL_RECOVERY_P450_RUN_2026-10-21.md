@@ -80,8 +80,10 @@ now has its required preceding healthy closure. Its original task, capability
 and frozen sources revalidate against the same target and original A. Fresh
 host and Android checks still precede its one operation. The agent command
 process remains unable to run the privileged census, so its unchanged runner
-requires the operator-terminal entry point. No P451 grant or operation has
-started at this report's close.
+required the operator-terminal entry point. No P451 grant or operation had
+started at that report's close. The later
+[P451 result](S22PLUS_AUTOBOOT_EVIDENCE_P451_RUN_2026-10-21.md) now records its
+separate consumed read, authenticated pair and healthy Android return.
 
 A90 and S20+ received no command. Unrelated working-tree content was preserved.
 P450 is consumed and grants no replay or new writable experiment.
