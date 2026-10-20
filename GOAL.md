@@ -23,26 +23,28 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-The operator selected continuation through physical experimentation.
-[P447's fixed P445-pair read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_RUN_2026-10-21.md)
-consumed one attended N/A pair and closed `ANDROID_CLOSED_HEALTHY`. Its clean
-partition-RO home view contains P445's complete authenticated 10,972-byte early
-file, with 14 records and a boot identity matching the retained P445 evidence.
-Runtime is `ABSENT_IN_HOME_VIEW`, not non-execution. All 606 captures and the
-unchanged 20-row journal rederive; one post-A read failure required only health
-continuation. The grant is closed and no F1 owner remains. Its
-[qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_H0_2026-10-21.md)
-retains A/B packages, two fresh ARM64 cases, 33 tests and independent PASS_GO.
+[P448's single-CPU physical experiment](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_RUN_2026-10-21.md)
+is consumed and `ANDROID_CLOSED_HEALTHY`: one N and one original A, all 704 raw
+captures and 14 journal rows rederived, grant closed and no F1 owner. The live
+360-second observation obtained no NCM/SSH proof. Post-closure fixed D0 adds
+16 successful captures on the same returned Android boot. Its unchanged
+strict collector authenticates 131 first-boot transition records; a separately
+authenticated frame proves the first rcS sleep returned zero. Installed Debian
+PID1 and rcS fork are proved, but rcS completion, 120-second services and SSH
+are not. The kernel reports the selected maxcpus setting and one processor.
+Two distinct candidate boots are authenticated in retention; reset timing,
+cause and relation to physical recovery remain unknown. Current native_data
+consistency and current-run files are not yet established.
 
-[P448 single-CPU physical preparation](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_H0_2026-10-21.md)
-is ready pending its own returned attended grant. It uses P446's CPU0/proc
-path with eight exact historical rows, adding only P447's authenticated P445
-early file. The actual A/B archive, all 27 ARM64 VM cases, policy adoption and
-independent PASS_GO are complete. The normal VM spans 120.690 seconds between
-same-boot SSH responses and shuts down cleanly. Current fixed Android D0/task
-reopen passes; no P448 grant, mode change, image transfer or native_data write
-has occurred. Both complete current-root admissions still occur in the new
-boot before their respective writes. This is preparation, not physical success.
+[P448 H0 qualification](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_H0_2026-10-21.md)
+retains the actual A/B archive, 27 ARM64 cases, policy adoption and independent
+PASS_GO. Normal VM SSH samples span 120.690 seconds; that result is not promoted
+to physical success. The selected path uses P441 proc observation and eight
+exact historical rows, without P445 phase instrumentation.
+[P447](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_RUN_2026-10-21.md) supplied only
+P445's authenticated complete early file from a clean observed home view;
+its runtime absence was never treated as non-execution or a fabricated row.
+P445, P447 and P448 remain consumed. A90 and S20+ were untouched.
 
 The preceding physical phase-observer campaign is closed.
 The [bounded phase-observer design](docs/reports/S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
@@ -349,12 +351,11 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P448's qualified single-CPU task is ready. After its exact returned attended
-one-operation/3600-second grant, execute one fresh boot, preserve sampled
-CPU/driver state and service/SSH proof separately, then close through the
-fixed shutdown and physical original-A return. The selected CPU0 path retains
-two complete root admissions and adds no phase instrumentation. H0 success
-is not a physical fix or a watchdog-cause result.
+The P448 physical unit is closed. Its partial progress reaches installed PID1
+and rcS fork/first sleep, but the usable service/SSH criterion is still open.
+Keep the live NO_PROOF result, positive retained facts and healthy Android
+return distinct. The selected CPU setting alone did not establish the product
+capability, and no watchdog/reset cause has been proved.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -362,12 +363,13 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P445 and P447 are consumed and closed. P448 admits P447's authenticated P445
-early file as one additional immutable row, never a fabricated runtime row.
-The CPU selection is adopted under the reviewed binding policy; both complete
-current-root admissions remain mandatory. No preliminary replay is selected.
-Unexpected current-root contents reject before writes. Any uncertain effect
-retains the existing owner for attended recovery and never authorizes replay.
+Before the next writable candidate, qualify a separate fixed reader for
+P448's current early/runtime files and determine the needed current storage
+state. Do not fabricate unseen history or infer clean native_data from original-A
+health. Any eligible journal recovery needs its own exact reviewed scope.
+Compare only source-bound per-boot facts when choosing a functional successor;
+optional cause analysis does not replace current-root admission or reopen a
+consumed action. All new work starts from the closed healthy Android state.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,

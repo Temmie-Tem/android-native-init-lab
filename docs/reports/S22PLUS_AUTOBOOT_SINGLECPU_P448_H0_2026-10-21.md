@@ -1,8 +1,11 @@
 # S22+ P448 single-CPU physical successor: H0 qualification
 
-Status: **READY_PENDING_RETURNED_ATTENDED_GRANT**. The exact
-capability and actual ARM64 artifact are independently qualified. No P448
-grant, boot-mode change, image transfer or native_data write has occurred.
+Status: **H0 QUALIFIED; SUBSEQUENT PHYSICAL RUN CLOSED**. The exact
+capability and actual ARM64 artifact are independently qualified. Preparation
+itself performed no grant opening, boot-mode change, image transfer or
+native_data write. The subsequently approved
+[physical experiment](S22PLUS_AUTOBOOT_SINGLECPU_P448_RUN_2026-10-21.md) is
+consumed and closed healthy, with partial retained progress and no live SSH proof.
 Only S22+ FYG8 is selected. A90 and S20+ remain outside this work.
 
 ## Bounded change
@@ -121,11 +124,13 @@ All raw inputs, build outputs, VM disks, source snapshots, reviewer evidence
 and preparation records remain private under
 `workspace/private/outputs/s22plus-autoboot-singlecpu-p448-h0-20261021-1/`.
 
-## Concrete next action
+## Prepared action at H0 closure
 
 The prepared task selects one fresh P448 automatic boot and one original-A
 return, one operation and 3600 seconds with physical attendance. The transfer
 would own both admitted native_data lifetimes, installed services and the one
-NCM attempt. The target remains healthy original Android; preparation performed
+NCM attempt. At that point the target remained healthy original Android; preparation performed
 no mode change, image transfer or native_data write. The exact returned grant
-and continued usable physical Download recovery are required before execution.
+and continued usable physical Download recovery were required before execution.
+The later consumed run is reported separately above; this prepared task grants
+no replay.
