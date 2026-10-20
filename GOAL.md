@@ -29,18 +29,21 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
-## P441 watchdog/idle candidate: qualified and prepared; fresh grant pending
+## P441 closed healthy: watchdog task samples; rcS/services still unproved
 
-The [P441 qualification](docs/reports/S22PLUS_AUTOBOOT_WATCHDOG_P441_H0_2026-10-20.md)
-selects the bounded eight-actor observer, exact P440-authenticated history and
-`cpuidle.off=1` on the retained kernel/modules. Matched H0 archives differ only
-in the boot command line. Normal VM services/SSH/controlled shutdown and the
-49-case corpus pass, with independent PASS_GO on 139 host/147 runtime sources.
-The 11-item past-failure checklist records H0 checks and the fresh 17-capture
-fixed D0 preparation: Android32 health/GPT/capacity, host/recovery binding and
-actual task/proposal reopen pass. Current native_data admission and physical
-service/return proof remain pending. No P441 grant, transfer or write has
-occurred; P437/P439/P440 remain consumed and unchanged.
+The [P441 run](docs/reports/S22PLUS_AUTOBOOT_WATCHDOG_P441_RUN_2026-10-20.md)
+consumed one attended N/A pair and closed ANDROID_CLOSED_HEALTHY. The 360-second
+window had no NCM/SSH proof. Closure rederived 694 captures and the unchanged
+14-row journal; no F1 owner remains. Same-returned-boot D0 authenticates 141
+transition records, including admitted root, installed Debian PID1 and rcS
+progress, plus nine watchdog observations; one malformed frame is rejected.
+Watchdog samples are S through 10.003s, then R with 80/179 ticks at 11.009/12.006s.
+Actual `cpuidle.off=1` did not prevent RT throttling and a watchdog reset reason.
+A distinct second boot has only preparation-prefix evidence; its writes and
+current native_data consistency are unknown. rcS completion/services/SSH and
+clean native shutdown remain unproved. The grant is consumed; no replay.
+The [qualification](docs/reports/S22PLUS_AUTOBOOT_WATCHDOG_P441_H0_2026-10-20.md)
+retains 49 VM cases, 85 tests, PASS_GO and the 11-item checklist audit.
 
 ## P440 retrieved the P437 pair and closed healthy
 
@@ -92,9 +95,9 @@ separates two candidate boots. The first has gh-watchdog RT throttling at
 11.988s and watchdog bark/bite/reset at 12.739s; the 317s messages belong to the
 second boot. First heartbeat was due only around 16.175s. Exact missed-renewal
 cause and second-boot write/rejection state remain unknown. The
-[inactive observer](docs/reports/S22PLUS_WATCHDOG_OBSERVER_H0_2026-10-19.md) has
-host/ARM64 task-state/CPU-time/wait-symbol checks using existing parents; it
-remains disabled and unqualified for a new physical candidate.
+[observer precursor](docs/reports/S22PLUS_WATCHDOG_OBSERVER_H0_2026-10-19.md)
+has host/ARM64 task-state/CPU-time/wait-symbol checks using existing parents;
+P441 separately qualified its enabled physical selection.
 
 The [P438 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P438_RUN_2026-10-20.md) consumed
 one N/A pair and closed ANDROID_CLOSED_HEALTHY, with no F1 owner. Its 10,972-byte
@@ -115,9 +118,8 @@ kernel and 82 module rows as P437 yet survives about 369s; later userspace diffe
 This is an idle-policy lead, not a proved cause. H0 resolves 349 selected instruction
 differences, matches 336 alternative/66 static-key entries, and binds hyp locks,
 dynamic WFI trapping, ramdisk differences, early warnings and eight retained logs.
-No further static discriminator is identified. Timer/thread/ping/SMC execution and
-rcS child progress remain unobserved. Next is H0 preparation of one initial-idle-policy
-comparison with bounded observation; root admission and device-authority rules remain.
+P441 subsequently observed watchdog task wake/CPU-time growth with cpuidle off.
+Exact timer/ping/SMC phase and rcS child progress remain unproved.
 
 ## P430/P431 closed: early PID1 and durable file proved; Android healthy
 
