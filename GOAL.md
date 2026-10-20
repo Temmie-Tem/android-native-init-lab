@@ -82,8 +82,17 @@ remains unchanged. There is no retained completion, installed-init/rcS,
 phase-observer or service proof. Later warm-reset firmware context does not
 locate the failure or prove a second candidate boot. Current native_data
 consistency remains unknown. P445 is consumed, its grant is closed and no
-F1 owner remains. The next bounded H0 question is the second-admission/
-retention boundary; another device operation requires its own applicable scope.
+F1 owner remains. The [P441/P445 comparison and next-experiment decision](docs/reports/S22PLUS_P441_P445_COMPARISON_NEXT_EXPERIMENT_H0_2026-10-21.md)
+is now complete in H0. Retained export bytes do not resolve the actual failure
+frontier; the selected early code and table comparison finds no specific new
+pre-PID1 control-flow defect. The next proposed functional variable is
+`maxcpus=1` on the P441-style Debian startup/proc-observer path, with current
+authenticated history and both complete root admissions; P445 phase
+instrumentation is excluded. The intended outcome is sustained same-boot
+services/SSH and controlled shutdown, not more tail logging. This candidate
+is selected but unimplemented, unbuilt and unauthorised for device use.
+Current native_data state/history and existing qualification/review/grant
+requirements remain separate prerequisites for a future writable candidate.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.
