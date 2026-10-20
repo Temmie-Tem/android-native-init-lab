@@ -23,6 +23,13 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P452 rcS channel design](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_DESIGN_2026-10-21.md)
+is the selected next H0 unit: retain the single-CPU configuration and service
+goal, add only P451-authenticated P448 history, and reuse the RAM dispatcher
+channel with an rcS-relative bounded window. Scope Android/driver comparisons
+to those sixteen script boundaries. Implementation, qualification and review
+precede a fresh finite attended grant; this design grants no device effect.
+
 [P450 fixed journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. Strict replay completed 24 writes /
 95,232 bytes, the read-only checker passed, and protected unmount/partition RO
