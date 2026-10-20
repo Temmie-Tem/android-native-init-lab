@@ -43,17 +43,20 @@ and clean superblock are proved. All 8,971 expected entries match, but five
 tree entries remain outside the selected accounting: `RECOVERY_NOT_PROVED`.
 Closure rederived 600 captures and the unchanged 20-row journal; one post-A
 read failure required only health continuation. No F1 owner remains.
-The five-entry difference does not identify paths. A fresh fixed P441-pair
-reader must establish post-replay contents before history qualification and
-another writable Debian boot. P443 cannot be replayed.
-The [P444 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P444_H0_2026-10-20.md)
-selects the same exact P441 pair under the existing mountless read-only profile.
-Fresh A/B packages, actual image consumption and two ARM64 reader cases pass;
-27 unchanged tests retain their original provenance and six fresh task tests pass.
-Independent PASS_GO binds 139 host and 165 unchanged runtime sources.
-Fresh fixed D0 preparation passes 17 captures, same-boot Android health,
-exact GPT and Android32 capacity. The concrete attended proposal is ready;
-no P444 grant, mode change, transfer or native_data read/write has occurred.
+The five-entry difference does not identify paths. P443 cannot be replayed.
+The [P444 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P444_RUN_2026-10-20.md)
+retrieved the complete P441 pair and closed `ANDROID_CLOSED_HEALTHY`.
+All 14 early and six runtime records authenticate with matching boot/nonce;
+the early bytes equal P442's capture. Both files belong to P441's first boot.
+Runtime reaches installed-init/rcS entry and fork, not rcS completion,
+services, SSH or clean shutdown. The mountless partition-RO view is state 1,
+RECOVER 0, orphan 0. Closure rederived 649 captures and the unchanged 20-row
+journal, with one post-A read failure and health-only continuation.
+P444 is consumed; no F1 owner remains. Its
+[qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P444_H0_2026-10-20.md)
+retains A/B packages, two new ARM64 cases, 27 unchanged and six fresh tests,
+and source-bound PASS_GO. New history qualification and complete protected
+root admission remain necessary before another writable Debian lifetime.
 The private phase prototype passes ARM64 dispatcher/channel feasibility with
 normal, full-queue and disconnected-peer conditions; actual services and the
 watchdog observer still require implementation and integrated qualification.

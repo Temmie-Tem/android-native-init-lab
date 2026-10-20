@@ -3,6 +3,10 @@
 Status: **PASS_GO / READY_CONNECTED_FIXED_D0; no grant or experimental transfer**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
+The preparation below preceded the now-consumed
+[P444 physical run](S22PLUS_AUTOBOOT_EVIDENCE_P444_RUN_2026-10-20.md), which
+retrieved both P441 files and closed healthy. Its original grant is consumed.
+
 Prepare a fresh instance of the existing
 [mountless pair reader](../operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
 for exactly the P441 early/runtime paths already selected by consumed P442.
