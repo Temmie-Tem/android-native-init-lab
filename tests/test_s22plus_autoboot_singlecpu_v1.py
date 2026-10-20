@@ -1,5 +1,7 @@
 """Actual ARM64 sampling, exact boot arguments and authenticated proof limits."""
+import copy
 import errno
+import json
 from pathlib import Path
 import struct
 import subprocess
@@ -10,6 +12,7 @@ import unittest
 from unittest import mock
 
 from test_s22plus_autoboot_watchdog_selection import IdleHeader,boot_image
+from s22plus_native_records_v3 import pin
 import s22plus_boot_verify as boot
 import s22plus_debian_autoboot_profile_v1 as profile
 import s22plus_debian_evidence_v1 as evidence
@@ -66,6 +69,73 @@ class SingleCPUHeader(IdleHeader):
         kernel,initial=autoboot_vm.kernel_command_line(self.selected).split(' -- ',1)
         self.assertEqual(kernel.split().count('maxcpus=1'),1)
         self.assertEqual(initial,autoboot_vm.vm.KERNEL_COMMAND_LINE.split(' -- ',1)[1])
+
+
+class P447History(unittest.TestCase):
+    def setUp(self):
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
+        self.folder=Path(temp.name);self.run='a'*32;self.data=b'E'*10972
+        source=self.folder/'early.bin';source.write_bytes(self.data)
+        self.raw=pin(source)
+        closed=self.save('closed.json',dict(terminal_state='ANDROID_CLOSED_HEALTHY'))
+        writer=self.save('build.json',dict(virtual=False,namespace=profile.PHASE_NAMESPACE,
+            run_id=self.run,transition_observer=profile.PHASE_OBSERVER))
+        self.acquired=dict(partition_readonly=True,mounted=False,persistent_writes=False,
+            source_view_clean=True,superblock=dict(state=1,recover=0,orphan=0),files=[
+            dict(path='var/lib/lab/s22-early-'+self.run,status='READ',mode=0o100600,uid=0,gid=0,
+                links=1,size=len(self.data),captured=len(self.data),offset=0,error=0,
+                sha256=self.raw['sha256'],raw_hex=self.data.hex()),
+            dict(path='var/lib/lab/s22-evidence-'+self.run,status='ABSENT_IN_HOME_VIEW',captured=0)])
+        self.result=dict(schema='s22plus-debian-autoboot-retrieval-h0-v1',
+            status='PASS_AUTHENTICATED_LOCAL_PROGRESS',reader_android_healthy=True,writer_android_healthy=True,
+            source_view_clean=True,reader_journal_replayed=False,writer_closed=closed,reader_closed=closed,
+            writer_build=writer,writer_artifact=self.save('artifact.json',dict(build=writer)),
+            raw=dict(early=self.raw),proof=dict(early=dict(status='AUTHENTICATED',proof=dict(
+                pre_unmount_complete=True,tail_error=None,records=[{}]*14,run_id_hex=self.run,
+                raw=dict(size=len(self.data),sha256=self.raw['sha256']),valid_prefix_bytes=len(self.data))),
+                runtime=dict(status='NOT_CAPTURED'),join=dict(status='UNAVAILABLE')))
+
+    def save(self,name,value):
+        path=self.folder/name;path.write_text(json.dumps(value));return pin(path)
+
+    def select(self):
+        self.result['reader_result']=self.save('reader.json',dict(proof=dict(root_evidence=self.acquired)))
+        with mock.patch.object(profile,'P447_RETRIEVAL',self.save('retrieval.json',self.result)):
+            return profile.p445_history()
+
+    def test_only_complete_read_early_row_is_admitted(self):
+        row=self.select()
+        self.assertEqual(row['source'],self.raw)
+        self.assertEqual(row['path'],self.acquired['files'][0]['path'])
+        self.assertEqual(row['nlink'],1)
+
+    def test_changed_metadata_dirty_scope_and_partial_bytes_reject(self):
+        original=copy.deepcopy(self.acquired)
+        for key,bad in (('links',2),('mode',0o100644),('uid',1),('captured',10971),
+                ('offset',1),('error',1),('sha256','0'*64),('raw_hex','00')):
+            self.acquired=copy.deepcopy(original);self.acquired['files'][0][key]=bad
+            with self.subTest(key=key),self.assertRaises(ValueError):self.select()
+        for key,bad in (('partition_readonly',False),('mounted',True),('persistent_writes',True),
+                ('source_view_clean',False),('superblock',dict(state=1,recover=1,orphan=0))):
+            self.acquired=copy.deepcopy(original);self.acquired[key]=bad
+            with self.subTest(key=key),self.assertRaises(ValueError):self.select()
+
+    def test_runtime_presence_is_never_silently_whitelisted(self):
+        self.acquired['files'][1]['status']='READ'
+        with self.assertRaises(ValueError):self.select()
+
+    def test_old_selection_keeps_old_history_and_cpu_requirements(self):
+        with mock.patch.object(profile,'phase_history',return_value=[{'path':'prior'}]), \
+             mock.patch.object(profile,'p445_history',return_value={'path':'new'}):
+            self.assertEqual(profile.singlecpu_history(),[{'path':'prior'}])
+            self.assertEqual(profile.singlecpu_history(True),[{'path':'prior'},{'path':'new'}])
+        selected=dict(transition_observer=profile.SINGLECPU_P447_OBSERVER,
+            cpu_policy=profile.SINGLECPU_POLICY,idle_policy='cpuidle-off')
+        self.assertTrue(profile.post_p447_selected(selected))
+        with self.assertRaises(ValueError):profile.post_p447_selected(dict(selected,cpu_policy=None))
+        self.assertEqual(profile.cases(True,True,True,False,True,True),
+            profile.SINGLECPU_CASES+profile.P447_HISTORY_CASES)
+        with self.assertRaises(ValueError):profile.cases(True,True,True,False,False,True)
 
 
 class ActualARM64Sampler(unittest.TestCase):

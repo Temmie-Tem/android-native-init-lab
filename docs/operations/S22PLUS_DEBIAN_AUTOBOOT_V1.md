@@ -125,6 +125,15 @@ and both complete current-boot admissions apply. P443 remains
 RECOVERY_NOT_PROVED; neither its replay nor P444's historical read substitutes
 for present clean-root admission or authorizes a repeated effect.
 
+The separately reviewed `post-autoboot-p447-v1` single-CPU selection adds only
+P445's complete early file authenticated by closed P447, for eight historical
+rows. Its exact path, root-owned 0600 single-link metadata, 10972-byte length
+and hash are sealed from the physical writer and reader. P445's runtime file
+was absent in that clean home view and is not admitted. Unexpected runtime
+or other files fail the existing complete current-root admission before writes.
+The two current-boot admissions remain mandatory; the read is neither a full
+root-consistency proof nor evidence of non-execution. No replay is selected.
+
 The first lifetime creates only `var/lib/lab/s22-early-<sealed-run>`, exclusively,
 root-owned 0600 with one link, at most 16384 bytes. It adopts the storage-first
 checked header, six client begin/end pairs and final pre-unmount record. Every
@@ -265,6 +274,45 @@ The original 300000 ms device deadline, 360-second host observation, 120-second
 local service proof, physical attendance and Download/original-A return remain.
 This selection requires fresh artifact/ARM64 qualification, independent
 current review and its own returned attended one-operation/3600-second grant.
+
+The separately reviewed single-CPU selection uses the existing P441 proc
+observer, without the phase probes or RAM dispatcher. It selects only the
+retained kernel/modules with `cpuidle.off=1 maxcpus=1`, each appended exactly
+once. Actual boot/archive validation rejects conflicting boot/vendor-boot CPU
+or idle arguments and an init-argument separator. No CPU hotplug, watchdog pet,
+disable, scheduler or other control write is introduced. The command line
+limits initial CPU bring-up; it does not guarantee that a CPU stays offline.
+
+The fixed sampler requires `/sys/devices/system/cpu/online` to contain exactly
+`0` and newline before first admission. Before second admission and at every
+one of the fifteen existing durable progress points, it reads CPU online,
+`/sys/bus/platform/devices/hypervisor:qcom,gh-watchdog/disable`, and CPU online
+again, requiring `0` and newline each time. Reads have fixed small bounds and
+close their descriptors. Missing or changed values stop progress under the
+existing deadline. Revision 6 binds the CPU mask and software-enabled bit in
+those existing records; it adds no record type, process or persistent file.
+This checks sampled CPU/software state, not continuous CPU residency, watchdog
+pet success, hardware renewal or demonstrated automatic recovery. VM watchdog
+values are explicitly model inputs; its CPU-online reads come from the real
+VM kernel exposing eight CPUs with `maxcpus=1`.
+
+These configuration checks prevent attributing progress to a single online CPU
+while another CPU is online or the driver reports disabled. They apply only to this selected
+single-CPU experiment and retire when it is retired, or after a separately
+reviewed successor provides equivalent configuration evidence. A changed
+kernel, sysfs interface, CPU policy or evidence decoder triggers review; no
+legacy candidate acquires these prerequisites implicitly.
+
+Its SSH proof requires two existing forced `health` responses on the same
+boot and unchanged boot count, each reporting CPU online `0`, with device
+uptime separated by at least 120000 ms. The first response precedes the
+completion-envelope read and the final response follows it. Both must be
+inside the original 300000 ms device deadline and 360-second host window;
+the existing thirty-health-read budget is shared, not renewed. Local service
+proof remains separate. Two responses prove sampled access across the interval,
+not a continuously open connection. The same fixed shutdown and attended
+physical original-A return apply. Independent review, actual qualification and
+its own returned attended one-operation/3600-second grant precede execution.
 
 The `post-autoboot-p444-v1` phase selection retains those eight actors and
 idle choices but replaces their optional proc sampling. The sealed declaration

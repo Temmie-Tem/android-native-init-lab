@@ -19,6 +19,14 @@ import s22plus_debian_file_first_protocol_v1 as file_protocol
 from s22plus_native_records_v3 import pin,private_path,publish,read,require,verify
 
 
+def require_automatic_transition(built):
+    require(built.get('transition_observer') in (
+        automatic.TRANSITION_OBSERVER,automatic.RCS_OBSERVER,automatic.WATCHDOG_OBSERVER,
+        automatic.PHASE_OBSERVER,automatic.SINGLECPU_OBSERVER,automatic.SINGLECPU_P447_OBSERVER),
+        'legacy automatic image has no transition-retention selection')
+    automatic.singlecpu_selected(built)
+
+
 def automatic_projection(directory,task_directory):
     """H0 projection after the fixed same-returned-Android-boot acquisition."""
     from s22plus_debian_file_retrieval_v1 import closed_operation
@@ -26,8 +34,7 @@ def automatic_projection(directory,task_directory):
     task=read(task_directory/'task.json');closed=read(task_directory/'closed.json')
     require(task['N']['profile']==automatic.PROFILE,'not an automatic transition capture')
     artifact=automatic.image_binding(task['N']);built=read(verify(artifact['build']))
-    require(built.get('transition_observer') in (automatic.TRANSITION_OBSERVER,automatic.RCS_OBSERVER,automatic.WATCHDOG_OBSERVER,automatic.PHASE_OBSERVER),
-        'legacy automatic image has no transition-retention selection')
+    require_automatic_transition(built)
     outcome=read(verify(closed['current_android_terminal']))
     bound=closed_operation(Path(verify(outcome['operation_record'])).parent,automatic.PROFILE)
     require(bound['task']==task and bound['closed']==pin(task_directory/'closed.json'),'automatic closed owner differs')
@@ -177,8 +184,7 @@ def capture(directory,task_directory):
     first_selected=task['N'].get('profile') in (file_first.PROFILE,failure.PROFILE)
     artifact=automatic.image_binding(task['N']) if automatic_selected else integrated.image_binding(task['N']) if integrated_selected else calibration.image_binding(task['N']) if calibration_selected else read(verify(task['N']['early_boot']))
     if automatic_selected:
-        require(read(verify(artifact['build'])).get('transition_observer') in (automatic.TRANSITION_OBSERVER,automatic.RCS_OBSERVER,automatic.WATCHDOG_OBSERVER,automatic.PHASE_OBSERVER),
-            'legacy automatic image has no transition-retention selection')
+        require_automatic_transition(read(verify(artifact['build'])))
     stage=task['N'].get('profile')==profile.STAGE_PROFILE
     if stage or calibration_selected or integrated_selected or first_selected or automatic_selected:
         from s22plus_debian_file_retrieval_v1 import closed_operation

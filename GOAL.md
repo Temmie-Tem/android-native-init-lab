@@ -34,12 +34,15 @@ continuation. The grant is closed and no F1 owner remains. Its
 [qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P447_H0_2026-10-21.md)
 retains A/B packages, two fresh ARM64 cases, 33 tests and independent PASS_GO.
 
-The latest authorized H0 unit is complete:
-[P446 single-CPU implementation and validation](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P446_H0_2026-10-21.md).
-Its 22-case ARM64 VM corpus, exact boot-only archive and independent H0 review
-pass. Physical use remains unactivated. P447 now supplies the authenticated
-P445 early file and a clean observed home view; exact history qualification,
-policy adoption and complete current-root admission remain required.
+[P448 single-CPU physical preparation](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_H0_2026-10-21.md)
+is ready pending its own returned attended grant. It uses P446's CPU0/proc
+path with eight exact historical rows, adding only P447's authenticated P445
+early file. The actual A/B archive, all 27 ARM64 VM cases, policy adoption and
+independent PASS_GO are complete. The normal VM spans 120.690 seconds between
+same-boot SSH responses and shuts down cleanly. Current fixed Android D0/task
+reopen passes; no P448 grant, mode change, image transfer or native_data write
+has occurred. Both complete current-root admissions still occur in the new
+boot before their respective writes. This is preparation, not physical success.
 
 The preceding physical phase-observer campaign is closed.
 The [bounded phase-observer design](docs/reports/S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
@@ -346,12 +349,12 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The P446 implementation/H0 unit is complete. The
-[single-CPU report](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P446_H0_2026-10-21.md)
-records the exact candidate, two root admissions, actual sampled CPU state,
-driver-enabled checks, 120-second service/SSH evidence and controlled VM
-shutdown. This is functional H0 evidence, not a physical fix or watchdog-cause
-proof. No additional phase instrumentation is selected.
+P448's qualified single-CPU task is ready. After its exact returned attended
+one-operation/3600-second grant, execute one fresh boot, preserve sampled
+CPU/driver state and service/SSH proof separately, then close through the
+fixed shutdown and physical original-A return. The selected CPU0 path retains
+two complete root admissions and adds no phase instrumentation. H0 success
+is not a physical fix or a watchdog-cause result.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -359,13 +362,12 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P445 and P447 are consumed and closed. Qualify the single-CPU successor with
-P447's authenticated P445 early file as one additional immutable history row;
-do not invent a runtime row or treat absence as non-execution. Adopt the CPU
-selection under the binding policy and retain both complete current-root
-admissions. The clean observed home view does not require a preliminary replay.
-Existing health, review, finite grant and attended original-A recovery
-conditions remain. Unexpected current-root contents still reject execution.
+P445 and P447 are consumed and closed. P448 admits P447's authenticated P445
+early file as one additional immutable row, never a fabricated runtime row.
+The CPU selection is adopted under the reviewed binding policy; both complete
+current-root admissions remain mandatory. No preliminary replay is selected.
+Unexpected current-root contents reject before writes. Any uncertain effect
+retains the existing owner for attended recovery and never authorizes replay.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,

@@ -702,6 +702,23 @@ choices, finite attended grant and physical original-A recovery remain.
 Current implementation, policy and artifact/VM review must qualify this
 selection before any grant; no consumed predecessor is repinned.
 
+The separately reviewed `post-autoboot-p447-v1` single-CPU variant adopts only
+P445's exact early file authenticated by closed P447, for eight historical
+rows, and the policy's `cpuidle.off=1 maxcpus=1` choice on the retained kernel.
+It uses the P441 proc observer without phase probes or a RAM dispatcher. CPU
+online must be `0` before first admission; CPU/driver-disable/CPU reads must
+all be `0` before second admission and at fifteen existing durable progress
+points. Revision 6 records sampled CPU and software-enabled state only.
+Two same-boot, same-count pinned SSH health responses must report CPU `0` and
+span at least 120000 ms of device uptime inside the unchanged deadlines.
+P445 runtime is not admitted; unexpected files or changed metadata fail the
+complete current-root checks before writes. No hotplug or watchdog control,
+new process/file, replay, deadline extension or recovery guarantee is added.
+Both complete admissions, bounded lifetimes, local service proof, fixed
+shutdown, independent review, fresh qualification and a new returned attended
+one-operation/3600-second grant with physical original-A return remain required.
+Consumed actions and historical H0-only candidates retain their provenance.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

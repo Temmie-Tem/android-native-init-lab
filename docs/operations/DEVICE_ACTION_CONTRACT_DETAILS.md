@@ -1190,6 +1190,28 @@ and physical limits are in the incorporated automatic-boot policy. This
 selection requires independent review, fresh qualification and its own
 returned attended finite grant; P441 through P444 remain consumed.
 
+The separately qualified `post-autoboot-p447-v1` single-CPU selection adds only
+P445's complete early file authenticated by closed P447, for eight exact
+historical rows; its runtime file is not admitted. Existing metadata, hash,
+full-tree and both same-boot clean admissions remain mandatory. It uses the
+P441 proc observer without phase instrumentation and appends exactly
+`cpuidle.off=1 maxcpus=1` to the retained kernel command line, rejecting CPU/
+idle conflicts in actual boot/vendor-boot input. It adds no CPU hotplug,
+watchdog/control write, process, persistent file or writable lifetime.
+
+Fixed CPU-online `0` is required before first admission. Before second
+admission and at fifteen existing progress points, bounded CPU/driver-disable/
+CPU reads must each return `0`, with revision-6 durable records binding sampled
+CPU and software-enabled state. Two same-boot/count pinned SSH health responses
+report CPU `0` and device uptimes at least 120000 ms apart inside the unchanged
+300000 ms device and 360-second host limits and shared thirty-read budget.
+These are sampled-state/access proofs, not continuous CPU/access, pet success,
+hardware renewal or recovery proof. Local service proof and fixed shutdown
+remain separate. Exact interfaces and read semantics are in the incorporated
+policy. Independent review, fresh qualification, a returned attended finite
+grant and physical original-A return remain required; no prior action is
+reopened, repinned or replayed.
+
 ## S22+ native-first installed-Debian handoff
 
 The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes
