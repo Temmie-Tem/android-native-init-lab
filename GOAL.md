@@ -36,13 +36,16 @@ read failure required only health continuation. No F1 owner remains.
 Any strict replay, post-replay retrieval and new writable-root admission remain
 separate. The [qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P442_H0_2026-10-20.md)
 retains A/B packages, ARM64 cases, 33 tests and independent PASS_GO.
-The separate [P443 strict replay preparation](docs/reports/S22PLUS_JOURNAL_RECOVERY_P443_H0_2026-10-20.md)
-is now `PASS_GO / READY_CONNECTED_FIXED_D0`: unchanged writer/checker/history
-selection, qualified A/B artifacts, three fresh plus nine retained ARM64
-cases, 14 focused tests and fresh original-A health. Its one-operation,
-1800-second attended proposal is ready; no grant or replay is opened.
-Later files still fail its complete root comparison and require separate
-retrieval/history qualification before another writable Debian boot.
+The separate [P443 strict replay](docs/reports/S22PLUS_JOURNAL_RECOVERY_P443_RUN_2026-10-20.md)
+consumed one N/A pair and closed `ANDROID_CLOSED_HEALTHY`. Its 24 writes /
+95,232 bytes and read-only checker completed; partition RO, protected unmount
+and clean superblock are proved. All 8,971 expected entries match, but five
+tree entries remain outside the selected accounting: `RECOVERY_NOT_PROVED`.
+Closure rederived 600 captures and the unchanged 20-row journal; one post-A
+read failure required only health continuation. No F1 owner remains.
+The five-entry difference does not identify paths. A fresh fixed P441-pair
+reader must establish post-replay contents before history qualification and
+another writable Debian boot. P443 cannot be replayed.
 The private phase prototype passes ARM64 dispatcher/channel feasibility with
 normal, full-queue and disconnected-peer conditions; actual services and the
 watchdog observer still require implementation and integrated qualification.

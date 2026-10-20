@@ -3,6 +3,11 @@
 Status: **PASS_GO / READY_CONNECTED_FIXED_D0; no grant or replay effect**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
+The preparation below preceded the now-consumed
+[P443 physical run](S22PLUS_JOURNAL_RECOVERY_P443_RUN_2026-10-20.md).
+Replay/checker completion and healthy Android return are proved; the complete
+root comparison remains negative. Its original grant is consumed.
+
 Prepare a fresh instance of the existing
 [fixed journal recovery](../operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
 after the closed P441 writer and
