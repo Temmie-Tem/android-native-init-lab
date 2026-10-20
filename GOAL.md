@@ -23,6 +23,16 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P449 fixed-reader preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_H0_2026-10-21.md)
+is selected to retrieve exactly P448's early/runtime pair and observe current
+native_data state before choosing the next experiment. A/B packages, two new
+ARM64 cases, 33 focused tests, independent PASS_GO and 17 successful fixed
+Android D0 captures pass. The concrete one-operation/1800-second attended
+proposal is ready; no new grant or experimental transfer has occurred. The reader
+retains partition RO and mountless acquisition, without replay, repair,
+filesystem write or installed execution. Missing home-block files remain
+unknown. The next writable candidate is not selected from absent evidence.
+
 [P448's single-CPU physical experiment](docs/reports/S22PLUS_AUTOBOOT_SINGLECPU_P448_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`: one N and one original A, all 704 raw
 captures and 14 journal rows rederived, grant closed and no F1 owner. The live
@@ -363,9 +373,10 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-Before the next writable candidate, qualify a separate fixed reader for
-P448's current early/runtime files and determine the needed current storage
-state. Do not fabricate unseen history or infer clean native_data from original-A
+P449 is qualified as the separate fixed reader for P448's current early/runtime
+files, awaiting its returned attended grant. Retrieve those files and observe
+current storage before selecting the next writable candidate. Do not fabricate
+unseen history or infer clean native_data from original-A
 health. Any eligible journal recovery needs its own exact reviewed scope.
 Compare only source-bound per-boot facts when choosing a functional successor;
 optional cause analysis does not replace current-root admission or reopen a

@@ -147,8 +147,8 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P447 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p447_review.json`.
+native_data, or transfers an image. The current prospective P449 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p449_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
@@ -158,7 +158,8 @@ The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p438_review.json`, consumed P440 review
 `s22plus_native_root_evidence_p440_review.json`, consumed P442 review
 `s22plus_native_root_evidence_p442_review.json`, consumed P444 review
-`s22plus_native_root_evidence_p444_review.json`, and all retained
+`s22plus_native_root_evidence_p444_review.json`, consumed P447 review
+`s22plus_native_root_evidence_p447_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
 selects the two-file table and its declared binary bound. P440 seals the same
@@ -196,3 +197,13 @@ partition-only RO and mountless semantics. It adds no replay, repair, write,
 installed execution or current-root admission. Authentication uses the actual
 P445 writer artifacts; missing home-block records never prove non-execution.
 Later recovery and writable-history admission require their separate scopes.
+
+P449 seals exactly the early/runtime pair for the closed P448 automatic writer.
+P448's healthy Android closure, retained installed-PID1 and rcS-entry facts
+leave current native_data consistency and file contents unknown. This fresh
+reader retains the existing two-file limits, metadata checks, partition RO,
+mountless acquisition and original-A return. The existing collector selects
+P448's source-bound revision-6 single-CPU evidence; it preserves valid partial
+chains and separately checks the two files' boot/nonce join. No replay, repair,
+write, installed execution or current-root admission is added. Missing
+home-block records remain unknown, and P448 cannot be replayed.

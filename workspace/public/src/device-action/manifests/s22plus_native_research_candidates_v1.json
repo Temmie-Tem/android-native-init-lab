@@ -272,6 +272,15 @@
       "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
       "evidence_run": "c415b38e63b541ee93bee30a9c0285a5",
       "evidence_selection": "autoboot-pair"
+    },
+    {
+      "namespace": "p449",
+      "run_id": "d7a5bcd4868d4e6fa5499114c9f0f062",
+      "version": "v0.13.0-rc.3",
+      "image_sha256": "d6c2b061563c3d93373f2034ecd28d51d9a9ff0ad5ad0f9cfa3beffcb8bd9822",
+      "profile": "thermal-v3-reconnect-ufs-drain-root-evidence-v1",
+      "evidence_run": "8029382c93e44f71b817a7c7890b6abe",
+      "evidence_selection": "autoboot-pair"
     }
   ],
   "schema": "s22plus-native-research-candidate-data-v1"
