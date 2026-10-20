@@ -118,6 +118,13 @@ protected admissions and admits only its own current early file in the second.
 P439's aggregate incomplete root result remains RECOVERY_NOT_PROVED; P440's
 historical records do not replace current root checks or authorize replay.
 
+The separately reviewed `post-autoboot-p444-v1` selection adds exactly P441's
+early/runtime pair authenticated by closed P444, for seven historical rows.
+The same sealed path, root-owned 0600 single-link metadata, full length/hash
+and both complete current-boot admissions apply. P443 remains
+RECOVERY_NOT_PROVED; neither its replay nor P444's historical read substitutes
+for present clean-root admission or authorizes a repeated effect.
+
 The first lifetime creates only `var/lib/lab/s22-early-<sealed-run>`, exclusively,
 root-owned 0600 with one link, at most 16384 bytes. It adopts the storage-first
 checked header, six client begin/end pairs and final pre-unmount record. Every
@@ -258,6 +265,66 @@ The original 300000 ms device deadline, 360-second host observation, 120-second
 local service proof, physical attendance and Download/original-A return remain.
 This selection requires fresh artifact/ARM64 qualification, independent
 current review and its own returned attended one-operation/3600-second grant.
+
+The `post-autoboot-p444-v1` phase selection retains those eight actors and
+idle choices but replaces their optional proc sampling. The sealed declaration
+in `workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_phase_v1.py`
+names twelve exact entry/offset probes in the hash-pinned `qcom_wdt_core`
+module: timer callback/wait exit, synchronous CPU ping, pet, notifier,
+freeze-lock and timer-rearm boundaries. It selects no return probe, raw address
+output, memory fetch/write, instruction skip, forced return, watchdog control
+or scheduler change. A successful API return is not hardware-renewal proof.
+
+The existing rcS parent may start once before 8500 ms BOOTTIME. It creates
+an exclusive root-owned tmpfs claim and tracefs mount under `/run/s22-debian`,
+requires the entire `s22phase` group and instance to be absent, and writes only
+the sealed definitions and this instance's controls. Exact readback precedes
+arming; there is no global tracer reset or clearing of unrelated probes.
+The fixed boot clock, eight possible CPUs, nop tracer and text options are
+checked. A 16 KiB request may round to at most 20 KiB per CPU, 160 KiB total.
+The runtime decodes at most 28 admitted kernel events, with 384 reads/65536
+bytes globally, at most four 4096-byte reads per pump and a 1024-byte line.
+A partial iterator tail is finished on the same fd or explicitly marked lost;
+it is never joined with a reopened stream. No trace fd survives fork or exec.
+
+The existing parent also verifies both installed dispatcher scripts and writes
+one exact RAM dispatcher copy. Its immediate child alone retains a nonblocking
+Unix datagram fd3; all other non-stdio fds close. Every invoked service/helper
+closes fd3, including shell-saved copies. Only sixteen declared script IDs,
+begin/end/status and dispatcher entry/exit are accepted, at most 34 packets.
+The bounded parent drains after child reaping; datagrams have no EOF claim.
+Absent/full/broken channels preserve original script order and exit behavior.
+This adds no installed-script mutation or new process. Channel failure does
+not become a prerequisite for services.
+
+The two parents' timed setup, pumping, logging, descriptor cleanup and handover
+share 2000 ms, including a 500 ms cleanup reserve, also clipped to each parent's
+existing 2000 ms logger budget and the original device deadline. The immediate
+child retains its separate logger budget; its fixed socket/descriptor checks
+do not share the parent counter and are not cancellable kernel operations.
+A checked root-owned 0400 RAM state
+binds run/boot and counts, permits one existing rcS-to-runlevel handover, and
+charges the full handover gap. Terminal claims remain consumed. Fifteen
+seconds BOOTTIME is the event-admission/normal-pump cutoff, not a guaranteed kernel
+disarm time. Partial setup, loss, cap, failure and first-opportunity cutoff
+attempt disable/readback of positively owned controls once; remaining
+bounded cleanup may drain and summarize owned records while admitting only
+event timestamps before the cutoff. It verifies the registry, deletes only owned definitions and
+removes its own instance/mount. This cleanup may follow a budget overrun but
+does not renew observation or retry an uncertain write. A blocked syscall or
+missing cleanup confirmation leaves instrumentation activity unknown; physical
+original-A return remains mandatory and no automatic recovery is claimed.
+
+Authenticated summaries require every expected probe row and CPU statistics
+row, per-event profile hits at least decoded events, and separate missed/
+overrun/drop/retention/channel/logging loss counts. Profile excess is valid.
+Metadata failure preserves positive records without an absence/completeness
+claim. Collected event time is separate from collection time; a missing
+return never locates a stall. Exact source-bound independent review covers
+this kernel instrumentation specialization, RAM channel, lifecycle and
+producer/consumer. Both current-root admissions and original service,
+same-boot SSH, shutdown and healthy physical return criteria remain unchanged.
+Fresh qualification and its own returned attended finite grant are required.
 
 These separately qualified observation variants adopt the fixed post-closure D0 command
 `su -c 'cat /proc/last_kmsg'`, at most 4 MiB and 30 seconds, after exact closed-

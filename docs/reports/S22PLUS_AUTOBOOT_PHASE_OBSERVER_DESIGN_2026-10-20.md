@@ -119,4 +119,35 @@ and order. Both runs, source snapshots and raw output remain private under
 `workspace/private/outputs/s22plus-autoboot-phase-h0-20261020-1/`.
 These are channel/dispatcher results with fixture services, not real service
 functionality, physical-kernel behavior, production observer qualification or
-device authority. Public execution sources remain frozen for prepared P442.
+device authority. Public execution sources remained frozen until P442 closed.
+
+## P445 implementation after P444 closure
+
+P442, P443 and P444 are consumed and closed healthy. P444 authenticates P441's
+complete early/runtime pair; this successor adds exactly those two historical
+rows to the retained five. It still performs both complete same-boot protected
+admissions before their respective writable lifetimes.
+
+The implemented H0 observer uses the twelve reviewed entry/offset sites and
+the same RAM dispatcher. The two existing parents own one absent trace group/
+instance, one authenticated RAM handover, 28 kernel and 34 script records.
+The existing 96-record/2000 ms actor limits remain, with an additional shared
+2000 ms phase budget including 500 ms cleanup reserve. The fixed eight-CPU
+ring has at most 160 KiB. Fifteen seconds BOOTTIME bounds evidence admission
+and pumping; it cannot cancel a blocked kernel operation. First-opportunity
+owned disable is attempted once even after a budget overrun. Cleanup remains
+unconfirmed until readback/removal succeeds; physical original-A return is
+still required. No diagnostic success is required for Debian service progress.
+
+The actual C lifecycle and decoder have passed generic ARM64 component
+execution with twelve events and 24 profile hits, demonstrating that excess
+profile counts are accepted. Six partial-setup cases, exhausted actor budget
+and delayed handover preserve one-shot cleanup semantics. Four additional
+cases exercise the target's 4095/4096-byte iterator boundary, partial-tail
+budget exhaustion, failed cleanup and logger loss. Generic module adapters
+prove these mechanisms, not physical watchdog callsites or electrical renewal.
+Exact retained module/source analysis separately binds the physical sites.
+The [P445 qualification](S22PLUS_AUTOBOOT_PHASE_P445_H0_2026-10-20.md) now
+records final artifact checks, all 57 integrated ARM64 cases, independent
+PASS_GO and fresh fixed D0 preparation. The physical operation remains
+unconsumed and requires its exact returned attended finite grant.

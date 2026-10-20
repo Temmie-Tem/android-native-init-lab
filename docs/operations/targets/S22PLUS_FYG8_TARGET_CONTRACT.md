@@ -688,6 +688,20 @@ qualification and independent review precede its own returned attended
 one-operation/3600-second grant. P439's incomplete full-root result and all
 consumed candidates retain their meaning.
 
+The separately reviewed `post-autoboot-p444-v1` phase variant adopts exactly
+the policy's two P441 historical rows authenticated by closed P444, for seven
+rows, and the sealed twelve-callsite tracefs/RAM rcS observer. It uses the same
+eight existing actors, 15-second evidence cutoff, 28 kernel/34 script records,
+2000 ms shared phase budget including 500 ms cleanup reserve, one authenticated
+RAM handover and at most 20 KiB per CPU for eight CPUs. Trace and channel failure
+do not gate Debian progress. Cleanup is first-opportunity owned disable with
+checked removal; a kernel stall can leave instrumentation activity unknown.
+No hard kernel deadline or automatic recovery is claimed. Both complete
+current-root admissions, original service/SSH/shutdown proof, original idle
+choices, finite attended grant and physical original-A recovery remain.
+Current implementation, policy and artifact/VM review must qualify this
+selection before any grant; no consumed predecessor is repinned.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

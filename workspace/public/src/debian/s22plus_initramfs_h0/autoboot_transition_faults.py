@@ -52,8 +52,8 @@ def source(out,original,fault,native):
     elif fault=='rcs-record-fsync':edit('s22plus_debian_evidence_v1.inc.c',
         'AT_SYS(AT_RCS_RECORD_FSYNC,fsync(fd))','AT_SYS(AT_RCS_RECORD_FSYNC,fsync(-1))')
     elif fault=='rcs-close-range':edit('s22plus_debian_handoff_observer_v2.inc.c',
-        'AT_SYS(AT_RCS_CHILD_CLOSE_FDS,syscall(SYS_close_range,3U,UINT_MAX,0U))',
-        'AT_SYS(AT_RCS_CHILD_CLOSE_FDS,syscall(SYS_close_range,3U,UINT_MAX,UINT_MAX))')
+        'AT_SYS(AT_RCS_CHILD_CLOSE_FDS,syscall(SYS_close_range,first,UINT_MAX,0U))',
+        'AT_SYS(AT_RCS_CHILD_CLOSE_FDS,syscall(SYS_close_range,first,UINT_MAX,UINT_MAX))')
     elif fault=='rcs-exec':edit('s22plus_debian_handoff_observer_v2.inc.c',
         'execv(path,args));','execv("/absent-fixture-rcs",args));')
     elif fault=='rcs-wait':edit('s22plus_debian_handoff_observer_v2.inc.c',
@@ -63,14 +63,14 @@ def source(out,original,fault,native):
         edit('s22plus_debian_handoff_observer_v2.inc.c',
             'struct timespec delay={0,10000000};','struct timespec delay={0,1000000000};')
         edit('s22plus_debian_handoff_observer_v2.inc.c',
-            'if(probe!=-1 || errno!=EBADF)_exit(125);',
-            'if(probe!=-1 || errno!=EBADF)_exit(125);\n        if(traced)for(;;)pause();')
+            '\n        if(sw_now()>=sw.deadline_ms)_exit(124);',
+            '\n        if(traced)for(;;)pause();\n        if(sw_now()>=sw.deadline_ms)_exit(124);')
     elif fault=='rcs-pending-record':edit('s22plus_debian_evidence_v1.inc.c',
         'AT_SYS(AT_RCS_RECORD_FSYNC,fsync(fd))',
         'AT_SYS(AT_RCS_RECORD_FSYNC,({for(;;)pause();fsync(fd);}))')
     elif fault=='rcs-pending-child':edit('s22plus_debian_handoff_observer_v2.inc.c',
-        'if(probe!=-1 || errno!=EBADF)_exit(125);',
-        'if(probe!=-1 || errno!=EBADF)_exit(125);\n        if(traced)for(;;)pause();')
+        '\n        if(sw_now()>=sw.deadline_ms)_exit(124);',
+        '\n        if(traced)for(;;)pause();\n        if(sw_now()>=sw.deadline_ms)_exit(124);')
     if fault in RCS_CASES and not fault.startswith('rcs-pending-'):
         edit('s22plus_debian_handoff_hook_v1.c','dprintf(2,"DHVM_HOOK_PARK errno=%d\\n",error);',
             'dprintf(2,"DHVM_HOOK_PARK errno=%d\\n",error);\n    (void)syscall(SYS_reboot,LINUX_REBOOT_MAGIC1,LINUX_REBOOT_MAGIC2,LINUX_REBOOT_CMD_POWER_OFF,0);')

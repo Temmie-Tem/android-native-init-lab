@@ -6,7 +6,13 @@
 #include "s22plus_switch_root_common_v1.inc.c"
 #include "s22plus_debian_handoff_common_v1.inc.c"
 #include "s22plus_debian_evidence_v1.inc.c"
+#ifdef S22_AUTOBOOT_PHASE_TRACE
+static void ap_abort(void);
+#endif
 static __attribute__((noreturn)) void dh_hook_fail(int error) {
+#ifdef S22_AUTOBOOT_PHASE_TRACE
+    ap_abort();
+#endif
     at_stop(error);
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     dprintf(2,"DHVM_HOOK_PARK errno=%d\n",error);

@@ -57,9 +57,21 @@ P444 is consumed; no F1 owner remains. Its
 retains A/B packages, two new ARM64 cases, 27 unchanged and six fresh tests,
 and source-bound PASS_GO. New history qualification and complete protected
 root admission remain necessary before another writable Debian lifetime.
-The private phase prototype passes ARM64 dispatcher/channel feasibility with
-normal, full-queue and disconnected-peer conditions; actual services and the
-watchdog observer still require implementation and integrated qualification.
+The [P445 phase implementation](docs/reports/S22PLUS_AUTOBOOT_PHASE_P445_H0_2026-10-20.md)
+now has a fixed twelve-callsite observer and RAM rcS dispatcher in the existing
+parents. Generic ARM64 lifecycle, framing, loss and ownership cases pass;
+76 observer tests, 31 related host/owner tests and 12 boundary tests pass.
+The corrected normal VM proves all 34 dispatcher packets, rcS completion,
+120-second services, pinned SSH, controlled poweroff and clean ext4. Actual
+A/B AP checks, eight archive negatives and all 57 ARM64 VM cases pass.
+Final package revalidation and independent **PASS_GO** bind 140 host and
+150 runtime sources. Fresh fixed Android D0 health/preparation and task
+reopening pass; the one-operation/3600-second attended proposal is ready.
+The first full VM
+correctly missed the physical startup window after slow generic root checks;
+the new VM-only timing adapter preserves physical 8.5/15-second limits.
+P445 has no grant or device effect. The bounded next unit remains one qualified
+attended automatic boot with separate local services, SSH and Android closure.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.

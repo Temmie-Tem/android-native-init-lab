@@ -16,6 +16,7 @@ ACTORS={1:'file_worker',2:'automatic_entry',3:'ram_witness',4:'installed_hook',5
 RCS_ACTORS={**ACTORS,6:'rcs_parent',7:'rcs_child'}
 WATCHDOG_ACTORS={**RCS_ACTORS,8:'runlevel_parent'}
 WATCHDOG_STAGES={79,80,81,82}
+PHASE_STAGES=set(range(83,91))
 WATCHDOG_DUE=(0,9000,10000,11000,12000)
 WATCHDOG_WCHAN=('zero_running_unavailable_or_hidden','qcom_wdt_kthread','smp_call_function_single',
     'csd_lock_wait','wait_for_completion','schedule_timeout','other')
@@ -33,10 +34,91 @@ def sources(selected):
     result={actor:selected[name]['sha256'] for actor,name in
         ((1,'writer'),(2,'entry'),(3,'witness'),(4,'hook'),(5,'writer'))}
     schema=selected.get('transition_observer',{}).get('schema')
-    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1'):
+    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1'):
         result.update({6:selected['hook']['sha256'],7:selected['hook']['sha256']})
-    if schema=='s22plus-autoboot-watchdog-v1':result[8]=selected['hook']['sha256']
+    if schema in ('s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1'):result[8]=selected['hook']['sha256']
     return result
+
+
+def phase_sample(stage,kind,value,error,a,b,c,d,ms,*,window_ms=15000):
+    """Interpret source-bound positive observations without locating a stall."""
+    import s22plus_debian_autoboot_phase_v1 as phase_spec
+    if kind!=4:return None
+    if stage==84:
+        if value not in (1,2) or any((a,b,c,d)):return None
+        return dict(type='handover',action='save' if value==1 else 'resume',error=error)
+    if stage==85:
+        if value or any((a,b,c,d)):return None
+        return dict(type='child_channel',error=error)
+    if stage==86:
+        event=b&255;cpu=b>>8
+        if error or not 1<=event<=12 or cpu>=8 or not 0<=value<window_ms*1000-1 or value>(ms+1)*1000 or not 0<=a<=2**31-1:return None
+        declaration=phase_spec.PROBES[event-1];fields=declaration[4]
+        if (not 0<=c<8 if 'cpu=' in fields else c!=2**32-1):return None
+        if 'rc=' not in fields and d:return None
+        return dict(type='kernel',event_id=event,event=declaration[1],trace_cpu=cpu,pid=a,
+            kernel_boottime_us=value,target_cpu=c if 'cpu=' in fields else None,
+            returned_register=d-2**32 if d>=2**31 else d if 'rc=' in fields else None,
+            timestamp_precision='rounded_microsecond')
+    if stage==87:
+        if error or not 1<=a<=34 or not 0<=b<=16 or c not in map(ord,'DBEX') or d or not 0<=value<=255 or ms>=window_ms:return None
+        action=chr(c)
+        if action in 'DX' and (b or value) or action in 'BE' and not b or action=='B' and value:return None
+        return dict(type='script',packet_sequence=a,action=action,script_id=b,
+            script=phase_spec.SCRIPTS[b-1] if b else None,status=value)
+    if stage==88:
+        if not 0<=value<=2**32-1 or a&~4095 or b>65536 or c>28:return None
+        if not error and (a!=4095 or value<b or c>b):return None
+        return dict(type='profile',error=error,event_mask=a,decoded=b,retained=c,hits=value,missed=d)
+    if stage==89:
+        if not 0<=value<=2**32-1 or a&~255 or d>>8>34 or not error and a!=255:return None
+        return dict(type='ring',error=error,cpu_mask=a,overruns=value,commit_overruns=b,dropped=c,flags=d&255,
+            packets=d>>8)
+    return None
+
+
+def phase_projection(records):
+    rows=[r for r in records if 'phase' in r];issues=[]
+    kernel=[r for r in rows if r['phase']['type']=='kernel']
+    packets=[r for r in rows if r['phase']['type']=='script']
+    if len(kernel)>28 or len(packets)>34:issues.append('phase_record_cap')
+    # Kernel CPUs can race; text time is not a global syscall order.
+    seen=set();opened=None;previous=0;ended=False
+    for row in sorted(packets,key=lambda r:r['sequence']):
+        p=row['phase'];seq=p['packet_sequence'];action=p['action'];identifier=p['script_id']
+        if seq in seen or seq<=previous or ended:issues.append('phase_packet_order')
+        if previous and seq==previous+1:
+            if action=='B' and opened is not None or action=='E' and opened not in (None,identifier):
+                issues.append('phase_script_pair')
+        if action=='D' and seq!=1:issues.append('phase_dispatcher_order')
+        if action=='B':opened=identifier
+        if action=='E':opened=None
+        if action=='X':ended=True
+        seen.add(seq);previous=seq
+    profiles=[r['phase'] for r in rows if r['phase']['type']=='profile']
+    rings=[r['phase'] for r in rows if r['phase']['type']=='ring']
+    if len(profiles)>1 or len(rings)>1:issues.append('phase_duplicate_metadata')
+    if profiles and profiles[0]['retained']<len(kernel):issues.append('phase_retained_count')
+    cleanup=[r for r in records if r['stage_id']==90 and r['kind']=='RETURN']
+    setups=[r for r in records if r['stage_id']==83 and r['kind']=='RETURN']
+    handovers=[r for r in rows if r['phase']['type']=='handover']
+    if len(handovers)>2 or any(sum(r['phase']['action']==action for r in handovers)>1 for action in ('save','resume')):
+        issues.append('phase_handover_count')
+    metadata=bool(len(profiles)==len(rings)==1 and not profiles[0]['error'] and not rings[0]['error'])
+    retention_gap=bool(profiles and profiles[0]['retained']!=len(kernel))
+    script_gap=bool(rings and (rings[0]['packets']!=len(packets) or
+        {r['phase']['packet_sequence'] for r in packets}!=set(range(1,rings[0]['packets']+1))))
+    script_tail=bool(packets and not any(r['phase']['action']=='X' for r in packets))
+    no_detected_loss=bool(metadata and not profiles[0]['missed'] and not rings[0]['overruns'] and
+        not rings[0]['commit_overruns'] and not rings[0]['dropped'] and not rings[0]['flags']&127 and
+        not retention_gap and not script_tail and not script_gap)
+    return dict(observations=rows,conflicts=sorted(set(issues)),
+        setup_confirmed=any(r['result']==0 for r in setups),
+        cleanup_confirmed=bool(cleanup and all(r['result']==0 for r in cleanup)),
+        metadata_complete=metadata,no_detected_loss=no_detected_loss,
+        retained_kernel_count_gap=retention_gap,retained_script_count_gap=script_gap,script_terminal_unobserved=script_tail,
+        dispatcher_exec_observed=any(r['phase']['action']=='D' for r in packets),
+        window_complete=False,absence_proves_stall=False,watchdog_pet_proved=False,watchdog_cause_proved=False)
 
 
 def watchdog_sample(stage,kind,value,error,child,status,properties,sample,ms):
@@ -155,10 +237,13 @@ def rcs_conflicts(parents,children):
     return conflicts
 
 
-def retained(data,*,key,run,expected,boot=None):
+def retained(data,*,key,run,expected,boot=None,phase=False,phase_window_ms=15000):
     require(isinstance(data,bytes) and len(data)<=MAXIMUM and len(key)==32 and len(run)==16 and
         set(expected) in (set(ACTORS),set(RCS_ACTORS),set(WATCHDOG_ACTORS)),'transition input scope differs')
     watchdog=set(expected)==set(WATCHDOG_ACTORS)
+    require(not phase or watchdog,'phase selection requires eight measured actors')
+    require(phase_window_ms in (15000,65000) and (phase or phase_window_ms==15000),
+        'unselected phase timing window')
     rcs=watchdog or set(expected)==set(RCS_ACTORS)
     actors=WATCHDOG_ACTORS if watchdog else RCS_ACTORS if rcs else ACTORS
     if rcs:require(expected[4]==expected[6]==expected[7],'rcS fork executable identity differs')
@@ -187,6 +272,8 @@ def retained(data,*,key,run,expected,boot=None):
             (actor==7 and (pid<=1 or ppid<=1)) or (actor==8 and (pid<=1 or ppid<1))):
             reject('shape');continue
         if stage in WATCHDOG_STAGES and not watchdog:reject('unselected_watchdog');continue
+        if stage in PHASE_STAGES and not phase:reject('unselected_phase');continue
+        if phase and stage in (79,80):reject('unselected_proc_watchdog');continue
         if kind==3:
             valid=convention==3 and value==0 and error>0 and (stage==0 or stage in declared)
         else:
@@ -201,7 +288,12 @@ def retained(data,*,key,run,expected,boot=None):
                 elif stage==75:valid=valid and -1<=value<=128
                 else:valid=valid and value in (0,-1) and (stage not in (50,55,74) or value==-1)
         observation=None
-        if stage in (79,80):
+        phase_observation=None
+        if stage in PHASE_STAGES-{83,90}:
+            phase_observation=phase_sample(stage,kind,value,error,child,status,done,worker_result,ms,
+                window_ms=phase_window_ms)
+            valid=valid and phase_observation is not None
+        elif stage in (79,80):
             observation=watchdog_sample(stage,kind,value,error,child,status,done,worker_result,ms)
             valid=valid and observation is not None
         elif actor==5:
@@ -225,6 +317,9 @@ def retained(data,*,key,run,expected,boot=None):
         if observation is not None:
             for name in ('child_pid','wait_status','worker_done','worker_result'):record.pop(name)
             record['watchdog']=observation
+        if phase_observation is not None:
+            for name in ('child_pid','wait_status','worker_done','worker_result'):record.pop(name)
+            record['phase']=phase_observation
         index=(actor,seq)
         if index in seen:
             conflicts.append('duplicate_sequence' if seen[index]==body else 'contradictory_sequence');continue
@@ -251,7 +346,7 @@ def retained(data,*,key,run,expected,boot=None):
                 if stage in pending:pending.pop(stage)
                 else:isolated_return.append(row)
             elif row['kind']=='POINT':
-                if 'watchdog' not in row:
+                if 'watchdog' not in row and 'phase' not in row:
                     if stage in completed:conflicts.append('repeated_stage_point')
                     completed.add(stage)
         unpaired_begin.extend(pending.values())
@@ -259,13 +354,13 @@ def retained(data,*,key,run,expected,boot=None):
     for row in (r for r in records if r['actor_id']==5):
         if workers and any(r['pid']!=row['child_pid'] or r['ppid']!=row['pid'] for r in workers):
             conflicts.append('supervisor_child_join')
-    parents=[r for r in records if r['actor_id']==6 and 'watchdog' not in r]
-    children=[r for r in records if r['actor_id']==7]
+    parents=[r for r in records if r['actor_id']==6 and 'watchdog' not in r and r['stage_id'] not in PHASE_STAGES]
+    children=[r for r in records if r['actor_id']==7 and r['stage_id'] not in PHASE_STAGES]
     forks=[r['result'] for r in parents if r['stage_id']==64 and r['kind']=='RETURN' and r['result']>1]
     if rcs:conflicts.extend(rcs_conflicts(parents,children))
     valid=not conflicts
     installed=valid and any(r['actor_id']==4 and r['stage_id']==58 and r['kind']=='RETURN' and r['result']==0 for r in records)
-    observed=[r for r in records if r['kind'] in ('RETURN','POINT') and r['stage_id'] not in WATCHDOG_STAGES]
+    observed=[r for r in records if r['kind'] in ('RETURN','POINT') and r['stage_id'] not in WATCHDOG_STAGES|PHASE_STAGES]
     highest=max(observed,key=lambda r:(r['boottime_ms'],r['actor_id'],r['sequence']) if rcs else r['stage_id'])['stage'] if observed and valid else None
     complete=valid and any(r['stage_id']==70 and r['kind']=='POINT' for r in parents)
     if complete:highest='RCS_COMPLETE'
@@ -281,11 +376,17 @@ def retained(data,*,key,run,expected,boot=None):
         result.update(rcs_child_fork_proved=valid and bool(forks),rcs_completed=complete,
             rcs_child_exec_proved=complete,
             rcs_fork_record_completed=valid and any(r['stage_id']==65 and r['kind']=='RETURN' and r['result']==0 for r in parents))
-    if watchdog:
+    if watchdog and not phase:
         samples=[r for r in records if 'watchdog' in r];issues=watchdog_conflicts(samples)
         result.update(watchdog_observations=samples,watchdog_conflicts=issues,
             watchdog_observations_consistent=valid and not issues,watchdog_phase_proved=False,
             watchdog_pet_proved=False,watchdog_cause_proved=False,watchdog_samples_atomic=False)
+    if phase:
+        result['phase']=phase_projection(records)
+        result['phase']['consistent']=valid and not result['phase']['conflicts']
+        result['phase']['dispatcher_exec_proved']=bool(valid and forks and
+            result['phase']['consistent'] and result['phase']['dispatcher_exec_observed'] and
+            any(r['stage_id']==85 and r['error']==0 for r in records))
     return result
 
 
@@ -301,11 +402,12 @@ def qualify_case(proof,case):
             (result is None or r['result']==result)]
     rcs='rcs_completed' in proof
     watchdog='watchdog_observations' in proof
+    phase='phase' in proof
     if case=='trace-logger-loss':
         require(not rows and not proof['installed_debian_pid1'],'lost logger invented retained evidence')
     elif case in ('normal','network-absent'):
         require(proof['installed_debian_pid1'] and
-            {r['actor_id'] for r in rows}==set(WATCHDOG_ACTORS if watchdog else RCS_ACTORS if rcs else ACTORS),
+            {r['actor_id'] for r in rows}==set(WATCHDOG_ACTORS if watchdog or phase else RCS_ACTORS if rcs else ACTORS),
             'successful VM lacks all measured transition actors')
         for stage in ('FILE_CLOSE','PARENT_CLOSE','ROOT_CLOSE','FILE_UNMOUNT','RESTORE_RO',
             'SUPER_CLEAN','GPT_CHECK','RECEIPT','WAIT_RESULT','ROOT_ELIGIBLE','WRITABLE_MOUNT',
@@ -320,10 +422,14 @@ def qualify_case(proof,case):
                 found('RCS_RECORD_WRITE','RETURN',128) and found('RCS_RECORD_FSYNC','RETURN',0) and
                 found('RCS_RECORD_VERIFY','RETURN',0) and found('RCS_RECORD_CLOSE','RETURN',0) and
                 found('RCS_CHILD_CLOSE_FDS','RETURN',0) and
-                any(r['errno_snapshot']==9 for r in found('RCS_CHILD_FD_PROBE','RETURN',-1)) and
+                (bool(found('PHASE_CHILD_CHANNEL','POINT',0)) if phase else
+                 any(r['errno_snapshot']==9 for r in found('RCS_CHILD_FD_PROBE','RETURN',-1))) and
                 found('RCS_CHILD_EXEC','BEGIN') and not found('RCS_CHILD_EXEC','RETURN') and
                 any(r['wait_status']==0 for r in found('RCS_CHILD_REAPED','POINT')),
                 'successful rcS VM lacks its actual parent/child/record completion')
+        if phase:
+            require(proof['phase']['dispatcher_exec_proved'] and not proof['phase']['conflicts'],
+                'successful phase VM lacks authenticated RAM dispatcher execution')
     elif case.startswith('rcs-'):
         require(rcs and proof['installed_debian_pid1'] and proof['rcs_child_fork_proved'] and
             not proof['rcs_completed'] and not proof['rcs_child_exec_proved'],'rcS negative promoted to completion')

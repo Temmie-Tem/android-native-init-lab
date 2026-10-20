@@ -89,6 +89,9 @@ class IdleHeader(unittest.TestCase):
 
 
 class ClosedPair(unittest.TestCase):
+    receipt_name='WATCHDOG_RETRIEVAL'
+    select_pair=staticmethod(profile.watchdog_history)
+
     def setUp(self):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         self.folder=Path(temp.name);self.run='8'*32
@@ -120,8 +123,8 @@ class ClosedPair(unittest.TestCase):
         value['proof']=self.proof if proof is None else proof
         value['reader_result']=self.save('reader.json',dict(proof=dict(
             root_evidence=self.acquired if acquired is None else acquired)))
-        with mock.patch.object(profile,'WATCHDOG_RETRIEVAL',self.save('retrieval.json',value)):
-            return profile.watchdog_history()
+        with mock.patch.object(profile,self.receipt_name,self.save('retrieval.json',value)):
+            return self.select_pair()
 
     def test_closed_complete_pair_yields_exact_immutable_rows(self):
         rows=self.select()
@@ -156,6 +159,11 @@ class ClosedPair(unittest.TestCase):
             result=copy.deepcopy(self.result);result['raw'][kind]=pin(path)
             with self.assertRaises(ValueError):self.select(result=result)
             path.write_bytes(original)
+
+
+class PhaseClosedPair(ClosedPair):
+    receipt_name='PHASE_RETRIEVAL'
+    select_pair=staticmethod(profile.phase_history)
 
 
 if __name__=='__main__':unittest.main()

@@ -65,8 +65,9 @@ def copy_readback(row,parts):
 
 def producer(built,*,virtual):
     transition,rcs,watchdog=profile.variants(built)
-    namespace=profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    phase=profile.phase_selected(built)
+    namespace=profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
@@ -76,7 +77,7 @@ def producer(built,*,virtual):
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
     if transition:
-        require(built['transition_observer']==profile.observer(rcs,watchdog) and
+        require(built['transition_observer']==profile.observer(rcs,watchdog,phase) and
             built['additional_history']==profile.additional_history(),'transition admission/observation differs')
     else:require('additional_history' not in built,'legacy producer cannot adopt new history')
     if rcs:require(built['runtime_history']==profile.runtime_history(),'rcS runtime history differs')
@@ -86,12 +87,24 @@ def producer(built,*,virtual):
             built['idle_policy'] in profile.IDLE_POLICIES,'watchdog history or idle policy differs')
     else:require('watchdog_history' not in built and 'idle_policy' not in built,
         'legacy producer cannot adopt watchdog history or idle policy')
+    if phase:
+        require(built['phase_history']==profile.phase_history() and
+            built['phase_declaration']==profile.phase_spec.declaration(),
+            'phase history or exact observation declaration differs')
+        require(verify(built['headers']['installed/s22plus_autoboot_phase_seal_v1.h']).read_bytes()==
+            profile.phase_spec.header(virt=virtual),'phase generated seal differs')
+        require(built.get('phase_vm_timing')==(profile.phase_spec.VM_TIMING if virtual else None),
+            'phase virtual timing adapter differs')
+        require([row['sha256'] for row in built['modules'] if row['runtime_name']=='qcom_wdt_core']==
+            [profile.phase_spec.MODULE_SHA],'phase callsites do not match the selected module')
+    else:require('phase_history' not in built and 'phase_declaration' not in built and 'phase_vm_timing' not in built,
+        'legacy producer cannot adopt phase history or observation')
     if 'transition_fault' in built:
         require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
-    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog)
+    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -115,8 +128,9 @@ def producer(built,*,virtual):
 
 def vm_results(tested,built,key):
     transition,rcs,watchdog=profile.variants(built)
+    phase=profile.phase_selected(built)
     require(tested['status']=='PASS' and tested['device_actions']==0 and
-        tuple(row['case'] for row in tested['cases'])==profile.cases(transition,rcs,watchdog),'automatic VM corpus differs')
+        tuple(row['case'] for row in tested['cases'])==profile.cases(transition,rcs,watchdog,phase),'automatic VM corpus differs')
     sources={r['path']:r['sha256'] for r in built['source_inputs']}
     require(len(sources)==len(built['source_inputs']) and
         sources=={r['path']:r['sha256'] for r in tested['source_inputs']},'automatic VM source closure differs')
@@ -127,6 +141,7 @@ def vm_results(tested,built,key):
             'automatic VM hardware substitutions were promoted')
         helper=producer(read(verify(row['virtual_helper'])),virtual=True)
         require(profile.variants(helper)==(transition,rcs,watchdog) and
+            profile.phase_selected(helper)==phase and
             helper.get('idle_policy')==built.get('idle_policy') and
             helper['source_inputs']==built['source_inputs'] and helper['run_id']==built['run_id'] and
             helper['modules']==built['modules'] and helper['history']==built['history'] and
@@ -145,7 +160,8 @@ def vm_results(tested,built,key):
         if 'transition_observer' in built:
             from s22plus_debian_autoboot_transition_v1 import retained,sources as transition_sources,qualify_case
             projected=retained(verify(row['serial'],maximum=4*1024**2).read_bytes(),key=key,
-                run=bytes.fromhex(built['run_id']),expected=transition_sources(helper))
+                run=bytes.fromhex(built['run_id']),expected=transition_sources(helper),phase=phase,
+                phase_window_ms=helper.get('phase_vm_timing',{}).get('absolute_window_ms',15000))
             require(projected==row['transition'],'actual VM transition projection differs')
             qualify_case(projected,row['case'])
             require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES+profile.RCS_CASES else None),

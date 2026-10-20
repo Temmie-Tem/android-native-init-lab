@@ -1167,6 +1167,29 @@ can perturb timing and prove neither pet success nor cause or recovery.
 The variant still needs its own returned attended finite grant and current
 qualification/review; consumed P437/P439/P440 actions are never reused.
 
+The separately qualified `post-autoboot-p444-v1` phase variant adds only the
+P441 early/runtime pair authenticated by the closed P444 reader, for seven
+exact historical rows under the same metadata and two current-root admissions.
+It replaces the optional proc samples with twelve fixed module-local entry/
+offset kprobes from the sealed phase declaration and a RAM copy of the exact
+serial rcS dispatcher. Only the existing rcS/runlevel parents configure and
+read their initially absent `s22phase` tracefs group/instance; no extra process,
+watchdog write, return probe, memory fetch or scheduler change is selected.
+The instance is bounded to eight CPUs and at most 20 KiB per CPU. At most 28
+kernel observations and 34 nonblocking dispatcher packets share one 2000 ms
+phase budget, with 500 ms reserved for cleanup, and one authenticated RAM
+handover. The original per-actor logger limits remain. Event admission and
+normal pumping stop at 15 seconds BOOTTIME; this is not a hard kernel stop. Owned
+disable/readback is attempted at the first scheduling opportunity, even after
+a budget overrun. The remaining cleanup budget may drain and summarize already
+owned records, admitting only event timestamps before that cutoff; it grants
+no resumed sampling or rearming. Failed or unobserved cleanup leaves activity
+unknown until physical original-A return. No rearming or uncertain-write retry
+is permitted. Exact lifecycle, descriptor closure, loss semantics, callsites
+and physical limits are in the incorporated automatic-boot policy. This
+selection requires independent review, fresh qualification and its own
+returned attended finite grant; P441 through P444 remain consumed.
+
 ## S22+ native-first installed-Debian handoff
 
 The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes

@@ -21,16 +21,18 @@ import s22plus_debian_autoboot_transition_v1 as transition_protocol
 import device_action_raw_capture_v1 as raw
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
-CASES=build_api.profile.cases(True,True,True)
+CASES=build_api.profile.cases(True,True,True,True)
 
 
 def prepare(out,build,helper,case):
     require(case in CASES,'unknown automatic VM case');out.mkdir(mode=0o700)
     physical=read(build/'build.json');selected=read(helper/'request.json')
     transition,rcs,watchdog=build_api.profile.variants(selected)
-    require(case in build_api.profile.cases(transition,rcs,watchdog),'case does not belong to selected variant')
+    phase=build_api.profile.phase_selected(selected)
+    require(case in build_api.profile.cases(transition,rcs,watchdog,phase),'case does not belong to selected variant')
     require(selected['virtual'] is True and physical['virtual'] is False and selected['run_id']==physical['run_id'] and
         build_api.profile.variants(physical)==(transition,rcs,watchdog) and
+        build_api.profile.phase_selected(physical)==phase and
         physical.get('idle_policy')==selected.get('idle_policy') and
         selected['modules']==physical['modules'] and
         selected['measured']['init_sha256']==physical['measured']['init_sha256'] and
@@ -63,10 +65,10 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
-    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog)):
+    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase)):
         if case=='missing-second-history' and index==1:continue
         if case=='missing-runtime-history' and index==2:continue
-        selected_pair='p437-early' if index==3 else 'p437-runtime' if index==4 else None
+        selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime'}.get(index)
         if selected_pair and case=='missing-'+selected_pair:continue
         body=verify(history['source']).read_bytes()
         if (case=='changed-history' or case=='changed-runtime-history' and index==2 or
@@ -83,7 +85,7 @@ def prepare(out,build,helper,case):
         (out/'extra-runtime').write_bytes(b'UNQUALIFIED_RUNTIME_FILE\n')
         suffix='f'*32 if rcs else build_api.profile.additional_history()['path'].rsplit('-',1)[1]
         path='/var/lib/lab/s22-evidence-'+suffix
-        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs,watchdog)} and
+        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs,watchdog,phase)} and
             suffix!=selected['run_id'],'unexpected-history fixture overlaps selected files')
         vm.fixture.debug(native,out,'extra-runtime',f'write {out}/extra-runtime {path}')
         vm.fixture.debug(native,out,'extra-runtime-mode',f'set_inode_field {path} mode 0100600')
@@ -197,7 +199,9 @@ def run(out,build,helper,case):
         transition=None
         if 'transition_observer' in selected:
             transition=transition_protocol.retained((out/'serial.log').read_bytes(),key=key,
-                run=bytes.fromhex(selected['run_id']),expected=transition_protocol.sources(selected))
+                run=bytes.fromhex(selected['run_id']),expected=transition_protocol.sources(selected),
+                phase=build_api.profile.phase_selected(selected),
+                phase_window_ms=selected.get('phase_vm_timing',{}).get('absolute_window_ms',15000))
             transition_protocol.qualify_case(transition,case)
         value=dict(status='PASS',case=case,proof=proof,ssh_health=health,shutdown=shutdown,filesystem=filesystem,
             build=pin(build/'build.json'),virtual_helper=pin(helper/'request.json'),serial=pin(out/'serial.log',maximum=4*1024**2),
@@ -216,18 +220,19 @@ def suite(out,build):
     from concurrent.futures import ThreadPoolExecutor
     out=h0.private(out,fresh=True);build=h0.private(build);built=read(build/'build.json')
     transition,rcs,watchdog=build_api.profile.variants(built)
+    phase=build_api.profile.phase_selected(built)
     prepared=build_api.prepare(out/'virtual',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition=transition,
-        rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'))
+        rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase)
     require(prepared['source_inputs']==built['source_inputs'],'suite sources differ from the physical build')
-    cases=build_api.profile.cases(transition,rcs,watchdog)
+    cases=build_api.profile.cases(transition,rcs,watchdog,phase)
     def single(case):
         helper=out/'virtual'
         if case in build_api.profile.TRANSITION_CASES+build_api.profile.RCS_CASES:
             helper=out/(case+'-helper')
             prepared=build_api.prepare(helper,Path(built['inputs']),Path(built['packages']),
                 run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,
-                transition=True,transition_fault=case,rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'))
+                transition=True,transition_fault=case,rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase)
             require(prepared['source_inputs']==built['source_inputs'],'fault sources differ from physical build')
         return run(out/case,build,helper,case)
     with ThreadPoolExecutor(max_workers=2) as pool:

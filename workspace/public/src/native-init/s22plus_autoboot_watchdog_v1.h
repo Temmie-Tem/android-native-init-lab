@@ -3,7 +3,7 @@
  * Clock/byte/call bounds cannot cancel a kernel read that does not return. */
 #ifndef S22_AUTOBOOT_WATCHDOG_V1_H
 #define S22_AUTOBOOT_WATCHDOG_V1_H
-#ifdef S22_AUTOBOOT_WATCHDOG_TRACE
+#if defined(S22_AUTOBOOT_WATCHDOG_TRACE) && !defined(S22_AUTOBOOT_PHASE_TRACE)
 #if !defined(S22_AUTOBOOT_RCS_TRACE) || !defined(S22_DEBIAN_AUTOBOOT)
 #error "watchdog observation requires automatic rcS observation"
 #endif

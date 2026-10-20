@@ -11,6 +11,7 @@ enum at_stage {
 #include "checked-kmsg.h"
 static unsigned at_actor=S22_AUTOBOOT_TRACE,at_sequence,at_last,at_lost,at_error,at_ready,at_moved,at_disabled;
 static uint64_t at_spent;
+static uint64_t at_observation_deadline=300000;
 static uint8_t at_source[32],at_boot_hash[32];
 static char at_boot[38];
 static uint64_t at_now(void) {
@@ -68,10 +69,10 @@ static void at_tag(uint8_t tag[32],const uint8_t raw[128]) {
 static void at_emit(unsigned stage,unsigned kind,unsigned convention,int64_t result,unsigned error,
         unsigned child,unsigned status,unsigned done,unsigned worker_result) {
     int saved=errno;uint64_t start=at_now();
-    if(at_disabled || start==UINT64_MAX || start>=300000 || at_sequence>=96 || at_spent>=2000)goto end;
+    if(at_disabled || start==UINT64_MAX || start>=at_observation_deadline || at_sequence>=96 || at_spent>=2000)goto end;
     if(kind==1 || kind==4)at_last=stage;
     if(!at_ready) {
-        uint64_t deadline=start+2000-at_spent;if(deadline>300000)deadline=300000;
+        uint64_t deadline=start+2000-at_spent;if(deadline>at_observation_deadline)deadline=at_observation_deadline;
         int measured=at_measure(deadline);
         if(measured){at_error=(unsigned)measured;++at_lost;at_disabled=1;goto end;}
         at_ready=1;
@@ -89,8 +90,8 @@ static void at_emit(unsigned stage,unsigned kind,unsigned convention,int64_t res
     for(unsigned i=0;i<128;++i)snprintf(data+2*i,3,"%02x",raw[i]);
     int n=snprintf(line,sizeof(line),"<14>S22AT1 run=%s boot=%s mac=%s data=%s\n",run,at_boot,tag,data);
     uint64_t now=at_now();unsigned budget=now<start || now-start>=2000-at_spent ? 0 : (unsigned)(2000-at_spent-(now-start));
-    if(now>=300000)budget=0;
-    else if(budget>300000-now)budget=(unsigned)(300000-now);
+    if(now>=at_observation_deadline)budget=0;
+    else if(budget>at_observation_deadline-now)budget=(unsigned)(at_observation_deadline-now);
     if(budget>500)budget=500;
     int observed=n<=0 || n>=(int)sizeof(line) ? EOVERFLOW : !budget ? ETIMEDOUT :
         checked_kmsg_path(at_moved?"/newroot/dev/kmsg":"/dev/kmsg",line,n,budget);

@@ -5,6 +5,7 @@ from pathlib import Path
 import struct
 
 import s22plus_debian_handoff_profile_v1 as handoff
+import s22plus_debian_autoboot_phase_v1 as phase_spec
 from s22plus_native_records_v3 import read,require,verify
 
 ROOT=handoff.ROOT
@@ -42,6 +43,13 @@ WATCHDOG_OBSERVER=dict(RCS_OBSERVER,schema='s22plus-autoboot-watchdog-v1',actors
 IDLE_POLICIES=('retained-default','cpuidle-off')
 WATCHDOG_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p440-h0-20261020-1/retrieval-1/result.json'),
     size=7421,sha256='f22ab47e8a835da42576b634d9650a267edb93f528fd498ddb17358f5a81bd61')
+PHASE_NAMESPACE='p445'
+PHASE_VERSION='v0.14.0-rc.0'
+PHASE_HISTORY_SELECTION='post-autoboot-p444-v1'
+PHASE_OBSERVER=dict(RCS_OBSERVER,schema='s22plus-autoboot-phase-v1',actors=8,
+    history_selection=PHASE_HISTORY_SELECTION,**phase_spec.LIMITS)
+PHASE_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p444-h0-20261020-1/retrieval-1/result.json'),
+    size=7462,sha256='51f0de292ecb49e077a10b3c91347e6c64ce2076251ec9acc5e6f5070a6ec2a9')
 IDLE_VENDOR_BOOT=dict(path=str(ROOT/'workspace/private/inputs/s22plus_firmware/S906NKSS7FYG8_SKC/extracted-images/raw/vendor_boot.img'),
     size=100663296,sha256='096e433e049fb088cd956e083d5a1039b33cdf0ca907e713bba7feaaf1b080b7')
 TRANSITION_CASES=('trace-file-close','trace-parent-close','trace-root-close','trace-unmount','trace-ro',
@@ -54,51 +62,70 @@ RCS_CASES=('rcs-record-fsync','rcs-close-range','rcs-exec','rcs-wait','rcs-sleep
     'rcs-pending-record','rcs-pending-child')
 WATCHDOG_HISTORY_CASES=tuple(action+'-p437-'+kind for kind in ('early','runtime')
     for action in ('missing','changed','linked','mode'))
+PHASE_HISTORY_CASES=tuple(action+'-p441-'+kind for kind in ('early','runtime')
+    for action in ('missing','changed','linked','mode'))
 
 
-def cases(transition=False,rcs=False,watchdog=False):
+def cases(transition=False,rcs=False,watchdog=False,phase=False):
     require(not rcs or transition,'rcS observer requires the transition variant')
     require(not watchdog or rcs,'watchdog observer requires the rcS variant')
+    require(not phase or watchdog,'phase observer requires the complete predecessor history')
     return CASES+(HISTORY_CASES+TRANSITION_CASES if transition else ())+(
-        RUNTIME_HISTORY_CASES+RCS_CASES if rcs else ())+(WATCHDOG_HISTORY_CASES if watchdog else ())
+        RUNTIME_HISTORY_CASES+RCS_CASES if rcs else ())+(WATCHDOG_HISTORY_CASES if watchdog else ())+(
+        PHASE_HISTORY_CASES if phase else ())
 AUTO_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p433-h0-20261018-1/retrieval-1/result.json'),
     size=5326,sha256='fd8876ccfec4207437aca4fb214b8219eeea2cbc1f3bff3fe01ba0d331445a0b')
 RUNTIME_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p436-h0-20261018-1/retrieval-1/result.json'),
     size=7473,sha256='bf4c7e15eead496e9483b83340b9c037609c1d2f4ee46c01528712d2d9b35a37')
 
 
-def observer(rcs=False,watchdog=False):
+def observer(rcs=False,watchdog=False,phase=False):
     require(not watchdog or rcs,'watchdog observer requires rcS observation')
-    return WATCHDOG_OBSERVER if watchdog else RCS_OBSERVER if rcs else TRANSITION_OBSERVER
+    require(not phase or watchdog,'phase observer requires the watchdog predecessor')
+    return PHASE_OBSERVER if phase else WATCHDOG_OBSERVER if watchdog else RCS_OBSERVER if rcs else TRANSITION_OBSERVER
 
 
 def variants(built):
     selected=built.get('transition_observer')
-    watchdog=selected==WATCHDOG_OBSERVER
+    watchdog=selected in (WATCHDOG_OBSERVER,PHASE_OBSERVER)
     return selected is not None,watchdog or selected==RCS_OBSERVER,watchdog
 
 
 def watchdog_history():
     """The two complete P437 files authenticated by the closed P440 reader."""
-    result=read(verify(WATCHDOG_RETRIEVAL));joined=result['proof']
+    return closed_pair_history(WATCHDOG_RETRIEVAL,'P437')
+
+
+def phase_history():
+    """The two complete P441 files authenticated by the closed P444 reader."""
+    return closed_pair_history(PHASE_RETRIEVAL,'P441')
+
+
+def phase_selected(built):
+    return built.get('transition_observer')==PHASE_OBSERVER
+
+
+def closed_pair_history(receipt,label):
+    """One sealed complete pair; this does not admit arbitrary historical paths."""
+    result=read(verify(receipt));joined=result['proof']
     require(result['schema']=='s22plus-debian-autoboot-retrieval-h0-v1' and
         result['status']=='PASS_AUTHENTICATED_LOCAL_PROGRESS' and
         result['reader_android_healthy'] is True and result['writer_android_healthy'] is True and
         joined['join']==dict(status='MATCH',boot_matches=True,nonce_matches=True) and
         joined['early']['status']==joined['runtime']['status']=='AUTHENTICATED',
-        'P437 historical authentication or boot join differs')
+        label+' historical authentication or boot join differs')
     for label in ('writer_closed','reader_closed'):
         require(read(verify(result[label]))['terminal_state']=='ANDROID_CLOSED_HEALTHY',
-            'P437 historical closure differs')
+            label+' historical closure differs')
     early=joined['early']['proof'];runtime=joined['runtime']['proof']
     require(early['pre_unmount_complete'] is True and early['tail_error'] is None and
         runtime['local_init_observed'] is True and runtime['automatic_start'] is True and
         runtime['complete_framing'] is True and runtime['tail_error'] is None and
-        early['run_id_hex']==runtime['run_id_hex'],'P437 historical records are incomplete')
+        early['run_id_hex']==runtime['run_id_hex'],label+' historical records are incomplete')
     acquired=read(verify(result['reader_result']))['proof']['root_evidence']
     require(acquired['partition_readonly'] is True and acquired['mounted'] is False and
         acquired['persistent_writes'] is False and len(acquired['files'])==2,
-        'P437 historical acquisition scope differs')
+        label+' historical acquisition scope differs')
     rows=[]
     for index,(kind,prefix,proof,size) in enumerate((
             ('early','s22-early-',early,10972),('runtime','s22-evidence-',runtime,1024))):
@@ -109,7 +136,7 @@ def watchdog_history():
             (observed['mode'],observed['uid'],observed['gid'],observed['links'])==(0o100600,0,0,1) and
             observed['size']==observed['captured']==size and observed['offset']==observed['error']==0 and
             observed['sha256']==digest and bytes.fromhex(observed['raw_hex'])==body,
-            'P437 historical bytes or metadata differ')
+            label+' historical bytes or metadata differ')
         rows.append(dict(path=path,mode=0o100600,uid=0,gid=0,nlink=1,size=size,
             sha256=digest,source=result['raw'][kind]))
     return rows
@@ -178,11 +205,12 @@ def additional_history():
         nlink=1,size=len(raw),sha256=hashlib.sha256(raw).hexdigest(),source=result['raw']['early'])
 
 
-def histories(transition=False,rcs=False,watchdog=False):
+def histories(transition=False,rcs=False,watchdog=False,phase=False):
     require(not rcs or transition,'runtime history requires the reviewed rcS selection')
     require(not watchdog or rcs,'P437 history requires the watchdog selection')
+    require(not phase or watchdog,'P441 history requires the phase selection')
     return [history()]+([additional_history()] if transition else [])+([runtime_history()] if rcs else [])+(
-        watchdog_history() if watchdog else [])
+        watchdog_history() if watchdog else [])+(phase_history() if phase else [])
 
 
 def history():
@@ -200,7 +228,7 @@ def history():
         nlink=1,size=len(raw),sha256=hashlib.sha256(raw).hexdigest(),source=result['raw'])
 
 
-def comparison_table(old,count,transition=False,rcs=False,watchdog=False):
+def comparison_table(old,count,transition=False,rcs=False,watchdog=False,phase=False):
     """Add only the exact previously retrieved file to a verified base table."""
     require(old[:8]==b'S22RI01\0' and struct.unpack_from('<I',old,8)[0]==count,'base table identity differs')
     rows={};at=12
@@ -209,43 +237,44 @@ def comparison_table(old,count,transition=False,rcs=False,watchdog=False):
         name=old[at:at+plen];at+=plen+llen
         require(name not in rows,'duplicate immutable path');rows[name]=old[start:at]
     require(at==len(old),'immutable table framing differs')
-    for item in histories(transition,rcs,watchdog):
+    for item in histories(transition,rcs,watchdog,phase):
         name=item['path'].encode();require(name not in rows,'history overlaps archive')
         rows[name]=struct.pack('<IIIQHH',item['mode'],item['uid'],item['gid'],item['size'],len(name),0)+\
             bytes.fromhex(item['sha256'])+b'\0'+name
     return b'S22RI01\0'+struct.pack('<I',len(rows))+b''.join(rows[n] for n in sorted(rows))
 
 
-def retained_comparison(transition=False,rcs=False,watchdog=False):
+def retained_comparison(transition=False,rcs=False,watchdog=False,phase=False):
     # Reuse the hash-pinned historical base table without importing an old
     # installer or H0 builder into the reachable device-session owner.
     result=read(verify(RETRIEVAL));artifact=read(verify(result['writer_artifact']))
     built=read(verify(artifact['build']));admission=built['admission']
     old=verify(admission['table']).read_bytes()
-    return (comparison_table(old,admission['table_count'],transition,rcs,watchdog),
-        admission['table_count']+len(histories(transition,rcs,watchdog)),admission['boot_count'])
+    return (comparison_table(old,admission['table_count'],transition,rcs,watchdog,phase),
+        admission['table_count']+len(histories(transition,rcs,watchdog,phase)),admission['boot_count'])
 
 
-def admission_headers(run,transition=False,rcs=False,watchdog=False):
+def admission_headers(run,transition=False,rcs=False,watchdog=False,phase=False):
     """H0 generator: verify the current archive-derived table against history."""
     import s22plus_native_journal_recovery_h0 as admission
-    selected=admission.headers(run);table=comparison_table(selected['table'],selected['count'],transition,rcs,watchdog)
-    count=selected['count']+len(histories(transition,rcs,watchdog))
-    require((table,count,selected['boot'])==retained_comparison(transition,rcs,watchdog),'archive/history table differs')
+    selected=admission.headers(run);table=comparison_table(selected['table'],selected['count'],transition,rcs,watchdog,phase)
+    count=selected['count']+len(histories(transition,rcs,watchdog,phase))
+    require((table,count,selected['boot'])==retained_comparison(transition,rcs,watchdog,phase),'archive/history table differs')
     selected.update(table=table,count=count,history=history())
     if transition:selected['additional_history']=additional_history()
     if rcs:selected['runtime_history']=runtime_history()
     if watchdog:selected['watchdog_history']=watchdog_history()
+    if phase:selected['phase_history']=phase_history()
     selected['headers']['s22plus_native_root_inspect_seal_v1.h']=admission.base.header(table,selected['count'],selected['boot'])
-    selected['headers']['s22plus_native_journal_mutable_seal_v1.h']=mutable_header(transition,rcs,watchdog)
+    selected['headers']['s22plus_native_journal_mutable_seal_v1.h']=mutable_header(transition,rcs,watchdog,phase)
     return selected
 
 
-def mutable_header(transition=False,rcs=False,watchdog=False):
+def mutable_header(transition=False,rcs=False,watchdog=False,phase=False):
     original=handoff.mutable_header();needle='"var/lib/lab/boot-count",33188U,0U,2ULL,2ULL'
     require(original.count(needle)==1,'boot-count declaration differs')
     paths=('static const char *const ab_history_paths[]={'+
-        ','.join(json.dumps(item['path']) for item in histories(True,rcs,watchdog))+'};\n') if transition else (
+        ','.join(json.dumps(item['path']) for item in histories(True,rcs,watchdog,phase))+'};\n') if transition else (
         'static const char ab_history_path[]='+json.dumps(history()['path'])+';\n')
     return (original.replace(needle,'"var/lib/lab/boot-count",33188U,0U,2ULL,6ULL')+paths).encode()
 
@@ -283,9 +312,9 @@ def payloads(run,*,virt=False):
     return init,assets
 
 
-def header(namespace,version,run,*,virt=False,transition=False,rcs=False,watchdog=False):
+def header(namespace,version,run,*,virt=False,transition=False,rcs=False,watchdog=False,phase=False):
     original=handoff.header(namespace,version,run,virt=virt)
-    original=original.replace(handoff.mutable_header().encode(),mutable_header(transition,rcs,watchdog))
+    original=original.replace(handoff.mutable_header().encode(),mutable_header(transition,rcs,watchdog,phase))
     _,old=handoff.payloads(virt=virt);_,new=payloads(run,virt=virt)
     def declaration(data):
         return (f'static const uint64_t dh_usb_size={len(data)}ULL;\n'+
