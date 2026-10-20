@@ -23,24 +23,29 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P450 fixed journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_H0_2026-10-21.md)
-and its separate [P451 post-replay reader](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_H0_2026-10-21.md)
-are qualified and ready after P449's dirty read: actual A/B packages, five new
-ARM64 cases, focused tests, both independent PASS_GO reviews and 17 successful
-fixed Android D0 captures per task. Both exact attended approvals have now been
-returned, but P450 stopped before opening a grant: the current host command
-process has `NoNewPrivs=1`, so the mandatory privileged read-only tty census
-could not run. The root-owned setuid `pkexec` installation is intact. All six
-raw host-preflight files are preserved with a byte-verified relocation record.
-No grant, operation, device command, mode change, image transfer or native_data
-access occurred. P451 has not started. They retain the strict replayer/checker/
-comparison and fixed two-file reader scopes. Known later files remain outside
-the old comparison table, so
-replay/checker success is not complete root admission. P451 follows only after
-P450's healthy closure and fresh machine checks; each retains its own returned
-one-operation/1800-second attended grant. Continuing requires a host execution
-environment that can perform the unchanged census; the existing approvals do
-not bypass that check or permit repeated effects.
+[P450 fixed journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_RUN_2026-10-21.md)
+is consumed and `ANDROID_CLOSED_HEALTHY`. Strict replay completed 24 writes /
+95,232 bytes, the read-only checker passed, and protected unmount/partition RO
+and state 1 / RECOVER 0 / orphan 0 are proved. All 8,971 expected entries match,
+but eight tree entries remain outside the selected accounting:
+`RECOVERY_NOT_PROVED`. The difference does not identify paths or admit another
+writable Debian boot. Closure rederived 683 raw captures and the unchanged
+20-row journal, with one post-A read failure and health-only continuation.
+One N/A pair is consumed; the grant is closed and no F1 owner remains.
+
+The separate [P451 post-replay reader](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P451_H0_2026-10-21.md)
+has its exact returned approval and required P450 healthy closure. Its task,
+capability and frozen sources revalidate. It will read only P448's sealed pair,
+with its own fresh host/Android checks and one-operation/1800-second attended
+grant. No P451 grant or operation has started. The agent process still has
+`NoNewPrivs=1`, preventing the mandatory privileged read-only host census;
+the unchanged runner therefore needs the operator-terminal entry point.
+P450's analogous host-only failure was preserved before its successful manual
+launch, without changing checks or replacing approvals. The retained
+[P450 qualification](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_H0_2026-10-21.md)
+and P451 qualification include actual A/B packages, five fresh ARM64 cases,
+focused tests, both independent PASS_GO reviews and 17 preparation D0 captures
+per task. A90 and S20+ were untouched.
 
 [P449's fixed read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P449_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. It recovered P448's complete

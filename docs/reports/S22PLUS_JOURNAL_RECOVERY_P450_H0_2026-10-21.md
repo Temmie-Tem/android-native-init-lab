@@ -1,7 +1,12 @@
 # S22+ P450: fixed journal recovery preparation after P449
 
-Status: **PASS_GO; approval returned; HOST_PREGRANT_BLOCKED; no device effect**.
+Status: **H0 PASS_GO; physical operation consumed and closed healthy**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
+
+The later [physical result](S22PLUS_JOURNAL_RECOVERY_P450_RUN_2026-10-21.md)
+completed strict replay/checker and healthy Android return through the reviewed
+operator-terminal entry point. The host-preflight failure below remains
+historical evidence; it did not consume a device action or replace the task.
 
 The operator selected fixed journal recovery followed by a separate read of
 P448's early/runtime pair. The closed
@@ -90,7 +95,7 @@ approval is recorded below; the grant still requires successful host preflight.
 No P451 approval extends this budget or supplies replay authority after a
 P450 uncertainty.
 
-## Approved start blocked before device access
+## Initial approved start blocked before device access
 
 The operator returned both exact one-operation/1800-second attended approval
 strings. The unchanged P450/P451 task, capability, artifacts and frozen source
@@ -99,13 +104,14 @@ its host-only tty-holder census: `pkcheck` succeeded, but `pkexec` returned 127
 with `pkexec must be setuid root`. The binary is root-owned mode 4755; the
 current command process has `NoNewPrivs=1`, which prevents its privilege gain.
 
-No grant or operation exists and no device command was issued. Preserve this
+At that point no grant or operation existed and no device command was issued. Preserve this
 as a host preflight failure, not a device-session failure or consumed candidate.
 The six raw files were retained byte-for-byte in the private task's
 `grant-host-preflight-failed-1` directory, with immutable relocation intent,
 source/destination hashes and successful raw-receipt reopening. No check,
 installed file, capability, approval, task or runtime source was changed.
-P451 remains unopened until P450 completes and closes healthy.
+P451 remained unopened pending P450's healthy closure, which is now documented
+in the physical result linked above.
 
 A private operator-terminal entry point calls the original grant opener and
 reviewed CLI with the returned approval. It stops before any attempt if its

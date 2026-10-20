@@ -1,6 +1,6 @@
 # S22+ P451: fixed P448-pair retrieval after P450
 
-Status: **PASS_GO; approval returned; waiting for P450; no grant or device effect**.
+Status: **PASS_GO; approval returned; P450 closed healthy; no P451 device effect**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
 Prepare a fresh instance of the existing mountless reader for exactly P448's
@@ -74,6 +74,12 @@ prediction of P450's outcome or P451's future starting state.
 Both exact approvals were subsequently returned. P450's host-only grant
 preflight stopped because the command process cannot gain the privilege needed
 for the mandatory read-only tty census; see its linked preparation report.
-P451's exact task, capability, artifacts and source snapshots revalidated, but
-its grant has not opened and no operation or device command has started.
-P450's healthy closure and P451's fresh checks remain prerequisites.
+P450 later ran from the operator's terminal through its reviewed entry point
+and [closed healthy](S22PLUS_JOURNAL_RECOVERY_P450_RUN_2026-10-21.md).
+P451's exact task, capability, artifacts and source snapshots revalidated
+against that closed owner and the same target/original-A binding. Its private
+terminal entry point rederives the pinned P450 closure before calling the
+original grant opener and `root-evidence` CLI. The agent process's privilege
+restriction remains, so the terminal entry point is still needed.
+No P451 grant, operation or device command has started. Fresh host and Android
+checks remain mandatory, with no repeated P450 effect or expanded grant.
