@@ -29,6 +29,20 @@ retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findin
 reviewed VM service/SSH/shutdown evidence; its physical candidate is consumed.
 P430 proves storage-first preparation; installed services, NCM and same-boot SSH remain the physical gap.
 
+## P440 retrieved the P437 pair and closed healthy
+
+The [P440 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P440_RUN_2026-10-20.md)
+retrieved the complete 10,972-byte early file and newly visible 1,024-byte
+runtime file after replay. All 14 early and six runtime records authenticate
+with matching boot/nonce; the early bytes equal P438's earlier capture.
+PASS_AUTHENTICATED_LOCAL_PROGRESS reaches RCS_ENTERED and fork, not rcS
+completion, services, SSH or clean shutdown. These are first-P437-boot records.
+The mountless read saw state 1/recover 0/orphan 0 under partition RO and made
+no filesystem writes. One N/A pair closed ANDROID_CLOSED_HEALTHY after one
+post-A read failure and health-only continuation. H0 closure rederived 617
+captures and the unchanged 20-row journal; no F1 owner remains. Exact history
+qualification and a future boot's complete root admission remain necessary.
+
 ## P439 closed healthy; replay/checker complete, full-root comparison negative
 
 The [P439 run](docs/reports/S22PLUS_JOURNAL_RECOVERY_P439_RUN_2026-10-20.md)
@@ -236,38 +250,19 @@ retains the full historical design, 12 file-route/six recovery ARM64 cases,
 P421's physical return and P422's absent-file outcome are recorded above.
 Missing records never prove non-execution. A90 and S20+ remained untouched.
 
-## P419 RAM-only trial closed healthy; USB still unproved
+## P419 RAM-only trial remains consumed with USB unproved
 
-The operator selected the next minimum USB experiment on 2026-10-12 KST.
-P419 `v0.5.0-rc.3` keeps Debian shell `/init` as initial PID1 and the retained
-73-module platform/USB sequence. Its explicit `ram-only` build removes the
-added `sec_log_buf` and printk readback prerequisites. Complete checked RAM
-preparation records, actual parent identity and authenticated USB evidence
-remain mandatory. No UFS/root/storage work is selected.
+The [P419 run](docs/reports/S22PLUS_DEBIAN_USB_RAM_P419_RUN_2026-10-12.md)
+used Debian initial PID1 and the retained 73-module sequence without added
+stock-logger prerequisites or UFS/storage work. No exact USB endpoint appeared
+within 90 seconds; USB/PID1 remains NO_PROOF and the internal stop is unknown.
+Physical original-A return and health-only continuation closed Android healthy,
+with N/A 1/1 and no F1 owner. No retained-log read was selected or RAM log recovered.
 
-The one attended trial was consumed on 2026-10-12 KST. The
-[physical report and timeline](docs/reports/S22PLUS_DEBIAN_USB_RAM_P419_RUN_2026-10-12.md)
-record no exact early USB endpoint within 90 seconds, before tty/challenge
-acquisition. USB/PID1 remains **NO_PROOF**. The operator observed an unchanged
-boot screen with no bootloop; no internal-stage conclusion follows from that.
-Physical Download and one original-A transfer completed, followed by a
-health-only continuation after one failed ADB read. Full original boot/root,
-changed-boot and Android32 GPT/capacity checks passed: **ANDROID_CLOSED_HEALTHY**,
-`recovered=true`, N/A counts 1/1. The candidate and grant are closed/consumed,
-with no F1 owner remaining.
-
-The
-[H0 preparation report](docs/reports/S22PLUS_DEBIAN_USB_RAM_P419_H0_2026-10-12.md)
-records A/B artifact qualification, five ARM64 VM cases, 80 focused tests and
-independent PASS_GO. Fresh fixed Android health/GPT/capacity preparation and
-its H0 rederivation passed in `connected-2`; the first ADB-startup-banner read
-failure is preserved. Physical closure revalidated 560 raw captures and 227
-frozen source paths without device commands or journal changes.
-This mode selected no post-return retained-log reader, and its RAM records
-were not recovered. Removing the added logging prerequisites alone did not
-establish USB; the internal failure location remains unknown. At closure no
-successor was selected. P418 records are unchanged and P415 remains the last native_data
-observation. A90 and S20+ were untouched.
+Its [H0 report](docs/reports/S22PLUS_DEBIAN_USB_RAM_P419_H0_2026-10-12.md)
+retains full preparation, five ARM64 cases, 80 tests, independent review and
+raw closure provenance. The candidate/grant are consumed; P418 evidence is
+unchanged. A90 and S20+ were untouched.
 
 ## P418 partial retained-stage proof; USB unproved, Android healthy
 
@@ -738,15 +733,12 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P439's post-P438 replay/checker is complete and its protected superblock clean,
-but three tree entries remain outside the selected comparison.
-[P440 preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P440_H0_2026-10-20.md)
-is ready for a fresh mountless read of the same fixed P437 pair after replay:
-actual A/B, two fresh VMs, 33 tests, independent PASS_GO and connected D0 pass.
-Its one-operation/1800-second attended proposal has no returned grant yet.
-Qualify exact historical bytes before a future writable boot's complete
-protected admission. Android health, full-root consistency and watchdog
-functionality remain separate claims.
+P439's post-replay checker/superblock and P440's authenticated pair retrieval
+are complete. Qualify the exact additional P437 historical bytes alongside the
+existing three rows, then require the future writable boot's complete protected
+admission. Enable the bounded watchdog observer and qualify the exact
+cpuidle.off=1 header change for the idle-policy experiment. Android health,
+full-root consistency and watchdog functionality remain separate claims.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,

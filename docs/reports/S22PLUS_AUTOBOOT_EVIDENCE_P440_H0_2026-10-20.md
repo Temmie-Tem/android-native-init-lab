@@ -1,8 +1,9 @@
 # S22+ P440 fixed P437-pair reader after journal replay
 
-Status: **PASS_GO / READY_CONNECTED_FIXED_D0**.
-Target: `SM-S906N/g0q/S906NKSS7FYG8`. No P440 grant, transfer or native_data
-access; only fixed Android preparation reads have completed.
+Preparation status: **PASS_GO / READY_CONNECTED_FIXED_D0**.
+Target: `SM-S906N/g0q/S906NKSS7FYG8`. Preparation opened no grant, transfer or
+native_data access. The subsequent [P440 physical read](S22PLUS_AUTOBOOT_EVIDENCE_P440_RUN_2026-10-20.md)
+is now consumed and closed healthy, with both P437 files authenticated.
 
 The [P439 run](S22PLUS_JOURNAL_RECOVERY_P439_RUN_2026-10-20.md) completed strict
 replay and its read-only checker, restored partition RO and closed Android
