@@ -70,8 +70,20 @@ reopening pass; the one-operation/3600-second attended proposal is ready.
 The first full VM
 correctly missed the physical startup window after slow generic root checks;
 the new VM-only timing adapter preserves physical 8.5/15-second limits.
-P445 has no grant or device effect. The bounded next unit remains one qualified
-attended automatic boot with separate local services, SSH and Android closure.
+The [physical P445 run](docs/reports/S22PLUS_AUTOBOOT_PHASE_P445_RUN_2026-10-21.md)
+has now consumed one attended N/A pair and closed `ANDROID_CLOSED_HEALTHY`.
+Its 360-second observation has no accepted endpoint or SSH proof. All 856 raw
+captures and the unchanged 14-row journal rederive; no recovery read failed.
+Same-returned-boot retention authenticates 158 preparation, four diagnostic
+and 48 strict transition records through successful early-file cleanup and
+configfs mount. A separately authenticated intact frame in a noncanonical
+line proves second-admission BEGIN at 3.468 seconds; the strict projection
+remains unchanged. There is no retained completion, installed-init/rcS,
+phase-observer or service proof. Later warm-reset firmware context does not
+locate the failure or prove a second candidate boot. Current native_data
+consistency remains unknown. P445 is consumed, its grant is closed and no
+F1 owner remains. The next bounded H0 question is the second-admission/
+retention boundary; another device operation requires its own applicable scope.
 
 The [integration synthesis](docs/reports/S22PLUS_DEBIAN_INTEGRATION_SYNTHESIS_2026-10-13.md)
 retains P410/P413's installed-PID1/rcS-entry proof and the earlier logger findings.

@@ -1,8 +1,11 @@
 # S22+ P445 bounded watchdog and rcS phase qualification
 
-Status: **H0 READY; independent PASS_GO; fresh fixed D0 preparation passed**.
-Only `SM-S906N/g0q/S906NKSS7FYG8` is selected. No P445 grant, transfer, control
-or native_data write has occurred. P441 through P444 remain consumed.
+Status: **QUALIFIED; physical P445 consumed and closed healthy**.
+The [physical run](S22PLUS_AUTOBOOT_PHASE_P445_RUN_2026-10-21.md) consumed one
+attended N/A pair and closed `ANDROID_CLOSED_HEALTHY`, with live access
+`NO_PROOF` and separate retained evidence through second-admission entry.
+The preparation below is preserved as H0/D0 evidence; it is not renewed
+authority. Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
 The [committed design](S22PLUS_AUTOBOOT_PHASE_OBSERVER_DESIGN_2026-10-20.md)
 preserves Debian initial PID1, both protected-root admissions, installed
@@ -108,7 +111,7 @@ Fresh fixed foreground Android D0 preparation passed current health, shell-v2,
 GPT and Android32 capacity checks. The 57,778-byte task reopens through its
 actual validator and selects one attended `debian-autoboot` operation for
 3600 seconds. No grant, mode change, image transfer or native_data write
-occurred; no F1 owner is open. These reads do not admit the current native root.
+occurred during preparation. These reads did not admit the current native root.
 
 ## Past-failure checklist applicability
 
@@ -130,10 +133,11 @@ occurred; no F1 owner is open. These reads do not admit the current native root.
 
 Root revision 53 and the incorporated details, target and automatic-boot
 policy describe this precise observer specialization. They do not open a
-grant. Current source-bound review, artifact qualification and existing fixed
-D0 preparation have produced a reviewable task. Physical execution still needs the exact returned attended
-one-operation/3600-second grant, usable Download/original-A recovery and
-fresh machine checks. A does not undo native_data writes.
+grant. Source-bound review, artifact qualification and fixed D0 preparation
+produced the task later approved and consumed by the linked physical run.
+Its grant is now closed. Any fresh operation needs its own applicable
+qualification and returned grant; no consumed predecessor is repinned.
+A does not undo native_data writes.
 
 A90 and S20+ remain outside this work. Private evidence is under
 `workspace/private/outputs/s22plus-autoboot-phase-p445-h0-20261020-1/`.
