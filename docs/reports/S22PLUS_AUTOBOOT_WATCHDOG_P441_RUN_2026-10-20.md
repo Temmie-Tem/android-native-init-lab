@@ -6,6 +6,11 @@ installed Debian PID1 and partial rcS progress, with nine authenticated
 watchdog observations. It proves neither completed rcS/services/SSH nor a clean
 native shutdown or the cause of the watchdog failure.
 
+The [later H0 analysis](S22PLUS_P441_WATCHDOG_FOLLOWUP_H0_2026-10-20.md) preserves
+that strict result and authenticates an intact frame within the rejected line
+in a separate forensic view: five TASK/WCHAN pairs. It also refines CPU time
+as Linux-accounted runtime and records the unchecked pet-return limitation.
+
 Only the operator-owned S22+ FYG8 was selected. A90 and S20+ received no command.
 The [qualification](S22PLUS_AUTOBOOT_WATCHDOG_P441_H0_2026-10-20.md) and
 [design](S22PLUS_AUTOBOOT_WATCHDOG_P441_DESIGN_2026-10-20.md) retain their scope.

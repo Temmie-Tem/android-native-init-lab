@@ -57,6 +57,10 @@ P426/P427 종료 후 확인한 SEMANTIC·WIRE·ROUTE 누락을 다룬다. VM이 
 후속 [P441 실기 대조](../reports/S22PLUS_AUTOBOOT_WATCHDOG_P441_RUN_2026-10-20.md)는
 141개 인증 기록과 형식 오류 1개, 서로 다른 두 부팅을 구분하고, watchdog 관측·
 설치 PID1·외부 접근 부재·건강한 Android 복귀를 별도 판정으로 유지한다.
+후속 [H0 해석 검증](../reports/S22PLUS_P441_WATCHDOG_FOLLOWUP_H0_2026-10-20.md)은
+원본 strict 결과와 별도 인증 구간을 분리하고, USER_HZ/HZ·scheduler 집계 시간과
+실제 실행 위치·pet 반환과 hardware 갱신을 구분한다. 기존 ABI/WIRE/SEMANTIC/AUDIT
+항목의 적용이며 parser 변경이나 새 gate가 아니다.
 
 이 문서는 기존 계약·검증을 돕는 참고표다. 새 승인 단계나 독립적인 실행
 게이트를 만들지 않으며, D0/D1/F1 권한을 부여하지 않는다. 실제 권한과

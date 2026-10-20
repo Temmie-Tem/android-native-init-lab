@@ -44,6 +44,10 @@ current native_data consistency are unknown. rcS completion/services/SSH and
 clean native shutdown remain unproved. The grant is consumed; no replay.
 The [qualification](docs/reports/S22PLUS_AUTOBOOT_WATCHDOG_P441_H0_2026-10-20.md)
 retains 49 VM cases, 85 tests, PASS_GO and the 11-item checklist audit.
+The [H0 follow-up](docs/reports/S22PLUS_P441_WATCHDOG_FOLLOWUP_H0_2026-10-20.md)
+preserves strict results and authenticates the final frame: five TASK/WCHAN pairs.
+Actual Image analysis establishes USER_HZ=100; scheduler time supplies no PC.
+Core ignores pet errors. Current-data analysis is complete; dynamic phase/child progress is unknown.
 
 ## P440 retrieved the P437 pair and closed healthy
 
@@ -56,8 +60,8 @@ completion, services, SSH or clean shutdown. These are first-P437-boot records.
 The mountless read saw state 1/recover 0/orphan 0 under partition RO and made
 no filesystem writes. One N/A pair closed ANDROID_CLOSED_HEALTHY after one
 post-A read failure and health-only continuation. H0 closure rederived 617
-captures and the unchanged 20-row journal; no F1 owner remains. Exact history
-qualification and a future boot's complete root admission remain necessary.
+captures and the unchanged 20-row journal; no F1 owner remains. P441 qualified
+this history; every new writable boot still requires complete root admission.
 
 ## P439 closed healthy; replay/checker complete, full-root comparison negative
 
@@ -71,9 +75,9 @@ identified by this aggregate result. One post-A ADB read failure led only to
 health continuation; no transfer or writer repeated. H0 closure rederived 617
 captures and the unchanged 20-row journal; no F1 owner remains.
 
-Separate fresh P437-pair retrieval and exact history qualification precede the
-planned watchdog comparison. P439 proves neither full-root admission nor a new
-effect's authority. A90 and S20+ were untouched.
+P440 subsequently retrieved the P437 pair and P441 qualified its history.
+P439 alone proves neither full-root admission nor a new effect's authority.
+A90 and S20+ were untouched.
 
 ## P437/P438 closed healthy; first watchdog renewal remains the runtime gap
 
@@ -735,12 +739,12 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The [stock-first-watchdog analysis](docs/reports/S22PLUS_FYG8_STOCK_FIRST_WATCHDOG_H0_2026-10-20.md)
-supports an H0 candidate comparison with cpuidle.off=1 as the single changed
-idle variable, retaining bounded observation of installed-init work. P430 is
-the same-kernel/module/command-line surviving contrast; actual idle and ping
-state remain unknown. This selects preparation only, not a new admission gate
-or device authority. Watchdog and RT budget changes are not established fixes.
+P441 consumed the idle-policy comparison without proving services or access.
+Its [follow-up analysis](docs/reports/S22PLUS_P441_WATCHDOG_FOLLOWUP_H0_2026-10-20.md)
+closes the current-data questions while retaining multiple failure branches.
+The next H0 design should preserve the Debian functional aim and obtain bounded
+same-boot watchdog phase/return and rcS child progress evidence. Repeating zero
+wchan samples cannot supply the missing PC or pet result. No fix is established.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -748,12 +752,10 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P439's post-replay checker/superblock and P440's authenticated pair retrieval
-are complete. Qualify the exact additional P437 historical bytes alongside the
-existing three rows, then require the future writable boot's complete protected
-admission. Enable the bounded watchdog observer and qualify the exact
-cpuidle.off=1 header change for the idle-policy experiment. Android health,
-full-root consistency and watchdog functionality remain separate claims.
+P441's grant is consumed. Current native_data consistency is unknown; its bounded
+retrieval/admission remains separate from watchdog diagnosis. New runtime or
+kernel/module instrumentation needs its own H0 implementation, review and
+qualification before any separately authorized effect. No new gate is added.
 
 1. **Integrated headless access:** qualify one complete Debian-owned boot path
    through platform preparation, protected root admission, installed PID1,
