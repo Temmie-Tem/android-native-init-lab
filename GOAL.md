@@ -29,6 +29,18 @@ goal, add only P451-authenticated P448 history, and reuse the RAM dispatcher
 channel with an rcS-relative bounded window. Scope Android/driver comparisons
 to those sixteen script boundaries. Implementation, qualification and review
 precede a fresh finite attended grant; this design grants no device effect.
+Its [H0 implementation](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_H0_2026-10-21.md)
+is now qualified: actual A/B initramfs and boot-only AP, all 37 ARM64 integration
+cases, 13 component cases, 123 focused tests, and current independent `PASS_GO`
+with no open findings. The normal VM proves all 34 script packets, 120-second
+services, same-boot SSH and clean shutdown; setup/gap faults preserve those
+services without claiming a complete channel. These are H0 proofs only.
+The host namespace blockers were resolved using an isolated ARM64 builder
+while preserving the original archive checks and all 158 runtime source pins.
+An existing offline proposal is `READY_H0_PRELIVE_ONLY`: one fresh attended
+operation / 3600 seconds, no grant or device action. The exact returned approval
+and ordinary-terminal original runner remain required; live lane/host census
+and fresh Android health are checked before the first mode-changing intent.
 
 [P450 fixed journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. Strict replay completed 24 writes /

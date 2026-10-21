@@ -3,7 +3,12 @@
  * Budgets limit admitted work; they cannot cancel a blocked kernel syscall. */
 #ifndef S22_AUTOBOOT_PHASE_V1_H
 #define S22_AUTOBOOT_PHASE_V1_H
-#ifdef S22_AUTOBOOT_PHASE_TRACE
+#if defined(S22_AUTOBOOT_SCRIPT_CHANNEL) && defined(S22_AUTOBOOT_PHASE_TRACE)
+#error "select one optional observer"
+#endif
+#ifdef S22_AUTOBOOT_SCRIPT_CHANNEL
+#include "s22plus_autoboot_script_v1.h"
+#elif defined(S22_AUTOBOOT_PHASE_TRACE)
 #include <sys/socket.h>
 #include <sys/vfs.h>
 #include "s22plus_autoboot_phase_seal_v1.h"
@@ -259,12 +264,9 @@ static void ap_metadata(void) {
     ap_record(AT_PHASE_RING,(int64_t)overruns,(unsigned)error,mask,(unsigned)commits,(unsigned)dropped,
         ap.flags|(ap.packets<<8));
 }
-static void ap_channel_close(void) {
-    if(ap_receive>=0 && (!ap.script_done || ap.script_open))ap.flags|=AP_CHANNEL;
-    if(ap_receive>=0 && close(ap_receive))ap.flags|=AP_IO;
-    if(ap_send>=0 && close(ap_send))ap.flags|=AP_IO;
-    ap_receive=ap_send=-1;
-}
+#define AP_CHILD_STAGE AT_PHASE_CHILD_CHANNEL
+#define AP_SCRIPT_STAGE AT_PHASE_SCRIPT
+#include "s22plus_autoboot_script_channel_v1.h"
 static void ap_cleanup(void) {
     if(ap_local_done)return;
     ap_local_done=1;ap_begin(1);ap_channel_close();
@@ -312,26 +314,6 @@ static void ap_abort(void) {
     if(ap_claimed && ap.owner==at_actor)ap_cleanup();
     errno=saved;
 }
-static int ap_dispatcher_prepare(void) {
-    int fd=fs1_pin_file("/usr/lib/init/rc",ap_rc_size,ap_rc_sha,true);if(fd<0)return ap_error();
-    int error=ap_close(fd,0);if(error)return error;
-    fd=fs1_pin_file("/usr/lib/init/rcS",ap_rcs_size,ap_rcs_sha,true);if(fd<0)return ap_error();
-    if((error=ap_close(fd,0)))return error;
-    if(ap_expired())return ETIMEDOUT;
-    fd=open(AP_DISPATCHER,O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW,0500);if(fd<0)return ap_error();
-    struct statfs fs;uint8_t check[sizeof(ap_dispatcher)];
-    error=fstatfs(fd,&fs) || fs.f_type!=AP_TMPFS ||
-        write(fd,ap_dispatcher,sizeof(ap_dispatcher))!=(ssize_t)sizeof(ap_dispatcher) ||
-        pread(fd,check,sizeof(check),0)!=(ssize_t)sizeof(check) || memcmp(check,ap_dispatcher,sizeof(check)) ? EIO : 0;
-    if((error=ap_close(fd,error)))return error;
-    int sockets[2];if(socketpair(AF_UNIX,SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC,0,sockets))return ap_error();
-    /* fd3 remains absent in the parent; mandatory reporting checks rely on it. */
-    ap_receive=fcntl(sockets[0],F_DUPFD_CLOEXEC,10);ap_send=fcntl(sockets[1],F_DUPFD_CLOEXEC,10);
-    error=ap_receive<0 || ap_send<0 ? ap_error() : 0;
-    error=ap_close(sockets[0],error);error=ap_close(sockets[1],error);
-    if(error)ap_channel_close();
-    return error;
-}
 static void ap_start(void) {
     if(at_actor!=6 || at_now()>=AP_START_BEFORE_MS)return;
     int saved=errno;unsigned last=at_last;ap_begin(0);
@@ -352,48 +334,6 @@ static void ap_start(void) {
         ap_cleanup();ap_receive=receive;ap_send=send;
     }
     errno=saved;
-}
-static int ap_child_channel(void) {
-    if(ap_send<0)return 0;
-    int error=dup3(ap_send,3,0)<0 ? ap_error() : 0;
-    if(error)return -error;
-    int type=0; socklen_t size=sizeof(type);
-    int flags=fcntl(3,F_GETFL);
-    if(getsockopt(3,SOL_SOCKET,SO_TYPE,&type,&size) || type!=SOCK_DGRAM ||
-       flags<0 || !(flags&O_NONBLOCK) || fcntl(3,F_GETFD)!=0)return -EPROTO;
-    return 1;
-}
-static void ap_parent_fork(void) {
-    if(ap_send<0)return;
-    ap_begin(0);
-    if(close(ap_send))ap.flags|=AP_IO;
-    ap_send=-1;ap_charge();
-}
-static void ap_packets(void) {
-    if(ap_receive<0)return;
-    for(unsigned n=0;n<8 && !ap_expired();++n) {
-        char packet[80];struct iovec iov={packet,sizeof(packet)-1};struct msghdr message={.msg_iov=&iov,.msg_iovlen=1};
-        ssize_t got=recvmsg(ap_receive,&message,MSG_DONTWAIT);
-        if(got<0){if(errno!=EAGAIN)ap.flags|=AP_CHANNEL;break;}
-        if(!got || message.msg_flags&MSG_TRUNC || memchr(packet,0,(size_t)got)){ap.flags|=AP_CHANNEL;break;}
-        packet[got]=0;struct ap_packet decoded;
-        if(ap_packet_parse(packet,&decoded) || decoded.sequence!=ap.packet_sequence+1 ||
-           ap.packets>=AP_SCRIPT_RECORD_CAP || ap.script_done ||
-           (!ap.packet_sequence && decoded.kind!='D')){ap.flags|=AP_CHANNEL;break;}
-        if(decoded.kind=='D') {
-            if(ap.packet_sequence){ap.flags|=AP_CHANNEL;break;}
-        } else if(decoded.kind=='B') {
-            if(ap.script_open || decoded.id<=ap.script_id){ap.flags|=AP_CHANNEL;break;}
-            ap.script_open=1;ap.script_id=decoded.id;
-        } else if(decoded.kind=='E') {
-            if(!ap.script_open || decoded.id!=ap.script_id){ap.flags|=AP_CHANNEL;break;}ap.script_open=0;
-        } else {
-            if(ap.script_open){ap.flags|=AP_CHANNEL;break;}ap.script_done=1;
-        }
-        ap.packet_sequence=decoded.sequence;++ap.packets;
-        ap_record(AT_PHASE_SCRIPT,decoded.result,0,decoded.sequence,decoded.id,(unsigned)decoded.kind,0);
-    }
-    if(ap.flags&AP_CHANNEL)ap_channel_close();
 }
 static void ap_tick(void) {
     int saved=errno;uint64_t now=at_now();

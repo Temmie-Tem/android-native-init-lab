@@ -27,6 +27,8 @@ def sources():
          handoff.base.NATIVE/'s22plus_autoboot_transition_stages_v1.def',
          handoff.base.NATIVE/'s22plus_autoboot_phase_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_phase_parse_v1.h',
+         *(handoff.base.NATIVE/name for name in ('s22plus_autoboot_script_v1.h',
+             's22plus_autoboot_script_packet_v1.h','s22plus_autoboot_script_channel_v1.h')),
          profile.ROOT/'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_transition_v1.py',
          *(profile.ROOT/'workspace/public/src/scripts/revalidation'/name for name in (
              's22plus_debian_autoboot_access_v1.py','s22plus_debian_autoboot_protocol_v1.py',
@@ -57,13 +59,14 @@ fyg8_stop
     return text[:-len('fyg8_stop\n')]+tail
 
 
-def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False):
+def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,script_channel=False):
     flags=[*integrated.FLAGS,'-DS22_DEBIAN_HANDOFF','-DS22_DEBIAN_AUTOBOOT',
         '-I',out,'-I',headers,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE]
     if transition:flags+=['-DS22_AUTOBOOT_TRACE='+str(dict(entry=2,witness=3,hook=4)[name]),'-DS22_AUTOBOOT_HISTORY']
     if rcs:flags+=['-DS22_AUTOBOOT_RCS_TRACE']
     if watchdog:flags+=['-DS22_AUTOBOOT_WATCHDOG_TRACE']
     if phase:flags+=['-DS22_AUTOBOOT_PHASE_TRACE']
+    if script_channel:flags+=['-DS22_AUTOBOOT_SCRIPT_CHANNEL']
     if single_cpu:flags+=['-DS22_AUTOBOOT_SINGLECPU']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
     if transition_fault:
@@ -76,24 +79,25 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     return pin(out/(name+'-a'),maximum=8*1024**2)
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False):
     h0.require(transition_fault is None or virt and transition,'transition fault requires virtual observation')
     h0.require(not rcs or transition,'rcS observation requires the transition variant')
     h0.require(not watchdog or rcs,'watchdog observation requires the rcS variant')
     h0.require(not phase or watchdog,'phase observation requires the complete predecessor selection')
     h0.require(not single_cpu or watchdog and not phase and idle_policy=='cpuidle-off',
-        'single CPU requires the P441 proc/idle selection')
+        'single CPU requires its reviewed history and idle selection')
     h0.require(not post_p447 or single_cpu,'P447 history requires single CPU selection')
+    h0.require(not script_channel or post_p447,'script channel requires the current single CPU history')
     h0.require(idle_policy in profile.IDLE_POLICIES if watchdog else idle_policy is None,
         'idle policy requires the selected watchdog variant')
     out=h0.private(out,fresh=fresh);saved=snapshot(out) if fresh else read(out/'source-inputs.json')
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
-    namespace=profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    namespace=profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     prefix=out/'early';prefix.mkdir(mode=0o700)
     file_log.snapshot(prefix)
     first=file_log.prepare(prefix,inputs,packages,run=run,key=key,virt=virt,fresh=False,
-        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447)
+        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel)
     destination=out/'installed';destination.mkdir(mode=0o700)
     base=handoff.base
     for name in ('s22plus_native_ext4_seal_v1.h','s22plus_native_root_inspect_seal_v1.h',
@@ -101,15 +105,16 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         (destination/name).write_bytes((prefix/name).read_bytes())
     (destination/'s22plus_native_staged_preflight_seal_v1.h').write_bytes(base.staged.header())
     (destination/'s22plus_switch_root_seal_v1.h').write_bytes(base.seal(run,key))
-    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447))
+    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel))
     if phase:(destination/'s22plus_autoboot_phase_seal_v1.h').write_bytes(profile.phase_spec.header(virt=virt))
+    if script_channel:(destination/'s22plus_autoboot_script_seal_v1.h').write_bytes(profile.phase_spec.script_header())
     installed_init,assets=profile.payloads(run,virt=virt,single_cpu=single_cpu)
     for name,data in assets.items():(destination/name).write_bytes(data)
-    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu)
+    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel)
     handoff.payload_header(destination,hook,virt)
-    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu)
+    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
-    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu)
+    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel)
     (out/'fyg8-dev').write_text(dev_script())
     result=dict(namespace=namespace,version=version,profile=profile.PROFILE,
         run_id=run,virtual=virt,inputs=str(h0.private(inputs)),packages=str(h0.private(packages)),
@@ -121,11 +126,12 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         deadline_ms=300000,observer_revision=6 if single_cpu else 5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
             sorted(list(prefix.glob('*.h'))+list(destination.glob('*.h')))})
-    if transition:result.update(transition_observer=profile.observer(rcs,watchdog,phase,single_cpu,post_p447),additional_history=first['additional_history'])
+    if transition:result.update(transition_observer=profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel),additional_history=first['additional_history'])
     if rcs:result['runtime_history']=first['runtime_history']
     if watchdog:result.update(watchdog_history=first['watchdog_history'],idle_policy=idle_policy)
     if phase:result.update(phase_history=first['phase_history'],phase_declaration=profile.phase_spec.declaration())
     if phase and virt:result['phase_vm_timing']=profile.phase_spec.VM_TIMING
+    if script_channel:result['script_declaration']=profile.phase_spec.script_declaration()
     if single_cpu:result.update(cpu_policy=profile.SINGLECPU_POLICY,current_history=first['current_history'])
     if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
         first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
@@ -160,9 +166,9 @@ def inside(out):
     h0.generate_archives(out,tree,fyg8.KERNEL_RELEASE)
 
 
-def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False):
+def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False):
     out=h0.private(out,fresh=True);saved=snapshot(out)
-    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy,phase=phase,single_cpu=single_cpu,post_p447=post_p447)
+    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel)
     h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
         sys.executable,__file__,'inside','--output',out],out/'namespace-build.log',timeout=700)
     h0.require((out/'initramfs-a.cpio.gz').read_bytes()==(out/'initramfs-b.cpio.gz').read_bytes(),'automatic initramfs A/B differs')
@@ -191,10 +197,13 @@ if __name__=='__main__':
     parser.add_argument('--virt',action='store_true')
     parser.add_argument('--single-cpu',action='store_true',help='H0 P446: P441 proc observer, current sealed history, cpuidle.off=1 maxcpus=1')
     parser.add_argument('--post-p447',action='store_true',help='P448: exact authenticated P445 early history')
+    parser.add_argument('--script-channel',action='store_true',help='P452: P451-authenticated P448 pair and bounded RAM rcS channel')
     args=parser.parse_args()
     h0.require(not args.post_p447 or args.single_cpu,'--post-p447 requires --single-cpu')
+    h0.require(not args.script_channel or args.post_p447,'--script-channel requires --post-p447 and --single-cpu')
     options=dict(transition=True,rcs=True,watchdog=True,idle_policy='cpuidle-off',single_cpu=True) if args.single_cpu else {}
     if args.post_p447:options['post_p447']=True
+    if args.script_channel:options['script_channel']=True
     if args.action=='inside':inside(h0.private(args.output))
     elif args.action=='prepare':prepare(args.output,args.inputs,args.packages,virt=args.virt,**options)
     else:build(args.output,args.inputs,args.packages,**options)

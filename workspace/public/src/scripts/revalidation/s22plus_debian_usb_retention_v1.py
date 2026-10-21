@@ -22,7 +22,7 @@ from s22plus_native_records_v3 import pin,private_path,publish,read,require,veri
 def require_automatic_transition(built):
     require(built.get('transition_observer') in (
         automatic.TRANSITION_OBSERVER,automatic.RCS_OBSERVER,automatic.WATCHDOG_OBSERVER,
-        automatic.PHASE_OBSERVER,automatic.SINGLECPU_OBSERVER,automatic.SINGLECPU_P447_OBSERVER),
+        automatic.PHASE_OBSERVER,automatic.SINGLECPU_OBSERVER,automatic.SINGLECPU_P447_OBSERVER,automatic.SCRIPT_OBSERVER),
         'legacy automatic image has no transition-retention selection')
     automatic.singlecpu_selected(built)
 
@@ -54,7 +54,7 @@ def automatic_projection(directory,task_directory):
     handle=raw.load_handle(directory/'last-kmsg.capture.json');raw.require_success(handle)
     result=transition.retained(raw.read_stdout(handle,maximum=4*1024**2),
         key=verify(task['N']['key'],maximum=32).read_bytes(),run=bytes.fromhex(task['N']['run_id_hex']),
-        expected=transition.sources(built),phase=automatic.phase_selected(built))
+        expected=transition.sources(built),phase=automatic.phase_selected(built),script_channel=automatic.script_channel_selected(built))
     result.update(provenance='POST_AUTOBOOT_PHYSICAL_ORIGINAL_A_RETURN_LAST_KMSG',device_effects=0,
         same_returned_android_boot=True,before=pin(directory/'before/health.json'),
         after=pin(directory/'after/health.json'),capture=pin(handle.receipt_path),closed=pin(task_directory/'closed.json'))

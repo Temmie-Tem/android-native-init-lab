@@ -172,7 +172,12 @@ def header(*,virt=False):
         for name,value in VM_TIMING.items():
             probes = probes.replace(f"#define AP_{name.upper()} {LIMITS[name]}U",
                                     f"#define AP_{name.upper()} {value}U")
-    lines = [probes, "static const unsigned char ap_dispatcher[]={" +
+    return (probes+'\n').encode()+dispatcher_header()
+
+
+def dispatcher_header():
+    observed = dispatcher()
+    lines = [ "static const unsigned char ap_dispatcher[]={" +
              ",".join(map(str, observed)) + "};"]
     for name, body in original_scripts().items():
         label = "rcs" if name.endswith("/rcS") else "rc"
@@ -180,3 +185,27 @@ def header(*,virt=False):
                   f"static const uint8_t ap_{label}_sha[]={{" +
                   ",".join(map(str, hashlib.sha256(body).digest())) + "};"]
     return ("\n".join(lines) + "\n").encode()
+
+
+SCRIPT_LIMITS = dict(relative_window_ms=120000,script_record_cap=34,
+    parent_record_cap=8,observation_budget_ms=1500,actor_reserve_ms=500)
+SCRIPT_DUE = (250,1000,5000,10000,30000,60000,90000,119000)
+
+
+def script_declaration():
+    original = original_scripts()
+    observed = dispatcher()
+    return dict(schema="s22plus-autoboot-script-declaration-v1",scripts=list(SCRIPTS),
+        original={name: dict(size=len(body),sha256=hashlib.sha256(body).hexdigest())
+                  for name,body in original.items()},
+        dispatcher=dict(size=len(observed),sha256=hashlib.sha256(observed).hexdigest()),
+        dispatcher_path="/run/s22-debian/rc-observed",parent_due_ms=list(SCRIPT_DUE),
+        **SCRIPT_LIMITS)
+
+
+def script_header():
+    lines=["/* Exact RAM dispatcher; no kernel instrumentation. */",
+        "#define AP_SCRIPT_COUNT 16U"]
+    lines += [f"#define AP_{name.upper()} {value}U" for name,value in SCRIPT_LIMITS.items()]
+    lines += ["static const unsigned ap_parent_due[]={"+",".join(map(str,SCRIPT_DUE))+"};"]
+    return ("\n".join(lines)+"\n").encode()+dispatcher_header()

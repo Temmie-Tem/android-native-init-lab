@@ -68,8 +68,9 @@ def producer(built,*,virtual):
     phase=profile.phase_selected(built)
     single_cpu=profile.singlecpu_selected(built)
     post_p447=profile.post_p447_selected(built)
-    namespace=profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    script_channel=profile.script_channel_selected(built)
+    namespace=profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
@@ -79,7 +80,7 @@ def producer(built,*,virtual):
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
     if transition:
-        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu,post_p447) and
+        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel) and
             built['additional_history']==profile.additional_history(),'transition admission/observation differs')
     else:require('additional_history' not in built,'legacy producer cannot adopt new history')
     if rcs:require(built['runtime_history']==profile.runtime_history(),'rcS runtime history differs')
@@ -101,15 +102,20 @@ def producer(built,*,virtual):
             [profile.phase_spec.MODULE_SHA],'phase callsites do not match the selected module')
     else:require('phase_history' not in built and 'phase_declaration' not in built and 'phase_vm_timing' not in built,
         'legacy producer cannot adopt phase history or observation')
-    if single_cpu:require(built['current_history']==profile.singlecpu_history(post_p447),'single CPU authenticated history differs')
+    if script_channel:
+        require(built['script_declaration']==profile.phase_spec.script_declaration() and
+            verify(built['headers']['installed/s22plus_autoboot_script_seal_v1.h']).read_bytes()==
+            profile.phase_spec.script_header(),'script channel generated declaration differs')
+    else:require('script_declaration' not in built,'unselected script channel declaration')
+    if single_cpu:require(built['current_history']==profile.singlecpu_history(post_p447,script_channel),'single CPU authenticated history differs')
     else:require('current_history' not in built,'legacy producer cannot adopt single CPU history')
     if 'transition_fault' in built:
         require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ())+
-                (profile.SINGLECPU_FAULTS if single_cpu else ()),
+                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
-    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu,post_p447)
+    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -136,8 +142,9 @@ def vm_results(tested,built,key):
     phase=profile.phase_selected(built)
     single_cpu=profile.singlecpu_selected(built)
     post_p447=profile.post_p447_selected(built)
+    script_channel=profile.script_channel_selected(built)
     require(tested['status']=='PASS' and tested['device_actions']==0 and
-        tuple(row['case'] for row in tested['cases'])==profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447),'automatic VM corpus differs')
+        tuple(row['case'] for row in tested['cases'])==profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel),'automatic VM corpus differs')
     sources={r['path']:r['sha256'] for r in built['source_inputs']}
     require(len(sources)==len(built['source_inputs']) and
         sources=={r['path']:r['sha256'] for r in tested['source_inputs']},'automatic VM source closure differs')
@@ -154,6 +161,7 @@ def vm_results(tested,built,key):
             profile.phase_selected(helper)==phase and
             profile.singlecpu_selected(helper)==single_cpu and
             profile.post_p447_selected(helper)==post_p447 and
+            profile.script_channel_selected(helper)==script_channel and
             helper.get('idle_policy')==built.get('idle_policy') and
             helper['source_inputs']==built['source_inputs'] and helper['run_id']==built['run_id'] and
             helper['modules']==built['modules'] and helper['history']==built['history'] and
@@ -172,13 +180,13 @@ def vm_results(tested,built,key):
         if 'transition_observer' in built:
             from s22plus_debian_autoboot_transition_v1 import retained,sources as transition_sources,qualify_case
             projected=retained(verify(row['serial'],maximum=4*1024**2).read_bytes(),key=key,
-                run=bytes.fromhex(built['run_id']),expected=transition_sources(helper),phase=phase,
+                run=bytes.fromhex(built['run_id']),expected=transition_sources(helper),phase=phase,script_channel=script_channel,
                 phase_window_ms=helper.get('phase_vm_timing',{}).get('absolute_window_ms',15000))
             require(projected==row['transition'],'actual VM transition projection differs')
             qualify_case(projected,row['case'])
-            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES+profile.RCS_CASES+profile.SINGLECPU_FAULTS else None),
+            require(helper.get('transition_fault')==(row['case'] if row['case'] in profile.TRANSITION_CASES+profile.RCS_CASES+profile.SINGLECPU_FAULTS+profile.SCRIPT_FAULTS else None),
                 'VM fault producer selection differs')
-        if row['case'] in ('normal','trace-logger-loss'):
+        if row['case'] in ('normal','trace-logger-loss')+profile.SCRIPT_FAULTS:
             capture=raw.load_handle(verify(row['proof_capture']));raw.require_success(capture)
             require(not raw.read_stderr(capture,maximum=16384),'automatic VM evidence has SSH diagnostics')
             proof,_=protocol.envelope(raw.read_stdout(capture,maximum=protocol.MAXIMUM),key=key,selected=helper)

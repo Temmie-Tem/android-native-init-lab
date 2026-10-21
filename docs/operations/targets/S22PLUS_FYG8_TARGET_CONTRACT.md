@@ -719,6 +719,19 @@ shutdown, independent review, fresh qualification and a new returned attended
 one-operation/3600-second grant with physical original-A return remain required.
 Consumed actions and historical H0-only candidates retain their provenance.
 
+The separately reviewed `post-autoboot-p451-v1` single-CPU script-channel
+successor adopts P448's exact pair authenticated by closed P451, for ten
+historical rows, and the automatic-boot policy's shared RAM serial dispatcher.
+The existing rcS parent owns at most 34 script packets and eight sparse progress
+records in one 120000 ms relative window clipped to the original absolute
+deadline and existing per-actor budget. No proc watchdog sampler, tracefs,
+kprobe or state handover is selected. Observation failure preserves workload
+behavior. Packet time is collection time; missing records do not locate a stall.
+Both complete clean-root admissions, revision-6 configuration checks, original
+service/SSH/shutdown proof, finite attended grant and physical original-A return
+remain required. Independent current review and actual artifact/VM qualification
+precede execution; no historical rejection or consumed action is repinned.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

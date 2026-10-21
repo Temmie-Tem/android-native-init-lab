@@ -7,11 +7,11 @@
 #include "s22plus_debian_handoff_common_v1.inc.c"
 #include "s22plus_autoboot_singlecpu_v1.h"
 #include "s22plus_debian_evidence_v1.inc.c"
-#ifdef S22_AUTOBOOT_PHASE_TRACE
+#if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
 static void ap_abort(void);
 #endif
 static __attribute__((noreturn)) void dh_hook_fail(int error) {
-#ifdef S22_AUTOBOOT_PHASE_TRACE
+#if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
     ap_abort();
 #endif
     at_stop(error);

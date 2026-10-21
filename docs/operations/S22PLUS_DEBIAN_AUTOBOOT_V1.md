@@ -314,6 +314,45 @@ not a continuously open connection. The same fixed shutdown and attended
 physical original-A return apply. Independent review, actual qualification and
 its own returned attended one-operation/3600-second grant precede execution.
 
+The separately reviewed `post-autoboot-p451-v1` script-channel selection adds
+only P448's complete early/runtime pair authenticated by closed P451, for ten
+exact historical rows. The closed physical producer, paired run/boot/nonce,
+read-only clean source view, root-owned 0600 single-link metadata, exact sizes
+and hashes are sealed. It retains the single-CPU choice, revision-6 checks,
+both complete current clean-root admissions and all service/access conditions
+above. Historical complete-root rejection is not relabelled or waived.
+
+This selection uses the same eight existing actors and the shared exact RAM
+serial dispatcher/channel described below, without proc watchdog sampling,
+tracefs/kprobes, trace controls or observer-state handover. The rcS parent owns
+one relative 120000 ms observation window, clipped to the original absolute
+300000 ms deadline. Setup, draining, logging and closure have at most 1500 ms
+of observation work, clipped to that parent's existing 2000 ms logger budget
+while leaving 500 ms for later original records. Closure does not consume that
+reserve. A blocked syscall or descheduling can still overrun a userspace budget;
+the reserve is not a hard kernel-time guarantee. The 96-record actor limit is
+unchanged. A noexec RAM mount rejects optional setup and selects original rcS.
+Up to 34 fixed D/B/E/X
+packets and eight sparse parent-progress records are admitted; a pump reads
+at most eight packets, at most once per 100 ms, and reap permits at most five
+final bounded pumps. The sealed declaration fixes the sixteen IDs and parent
+opportunities. Setup/channel/logging failure, gap or budget expiry closes
+observation and leaves the original workload order and exit semantics intact.
+Only the immediate dispatcher child may retain its nonblocking fd3; services
+and helpers close it and any shell-saved copies. No new process, native_data
+file, writable lifetime, instrumentation control or recovery guarantee is added.
+
+Authenticated setup, packet, parent and terminal records use new stage IDs.
+Record time is collection time, not script execution time. Missing/endless
+packets cannot locate a stall or reset. The existing reap record describes the
+dispatcher child; individual script exit status and service health remain
+distinct. Channel completeness requires the complete ordered packet set and
+consistent loss/terminal evidence; it is separate from the original functional
+proof. The unchanged host window, one NCM attempt, fixed shutdown, attendance,
+physical original-A return, fresh qualification/independent review and returned
+one-operation/3600-second grant remain required. Consumed predecessors retain
+their original bytes and evidence.
+
 The `post-autoboot-p444-v1` phase selection retains those eight actors and
 idle choices but replaces their optional proc sampling. The sealed declaration
 in `workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_phase_v1.py`

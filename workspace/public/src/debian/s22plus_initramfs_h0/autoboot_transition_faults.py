@@ -1,8 +1,8 @@
 """Declared VM substitutions in copies of the actual transition producers."""
 from pathlib import Path
 from s22plus_native_records_v3 import require,pin
-from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES,RCS_CASES,SINGLECPU_FAULTS
-CASES=TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS
+from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES,RCS_CASES,SINGLECPU_FAULTS,SCRIPT_FAULTS
+CASES=TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS+SCRIPT_FAULTS
 
 
 def source(out,original,fault,native):
@@ -16,7 +16,13 @@ def source(out,original,fault,native):
         path=folder/name;text=path.read_text()
         require(text.count(old)==count,'transition fixture anchor differs: '+name)
         path.write_text(text.replace(old,new))
-    if fault=='singlecpu-disabled':
+    if fault=='script-channel-setup':
+        edit('s22plus_autoboot_script_v1.h','ap_expired() ? ETIMEDOUT : ap_dispatcher_prepare()',
+            'ap_expired() ? ETIMEDOUT : ENOSPC')
+    elif fault=='script-channel-gap':
+        edit('s22plus_autoboot_script_channel_v1.h','decoded.sequence!=ap.packet_sequence+1 ||',
+            '(decoded.sequence==2 || decoded.sequence!=ap.packet_sequence+1) ||')
+    elif fault=='singlecpu-disabled':
         edit('s22plus_autoboot_singlecpu_v1.h','strcpy(disable,"0\\n")','strcpy(disable,"1\\n")')
     elif fault in ('trace-file-close','trace-parent-close','trace-root-close'):
         stage,fd={'trace-file-close':('FILE_CLOSE','fd'),'trace-parent-close':('PARENT_CLOSE','parent'),

@@ -31,8 +31,8 @@ class RetentionSelection(unittest.TestCase):
         for consumer in (retention.capture,retention.automatic_projection):
             with self.subTest(consumer=consumer.__name__):self.route(consumer,built,accepted)
 
-    def test_both_single_cpu_selections_reach_existing_closed_owner_check(self):
-        for observer in (profile.SINGLECPU_OBSERVER,profile.SINGLECPU_P447_OBSERVER):
+    def test_single_cpu_selections_reach_existing_closed_owner_check(self):
+        for observer in (profile.SINGLECPU_OBSERVER,profile.SINGLECPU_P447_OBSERVER,profile.SCRIPT_OBSERVER):
             self.each(dict(transition_observer=observer,cpu_policy=profile.SINGLECPU_POLICY,
                 idle_policy='cpuidle-off'),True)
 

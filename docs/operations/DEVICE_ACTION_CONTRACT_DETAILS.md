@@ -1212,6 +1212,27 @@ policy. Independent review, fresh qualification, a returned attended finite
 grant and physical original-A return remain required; no prior action is
 reopened, repinned or replayed.
 
+The separately qualified `post-autoboot-p451-v1` successor adds only P448's
+complete early/runtime pair authenticated by closed P451, for ten exact history
+rows. The closed physical producer and clean read-only source, exact metadata,
+sizes and hashes remain bound. Both complete current-root admissions and the
+single-CPU/revision-6 checks above remain mandatory. It replaces optional proc
+sampling with the shared RAM serial dispatcher/channel only: no tracefs/kprobe,
+observer handover, new process, persistent file or writable lifetime. The
+existing rcS parent admits up to 34 fixed script packets and eight sparse
+progress records in one 120000 ms relative window clipped to the original
+300000 ms deadline and existing 2000 ms/96-record actor budget. Observation
+admits at most 1500 ms and leaves 500 ms for later original records; kernel
+stalls remain uncancellable. Each nonblocking
+pump and final reap drain are bounded as specified in the incorporated policy.
+Observation failure closes the channel without gating the original workload.
+No service/helper inherits its descriptor. Collection time, individual script
+status, dispatcher reap and functional service proof remain distinct; missing
+records never prove a stall or non-execution. The unchanged host window,
+functional proof, fresh qualification/review, returned finite attended grant
+and physical original-A return remain required. No consumed predecessor or
+historical complete-root rejection is changed.
+
 ## S22+ native-first installed-Debian handoff
 
 The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes

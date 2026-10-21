@@ -68,9 +68,9 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
 #ifdef S22_AUTOBOOT_RCS_TRACE
         if(traced){at_fork_child(7);AT_POINT(AT_RCS_CHILD_ENTRY,0,0);}
 #endif
-#ifdef S22_AUTOBOOT_PHASE_TRACE
+#if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
         int channel=traced ? ap_child_channel() : 0;
-        if(channel<0){AT_POINT(AT_PHASE_CHILD_CHANNEL,0,(unsigned)-channel);channel=0;}
+        if(channel<0){AT_POINT(AP_CHILD_STAGE,0,(unsigned)-channel);channel=0;}
         unsigned first=channel ? 4U : 3U;
 #else
         unsigned first=3U;
@@ -79,10 +79,10 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
         if(traced ? AT_SYS(AT_RCS_CHILD_CLOSE_FDS,syscall(SYS_close_range,first,UINT_MAX,0U)) :
             syscall(SYS_close_range,first,UINT_MAX,0U))_exit(125);
 #endif
-#ifdef S22_AUTOBOOT_PHASE_TRACE
+#if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
         if(channel) {
             if(fcntl(4,F_GETFD)!=-1 || errno!=EBADF)_exit(125);
-            AT_POINT(AT_PHASE_CHILD_CHANNEL,0,0);
+            AT_POINT(AP_CHILD_STAGE,0,0);
             path=AP_DISPATCHER;argument="S";
         } else
 #endif

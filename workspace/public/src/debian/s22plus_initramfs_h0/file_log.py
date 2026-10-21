@@ -31,14 +31,14 @@ def validate_identity(namespace,version):
         'file candidate version differs')
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=False,script_channel=False):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
     h0.require(not autoboot or diagnostic and storage_first,'autoboot requires supervised storage-first')
     h0.require(not transition or autoboot,'transition observer requires automatic startup')
     h0.require(not rcs or transition,'rcS observation requires automatic transition observation')
     h0.require(not watchdog or rcs,'watchdog history requires automatic rcS observation')
     h0.require(not phase or watchdog,'phase history requires the complete predecessor selection')
-    h0.require(not single_cpu or watchdog and not phase,'single CPU requires proc observation')
+    h0.require(not single_cpu or watchdog and not phase,'single CPU requires retained watchdog history without phase instrumentation')
     h0.require(transition_fault is None or transition and virt,'transition fault requires the VM')
     validate_identity(namespace,version)
     out=h0.private(out,fresh=fresh);inputs=h0.private(inputs);packages=h0.private(packages)
@@ -70,7 +70,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
             h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
     if autoboot:
         import s22plus_debian_autoboot_profile_v1 as automatic
-        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu,post_p447)
+        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel)
     else:generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])
