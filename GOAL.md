@@ -23,6 +23,15 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P453 mountkernfs analysis and reader design](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
+is the selected H0 unit. Exact script/callee analysis and diskless ARM64 runs
+separate source-time work, reused mounts and the three new model mounts.
+A controlled pstore-mount failure still returns script exit 0; script status
+alone is not mount/service proof. P452 does not identify the blocking call.
+Prepare the existing mountless exact P452 early/runtime reader first, with
+fresh A/B qualification and current source-bound review. No device effect,
+new writable history or script-skipping change is selected by this H0 work.
+
 [P452 rcS channel](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_RUN_2026-10-23.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. The live service/SSH outcome remains
 `NO_PROOF`. Post-return evidence proves installed Debian PID1, dispatcher entry
