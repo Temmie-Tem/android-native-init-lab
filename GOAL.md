@@ -23,6 +23,12 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+The [ordinary-terminal tool](docs/reports/S22PLUS_APPROVED_TERMINAL_TOOL_H0_2026-10-23.md)
+adds a reviewed, user-started host transport for approved S22+ entries, status
+and bounded logs. Twenty host tests pass; the live worker connection awaits
+ordinary-terminal startup. Tool installation grants no device action and does
+not create the pending P454 approval or open its grant.
+
 [P454 journal recovery preparation](docs/reports/S22PLUS_JOURNAL_RECOVERY_P454_H0_2026-10-23.md)
 is **READY_H0_PRELIVE_ONLY** after closed P453. It retains the existing strict
 replayer, checker and post-autoboot-p432-v1 comparison; later unadmitted files

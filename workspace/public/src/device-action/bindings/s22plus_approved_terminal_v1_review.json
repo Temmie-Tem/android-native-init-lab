@@ -1,0 +1,59 @@
+{
+  "schema": "s22plus-approved-terminal-review-v1",
+  "verdict": "PASS_GO",
+  "scope": "HOST_APPROVED_TASK_DISPATCH",
+  "findings": [],
+  "sources": [
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/AGENTS.md",
+      "size": 33937,
+      "sha256": "14f86b173f83553e49ea059535c64511211073a9a2a156419a451ebf89be0f43"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md",
+      "size": 112005,
+      "sha256": "2324bf365dd4300ab7fd02b62a58f739bc79975bd14354248cc1715bf4e8d680"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+      "size": 33496,
+      "sha256": "92b0c0f908276a240771994c0a5cf7b018596a91d1265170e5161c27e9223630"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/S22PLUS_APPROVED_TERMINAL_TOOL_V1.md",
+      "size": 5928,
+      "sha256": "fabdcae2d0bb18351be37ab6ab044b2bf4b7ae9a9e2ab73b3dbca0f209997bc1"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+      "size": 189463,
+      "sha256": "171eed87b5e0ef5d65182a35adc656267dfa0c612358a0043a1951c957e4e5bb"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/host_tools/s22plus_approved_terminal_v1.py",
+      "size": 26575,
+      "sha256": "0fec66a6c11954c154ae29074fe309fa76f516ef8e2123bea1af2418ed86a3d6"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py",
+      "size": 60232,
+      "sha256": "e67d75137469f0435c3b9e8780c1b81d8bd5fda2d8142e03499d09784443cead"
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_records_v3.py",
+      "size": 6915,
+      "sha256": "111611417233cd9c3a793ec754bdf9ae8b98c864d405d273083301a2e78ea0e4"
+    }
+  ],
+  "reviewer": {
+    "agent": "review_debian_early_h0",
+    "independent": true,
+    "date": "2026-10-23",
+    "review": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/private/outputs/s22plus-terminal-bridge-h0-20261023-1/review/final-1/independent-review.json",
+      "size": 6733,
+      "sha256": "4de6c6d64ef7b5727741f4aa6768ded85bc56682acc8ddbb4abdaf41cd5244a0"
+    },
+    "summary": "Fixed reviewed S22+ task dispatch, durable no-replay and original healthy closure, lifetime-bound worker source identity, bounded same-UID MCP transport; H0 capability only, no device authority."
+  }
+}
