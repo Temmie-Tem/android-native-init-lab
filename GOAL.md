@@ -23,6 +23,16 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P454 journal recovery preparation](docs/reports/S22PLUS_JOURNAL_RECOVERY_P454_H0_2026-10-23.md)
+is **READY_H0_PRELIVE_ONLY** after closed P453. It retains the existing strict
+replayer, checker and post-autoboot-p432-v1 comparison; later unadmitted files
+are expected to keep complete-root comparison negative. Actual A/B packages,
+three fresh ARM64 cases and 14 focused tests pass. Independent `PASS_GO` binds
+140 host/169 runtime sources; the offline task, snapshots and unexecuted
+terminal entry also pass their separate review. The exact one-operation /
+1800-second attended proposal awaits its returned approval. No approval record,
+grant, device command or recovery effect was created by this H0 preparation.
+
 [P453 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P453_RUN_2026-10-23.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. The mountless capture completed
 `PASS_ROOT_EVIDENCE_OBSERVED`: P452 early is fully captured at 10,972 bytes,
