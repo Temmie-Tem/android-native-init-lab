@@ -27,15 +27,16 @@ import consumed_candidate_registry_v1 as registry
 import s22plus_native_records_v3 as records
 
 UID = 1000
-REVIEW = 'workspace/public/src/device-action/bindings/s22plus_approved_terminal_v1_review.json'
+REVIEW = 'workspace/public/src/device-action/bindings/s22plus_approved_terminal_autoboot_v1_review.json'
 POLICY = 'docs/operations/S22PLUS_APPROVED_TERMINAL_TOOL_V1.md'
 DISPATCH = 'terminal-tool-dispatch-v1'
 MAX_REQUEST = 65536
 MAX_RESPONSE = 262144
 MAX_LOG = 32768
 PROFILES = {
-    'thermal-v3-reconnect-ufs-drain-root-evidence-v1': 'root-evidence',
-    'thermal-v3-reconnect-ufs-drain-journal-recovery-v1': 'journal-recovery',
+    'thermal-v3-reconnect-ufs-drain-root-evidence-v1': ('root-evidence', 1800),
+    'thermal-v3-reconnect-ufs-drain-journal-recovery-v1': ('journal-recovery', 1800),
+    'debian-autoboot-v1': ('debian-autoboot', 3600),
 }
 GUARDS = dict(guard_uid=UID, guard_euid=UID, guard_nnp=0, guard_argc=1,
     no_prior_grant_operation_preflight=True, exclusive_attempt_log=True,
@@ -153,8 +154,8 @@ class Controller:
         namespace = task['N']['namespace']
         require(re.fullmatch(r'p[0-9]{3,6}', namespace) and
             task['N']['profile'] in PROFILES and
-            task['operations'] == [PROFILES[task['N']['profile']]] and
-            task['seconds'] == 1800 and task['operation_budget'] == 1 and
+            task['operations'] == [PROFILES[task['N']['profile']][0]] and
+            task['seconds'] == PROFILES[task['N']['profile']][1] and task['operation_budget'] == 1 and
             task['recovery_mode'] == 'attended' and task['E'] is None,
             'unsupported approved task scope')
         entry_pin = records.pin(base / f'run-approved-{namespace}.py')
@@ -175,12 +176,20 @@ class Controller:
         checked_file(self.root, entry_pin)
         checked_file(self.root, prepared['source_snapshot'])
         core = records.read(checked_file(self.root, narrow['capability_review']))
-        require(core['status'] == 'PASS_GO' and core['findings'] == [], 'core review differs')
         public = records.read(checked_file(self.root, task['review']))
         require(public['schema'] == 's22plus-native-session-v3-review' and
             public['verdict'] == 'PASS_GO' and public['scope'] == 'V3_REACHABLE_CAPABILITY' and
             public['findings'] == [] and task['runtime_scope'] == public['runtime_sources'],
             'capability binding differs')
+        if task['N']['profile'] == 'debian-autoboot-v1':
+            require(core.get('schema') == f's22plus-{namespace}-independent-capability-review-v1' and
+                core.get('verdict') == 'PASS_GO' and core.get('findings') == [] and
+                core.get('scope') == 'V3_REACHABLE_CAPABILITY' and
+                core.get('candidate') == namespace and core.get('profile') == task['N']['profile'] and
+                core.get('version') == task['N']['version'] and
+                public['reviewer']['review'] == narrow['capability_review'], 'autoboot core review differs')
+        else:
+            require(core['status'] == 'PASS_GO' and core['findings'] == [], 'core review differs')
         previous_pin = narrow['actual_preceding_closed']
         previous = records.read(checked_file(self.root, previous_pin))
         previous_task = records.read(checked_file(self.root, previous['task']))
@@ -320,7 +329,8 @@ class Controller:
         if name == 'bridge_status':
             require(not arguments, 'bridge_status takes no arguments')
             return dict(worker_connected=True, uid=os.getuid(), euid=os.geteuid(),
-                no_new_privileges=nnp(), root=str(self.root), device_authority=False)
+                no_new_privileges=nnp(), root=str(self.root), device_authority=False,
+                bridge_review=self.bridge_identity)
         allowed = {'preparation_directory'} | ({'stream', 'bytes'} if name == 'task_log' else set())
         require(name in ('task_status', 'start_approved_task', 'task_log') and
             set(arguments) <= allowed and 'preparation_directory' in arguments, 'unsupported tool or arguments')

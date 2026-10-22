@@ -34,8 +34,11 @@ The actual A/B packages, 27 real-Debian ARM64 VM cases, ten ARM64 component
 cases and 120 focused tests pass. Independent review covers 141 host and 159
 runtime/collector sources with no open findings. The eleven past-failure
 checklist items were applied, including sparse-device dependency and collector
-route fixes. One operation/3600-second attended approval is prepared but has
-not been returned; no P456 grant or device effect exists.
+route fixes. The exact one-operation/3600-second attended approval has been
+returned and recorded; no P456 grant or device effect exists. The
+[terminal-tool correction](docs/reports/S22PLUS_APPROVED_TERMINAL_AUTOBOOT_H0_2026-10-23.md)
+connects this profile to the existing tool; its updated worker must be loaded
+before tool dispatch. The prepared task, entry and returned approval are unchanged.
 
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:

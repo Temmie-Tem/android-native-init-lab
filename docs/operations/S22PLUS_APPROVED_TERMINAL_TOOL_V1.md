@@ -5,10 +5,17 @@ binding; no device authority**.
 
 The operator requested a tool connecting the ordinary terminal to this chat.
 Its bounded purpose is to start an already reviewed and explicitly approved
-S22+ root-evidence or journal-recovery task, then expose status and bounded logs.
+S22+ root-evidence, journal-recovery or Debian automatic-boot task, then expose
+status and bounded logs. The fixed profiles select one attended operation:
+root-evidence and journal-recovery have 1800 seconds; `debian-autoboot-v1`
+selects only `debian-autoboot` with 3600 seconds. The task still has no E.
 The benefit is removing repeated manual launch commands while preserving the
 existing finite grant, attendance, target, recovery and no-replay checks.
 P454's task, sources, entry and approval hash remain unchanged.
+P456's task, sources, entry and returned approval likewise remain unchanged.
+Its independently reviewed core receipt uses an exact candidate/profile/version
+schema and `verdict=PASS_GO`; require the public capability's pointer to that
+same receipt. Earlier core receipts retain their original `status` format.
 
 ## Execution boundary
 
@@ -78,6 +85,12 @@ dispatch, changed or missing approvals/sources, invalid paths/UIDs, bounded logs
 restart/uncertain process state and the actual NoNewPrivs startup refusal.
 No fixture launches a physical entry. The live connection is verified with
 status only after the operator starts the reviewed worker.
+`bridge_status` reports the loaded review identity; connection alone does not
+prove that a running worker has loaded the newly reviewed implementation.
+The automatic-boot extension has its own review binding; retained reviews and
+consumed dispatch records are not repinned. It adds no live reload or restart
+command. The operator stops the old idle listener with Ctrl-C and starts the
+same `serve` command below after qualification.
 
 Codex configuration adds only this named MCP server and retains existing
 permissions and servers. The STDIO transport follows the

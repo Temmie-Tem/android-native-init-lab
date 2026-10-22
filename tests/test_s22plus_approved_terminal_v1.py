@@ -26,16 +26,28 @@ def save(path, value):
     return records.pin(path)
 
 
-def fixture(root, ordinal=1, entry=None):
+def fixture(root, ordinal=1, entry=None, *,
+            profile='thermal-v3-reconnect-ufs-drain-root-evidence-v1',
+            operation=None, seconds=None, core_changes=None, public_core=None):
     base = root / f'workspace/private/outputs/s22plus-fixture-h0-20261023-{ordinal}'
     directory = base / 'offline-prepared-1/task'
     runtime = save(root / 'runtime.json', {'fixture': True})
+    selected_operation, selected_seconds = bridge.PROFILES[profile]
+    core_value = dict(status='PASS_GO', findings=[])
+    if profile == 'debian-autoboot-v1':
+        core_value = dict(schema='s22plus-p999-independent-capability-review-v1',
+            verdict='PASS_GO', findings=[], scope='V3_REACHABLE_CAPABILITY',
+            candidate='p999', profile=profile, version='fixture-v1')
+    core_value.update(core_changes or {})
+    core = save(base / 'review/core.json', core_value)
     public = save(base / 'public-review.json', dict(schema='s22plus-native-session-v3-review',
         verdict='PASS_GO', scope='V3_REACHABLE_CAPABILITY', findings=[], sources=[runtime],
+        reviewer=dict(review=core if public_core is None else public_core),
         runtime_sources={'runtime.json': {k: v for k, v in runtime.items() if k != 'path'}}))
     task = save(directory / 'task.json', dict(N=dict(namespace='p999',
-        profile='thermal-v3-reconnect-ufs-drain-root-evidence-v1'), E=None,
-        operations=['root-evidence'], seconds=1800, operation_budget=1,
+        profile=profile, version='fixture-v1'), E=None,
+        operations=[operation if operation is not None else selected_operation],
+        seconds=seconds if seconds is not None else selected_seconds, operation_budget=1,
         recovery_mode='attended', review=public, runtime_scope=records.read(Path(public['path']))['runtime_sources'],
         target={'fixture': 's22plus'}, A={'fixture': 'original-a'}))
     proposal = save(directory / 'proposal.json', dict(task=task, approval='FIXTURE APPROVAL'))
@@ -47,7 +59,6 @@ def fixture(root, ordinal=1, entry=None):
     entry_pin = records.pin(entry_path)
     previous_task = save(base / 'previous/task.json', {'target': {'fixture': 's22plus'}, 'A': {'fixture': 'original-a'}})
     previous = save(base / 'previous/closed.json', dict(task=previous_task, terminal_state='ANDROID_CLOSED_HEALTHY'))
-    core = save(base / 'review/core.json', dict(status='PASS_GO', findings=[]))
     save(base / 'review/prepared-entry-review.json', dict(schema='s22plus-p999-independent-prepared-entry-review-v1',
         status='PASS_READY_H0_AND_UNEXECUTED_ENTRY', findings=[], entry_once_guards=bridge.GUARDS,
         approved_binding_preserved=True, prepared=prepared, task=task, proposal=proposal,
@@ -107,6 +118,69 @@ class TerminalTests(unittest.TestCase):
         spawned = records.read(self.base / bridge.DISPATCH / 'spawned.json')
         self.assertEqual(int((self.base / 'marker').read_text()), spawned['process']['pid'])
         self.assertIn('fixture done', self.controller.log(str(self.base))['text'])
+
+    def test_autoboot_actual_socket_dispatch_and_no_replay(self):
+        base = fixture(self.root, 2, profile='debian-autoboot-v1')
+        endpoint = self.root / 'autoboot.sock'
+        with bridge.Server(str(endpoint), bridge.Handler) as server:
+            endpoint.chmod(0o600); server.controller = self.controller
+            thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+            try:
+                args = dict(preparation_directory=str(base))
+                response = bridge.forward('start_approved_task', args, endpoint=endpoint)
+                self.assertTrue(response['ok'])
+                started = response['value']
+                self.assertTrue(started['dispatched'])
+                self.assertEqual(started['operation'], 'debian-autoboot')
+                repeated = bridge.forward('start_approved_task', args, endpoint=endpoint)
+                self.assertTrue(repeated['ok'])
+                self.assertFalse(repeated['value']['dispatched'])
+            finally:
+                server.shutdown(); thread.join()
+        self.assertEqual(self.wait_result(base)['returncode'], 0)
+        self.assertTrue((base / 'marker').exists())
+
+    def test_fixed_profile_operation_and_duration_pairs(self):
+        cases = [
+            ('debian-autoboot-v1', 'debian-autoboot', 1800),
+            ('debian-autoboot-v1', 'root-evidence', 3600),
+            ('thermal-v3-reconnect-ufs-drain-root-evidence-v1', 'root-evidence', 3600),
+            ('thermal-v3-reconnect-ufs-drain-journal-recovery-v1', 'journal-recovery', 3600),
+        ]
+        for index, (profile, operation, seconds) in enumerate(cases, 10):
+            with self.subTest(profile=profile, operation=operation, seconds=seconds):
+                base = fixture(self.root, index, profile=profile, operation=operation, seconds=seconds)
+                with self.assertRaisesRegex(ValueError, 'unsupported approved task scope'):
+                    self.controller.start(str(base))
+                self.assertFalse((base / bridge.DISPATCH).exists())
+
+    def test_autoboot_core_identity_and_verdict_are_required(self):
+        changes = [dict(schema='wrong'), dict(candidate='p998'), dict(profile='wrong'),
+            dict(version='other'), dict(scope='OTHER'), dict(verdict='NO_GO'),
+            dict(verdict=None, status='PASS_GO'), dict(findings=['unresolved'])]
+        for index, changed in enumerate(changes, 20):
+            with self.subTest(changed=changed):
+                base = fixture(self.root, index, profile='debian-autoboot-v1', core_changes=changed)
+                with self.assertRaisesRegex(ValueError, 'autoboot core review differs'):
+                    self.controller.start(str(base))
+                self.assertFalse((base / bridge.DISPATCH).exists())
+
+    def test_journal_recovery_retains_its_original_scope(self):
+        base = fixture(self.root, 2, profile='thermal-v3-reconnect-ufs-drain-journal-recovery-v1')
+        self.assertEqual(self.controller.bundle(str(base), current=True, approval=True)['operation'], 'journal-recovery')
+
+    def test_autoboot_public_review_must_reference_exact_core(self):
+        other = save(self.root / 'other-core.json', dict(verdict='PASS_GO', findings=[]))
+        base = fixture(self.root, 2, profile='debian-autoboot-v1', public_core=other)
+        with self.assertRaisesRegex(ValueError, 'autoboot core review differs'):
+            self.controller.start(str(base))
+        self.assertFalse((base / bridge.DISPATCH).exists())
+
+    def test_status_exposes_loaded_review_without_dispatch(self):
+        value = self.controller.call('bridge_status', {})
+        self.assertEqual(value['bridge_review'], self.controller.bridge_identity)
+        self.assertFalse(value['device_authority'])
+        self.assertFalse((self.base / bridge.DISPATCH).exists())
 
     def test_concurrent_and_repeated_requests_execute_once(self):
         with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:
