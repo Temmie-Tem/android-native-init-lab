@@ -33,7 +33,9 @@ Replace only the full sixteen-script rcS dispatch with this fixed sequence:
 1. Check the already supplied proc, sysfs, tmpfs `/dev` and `/run`, devpts,
    shared-memory tmpfs and `/run/config` configfs; check character devices
    required by the packaged workload and establish the existing RAM lock
-   directory with its declared metadata.
+   directory with its declared metadata. The fixed RAM random and urandom
+   nodes are created if absent and checked as root-owned 0666 character devices
+   1:8 and 1:9; no general device scan or block alias is added.
 2. Run the installed Debian `hostname.sh` script.
 3. Run the installed Debian `mdev` script.
 4. Run the installed Debian `urandom` script.
@@ -41,7 +43,7 @@ Replace only the full sixteen-script rcS dispatch with this fixed sequence:
 
 Keep the original eight runlevel-2 scripts, service programs, local service
 proof, one NCM attempt, pinned same-boot SSH checks and fixed shutdown. The
-existing witness supplies virtual mounts and device nodes before this sequence.
+existing witness supplies virtual mounts and device links before this sequence.
 The archived `/etc/modules` has no active entries, fstab is empty, and fixed
 module preparation already precedes admission. The USB service uses the moved
 `/run/config` mount. No pstore/securityfs mount, generic networking, udev, module

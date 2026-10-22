@@ -39,10 +39,10 @@ static void sender(const char *mode) {
         demand(sent>0 && sent<10000 && errno==EAGAIN,"bounded-nonblocking-full");return;
     }
     packet(1,'D',0,0);
-    for(unsigned id=1;id<=16;++id) {
+    for(unsigned id=1;id<=AP_SCRIPT_COUNT;++id) {
         packet(id*2,'B',id,0);packet(id*2+1,'E',id,id==8?23:0);
     }
-    packet(34,'X',0,0);
+    packet(AP_SCRIPT_RECORD_CAP,'X',0,0);
 }
 static void owner(const char *mode) {
     at_actor=6;sw.deadline_ms=300000;memcpy(sw.run,sw_run,16);
@@ -51,8 +51,19 @@ static void owner(const char *mode) {
         struct timespec delay={16,0};demand(!nanosleep(&delay,NULL),"late-real-clock");
     }
     if(!strcmp(mode,"setup-failure")) {
+#ifdef S22_AUTOBOOT_MINIMAL
+        demand(!unlink(AP_DISPATCHER),"remove-required-program");
+        demand(ap_required_program()!=0,"missing-required-program-rejected");
+#else
         int fd=open(AP_DISPATCHER,O_WRONLY|O_CREAT|O_EXCL,0500);demand(fd>=0 && !close(fd),"existing-dispatcher");
+#endif
     }
+#ifdef S22_AUTOBOOT_MINIMAL
+    if(!strcmp(mode,"required-mode")) {
+        demand(!chmod(AP_DISPATCHER,0700),"alter-required-mode");
+        demand(ap_required_program()!=0,"wrong-required-mode-rejected");return;
+    }
+#endif
     if(!strcmp(mode,"noexec"))demand(!mount(NULL,"/run",NULL,MS_REMOUNT|MS_NOEXEC|MS_NOSUID|MS_NODEV,NULL),"noexec-remount");
     if(!strcmp(mode,"absolute-clip"))sw.deadline_ms=at_now()+500;
     ap_start();
@@ -88,7 +99,7 @@ static void owner(const char *mode) {
     int status;demand(waitpid(child,&status,0)==child && WIFEXITED(status) && !WEXITSTATUS(status),"sender-reaped");
     ap_reaped();demand(ap.terminal && ap_receive==-1 && ap_send==-1,"reap-closed");
     if(!strcmp(mode,"normal") || !strcmp(mode,"late") || !strcmp(mode,"parent-progress"))
-        demand(ap.packets==34 && ap.script_done && !ap.script_open && !ap.flags,"complete-status-preserved");
+        demand(ap.packets==AP_SCRIPT_RECORD_CAP && ap.script_done && !ap.script_open && !ap.flags,"complete-status-preserved");
     else demand(ap.flags&AP_CHANNEL,"malformed-channel-loss");
     unsigned packets=ap.packets;ap_tick();ap_reaped();ap_start();
     demand(ap.packets==packets && ap_receive==-1 && ap_send==-1,"terminal-not-reopened");
@@ -104,6 +115,14 @@ int main(int argc,char **argv) {
     demand(!chmod("/dev/kmsg",0600),"logger-mode");
     demand(!mount("tmpfs","/run","tmpfs",MS_NOSUID|MS_NODEV,"mode=0755,size=2m"),"ram-root");
     directory("/run/s22-debian");
+#ifdef S22_AUTOBOOT_MINIMAL
+    int input=fs1_pin_file("/minimal-program",ap_dispatcher_size,ap_dispatcher_sha,true);
+    int output=open(AP_DISPATCHER,O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0500);
+    demand(input>=0 && output>=0,"required-program-input");
+    char body[8192];ssize_t length=read(input,body,sizeof(body));
+    demand(length==(ssize_t)ap_dispatcher_size && write(output,body,(size_t)length)==length &&
+        !close(input) && !close(output) && !ap_required_program(),"required-program-staged");
+#endif
     char mode[64]="normal",cmdline[2048];demand(!fs1_read_text("/proc/cmdline",cmdline,sizeof(cmdline)),"cmdline");
     char *selected=strstr(cmdline,"script_case=");if(selected)demand(sscanf(selected,"script_case=%63s",mode)==1,"case");
     pid_t child=fork();demand(child>=0,"owner-fork");

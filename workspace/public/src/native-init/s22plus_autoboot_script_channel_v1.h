@@ -1,6 +1,17 @@
 /* Shared RAM dispatcher and nonblocking channel. The selecting owner defines
  * its finite budget/lifetime and authenticated record stage. */
 #include <sys/statvfs.h>
+#ifdef S22_AUTOBOOT_MINIMAL
+/* Workload validation is mandatory and independent of observer availability. */
+static int ap_required_program(void) {
+    int fd=fs1_pin_file(AP_DISPATCHER,ap_dispatcher_size,ap_dispatcher_sha,true);
+    if(fd<0)return ap_error();
+    struct stat st;struct statfs fs;struct statvfs vfs;
+    int error=fstat(fd,&st) || fstatfs(fd,&fs) || fstatvfs(fd,&vfs) ? ap_error() : 0;
+    if(!error && ((st.st_mode&07777)!=0500 || fs.f_type!=AP_TMPFS || vfs.f_flag&ST_NOEXEC))error=EPROTO;
+    return ap_close(fd,error);
+}
+#endif
 static void ap_channel_close(void) {
     if(ap_receive>=0 && (!ap.script_done || ap.script_open))ap.flags|=AP_CHANNEL;
     if(ap_receive>=0 && close(ap_receive))ap.flags|=AP_IO;
@@ -8,6 +19,9 @@ static void ap_channel_close(void) {
     ap_receive=ap_send=-1;
 }
 static int ap_dispatcher_prepare(void) {
+#ifdef S22_AUTOBOOT_MINIMAL
+    int error=ap_required_program();if(error)return error;
+#else
     int fd=fs1_pin_file("/usr/lib/init/rc",ap_rc_size,ap_rc_sha,true);if(fd<0)return ap_error();
     int error=ap_close(fd,0);if(error)return error;
     fd=fs1_pin_file("/usr/lib/init/rcS",ap_rcs_size,ap_rcs_sha,true);if(fd<0)return ap_error();
@@ -20,6 +34,7 @@ static int ap_dispatcher_prepare(void) {
     if(!error && (write(fd,ap_dispatcher,sizeof(ap_dispatcher))!=(ssize_t)sizeof(ap_dispatcher) ||
         pread(fd,check,sizeof(check),0)!=(ssize_t)sizeof(check) || memcmp(check,ap_dispatcher,sizeof(check))))error=EIO;
     if((error=ap_close(fd,error)))return error;
+#endif
     int sockets[2];if(socketpair(AF_UNIX,SOCK_DGRAM|SOCK_NONBLOCK|SOCK_CLOEXEC,0,sockets))return ap_error();
     /* fd3 remains absent in the parent; mandatory reporting checks rely on it. */
     ap_receive=fcntl(sockets[0],F_DUPFD_CLOEXEC,10);ap_send=fcntl(sockets[1],F_DUPFD_CLOEXEC,10);

@@ -35,15 +35,17 @@ def sources(selected):
     result={actor:selected[name]['sha256'] for actor,name in
         ((1,'writer'),(2,'entry'),(3,'witness'),(4,'hook'),(5,'writer'))}
     schema=selected.get('transition_observer',{}).get('schema')
-    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1'):
+    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1','s22plus-autoboot-minimal-v1'):
         result.update({6:selected['hook']['sha256'],7:selected['hook']['sha256']})
-    if schema in ('s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1'):result[8]=selected['hook']['sha256']
+    if schema in ('s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1','s22plus-autoboot-minimal-v1'):result[8]=selected['hook']['sha256']
     return result
 
 
-def phase_sample(stage,kind,value,error,a,b,c,d,ms,*,window_ms=15000):
+def phase_sample(stage,kind,value,error,a,b,c,d,ms,*,window_ms=15000,scripts=None):
     """Interpret source-bound positive observations without locating a stall."""
     import s22plus_debian_autoboot_phase_v1 as phase_spec
+    scripts=phase_spec.SCRIPTS if scripts is None else scripts
+    cap=2+2*len(scripts)
     if kind!=4:return None
     if stage==84:
         if value not in (1,2) or any((a,b,c,d)):return None
@@ -62,11 +64,11 @@ def phase_sample(stage,kind,value,error,a,b,c,d,ms,*,window_ms=15000):
             returned_register=d-2**32 if d>=2**31 else d if 'rc=' in fields else None,
             timestamp_precision='rounded_microsecond')
     if stage==87:
-        if error or not 1<=a<=34 or not 0<=b<=16 or c not in map(ord,'DBEX') or d or not 0<=value<=255 or ms>=window_ms:return None
+        if error or not 1<=a<=cap or not 0<=b<=len(scripts) or c not in map(ord,'DBEX') or d or not 0<=value<=255 or ms>=window_ms:return None
         action=chr(c)
         if action in 'DX' and (b or value) or action in 'BE' and not b or action=='B' and value:return None
         return dict(type='script',packet_sequence=a,action=action,script_id=b,
-            script=phase_spec.SCRIPTS[b-1] if b else None,status=value)
+            script=scripts[b-1] if b else None,status=value)
     if stage==88:
         if not 0<=value<=2**32-1 or a&~4095 or b>65536 or c>28:return None
         if not error and (a!=4095 or value<b or c>b):return None
@@ -79,8 +81,10 @@ def phase_sample(stage,kind,value,error,a,b,c,d,ms,*,window_ms=15000):
 
 
 
-def script_sample(stage,kind,value,error,a,b,c,d,ms):
+def script_sample(stage,kind,value,error,a,b,c,d,ms,*,minimal=False):
+    from s22plus_debian_autoboot_profile_v1 import script_spec
     from s22plus_debian_autoboot_phase_v1 import SCRIPT_DUE
+    scripts=script_spec(minimal).SCRIPTS;cap=2+2*len(scripts)
     if kind!=4:return None
     if stage==91:
         if not 0<=value<=ms or a!=min(value+120000,300000) or any((b,c,d)):return None
@@ -89,25 +93,27 @@ def script_sample(stage,kind,value,error,a,b,c,d,ms):
         if value or any((a,b,c,d)):return None
         return dict(type='child_channel',error=error)
     if stage==93:
-        return phase_sample(87,kind,value,error,a,b,c,d,ms,window_ms=300000)
+        return phase_sample(87,kind,value,error,a,b,c,d,ms,window_ms=300000,scripts=scripts)
     if stage==94:
-        if error or not 1<=a<=8 or not SCRIPT_DUE[a-1]<=value<120000 or value>ms or b>16 or c>1 or d>34:return None
+        if error or not 1<=a<=8 or not SCRIPT_DUE[a-1]<=value<120000 or value>ms or b>len(scripts) or c>1 or d>cap:return None
         if c and not b:return None
         return dict(type='parent',ordinal=a,elapsed_ms=value,script_id=b,script_open=bool(c),packets=d)
     if stage==95:
-        if error or not 0<=value<=300000 or a>34 or b&~120 or c>1 or d>8:return None
+        if error or not 0<=value<=300000 or a>cap or b&~120 or c>1 or d>8:return None
         return dict(type='summary',used_ms=value,packets=a,flags=b,dispatcher_end=bool(c),parent_records=d)
     return None
 
 
-def script_projection(records):
+def script_projection(records,*,minimal=False):
+    from s22plus_debian_autoboot_profile_v1 import script_spec
+    count=len(script_spec(minimal).SCRIPTS);cap=2+2*count
     rows=sorted((r for r in records if 'script_channel' in r),key=lambda r:(r['actor_id'],r['sequence']))
     packets=[r for r in rows if r['script_channel']['type']=='script']
     setups=[r for r in rows if r['script_channel']['type']=='setup']
     summaries=[r for r in rows if r['script_channel']['type']=='summary']
     parents=[r for r in rows if r['script_channel']['type']=='parent']
     issues=[];gap=False;previous=0;opened=0;identifier=0;ended=False
-    if len(setups)>1 or len(summaries)>1 or len(parents)>8 or len(packets)>34:issues.append('script_record_cap')
+    if len(setups)>1 or len(summaries)>1 or len(parents)>8 or len(packets)>cap:issues.append('script_record_cap')
     for row in packets:
         p=row['script_channel'];seq=p['packet_sequence'];action=p['action'];current=p['script_id']
         if seq<=previous or ended:issues.append('script_packet_order')
@@ -139,13 +145,13 @@ def script_projection(records):
         if any(r['sequence']>=summary['sequence'] for r in packets+parents):issues.append('script_after_summary')
         if stats['packets']<len(packets) or stats['parent_records']<len(parents):issues.append('script_summary_deficit')
         if ended and not stats['dispatcher_end']:issues.append('script_summary_end')
-    exact=[('D',0,0)]+[(action,i,0) for i in range(1,17) for action in ('B','E')]+[('X',0,0)]
+    exact=[('D',0,0)]+[(action,i,0) for i in range(1,count+1) for action in ('B','E')]+[('X',0,0)]
     # E may carry a nonzero service status; dispatcher completion is separate.
     ordered=[(r['script_channel']['action'],r['script_channel']['script_id'],
         0 if r['script_channel']['action']=='E' else r['script_channel']['status']) for r in packets]
     complete=bool(not issues and not gap and len(setups)==len(summaries)==1 and
         setups[0]['error']==0 and summaries[0]['script_channel']['flags']==0 and
-        summaries[0]['script_channel']['packets']==34 and summaries[0]['script_channel']['dispatcher_end'] and
+        summaries[0]['script_channel']['packets']==cap and summaries[0]['script_channel']['dispatcher_end'] and
         ordered==exact and not any(r['prior_log_losses'] or r['prior_log_error'] for r in rows))
     return dict(records=rows,packets=packets,conflicts=sorted(set(issues)),packet_gap_detected=gap,
         dispatcher_exec_observed=any(r['script_channel']['action']=='D' for r in packets),
@@ -316,11 +322,12 @@ def rcs_conflicts(parents,children,extra_children=()):
     return conflicts
 
 
-def retained(data,*,key,run,expected,boot=None,phase=False,phase_window_ms=15000,script_channel=False):
+def retained(data,*,key,run,expected,boot=None,phase=False,phase_window_ms=15000,script_channel=False,minimal=False):
     require(isinstance(data,bytes) and len(data)<=MAXIMUM and len(key)==32 and len(run)==16 and
         set(expected) in (set(ACTORS),set(RCS_ACTORS),set(WATCHDOG_ACTORS)),'transition input scope differs')
     watchdog=set(expected)==set(WATCHDOG_ACTORS)
     require(not phase or watchdog,'phase selection requires eight measured actors')
+    require(not minimal or script_channel,'minimal workload requires selected channel semantics')
     require(not script_channel or watchdog and not phase,'script channel requires its distinct eight-actor selection')
     require(phase_window_ms in (15000,65000) and (phase or phase_window_ms==15000),
         'unselected phase timing window')
@@ -378,7 +385,7 @@ def retained(data,*,key,run,expected,boot=None,phase=False,phase_window_ms=15000
         phase_observation=None
         script_observation=None
         if stage in SCRIPT_STAGES:
-            script_observation=script_sample(stage,kind,value,error,child,status,done,worker_result,ms)
+            script_observation=script_sample(stage,kind,value,error,child,status,done,worker_result,ms,minimal=minimal)
             valid=valid and script_observation is not None
         elif stage in PHASE_STAGES-{83,90}:
             phase_observation=phase_sample(stage,kind,value,error,child,status,done,worker_result,ms,
@@ -483,7 +490,7 @@ def retained(data,*,key,run,expected,boot=None,phase=False,phase_window_ms=15000
             result['phase']['consistent'] and result['phase']['dispatcher_exec_observed'] and
             any(r['stage_id']==85 and r['error']==0 for r in records))
     if script_channel:
-        result['script_channel']=script_projection(records)
+        result['script_channel']=script_projection(records,minimal=minimal)
         facts=result['script_channel'];facts['consistent']=valid and not facts['conflicts']
         facts['dispatcher_exec_proved']=bool(facts['consistent'] and forks and
             facts['dispatcher_exec_observed'] and any(r['stage_id']==92 and r['error']==0 for r in records))
@@ -549,6 +556,16 @@ def qualify_case(proof,case):
         if phase:
             require(proof['phase']['dispatcher_exec_proved'] and not proof['phase']['conflicts'],
                 'successful phase VM lacks authenticated RAM dispatcher execution')
+    elif case.startswith('minimal-'):
+        require(rcs and script_channel and proof['installed_debian_pid1'] and
+            not proof['rcs_completed'] and not proof['script_channel']['complete_channel_proved'],
+            'minimal required-input failure advanced to completion')
+        require(proof['rcs_child_fork_proved']==(case in ('minimal-missing-dependency','minimal-script-error')),
+            'minimal required program was not checked before child fork')
+        if case in ('minimal-missing-dependency','minimal-script-error'):
+            wanted=21 if case=='minimal-missing-dependency' else 37
+            require(any(r['wait_status']==wanted<<8 for r in found('RCS_CHILD_REAPED','POINT')),
+                'minimal dispatcher failed to preserve required failure status')
     elif case.startswith('rcs-'):
         require(rcs and proof['installed_debian_pid1'] and proof['rcs_child_fork_proved'] and
             not proof['rcs_completed'] and not proof['rcs_child_exec_proved'],'rcS negative promoted to completion')

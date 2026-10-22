@@ -12,6 +12,9 @@ for name in s22-switch-witness s22-switch-busybox s22-fs-e2fsck \
     s22-debian-hook s22-debian-qualify s22-debian-defer-usb s22-debian-usb; do
     copy_exec "/$name" "/$name"
 done
+if [ -f /s22-debian-rc-minimal ]; then
+    copy_exec /s22-debian-rc-minimal /s22-debian-rc-minimal
+fi
 for name in s22-root-inspect.table s22-debian-inittab s22-debian-crontab; do
     cp "/$name" "$DESTDIR/$name"
     chmod 400 "$DESTDIR/$name"

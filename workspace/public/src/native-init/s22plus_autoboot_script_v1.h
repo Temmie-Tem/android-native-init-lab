@@ -9,7 +9,11 @@
 #include <sys/vfs.h>
 #include "s22plus_autoboot_script_seal_v1.h"
 #include "s22plus_autoboot_script_packet_v1.h"
+#ifdef S22_AUTOBOOT_MINIMAL
+#define AP_DISPATCHER "/run/s22-debian/rc-minimal"
+#else
 #define AP_DISPATCHER "/run/s22-debian/rc-observed"
+#endif
 #define AP_TMPFS 0x01021994L
 #define AP_CHILD_STAGE AT_SCRIPT_CHILD_CHANNEL
 #define AP_SCRIPT_STAGE AT_SCRIPT_PACKET

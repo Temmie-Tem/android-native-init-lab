@@ -21,7 +21,7 @@ import s22plus_debian_autoboot_transition_v1 as transition_protocol
 import device_action_raw_capture_v1 as raw
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
-CASES=tuple(dict.fromkeys(build_api.profile.cases(True,True,True,True)+build_api.profile.SINGLECPU_CASES+build_api.profile.P447_HISTORY_CASES+build_api.profile.P451_HISTORY_CASES+build_api.profile.SCRIPT_FAULTS))
+CASES=tuple(dict.fromkeys(build_api.profile.cases(True,True,True,True)+build_api.profile.SINGLECPU_CASES+build_api.profile.P447_HISTORY_CASES+build_api.profile.P451_HISTORY_CASES+build_api.profile.SCRIPT_FAULTS+build_api.profile.minimal_spec.HISTORY_CASES+build_api.profile.minimal_spec.FAULTS))
 
 
 def prepare(out,build,helper,case):
@@ -32,13 +32,15 @@ def prepare(out,build,helper,case):
     single_cpu=build_api.profile.singlecpu_selected(selected)
     post_p447=build_api.profile.post_p447_selected(selected)
     script_channel=build_api.profile.script_channel_selected(selected)
-    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel),'case does not belong to selected variant')
+    minimal=build_api.profile.minimal_selected(selected)
+    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal),'case does not belong to selected variant')
     require(selected['virtual'] is True and physical['virtual'] is False and selected['run_id']==physical['run_id'] and
         build_api.profile.variants(physical)==(transition,rcs,watchdog) and
         build_api.profile.phase_selected(physical)==phase and
         build_api.profile.singlecpu_selected(physical)==single_cpu and
         build_api.profile.post_p447_selected(physical)==post_p447 and
         build_api.profile.script_channel_selected(physical)==script_channel and
+        build_api.profile.minimal_selected(physical)==minimal and
         physical.get('idle_policy')==selected.get('idle_policy') and
         selected['modules']==physical['modules'] and
         selected['measured']['init_sha256']==physical['measured']['init_sha256'] and
@@ -53,6 +55,10 @@ def prepare(out,build,helper,case):
                 '    printf "AUTO_VM_EARLY_STOP\\n"\n'
                 '    test ! -f /run/initramfs/file-admission || cat /run/initramfs/file-admission\n'
                 '    poweroff -f\n    while :; do sleep 1; done')
+            if minimal:
+                text=text.replace('exec /sbin/autoboot-init',
+                    'test "$(ls -A /dev)" = "$(printf \'console\\nkmsg\\nnull\\n\')" || fyg8_stop\n'
+                    'printf AUTO_VM_MINIMAL_SPARSE_DEV >|/dev/kmsg\nexec /sbin/autoboot-init')
             if case=='changed-receipt':text=text.replace('exec /sbin/autoboot-init',
                 'chmod 600 /run/initramfs/autoboot-early\nprintf X >|/run/initramfs/autoboot-early\n'
                 'test "$(wc -c </run/initramfs/autoboot-early)" = 1 || poweroff -f\n'
@@ -71,10 +77,10 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
-    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel)):
+    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)):
         if case=='missing-second-history' and index==1:continue
         if case=='missing-runtime-history' and index==2:continue
-        selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime',7:'p445-early',8:'p448-early',9:'p448-runtime'}.get(index)
+        selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime',7:'p445-early',8:'p448-early',9:'p448-runtime',10:'p452-early',11:'p452-runtime'}.get(index)
         if selected_pair and case=='missing-'+selected_pair:continue
         body=verify(history['source']).read_bytes()
         if (case=='changed-history' or case=='changed-runtime-history' and index==2 or
@@ -92,7 +98,7 @@ def prepare(out,build,helper,case):
         suffix='f'*32 if rcs else build_api.profile.additional_history()['path'].rsplit('-',1)[1]
         if case=='unexpected-p445-runtime':suffix=build_api.profile.p445_history()['path'].rsplit('-',1)[1]
         path='/var/lib/lab/s22-evidence-'+suffix
-        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs,watchdog,phase,single_cpu,post_p447,script_channel)} and
+        require(path.lstrip('/') not in {row['path'] for row in build_api.profile.histories(True,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)} and
             suffix!=selected['run_id'],'unexpected-history fixture overlaps selected files')
         vm.fixture.debug(native,out,'extra-runtime',f'write {out}/extra-runtime {path}')
         vm.fixture.debug(native,out,'extra-runtime-mode',f'set_inode_field {path} mode 0100600')
@@ -140,6 +146,7 @@ def run(out,build,helper,case):
     single_cpu=build_api.profile.singlecpu_selected(selected)
     post_p447=build_api.profile.post_p447_selected(selected)
     script_channel=build_api.profile.script_channel_selected(selected)
+    minimal=build_api.profile.minimal_selected(selected)
     command=[vm.fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','8' if single_cpu else '2','-m','1024',
         '-netdev',net,'-device','virtio-net-device,netdev=net,mac='+link['device_mac'],
         '-display','none','-monitor','none','-serial',f'file:{out}/serial.log','-no-reboot',
@@ -205,6 +212,9 @@ def run(out,build,helper,case):
             else:process.wait(timeout=max(1,deadline-time.monotonic()))
         require(forced_stop or process.returncode==0 and b'reboot: Power down' in (out/'serial.log').read_bytes(),'automatic VM did not power off')
         if case=='changed-receipt':require(b'AUTO_VM_RECEIPT_MUTATED' in (out/'serial.log').read_bytes(),'receipt mutation was not exercised')
+        if minimal and case in ('normal',*build_api.profile.SCRIPT_FAULTS,*build_api.profile.minimal_spec.FAULTS):
+            require(b'AUTO_VM_MINIMAL_SPARSE_DEV' in (out/'serial.log').read_bytes(),
+                'minimal boot did not start from the physical sparse device namespace')
         after=vm.fixture.fixture_tools.sparse_digest(out/'disk.img')
         require(lifecycle.outside_native(out/'disk.img')==outside,'automatic VM wrote outside native_data')
         filesystem=None
@@ -217,7 +227,7 @@ def run(out,build,helper,case):
                 vm.fixture.debug(native,out,kind+'-dump',f'dump /var/lib/lab/{prefix}{selected["run_id"]} {path}')
                 bodies.append(path.read_bytes())
             local=protocol.local_records(*bodies,key=key,selected=selected,root_device=dict(major=259,minor=25))
-        elif case in build_api.profile.RCS_CASES:
+        elif case in build_api.profile.RCS_CASES+build_api.profile.minimal_spec.FAULTS:
             require(before!=after,'rcS fault did not reach its owned writable boot')
         elif case not in ('changed-receipt','fd-leak','module-error','singlecpu-disabled') and not case.startswith('trace-'):
             require(before==after,'pre-admission rejection changed the disk')
@@ -231,7 +241,7 @@ def run(out,build,helper,case):
         if 'transition_observer' in selected:
             transition=transition_protocol.retained((out/'serial.log').read_bytes(),key=key,
                 run=bytes.fromhex(selected['run_id']),expected=transition_protocol.sources(selected),
-                phase=build_api.profile.phase_selected(selected),script_channel=build_api.profile.script_channel_selected(selected),
+                phase=build_api.profile.phase_selected(selected),script_channel=build_api.profile.script_channel_selected(selected),minimal=minimal,
                 phase_window_ms=selected.get('phase_vm_timing',{}).get('absolute_window_ms',15000))
             transition_protocol.qualify_case(transition,case)
         value=dict(status='PASS',case=case,proof=proof,ssh_health=health,shutdown=shutdown,filesystem=filesystem,
@@ -244,7 +254,7 @@ def run(out,build,helper,case):
         if ssh_pair is not None:value['ssh_120_seconds']=ssh_pair
         if single_cpu:value['single_cpu_vm']=dict(exposed_cpus=8,watchdog_sysfs='MODEL_ONLY',
             cpu_online='REAL_KERNEL_SYSFS',hardware_pet_proved=False)
-        if case in build_api.profile.RCS_CASES:value['runtime_observation']='NOT_ACQUIRED_AFTER_RCS_FAULT'
+        if case in build_api.profile.RCS_CASES+build_api.profile.minimal_spec.FAULTS:value['runtime_observation']='NOT_ACQUIRED_AFTER_RCS_FAULT'
         publish(out/'result.json',value);print(case,'PASS',flush=True);return value
     finally:
         if process is not None and process.poll() is None:process.kill();process.wait()
@@ -258,18 +268,19 @@ def suite(out,build):
     single_cpu=build_api.profile.singlecpu_selected(built)
     post_p447=build_api.profile.post_p447_selected(built)
     script_channel=build_api.profile.script_channel_selected(built)
+    minimal=build_api.profile.minimal_selected(built)
     prepared=build_api.prepare(out/'virtual',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition=transition,
-        rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel)
+        rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal)
     require(prepared['source_inputs']==built['source_inputs'],'suite sources differ from the physical build')
-    cases=build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel)
+    cases=build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)
     def single(case):
         helper=out/'virtual'
-        if case in build_api.profile.TRANSITION_CASES+build_api.profile.RCS_CASES+build_api.profile.SINGLECPU_FAULTS+build_api.profile.SCRIPT_FAULTS:
+        if case in build_api.profile.TRANSITION_CASES+build_api.profile.RCS_CASES+build_api.profile.SINGLECPU_FAULTS+build_api.profile.SCRIPT_FAULTS+build_api.profile.minimal_spec.FAULTS:
             helper=out/(case+'-helper')
             prepared=build_api.prepare(helper,Path(built['inputs']),Path(built['packages']),
                 run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,
-                transition=True,transition_fault=case,rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel)
+                transition=True,transition_fault=case,rcs=rcs,watchdog=watchdog,idle_policy=built.get('idle_policy'),phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal)
             require(prepared['source_inputs']==built['source_inputs'],'fault sources differ from physical build')
         return run(out/case,build,helper,case)
     with ThreadPoolExecutor(max_workers=2) as pool:

@@ -58,6 +58,9 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
     else if((error=sw_fd_type()))dh_hook_fail(error);
 #endif
     if((error=de_time()))dh_hook_fail(error);
+#ifdef S22_AUTOBOOT_MINIMAL
+    if(phase==1 && (error=ap_required_program()))dh_hook_fail(error);
+#endif
     if(traced)ap_start();
     if(traced) {
         AT_BEGIN(AT_RCS_FORK,1);
@@ -92,6 +95,10 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
         }
 #if S22_DEBIAN_FAULT == 7
         if(phase==1)_exit(23);
+#endif
+#ifdef S22_AUTOBOOT_MINIMAL
+        /* Never fall back to the full rcS when optional observation fails. */
+        if(phase==1){path=AP_DISPATCHER;argument="S";}
 #endif
 #if S22_DEBIAN_FAULT == 11
         for(;;)pause();

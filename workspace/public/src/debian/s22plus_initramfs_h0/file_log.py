@@ -31,7 +31,7 @@ def validate_identity(namespace,version):
         'file candidate version differs')
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=False,script_channel=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
     h0.require(not autoboot or diagnostic and storage_first,'autoboot requires supervised storage-first')
     h0.require(not transition or autoboot,'transition observer requires automatic startup')
@@ -70,7 +70,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
             h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
     if autoboot:
         import s22plus_debian_autoboot_profile_v1 as automatic
-        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel)
+        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)
     else:generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])

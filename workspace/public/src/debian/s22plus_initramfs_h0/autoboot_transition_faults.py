@@ -2,7 +2,8 @@
 from pathlib import Path
 from s22plus_native_records_v3 import require,pin
 from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES,RCS_CASES,SINGLECPU_FAULTS,SCRIPT_FAULTS
-CASES=TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS+SCRIPT_FAULTS
+from s22plus_debian_autoboot_minimal_v1 import FAULTS as MINIMAL_FAULTS
+CASES=TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS+SCRIPT_FAULTS+MINIMAL_FAULTS
 
 
 def source(out,original,fault,native):
@@ -16,7 +17,23 @@ def source(out,original,fault,native):
         path=folder/name;text=path.read_text()
         require(text.count(old)==count,'transition fixture anchor differs: '+name)
         path.write_text(text.replace(old,new))
-    if fault=='script-channel-setup':
+    if fault in MINIMAL_FAULTS:
+        injection={
+            'minimal-missing-program':'if(phase==1 && unlink(AP_DISPATCHER))dh_hook_fail(errno);',
+            'minimal-changed-program':'''if(phase==1) {
+                int altered=open(AP_DISPATCHER,O_WRONLY|O_CLOEXEC|O_NOFOLLOW);
+                if(altered<0 || write(altered,"X",1)!=1 || close(altered))dh_hook_fail(EIO);
+            }''',
+            'minimal-missing-dependency':'if(phase==1 && umount2("/dev/shm",0))dh_hook_fail(errno);',
+            'minimal-script-error':'''if(phase==1) {
+                static const char body[]="#!/bin/sh\\nexit 37\\n";
+                int fixture=open("/run/s22-debian/fixture-fail",O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC,0500);
+                if(fixture<0 || write(fixture,body,sizeof(body)-1)!=sizeof(body)-1 || close(fixture) ||
+                    mount("/run/s22-debian/fixture-fail","/etc/init.d/hostname.sh",NULL,MS_BIND,NULL))dh_hook_fail(EIO);
+            }'''}[fault]
+        anchor='    if(phase==1 && (error=ap_required_program()))dh_hook_fail(error);'
+        edit('s22plus_debian_handoff_observer_v2.inc.c',anchor,'    '+injection+'\n'+anchor)
+    elif fault=='script-channel-setup':
         edit('s22plus_autoboot_script_v1.h','ap_expired() ? ETIMEDOUT : ap_dispatcher_prepare()',
             'ap_expired() ? ETIMEDOUT : ENOSPC')
     elif fault=='script-channel-gap':
@@ -79,7 +96,7 @@ def source(out,original,fault,native):
     elif fault=='rcs-pending-child':edit('s22plus_debian_handoff_observer_v2.inc.c',
         '\n        if(sw_now()>=sw.deadline_ms)_exit(124);',
         '\n        if(traced)for(;;)pause();\n        if(sw_now()>=sw.deadline_ms)_exit(124);')
-    if fault in RCS_CASES and not fault.startswith('rcs-pending-'):
+    if (fault in RCS_CASES and not fault.startswith('rcs-pending-')) or fault in MINIMAL_FAULTS:
         edit('s22plus_debian_handoff_hook_v1.c','dprintf(2,"DHVM_HOOK_PARK errno=%d\\n",error);',
             'dprintf(2,"DHVM_HOOK_PARK errno=%d\\n",error);\n    (void)syscall(SYS_reboot,LINUX_REBOOT_MAGIC1,LINUX_REBOOT_MAGIC2,LINUX_REBOOT_CMD_POWER_OFF,0);')
     target=folder/original.name

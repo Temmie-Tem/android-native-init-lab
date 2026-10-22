@@ -1233,6 +1233,23 @@ functional proof, fresh qualification/review, returned finite attended grant
 and physical original-A return remain required. No consumed predecessor or
 historical complete-root rejection is changed.
 
+The separately qualified `post-autoboot-p455-v1` minimal-boot selection adds
+only P452's exact early/runtime pair authenticated by the closed clean P455
+reader, for twelve historical rows. Both complete current-root admissions,
+metadata/content checks and P454's negative comparison remain unchanged. Its
+additional sealed required RAM asset checks inherited virtual mounts/devices
+and the RAM lock directory, creates only absent RAM random/urandom character
+nodes 1:8 and 1:9 with checked root-owned 0666 metadata, then runs hostname, mdev, urandom and
+bootmisc before unchanged runlevel-2 services. The existing rcS child always
+selects this minimal program, independently of optional channel success.
+Required-input or script failure stops the workload. The five-step channel
+admits at most twelve packets under the original budgets; it adds no process,
+persistent file or writable lifetime. Script/packet completion is distinct
+from service, SSH and shutdown proof. All original CPU/idle checks, deadlines,
+physical original-A return, no-repair/no-replay rules, current independent
+review and actual qualification precede a new attended finite grant. It adds
+no recovery guarantee and does not repin consumed predecessors.
+
 ## S22+ native-first installed-Debian handoff
 
 The separate [handoff V1 policy](S22PLUS_DEBIAN_HANDOFF_V1.md) specializes

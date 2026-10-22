@@ -732,6 +732,20 @@ service/SSH/shutdown proof, finite attended grant and physical original-A return
 remain required. Independent current review and actual artifact/VM qualification
 precede execution; no historical rejection or consumed action is repinned.
 
+The separately qualified `post-autoboot-p455-v1` minimal-boot selection adopts
+only P452's exact pair authenticated by the closed clean P455 reader, for twelve
+history rows, with both complete current-root admissions unchanged. One sealed
+required RAM program checks inherited mounts/devices and the RAM lock directory,
+creates only absent RAM random/urandom nodes 1:8 and 1:9 with checked metadata,
+then runs packaged hostname, mdev, urandom and bootmisc before unchanged rc2
+services. The existing child always executes this program even when optional
+observation fails; missing required inputs or a failed script stop the workload.
+Five fixed step IDs and twelve packets use the original channel budgets.
+The original single-CPU checks, service/SSH/shutdown proof, deadlines, finite
+attended grant and physical original-A recovery remain mandatory. Independent
+review and actual artifact/ARM64 qualification precede that grant. P454's
+negative comparison and all consumed source/approval records remain intact.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

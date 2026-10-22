@@ -353,6 +353,43 @@ physical original-A return, fresh qualification/independent review and returned
 one-operation/3600-second grant remain required. Consumed predecessors retain
 their original bytes and evidence.
 
+The separately qualified `post-autoboot-p455-v1` minimal-boot selection adds
+only P452's complete early/runtime pair authenticated by closed P455, for twelve
+exact historical rows. Require the closed physical P452 producer, paired
+run/boot/nonce, the partition-RO mountless clean P455 source, root-owned 0600
+single-link metadata, exact sizes and hashes. P454's negative full-root result
+remains negative. Both complete current clean-root admissions still reject any
+unaccounted entry before their respective writes.
+
+This selection replaces only the sixteen-script rcS dispatcher with one fixed
+required RAM asset. It checks the inherited proc, sysfs, `/dev` and `/run`
+tmpfs, devpts, shared-memory tmpfs and `/run/config` configfs, the supplied
+null character device, and the root-owned 1777 RAM lock directory. It creates
+only absent RAM random/urandom character nodes 1:8 and 1:9, then checks exact
+root-owned 0666 type/device metadata; no device scan or block alias is added. It then runs the packaged hostname, mdev, urandom and bootmisc scripts
+in that order. The existing asset copier seals and verifies the program; the
+rcS parent independently requires the exact root-owned single-link 0500 bytes
+on executable tmpfs before fork. Missing or changed required inputs stop the
+workload. No generic mount-all, udev, module-loader, pstore/securityfs mount or
+new service manager is selected. Packaged runlevel-2 scripts are unchanged.
+
+Optional observation uses the existing nonblocking channel, with five fixed
+step IDs and at most twelve packets. Its existing actor/relative/absolute
+budgets and eight parent opportunities remain. Channel failure never selects
+the full rcS path or prevents the required program from running; every service
+and helper closes the endpoint. Required dependency/script failures stop this
+minimal workload. Script status and complete packets are not service proof;
+the packaged urandom script can mask a seed-save failure.
+
+The retained single-CPU/idle choice, revision-6 checks, two writable lifetimes,
+original local service and same-boot SSH proof, one NCM attempt, fixed shutdown,
+unchanged device/host deadlines and attended physical original-A return remain.
+No permanent data path, mutable-root allowance, repair, replay, automatic
+recovery or deadline extension is added. This selection needs fresh actual
+artifact/ARM64 qualification and independent current review before its own
+returned attended one-operation/3600-second grant. The fixed post-closure D0
+below applies; historical selections and consumed records are not repinned.
+
 The `post-autoboot-p444-v1` phase selection retains those eight actors and
 idle choices but replaces their optional proc sampling. The sealed declaration
 in `workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_phase_v1.py`

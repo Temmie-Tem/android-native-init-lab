@@ -23,14 +23,19 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P456 minimal boot design](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_DESIGN_H0_2026-10-23.md)
-is the selected H0 unit: a required sealed RAM sequence checks inherited mounts
+[P456 minimal boot](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_H0_2026-10-23.md)
+is **PASS_H0 / PASS_GO**, with a concrete **READY_H0_PRELIVE_ONLY** task.
+A required sealed RAM sequence checks inherited mounts
 and runs Debian hostname, mdev, urandom and bootmisc before the unchanged
 packaged runlevel-2 services. It retains both complete protected-root admissions,
 service/SSH/shutdown predicates and physical original-A recovery. The exact
 P452 pair from closed P455 is prospective history, never admission by itself.
-Implementation, ARM64/actual-package qualification and independent review are
-pending. No P456 grant or device effect is authorized by this design.
+The actual A/B packages, 27 real-Debian ARM64 VM cases, ten ARM64 component
+cases and 120 focused tests pass. Independent review covers 141 host and 159
+runtime/collector sources with no open findings. The eleven past-failure
+checklist items were applied, including sparse-device dependency and collector
+route fixes. One operation/3600-second attended approval is prepared but has
+not been returned; no P456 grant or device effect exists.
 
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:
@@ -500,11 +505,12 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The P448 physical unit and P449 read are closed. P448's partial progress reaches installed PID1
-and rcS fork/first sleep, but the usable service/SSH criterion is still open.
-Keep the live NO_PROOF result, positive retained facts and healthy Android
-return distinct. The selected CPU setting alone did not establish the product
-capability, and no watchdog/reset cause has been proved.
+P455 is the latest closed healthy unit. The P452 pair proves installed PID1
+and rcS entry/fork, while physical services/SSH remain unproved. P456 is the
+selected minimal functional successor with H0 qualification complete and an
+unexecuted finite attended proposal. Keep physical
+NO_PROOF, positive retained facts, VM capability and healthy Android return
+distinct; no watchdog/reset cause has been proved.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -512,15 +518,13 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P449 recovered the authenticated first-boot early file but found a dirty
-home-block view and no runtime file. P450 and P451 are now qualified proposals
-for fixed native_data strict journal recovery and the separate post-closure
-read. Each awaits its own returned attended grant; P451 follows P450's healthy
-closure and fresh machine checks. The reader's three superblock fields do not prove complete
-writer eligibility; its exact current checks, reviewed scope, qualification
-and returned attended grant remain required. Do not fabricate unseen history,
-infer clean native_data from original-A health or admit an unknown runtime
-file. Replay/checker success is distinct from complete root admission.
+P450/P451 and P452 through P455 are consumed and closed. The exact P455 pair
+is prospective P456 history; P454's negative complete-root result remains.
+Neither the reader's clean superblock nor original-A health proves complete
+writer eligibility. Both current protected admissions, current review and
+qualification, and a returned attended finite grant remain required. Do not
+fabricate unseen history or admit unknown files. Replay/checker success is
+distinct from complete root admission.
 Compare only source-bound per-boot facts when choosing a functional successor;
 optional cause analysis does not replace current-root admission or reopen a
 consumed action. All new work starts from the closed healthy Android state.
