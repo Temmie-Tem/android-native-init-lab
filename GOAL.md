@@ -25,19 +25,24 @@ A90 and S20+ remain isolated.
 
 The [ordinary-terminal tool](docs/reports/S22PLUS_APPROVED_TERMINAL_TOOL_H0_2026-10-23.md)
 adds a reviewed, user-started host transport for approved S22+ entries, status
-and bounded logs. Twenty host tests pass; the live worker connection awaits
-ordinary-terminal startup. Tool installation grants no device action and does
-not create the pending P454 approval or open its grant.
+and bounded logs. Twenty host tests pass; the operator started the worker and
+its first separately approved P454 dispatch completed. Connection and tool
+installation confer no standing device authority.
 
-[P454 journal recovery preparation](docs/reports/S22PLUS_JOURNAL_RECOVERY_P454_H0_2026-10-23.md)
-is **READY_H0_PRELIVE_ONLY** after closed P453. It retains the existing strict
-replayer, checker and post-autoboot-p432-v1 comparison; later unadmitted files
-are expected to keep complete-root comparison negative. Actual A/B packages,
-three fresh ARM64 cases and 14 focused tests pass. Independent `PASS_GO` binds
-140 host/169 runtime sources; the offline task, snapshots and unexecuted
-terminal entry also pass their separate review. The exact one-operation /
-1800-second attended proposal awaits its returned approval. No approval record,
-grant, device command or recovery effect was created by this H0 preparation.
+[P454 journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P454_RUN_2026-10-23.md)
+is consumed and **ANDROID_CLOSED_HEALTHY**. Under the returned one-operation /
+1800-second attended approval, strict replay completed 26 writes / 103,424 bytes,
+the read-only checker passed, and state 1 / RECOVER 0 / orphan 0, protected
+unmount and restored partition RO are proved. All 8,971 expected entries match;
+the observed 8,986-entry tree exceeds the selected 8,976-entry accounting by
+10, leaving `RECOVERY_NOT_PROVED`. Those counts identify no paths or file
+contents and do not admit a writable Debian boot. Normal original-A return
+and final Android32 health completed at 106.631 seconds, with no recovery
+continuation or failed capture. H0 closure rederived 610 raw captures and the
+unchanged 18-row journal. One N/A pair is consumed; no F1 owner remains.
+The [H0 preparation](docs/reports/S22PLUS_JOURNAL_RECOVERY_P454_H0_2026-10-23.md)
+retains the actual A/B packages, three ARM64 cases, 14 focused checks,
+140 host/169 runtime source review and exact frozen entry provenance.
 
 [P453 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P453_RUN_2026-10-23.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. The mountless capture completed
@@ -51,10 +56,10 @@ unproved. Original-A final health completed at 102.495 seconds. H0 closure
 rederived 643 raw captures and the unchanged 18-row journal, with no failed
 capture or recovery continuation. One N/A pair is consumed; no F1 owner remains.
 
-The next bounded unit is H0 qualification of a fresh native_data-only strict
-journal-recovery candidate, followed by a separately qualified reader after
-its healthy closure. Eligibility and exact current admission remain unproved;
-no recovery effect or new writable Debian boot is authorized by P453's grant.
+The next bounded unit is H0 qualification of a fresh mountless reader for the
+P452 file pair after P454's healthy closure. Its contents after replay remain
+unproved; P454 grants no follow-up read or new writable Debian boot. No such
+reader has been prepared or executed by the P454 run.
 The [mountkernfs analysis](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
 still separates source-time work, reused mounts and three new model mounts.
 A forced pstore-mount failure returned script exit 0, so status alone is not

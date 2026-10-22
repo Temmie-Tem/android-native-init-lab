@@ -3,6 +3,10 @@
 Status: **H0 complete — READY_H0_PRELIVE_ONLY; no device grant**.
 Only operator-owned `SM-S906N/g0q/S906NKSS7FYG8` is selected.
 
+Subsequent [P454 execution](S22PLUS_JOURNAL_RECOVERY_P454_RUN_2026-10-23.md)
+consumed the separately returned grant and closed healthy. The preparation
+facts and unexecuted state described below refer to the H0 preparation stage.
+
 The closed [P453 reader](S22PLUS_AUTOBOOT_EVIDENCE_P453_RUN_2026-10-23.md)
 captured P452's authenticated early file but no runtime file in its checkpointed
 home-block view. State 1, RECOVER 1, orphan 0 motivates this separate recovery
