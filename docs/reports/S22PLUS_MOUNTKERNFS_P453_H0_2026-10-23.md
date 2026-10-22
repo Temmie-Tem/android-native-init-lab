@@ -1,7 +1,9 @@
 # S22+ P453: P452 파일 읽기 후보 H0 qualification
 
-상태: **H0 준비 완료 — READY_H0_PRELIVE_ONLY**.
-기기 명령이나 grant 소비는 없다. [분석과 설계](S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)는
+기록 당시 상태: **H0 준비 완료 — READY_H0_PRELIVE_ONLY**.
+당시 기기 명령이나 grant 소비는 없었다. 이후 별도 승인된
+[P453 실기](S22PLUS_AUTOBOOT_EVIDENCE_P453_RUN_2026-10-23.md)는 소비·정상 Android 복귀를 완료했다.
+[분석과 설계](S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)는
 구현 전에 `73c4006324`에 기록했다.
 
 ## 선택
@@ -36,7 +38,7 @@ boot/nonce 결합이 별도로 통과해야 한다.
 prospective P453와 consumed P451을 구분하고 P452 두 경로의 기존 의미를 유지한다.
 Common details, target contract, reader/runtime/recovery 구현은 변경하지 않았다.
 
-## 준비와 남은 실행 조건
+## H0 완료 시점의 준비와 실행 조건
 
 독립 capability 검토는 현재 host source 140개와 unchanged runtime source 165개,
 원래 artifact consumer, 전체 build/package, P452 closure 및 실제 VM 증거를

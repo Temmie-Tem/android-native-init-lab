@@ -23,19 +23,28 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P453 mountkernfs analysis and reader design](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
-is H0-complete. Exact script/callee analysis and diskless ARM64 runs
-separate source-time work, reused mounts and the three new model mounts.
-A controlled pstore-mount failure still returns script exit 0; script status
-alone is not mount/service proof. P452 does not identify the blocking call.
-The [qualified P453 reader](docs/reports/S22PLUS_MOUNTKERNFS_P453_H0_2026-10-23.md)
-has actual identical A/B packages, two fresh ARM64 reader cases, 33 focused
-checks and independent `PASS_GO` for the current 140 host/165 unchanged runtime
-sources. Its offline proposal is `READY_H0_PRELIVE_ONLY`: one root-evidence
-operation / 1800 seconds, with frozen sources and a reviewed unexecuted terminal
-entry. No approval, grant, operation or device command was created. Current
-P452 file contents and filesystem consistency remain unknown until a separate
-authorized read. No new writable history or script-skipping change is selected.
+[P453 read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P453_RUN_2026-10-23.md)
+is consumed and `ANDROID_CLOSED_HEALTHY`. The mountless capture completed
+`PASS_ROOT_EVIDENCE_OBSERVED`: P452 early is fully captured at 10,972 bytes,
+with 14 authenticated records through `EARLY_PRE_UNMOUNT`. It matches only
+the first of P452's three retained boot spans, whose kernel header is outside
+the fragment. Runtime is `ABSENT_IN_HOME_VIEW`, with state 1 / RECOVER 1 /
+orphan 0. No mount, replay or filesystem write occurred. Absence does not prove
+non-execution; the file pair cannot be joined and mountkernfs return remains
+unproved. Original-A final health completed at 102.495 seconds. H0 closure
+rederived 643 raw captures and the unchanged 18-row journal, with no failed
+capture or recovery continuation. One N/A pair is consumed; no F1 owner remains.
+
+The next bounded unit is H0 qualification of a fresh native_data-only strict
+journal-recovery candidate, followed by a separately qualified reader after
+its healthy closure. Eligibility and exact current admission remain unproved;
+no recovery effect or new writable Debian boot is authorized by P453's grant.
+The [mountkernfs analysis](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
+still separates source-time work, reused mounts and three new model mounts.
+A forced pstore-mount failure returned script exit 0, so status alone is not
+mount/service proof. The [P453 H0 qualification](docs/reports/S22PLUS_MOUNTKERNFS_P453_H0_2026-10-23.md)
+retains identical actual A/B packages, two ARM64 reader cases, 33 focused checks,
+independent `PASS_GO` and frozen 140 host/165 runtime sources.
 
 [P452 rcS channel](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_RUN_2026-10-23.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. The live service/SSH outcome remains
@@ -54,12 +63,13 @@ pair is proved, with original-A recovery after the research grant expired.
 Closure preserves 424 raw captures and the unchanged 15-row journal, including
 one post-A read failure followed by health-only continuation. The fixed
 same-returned-boot D0 adds 16 successful captures. No F1 owner remains.
-Current native_data consistency and P452 early/runtime files are unmeasured.
+P453's later read supplies the early file and dirty home-block observation above;
+runtime contents and complete native_data consistency remain unproved.
 
 P453 followed the authenticated second-script boundary into the exact retained
 mountkernfs script and its callees without treating missing later packets as a
-failure location. Its prepared read is the next bounded experiment. Another
-writable candidate requires current-file qualification and fresh complete protected admission;
+failure location. Another writable Debian candidate requires current-file
+qualification and fresh complete protected admission;
 P452 is never replayed. The [design](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_DESIGN_2026-10-21.md)
 and [H0 qualification](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_H0_2026-10-21.md)
 retain all 37 ARM64 integration cases, 13 component cases, 123 focused tests,
