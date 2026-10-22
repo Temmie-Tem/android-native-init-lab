@@ -1,7 +1,8 @@
 # S22+ P452 rcS channel: H0 qualification
 
-상태: **H0 준비 완료 — 정확한 반환 승인·현장 실행 대기**.
-실기 실행 권한이나 기능 성공을 선언하지 않는다.
+상태: **H0 준비 완료; 이후 실기 작업은 소비·정상 Android 복구 완료**.
+[별도 실행 결과](S22PLUS_AUTOBOOT_RCS_P452_RUN_2026-10-23.md)를 참조한다.
+아래는 실행 전 qualification이며 실기 기능 성공이나 재실행 권한을 선언하지 않는다.
 [구현 전 설계](S22PLUS_AUTOBOOT_RCS_P452_DESIGN_2026-10-21.md)는
 `5a04f253ce`에 먼저 기록했다. 대상은 FYG8 S22+ 하나이며 A90·S20+와 기존
 46개 변경 경로는 이 작업의 root revision/pin 변경을 제외하고 보존한다.

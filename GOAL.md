@@ -23,24 +23,34 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P452 rcS channel design](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_DESIGN_2026-10-21.md)
-is the selected next H0 unit: retain the single-CPU configuration and service
-goal, add only P451-authenticated P448 history, and reuse the RAM dispatcher
-channel with an rcS-relative bounded window. Scope Android/driver comparisons
-to those sixteen script boundaries. Implementation, qualification and review
-precede a fresh finite attended grant; this design grants no device effect.
-Its [H0 implementation](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_H0_2026-10-21.md)
-is now qualified: actual A/B initramfs and boot-only AP, all 37 ARM64 integration
-cases, 13 component cases, 123 focused tests, and current independent `PASS_GO`
-with no open findings. The normal VM proves all 34 script packets, 120-second
-services, same-boot SSH and clean shutdown; setup/gap faults preserve those
-services without claiming a complete channel. These are H0 proofs only.
-The host namespace blockers were resolved using an isolated ARM64 builder
-while preserving the original archive checks and all 158 runtime source pins.
-An existing offline proposal is `READY_H0_PRELIVE_ONLY`: one fresh attended
-operation / 3600 seconds, no grant or device action. The exact returned approval
-and ordinary-terminal original runner remain required; live lane/host census
-and fresh Android health are checked before the first mode-changing intent.
+[P452 rcS channel](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_RUN_2026-10-23.md)
+is consumed and `ANDROID_CLOSED_HEALTHY`. The live service/SSH outcome remains
+`NO_PROOF`. Post-return evidence proves installed Debian PID1, dispatcher entry
+and successful `S01hostname.sh` completion. The strict collector retains 135
+transitions including three script packets. One separately authenticated frame
+on a noncanonical line adds the next `S01mountkernfs.sh` BEGIN boundary; it is
+not merged into the strict result and does not prove a stall or script return.
+rcS completion, 120-second services, SSH and clean shutdown remain unproved.
+
+The bounded retained range contains three authenticated candidate boots, with
+the first kernel header already outside the retained fragment. The operator
+reported one accidental additional boot while attempting physical Download;
+its exact span assignment and the other reset causes remain unknown. One N/A
+pair is proved, with original-A recovery after the research grant expired.
+Closure preserves 424 raw captures and the unchanged 15-row journal, including
+one post-A read failure followed by health-only continuation. The fixed
+same-returned-boot D0 adds 16 successful captures. No F1 owner remains.
+Current native_data consistency and P452 early/runtime files are unmeasured.
+
+The next H0 analysis can follow the authenticated second-script boundary into
+the exact retained mountkernfs script and its callees; it must not assume that
+missing later packets locate the failure. Another writable candidate requires
+separate current-file qualification and fresh complete protected admission;
+P452 is never replayed. The [design](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_DESIGN_2026-10-21.md)
+and [H0 qualification](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_H0_2026-10-21.md)
+retain all 37 ARM64 integration cases, 13 component cases, 123 focused tests,
+actual A/B packages and the source-bound independent `PASS_GO`. Their normal
+VM service/SSH/shutdown success remains H0 evidence. A90 and S20+ were untouched.
 
 [P450 fixed journal recovery](docs/reports/S22PLUS_JOURNAL_RECOVERY_P450_RUN_2026-10-21.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. Strict replay completed 24 writes /
