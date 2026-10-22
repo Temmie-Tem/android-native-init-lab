@@ -1,7 +1,11 @@
 # S22+ P455: P452 pair reader after P454 replay
 
-Status: **READY_H0_PRELIVE_ONLY; no device authority**.
+Status at preparation: **READY_H0_PRELIVE_ONLY; no device authority**.
 Only `SM-S906N/g0q/S906NKSS7FYG8` is selected.
+
+Later separately approved execution is consumed and closed healthy in the
+[P455 run report](S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md). The preparation
+and review facts below retain their original pre-execution meaning.
 
 P455 is a fresh `root-evidence` / `autoboot-pair` declaration selecting the
 same exact P452 early/runtime files as consumed P453, now following P454's

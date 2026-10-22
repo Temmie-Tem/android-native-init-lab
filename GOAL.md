@@ -23,13 +23,19 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P455 reader preparation](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_H0_2026-10-23.md)
-is **READY_H0_PRELIVE_ONLY**: a fresh fixed mountless read of P452's early/runtime
-pair after P454's healthy closure. Actual A/B images, two ARM64 cases and 33
-focused checks pass. Independent `PASS_GO` and the concrete prepared-entry
-review pass with frozen 140 host/165 runtime sources. The one-operation /
-1,800-second attended proposal awaits its own returned approval and fresh live
-checks; no P455 grant, preflight, dispatch or device operation has occurred.
+[P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
+is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:
+early 10,972 bytes / 14 records and runtime 1,024 bytes / 6 records. Boot and
+nonce match; both join only the first retained P452 boot. Early is unchanged
+from P453. Runtime independently records installed Debian PID1, rcS phase
+entry and child fork, with no rcS completion, service, SSH or clean-shutdown
+proof. The partition-RO mountless view is state 1 / RECOVER 0 / orphan 0.
+One N/A pair is consumed. A post-A transient ADB read failure was followed only
+by final-health continuation, which passed at 105.138 seconds. Closure rederived
+679 raw captures and the unchanged 20-row journal; no F1 owner remains.
+The [H0 qualification](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_H0_2026-10-23.md)
+retains actual A/B images, two ARM64 cases, 33 focused checks, independent reviews
+and frozen 140 host/165 runtime sources.
 
 The [ordinary-terminal tool](docs/reports/S22PLUS_APPROVED_TERMINAL_TOOL_H0_2026-10-23.md)
 adds a reviewed, user-started host transport for approved S22+ entries, status
@@ -64,9 +70,11 @@ unproved. Original-A final health completed at 102.495 seconds. H0 closure
 rederived 643 raw captures and the unchanged 18-row journal, with no failed
 capture or recovery continuation. One N/A pair is consumed; no F1 owner remains.
 
-P452 file contents after P454's replay remain unproved; P454 grants no
-follow-up read or new writable Debian boot. P455 retains the sealed file
-selection and adds no inventory, mount, repair, replay or persistent write.
+P455 closes the selected P452 file-pair retrieval after P454's replay. P454's
+ten unaccounted entries and negative complete-root comparison remain unchanged.
+The next bounded work is H0 analysis from this exact first-boot history;
+another writable candidate requires qualified history and complete protected
+current-root admission. No successor is prepared or granted by this read.
 The [mountkernfs analysis](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
 still separates source-time work, reused mounts and three new model mounts.
 A forced pstore-mount failure returned script exit 0, so status alone is not
@@ -91,8 +99,9 @@ pair is proved, with original-A recovery after the research grant expired.
 Closure preserves 424 raw captures and the unchanged 15-row journal, including
 one post-A read failure followed by health-only continuation. The fixed
 same-returned-boot D0 adds 16 successful captures. No F1 owner remains.
-P453's later read supplies the early file and dirty home-block observation above;
-runtime contents and complete native_data consistency remain unproved.
+P453 supplies the early file and dirty pre-replay view; P455 supplies the
+authenticated first-boot pair after P454 replay. Later-boot file effects and
+complete native_data consistency remain unproved.
 
 P453 followed the authenticated second-script boundary into the exact retained
 mountkernfs script and its callees without treating missing later packets as a
