@@ -23,6 +23,15 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P456 minimal boot design](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_DESIGN_H0_2026-10-23.md)
+is the selected H0 unit: a required sealed RAM sequence checks inherited mounts
+and runs Debian hostname, mdev, urandom and bootmisc before the unchanged
+packaged runlevel-2 services. It retains both complete protected-root admissions,
+service/SSH/shutdown predicates and physical original-A recovery. The exact
+P452 pair from closed P455 is prospective history, never admission by itself.
+Implementation, ARM64/actual-package qualification and independent review are
+pending. No P456 grant or device effect is authorized by this design.
+
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:
 early 10,972 bytes / 14 records and runtime 1,024 bytes / 6 records. Boot and
@@ -72,9 +81,9 @@ capture or recovery continuation. One N/A pair is consumed; no F1 owner remains.
 
 P455 closes the selected P452 file-pair retrieval after P454's replay. P454's
 ten unaccounted entries and negative complete-root comparison remain unchanged.
-The next bounded work is H0 analysis from this exact first-boot history;
-another writable candidate requires qualified history and complete protected
-current-root admission. No successor is prepared or granted by this read.
+The selected successor is P456 H0 preparation from this exact first-boot history;
+a writable candidate requires qualified history and complete protected
+current-root admission. No successor is granted by this read.
 The [mountkernfs analysis](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
 still separates source-time work, reused mounts and three new model mounts.
 A forced pstore-mount failure returned script exit 0, so status alone is not
