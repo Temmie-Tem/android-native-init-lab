@@ -147,8 +147,8 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P451 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p451_review.json`.
+native_data, or transfers an image. The current prospective P453 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p453_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
@@ -160,7 +160,8 @@ The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p442_review.json`, consumed P444 review
 `s22plus_native_root_evidence_p444_review.json`, consumed P447 review
 `s22plus_native_root_evidence_p447_review.json`, consumed P449 review
-`s22plus_native_root_evidence_p449_review.json`, and all retained
+`s22plus_native_root_evidence_p449_review.json`, consumed P451 review
+`s22plus_native_root_evidence_p451_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
 selects the two-file table and its declared binary bound. P440 seals the same
@@ -216,3 +217,13 @@ original evidence. Preparation does not prove P450 recovery, future file
 visibility or complete root admission; execution requires its own returned
 attended grant, no unresolved owner and fresh current Android health. It
 cannot repair a failed recovery, repeat the writer or erase a prior capture.
+
+P453 seals the same bounded early/runtime pair for the closed P452 automatic
+writer, with a fresh reader identity. P452's partial script-channel evidence
+and healthy Android closure do not prove its current file contents, latest
+home-block visibility or native_data consistency. The existing revision-6
+collector binds the actual writer sources and authenticates each file before
+the boot/nonce join. The two paths, metadata and whole-file limits, partition
+RO, mountless acquisition and original-A return remain unchanged. No journal
+replay, repair, write, installed execution or writable-history admission is
+added; missing records do not prove non-execution or authorize P452 replay.

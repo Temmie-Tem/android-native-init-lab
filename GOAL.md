@@ -24,13 +24,18 @@ A90 and S20+ remain isolated.
 ## Current synthesis and functional priority
 
 [P453 mountkernfs analysis and reader design](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
-is the selected H0 unit. Exact script/callee analysis and diskless ARM64 runs
+is H0-complete. Exact script/callee analysis and diskless ARM64 runs
 separate source-time work, reused mounts and the three new model mounts.
 A controlled pstore-mount failure still returns script exit 0; script status
 alone is not mount/service proof. P452 does not identify the blocking call.
-Prepare the existing mountless exact P452 early/runtime reader first, with
-fresh A/B qualification and current source-bound review. No device effect,
-new writable history or script-skipping change is selected by this H0 work.
+The [qualified P453 reader](docs/reports/S22PLUS_MOUNTKERNFS_P453_H0_2026-10-23.md)
+has actual identical A/B packages, two fresh ARM64 reader cases, 33 focused
+checks and independent `PASS_GO` for the current 140 host/165 unchanged runtime
+sources. Its offline proposal is `READY_H0_PRELIVE_ONLY`: one root-evidence
+operation / 1800 seconds, with frozen sources and a reviewed unexecuted terminal
+entry. No approval, grant, operation or device command was created. Current
+P452 file contents and filesystem consistency remain unknown until a separate
+authorized read. No new writable history or script-skipping change is selected.
 
 [P452 rcS channel](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_RUN_2026-10-23.md)
 is consumed and `ANDROID_CLOSED_HEALTHY`. The live service/SSH outcome remains
@@ -51,10 +56,10 @@ one post-A read failure followed by health-only continuation. The fixed
 same-returned-boot D0 adds 16 successful captures. No F1 owner remains.
 Current native_data consistency and P452 early/runtime files are unmeasured.
 
-The next H0 analysis can follow the authenticated second-script boundary into
-the exact retained mountkernfs script and its callees; it must not assume that
-missing later packets locate the failure. Another writable candidate requires
-separate current-file qualification and fresh complete protected admission;
+P453 followed the authenticated second-script boundary into the exact retained
+mountkernfs script and its callees without treating missing later packets as a
+failure location. Its prepared read is the next bounded experiment. Another
+writable candidate requires current-file qualification and fresh complete protected admission;
 P452 is never replayed. The [design](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_DESIGN_2026-10-21.md)
 and [H0 qualification](docs/reports/S22PLUS_AUTOBOOT_RCS_P452_H0_2026-10-21.md)
 retain all 37 ARM64 integration cases, 13 component cases, 123 focused tests,

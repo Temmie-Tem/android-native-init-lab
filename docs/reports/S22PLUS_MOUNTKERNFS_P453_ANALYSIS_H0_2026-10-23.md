@@ -1,6 +1,7 @@
 # S22+ P453: mountkernfs 호출 경로 분석과 다음 읽기 후보 설계
 
-상태: **분석 H0 완료; P453 mountless reader 구현·qualification 전 설계**.
+상태: **분석 H0 완료**. 이 설계는 P453 reader 구현 전에 기록했으며,
+이후 [reader H0 qualification](S22PLUS_MOUNTKERNFS_P453_H0_2026-10-23.md)도 완료했다.
 대상은 FYG8 S22+ 하나다. P452는 소비·정상 Android 복구 완료 상태이며 다시
 실행하지 않는다. 이 작업은 기기 읽기·쓰기·전송 권한을 요청하거나 사용하지 않는다.
 
@@ -14,7 +15,7 @@
 여전히 미확인이다.
 
 Retained root archive를 hash 검증하고 symlink/usr-merge를 해석해 script,
-source되는 함수, 설정과 도구 27개 항목을 선택했다. Archive에는 실행하지 않았다.
+source되는 함수, 설정과 도구 27개 항목을 선택했다. 호스트에서 이 script를 실행하지 않았다.
 아래 ARM64 실행은 그 archive의 정확한 bytes를 별도 diskless VM에 넣은 H0다.
 FYG8 OSRC base와 delta도 다시 hash 검증하고 common/msm 양쪽에서 관련 kernel
 파일 20개를 선택했다. 이 열 파일 경로에는 FYG8 delta가 없다. pstore, securityfs,
@@ -39,6 +40,9 @@ OSRC 호출 경로 분석은 물리 kernel의 실제 stack이나 실패 원인 �
 | 9 | efivarfs | EFI variable directory가 있을 때만 검사/mount |
 
 선택된 `/etc/fstab`는 비어 있고 tmpfs/rcS 설정은 기본값을 바꾸지 않는다.
+추가 archive 확인에서 `/etc/fstab.d`, `/etc/lsb-base-logging.sh`와 restorecon은
+없다. 따라서 이 입력에서 추가 fstab, 사용자 logging hook, SELinux relabel 경로를
+상정하지 않는다. `run-parts`, `uname`, `touch`의 실제 archive bytes도 결합했다.
 기존 witness는 `/run`을 executable tmpfs로 넘기고 `/proc`, `/sys`, `/dev`를
 이동한다. `mount_noupdate`의 이미 mounted 분기는 재마운트하지 않으므로,
 mount_run의 `noexec` 옵션 문자열만 보고 기존 `/run`의 실행 권한이 제거됐다고
