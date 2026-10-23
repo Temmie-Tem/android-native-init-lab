@@ -44,10 +44,15 @@ started P456 through the approved connector. The
 [continuation extension](docs/reports/S22PLUS_APPROVED_TERMINAL_RESUME_H0_2026-10-24.md)
 adds fixed original-return and raw-proved post-A health tools for automatic boot,
 with 41 passing connector tests, eight original-owner tests and independent
-**PASS_GO**, with no change to the closed P456 task. The idle worker must load
-the new review on restart before future use; the MCP connection must expose its
-six tools. This completed H0 unit grants no new device experiment. Persistence
-and ordinary Debian reboot remain future separately qualified work.
+**PASS_GO**, with no change to the closed P456 task. The operator restarted
+the worker and its exact loaded review is verified. A separate
+[persistent transport](docs/reports/S22PLUS_APPROVED_TERMINAL_PERSISTENT_H0_2026-10-24.md)
+keeps the connection stable while loading reviewed task code in fresh processes.
+It has 29 passing tests and independent **PASS_GO** for the next normal startup;
+the current worker remains intact and no further restart is requested now.
+Only the compatible MCP script for its next connection has been selected. These H0 tools grant no new device
+experiment. Persistence and ordinary Debian reboot remain separately qualified
+future work.
 
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:

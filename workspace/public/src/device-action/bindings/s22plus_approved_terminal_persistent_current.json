@@ -1,0 +1,8 @@
+{
+  "review": {
+    "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/device-action/bindings/s22plus_approved_terminal_persistent_v1_review.json",
+    "sha256": "faa9935f0fcfdb2b13d603b78066b2a1d61caa30cee8b45c22621a836972d8ba",
+    "size": 4796
+  },
+  "schema": "s22plus-approved-terminal-current-review-v1"
+}
