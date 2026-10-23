@@ -1,0 +1,84 @@
+{
+  "findings": [],
+  "reviewer": {
+    "agent": "/root/review_debian_early_h0",
+    "date": "2026-10-24",
+    "independent": true,
+    "review": {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/private/outputs/s22plus-approved-terminal-resume-h0-20261024-1/review/final-1/independent-review.json",
+      "sha256": "908195f0937afa32c6285c309943c03710d73442b7e6d77098102ba39ab89af8",
+      "size": 18846
+    },
+    "summary": "Exact reviewed automatic-boot original-return and raw-proved-A health continuation transport. Existing approval, operation, owner, deadlines, physical attendance and no-replay semantics remain. 41 connector tests and actual closed-P456 raw consumers pass. H0 capability only; no new device authority."
+  },
+  "schema": "s22plus-approved-terminal-review-v1",
+  "scope": "HOST_APPROVED_TASK_DISPATCH",
+  "sources": [
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/AGENTS.md",
+      "sha256": "ee20f7cdca3769aaad84e31744619d6fbbd2dd114d6c7e87252e64e7576c59c7",
+      "size": 33937
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md",
+      "sha256": "dfba77404cb91d5e8cdd0a21bfaf6099fd3157482e0ffe84d955241ee7f19bb0",
+      "size": 113233
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/DEVICE_ACTION_RISK_TIERS.md",
+      "sha256": "92b0c0f908276a240771994c0a5cf7b018596a91d1265170e5161c27e9223630",
+      "size": 33496
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/S22PLUS_APPROVED_TERMINAL_TOOL_V1.md",
+      "sha256": "00c2eb9184970ce2209578ca58ad94a6e71687aea6291c0ee7345394567d24db",
+      "size": 9895
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md",
+      "sha256": "b66a2734d75e970d7dbda375104f7a9108a25c613438ad70c1fd2380bc6fe522",
+      "size": 190478
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/host_tools/s22plus_approved_terminal_v1.py",
+      "sha256": "e8917f6edf5f419e1a0a354c4220e56186116612e048d98d48f62e3c90472a36",
+      "size": 38005
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py",
+      "sha256": "e67d75137469f0435c3b9e8780c1b81d8bd5fda2d8142e03499d09784443cead",
+      "size": 60232
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_session_v1.py",
+      "sha256": "d837dca6a4e3d6aa2295ac7a89bfcd1164356d5ac9159ae1ca0ca0cbb98a1c85",
+      "size": 2137
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_debian_handoff_session_v1.py",
+      "sha256": "698e1b1cec9d67dc18c08fe97eb208ca9f988ea9ed75eea7257a551a17f4c2d0",
+      "size": 9762
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_adapter_v3.py",
+      "sha256": "dffc5761b20c13d90158c3fb31d177180b5a4e09ac2bb5f341bc6c8232eca0a3",
+      "size": 64175
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_records_v3.py",
+      "sha256": "111611417233cd9c3a793ec754bdf9ae8b98c864d405d273083301a2e78ea0e4",
+      "size": 6915
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_session_v3.py",
+      "sha256": "98e18557bfa92aadea103f5a3e3bac064437d0f5bb0c95d4ce29e93fe8907727",
+      "size": 28012
+    },
+    {
+      "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/revalidation/s22plus_native_task_v3.py",
+      "sha256": "7bae6c4a4c77635f2fd24d4b3dffa36d7ed5ae18e1a6706c5a9b42e0d0a86991",
+      "size": 36766
+    }
+  ],
+  "verdict": "PASS_GO"
+}

@@ -40,9 +40,14 @@ The [H0 qualification](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_H0_2026-10-23.md
 retains actual A/B packages, 27 real-Debian ARM64 VM cases, ten component cases,
 120 focused tests and independent review of 141 host/159 runtime sources.
 The [terminal-tool correction](docs/reports/S22PLUS_APPROVED_TERMINAL_AUTOBOOT_H0_2026-10-23.md)
-started P456 through the approved connector. Normal physical-return continuation
-still required a manual CLI command; completing that host-only connector path
-is the current bounded tooling unit. It grants no new device experiment.
+started P456 through the approved connector. The
+[continuation extension](docs/reports/S22PLUS_APPROVED_TERMINAL_RESUME_H0_2026-10-24.md)
+adds fixed original-return and raw-proved post-A health tools for automatic boot,
+with 41 passing connector tests, eight original-owner tests and independent
+**PASS_GO**, with no change to the closed P456 task. The idle worker must load
+the new review on restart before future use; the MCP connection must expose its
+six tools. This completed H0 unit grants no new device experiment. Persistence
+and ordinary Debian reboot remain future separately qualified work.
 
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:

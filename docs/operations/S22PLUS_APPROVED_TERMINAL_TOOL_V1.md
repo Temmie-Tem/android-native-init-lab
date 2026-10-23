@@ -6,7 +6,8 @@ binding; no device authority**.
 The operator requested a tool connecting the ordinary terminal to this chat.
 Its bounded purpose is to start an already reviewed and explicitly approved
 S22+ root-evidence, journal-recovery or Debian automatic-boot task, then expose
-status and bounded logs. The fixed profiles select one attended operation:
+status and bounded logs. Automatic boot also has fixed original-return and
+post-return health continuations. The fixed profiles select one attended operation:
 root-evidence and journal-recovery have 1800 seconds; `debian-autoboot-v1`
 selects only `debian-autoboot` with 3600 seconds. The task still has no E.
 The benefit is removing repeated manual launch commands while preserving the
@@ -22,13 +23,14 @@ same receipt. Earlier core receipts retain their original `status` format.
 The operator starts the foreground worker as the original uid/euid 1000 in an
 ordinary terminal with NoNewPrivs=0. It remains unprivileged. No setuid binary,
 polkit rule, system service, sandbox setting or process privilege flag is
-changed. A Codex STDIO MCP process forwards four fixed tool operations over a
+changed. A Codex STDIO MCP process forwards six fixed tool operations over a
 same-UID, mode-0600 Unix socket inside a mode-0700 runtime directory. There is
 no TCP listener, tunnel, shell command field, stdin injection or arbitrary
 executable/path selection. The worker never opens ADB, USB or serial endpoints.
 
 The tools report worker status, report a prepared task's status, dispatch its
-approved entry once, and return a bounded tail of its launcher/execution log.
+approved entry once, continue an automatic-boot return, resume post-A health,
+and return bounded tails of the four fixed logs.
 Preparation directories must be direct S22+ H0 outputs in this repository.
 The original task/proposal, current capability source hashes, frozen snapshot
 manifest, independent prepared-entry review, exact entry and predecessor pins
@@ -54,7 +56,7 @@ approval or renewable budget.
 
 The entry owns a separate process session with logs on disk. Closing the MCP
 connection or worker does not terminate it. The tool has no cancel, kill,
-continue, recover or force-retry operation. After a worker restart, PID/start
+general recovery or force-retry operation. After a worker restart, PID/start
 identity, launch records and original task records are observations only;
 missing process/output never proves that the operation did not execute.
 Ctrl-C stops the worker accepting new requests. It is not a device recovery.
@@ -74,6 +76,49 @@ Local same-UID repository tampering remains outside the repository's ordinary
 threat model; other UIDs, path confusion, accidental replay and partial output
 are checked within this tool's scope.
 
+## Existing automatic-boot continuation
+
+`continue_approved_task` selects only `debian-autoboot-v1` and the existing
+single `operation-0001`. It requires the original dispatch to have a bound
+process-exit record, the same host epoch, an unexpired original grant, the same
+active F1 owner, consumed operation, four complete pre-return steps revalidated
+by the original raw consumers, and the exact `debian-return-ready.json` bound
+to that operation and shutdown. Its original deadline, capped at ten minutes,
+must remain current. A stopped journal, Android-return start/intent/result,
+terminal, unused operation, closed task or competing live owner rejects the
+request before process creation. Physical Download remains the operator's
+action; the original runner checks its exact endpoint. Existing attendance and
+approval apply without a second grant or approval request.
+
+`resume_approved_health` is a separate automatic-boot path for the observed
+post-A read-failure case. It requires exactly one `install-android` transfer
+intent and the original adapter's raw-derived completed transfer. Missing or
+uncertain transfer evidence rejects it; it never selects a general recovery
+path. The fixed command is the original `recover --attended` CLI for the same
+operation, whose existing-A branch reconstructs that transfer and performs only
+remaining health/closure. It cannot fall through to another A transfer. An
+expired grant may retain its original recovery semantics, but the host epoch,
+owner, artifacts and current source closure must still match. No deadline is
+renewed. Healthy terminals and closed tasks require no device continuation.
+
+Each continuation has its own exclusive durable intent before spawn, bound to
+the original start, task, approval, grant, operation, journal tail, applicable
+ready/raw-A proof and current bridge review. It has a separate process/result
+and bounded log (`continuation` or `health`). Duplicate or uncertain requests
+return their existing state; a spawn error never permits a retry. A subsequent
+health continuation requires any earlier normal continuation to have a bound
+process exit. The existing target lease excludes a running manual owner during
+admission; the original CLI takes that lease and rechecks the durable journal
+before any action. A manual invocation racing the launch cannot replay an
+already-intended transfer. A process exit is never healthy closure.
+
+These are the existing owner/no-replay requirements applied to two missing
+transport operations. They address duplicate return and uncertain-transfer
+hazards, apply only to the named automatic-boot continuation, and resolve when
+the original owner proves healthy closure. Changes to continuation, transfer
+or recovery semantics trigger independent review. They add no research budget,
+new image, new experiment, native control replay or new recovery mechanism.
+
 ## Qualification and use
 
 Independent review must bind the reachable bridge source, record helper and
@@ -87,7 +132,7 @@ No fixture launches a physical entry. The live connection is verified with
 status only after the operator starts the reviewed worker.
 `bridge_status` reports the loaded review identity; connection alone does not
 prove that a running worker has loaded the newly reviewed implementation.
-The automatic-boot extension has its own review binding; retained reviews and
+Each transport extension has its own review binding; retained reviews and
 consumed dispatch records are not repinned. It adds no live reload or restart
 command. The operator stops the old idle listener with Ctrl-C and starts the
 same `serve` command below after qualification.
@@ -107,7 +152,7 @@ python3 /home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/ho
 ```
 
 The `s22_approved_terminal` Codex MCP registration runs the same script with
-`mcp`. Reload that MCP server or reopen Codex after registration if the four
+`mcp`. Reload that MCP server or reopen Codex after registration if the six
 tools are not yet visible. `bridge_status` confirms the connection without
 opening a task, and `task_status` can inspect the retained P454 preparation.
 Keep the worker terminal open during use and the operator physically present

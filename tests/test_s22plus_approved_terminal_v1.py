@@ -50,7 +50,8 @@ def fixture(root, ordinal=1, entry=None, *,
         seconds=seconds if seconds is not None else selected_seconds, operation_budget=1,
         recovery_mode='attended', review=public, runtime_scope=records.read(Path(public['path']))['runtime_sources'],
         target={'fixture': 's22plus'}, A={'fixture': 'original-a'}))
-    proposal = save(directory / 'proposal.json', dict(task=task, approval='FIXTURE APPROVAL'))
+    approval = f"APPROVE S22PLUS NATIVE V3 {task['sha256']} {seconds if seconds is not None else selected_seconds}s 1operations attended"
+    proposal = save(directory / 'proposal.json', dict(task=task, approval=approval))
     snapshot = save(base / 'snapshot.json', {'fixture': True})
     prepared = save(base / 'prepared-validation.json', dict(status='READY_H0_PRELIVE_ONLY',
         task=task, proposal=proposal, source_snapshot=snapshot, review=public))
@@ -65,7 +66,7 @@ def fixture(root, ordinal=1, entry=None, *,
         entry=entry_pin, source_snapshot=snapshot, public_binding=public, capability_review=core,
         actual_preceding_closed=previous))
     save(base / 'operator-approval.json', dict(task=task, entry=entry_pin, preceding_closed=previous,
-        selected_returned_approval='FIXTURE APPROVAL', actual_user_text='fixture only'))
+        selected_returned_approval=approval, actual_user_text='fixture only'))
     return base
 
 
@@ -230,7 +231,7 @@ class TerminalTests(unittest.TestCase):
         approval.unlink(); self.rejected_before_intent()
         value['selected_returned_approval'] = 'wrong'
         save(approval, value); self.rejected_before_intent()
-        value['selected_returned_approval'] = 'FIXTURE APPROVAL'; value['actual_user_text'] = ' '
+        value['selected_returned_approval'] = records.read(self.base / 'offline-prepared-1/task/proposal.json')['approval']; value['actual_user_text'] = ' '
         save(approval, value); self.rejected_before_intent()
 
     def test_changed_entry_review_or_sources_block(self):
@@ -332,7 +333,9 @@ class TerminalTests(unittest.TestCase):
                 bridge.mcp(io.BytesIO(b''.join(records.canonical(r) for r in requests)), output, transport=transport)
                 responses = [json.loads(line) for line in output.getvalue().splitlines()]
                 self.assertEqual(responses[0]['error']['code'], -32601)
-                self.assertEqual(len(responses[2]['result']['tools']), 4)
+                self.assertEqual({row['name'] for row in responses[2]['result']['tools']},
+                    {'bridge_status', 'task_status', 'task_log', 'start_approved_task',
+                     'continue_approved_task', 'resume_approved_health'})
                 self.assertFalse(responses[3]['result']['isError'])
             finally:
                 server.shutdown(); thread.join()
@@ -344,7 +347,9 @@ class TerminalTests(unittest.TestCase):
             dict(jsonrpc='2.0', method='notifications/initialized'), dict(jsonrpc='2.0', id=2, method='tools/list')]
         result = subprocess.run(['/usr/bin/python3', str(SOURCE), 'mcp'], input=b''.join(records.canonical(r) for r in requests), capture_output=True, timeout=5)
         self.assertEqual(result.returncode, 0)
-        self.assertEqual(len(json.loads(result.stdout.splitlines()[1])['result']['tools']), 4)
+        self.assertEqual({row['name'] for row in json.loads(result.stdout.splitlines()[1])['result']['tools']},
+            {'bridge_status', 'task_status', 'task_log', 'start_approved_task',
+             'continue_approved_task', 'resume_approved_health'})
         self.assertFalse(result.stderr)
         output = io.BytesIO()
         request = dict(jsonrpc='2.0', id=3, method='tools/call', params=dict(name='bridge_status', arguments={}))
@@ -369,6 +374,194 @@ class TerminalTests(unittest.TestCase):
         self.assertIn('fixture done', self.controller.log(str(self.base))['text'])
         self.assertFalse((self.base / bridge.DISPATCH / 'result.json').exists())
         self.assertFalse(self.controller.start(str(self.base))['dispatched'])
+
+
+class ContinuationTests(unittest.TestCase):
+    """Real immutable grants/journals/owner/lease, harmless fixed CLI fixture."""
+    def setUp(self):
+        from s22plus_native_adapter_v3 import Adapter
+        from s22plus_debian_autoboot_session_v1 import normal_steps
+        self.temp = tempfile.TemporaryDirectory(prefix='s22t-', dir='/tmp')
+        self.root = Path(self.temp.name)
+        self.base = fixture(self.root, profile='debian-autoboot-v1')
+        self.controller = bridge.Controller(self.root, bridge_check=lambda root: {'fixture': True})
+        self.controller.start(str(self.base))
+        self.wait_phase(bridge.DISPATCH)
+        self.directory = self.base / 'offline-prepared-1/task'
+        self.operation = self.directory / 'operation-0001'; self.operation.mkdir(mode=0o700)
+        self.task = records.pin(self.directory / 'task.json')
+        task = records.read(self.directory / 'task.json')
+        now = records.clock()
+        self.grant = save(self.directory / 'grant.json', dict(schema=records.SCHEMA,
+            task=self.task, directory=str(self.directory), host_boot=records.host_boot(),
+            opened_ns=now-1_000_000_000, deadline_ns=now-1_000_000_000+3600_000_000_000,
+            operation_budget=1, recovery_mode='attended', operator_statement='fixture attended',
+            returned_approval=records.read(self.directory / 'proposal.json')['approval']))
+        self.request = dict(schema=records.SCHEMA, operation='debian-autoboot', task=self.task,
+            grant=self.grant, N=task['N'], A=task['A'], E=None, reentry=False, hud=False,
+            usb_reconnect=False, admission=None, prior_terminal=None)
+        self.op_pin = save(self.operation / 'operation.json', self.request)
+        save(self.operation / 'consumed.json', dict(schema=records.SCHEMA,
+            operation_sha256=self.op_pin['sha256'], grant=self.grant))
+        self.journal = records.Journal(self.operation / 'journal')
+        for step in normal_steps()[:4]:
+            proof = save(self.operation / (step.name+'.json'), dict(action=step.action, role=step.role))
+            self.journal.append('step-start', step=step.name, action=step.action, role=step.role)
+            if step.action != 'debian-health':
+                self.journal.append('effect-intent', step=step.name, action=step.action, role=step.role)
+            self.journal.append('step-complete', step=step.name, result=proof)
+        save(self.operation / 'debian-return-ready.json', dict(operation=self.op_pin,
+            shutdown=records.pin(self.operation / 'debian-shutdown.json'),
+            requested_ns=now, deadline_ns=now+600_000_000_000))
+        bridge.registry.initialize(self.root)
+        bridge.registry.begin_f1_owner(self.root, self.operation, self.op_pin['sha256'])
+        cli = self.root / 'workspace/public/src/scripts/revalidation/s22plus_native_task_v3.py'
+        cli.parent.mkdir(parents=True)
+        cli.write_text("import sys,time\nfrom pathlib import Path\nassert len(sys.argv)==6\nassert sys.argv[1]=='--root' and sys.argv[5]=='--attended'\nassert sys.argv[3] in ('continue','recover')\np=Path(sys.argv[4])\nwith (p/('fixture-'+sys.argv[3])).open('x') as f:f.write('once')\nprint('fixture '+sys.argv[3],flush=True)\ntime.sleep(0.05)\n")
+        # Only device/profile consumers are fixtures; original record, grant,
+        # clock, global owner and session lease validation run unmodified.
+        self.check = mock.patch.object(Adapter, 'check'); self.check.start()
+        self.results = mock.patch.object(Adapter, 'validate_result', side_effect=
+            lambda step,value,request: bridge.require(value == dict(action=step.action,role=step.role), 'fixture raw mismatch'))
+        self.results.start()
+        self.raw = mock.patch.object(Adapter, 'recover_transfer_result', return_value=
+            dict(action='transfer', role='A', completed=True, raw='fixture-only'))
+        self.raw_mock = self.raw.start()
+
+    def tearDown(self):
+        for phase, _ in bridge.CONTINUATIONS.values():
+            path = self.base / phase / 'spawned.json'
+            if path.exists() and not (path.parent / 'result.json').exists():
+                self.wait_phase(phase)
+        self.raw.stop(); self.results.stop(); self.check.stop(); self.temp.cleanup()
+
+    def wait_phase(self, phase):
+        result = self.base / phase / 'result.json'
+        deadline = time.monotonic()+3
+        while not result.exists() and time.monotonic()<deadline: time.sleep(0.01)
+        self.assertTrue(result.exists())
+        return records.read(result)
+
+    def call(self, tool='continue_approved_task'):
+        return self.controller.call(tool, dict(preparation_directory=str(self.base)))
+
+    def reject(self, tool='continue_approved_task'):
+        with mock.patch.object(bridge.subprocess, 'Popen', side_effect=AssertionError('no process permitted')) as spawn:
+            with self.assertRaises((ValueError, OSError, KeyError, bridge.registry.RegistryError)):
+                self.call(tool)
+            spawn.assert_not_called()
+        self.assertFalse((self.base / bridge.CONTINUATIONS[tool][0] / 'intent.json').exists())
+
+    def android_complete(self):
+        self.journal.append('step-start', step='install-android', action='transfer', role='A')
+        self.journal.append('effect-intent', step='install-android', action='transfer', role='A')
+        self.journal.append('stopped', error_type='fixture_adb_read_failure')
+
+    def test_real_socket_continue_is_once_and_preserves_original_records(self):
+        protected = {p:p.read_bytes() for p in self.directory.rglob('*.json')}
+        endpoint = self.root/'resume.sock'
+        with bridge.Server(str(endpoint), bridge.Handler) as server:
+            endpoint.chmod(0o600); server.controller=self.controller
+            thread=threading.Thread(target=server.serve_forever,daemon=True); thread.start()
+            try:
+                args={'preparation_directory':str(self.base)}
+                result=bridge.forward('continue_approved_task',args,endpoint=endpoint)
+                self.assertTrue(result['ok']); self.assertTrue(result['value']['dispatched'])
+                self.assertFalse(bridge.forward('continue_approved_task',args,endpoint=endpoint)['value']['dispatched'])
+            finally: server.shutdown(); thread.join()
+        self.assertEqual(self.wait_phase(bridge.CONTINUATIONS['continue_approved_task'][0])['returncode'],0)
+        self.assertTrue((self.operation/'fixture-continue').exists())
+        self.assertIn('fixture continue',self.controller.log(str(self.base),'continuation')['text'])
+        for p,data in protected.items(): self.assertEqual(p.read_bytes(),data)
+
+    def test_health_only_after_raw_proved_android_and_preserves_expired_grant(self):
+        self.reject('resume_approved_health')
+        self.android_complete()
+        # Grant expiry does not renew it or change original-A recovery semantics.
+        with mock.patch.object(records, 'clock', return_value=records.read(Path(self.grant['path']))['deadline_ns']+1):
+            self.assertTrue(self.call('resume_approved_health')['dispatched'])
+        self.assertEqual(self.wait_phase(bridge.CONTINUATIONS['resume_approved_health'][0])['returncode'],0)
+        self.raw_mock.assert_called()
+        self.assertEqual(records.pin(Path(self.grant['path'])),self.grant)
+        self.assertTrue((self.operation/'fixture-recover').exists())
+        self.assertFalse((self.operation/'fixture-continue').exists())
+        self.assertFalse(self.call('resume_approved_health')['dispatched'])
+
+    def test_uncertain_android_raw_never_dispatches_recover(self):
+        self.android_complete()
+        self.raw_mock.side_effect=ValueError('uncertain transfer')
+        self.reject('resume_approved_health')
+
+    def test_stopped_or_prior_return_never_dispatches_continue(self):
+        self.android_complete(); self.reject()
+
+    def test_closed_terminal_unused_or_ambiguous_operation_rejected(self):
+        for path in (self.directory/'closed.json', self.operation/'terminal.json', self.operation/'unused.json', self.directory/'operation-0002'):
+            path.touch(); self.reject(); path.unlink()
+
+    def test_missing_or_wrong_owner_rejected(self):
+        owner=self.root/bridge.registry.F1_OWNER; data=owner.read_bytes()
+        owner.unlink(); self.reject()
+        save(owner,dict(wrong=True)); owner.chmod(0o400); self.reject()
+        owner.unlink(); owner.write_bytes(data); owner.chmod(0o400)
+
+    def test_active_original_owner_lease_rejected(self):
+        with bridge.registry.target_session_lease(self.root): self.reject()
+
+    def test_unresolved_or_running_entry_rejected(self):
+        folder=self.base/bridge.DISPATCH; path=folder/'result.json'; before=path.read_bytes()
+        path.unlink(); self.reject(); path.write_bytes(before)
+        with mock.patch.object(bridge,'process_alive',return_value=True): self.reject()
+
+    def test_wrong_host_epoch_and_expired_return_request_rejected(self):
+        with mock.patch.object(records,'host_boot',return_value='different-host'): self.reject()
+        import s22plus_native_session_v3 as native_session
+        ready=records.read(self.operation/'debian-return-ready.json')
+        with mock.patch.object(records,'clock',return_value=ready['deadline_ns']), \
+                mock.patch.object(native_session,'clock',return_value=ready['deadline_ns']): self.reject()
+
+    def test_wrong_ready_pin_missing_prefix_and_changed_approval_rejected(self):
+        for path in (self.operation/'debian-shutdown.json', self.operation/'debian-health.json', self.base/'operator-approval.json'):
+            before=path.read_bytes(); path.write_bytes(before+b' '); self.reject(); path.write_bytes(before)
+        path=self.operation/'debian-return-ready.json'; before=path.read_bytes()
+        value=records.read(path); value['operation']=self.task; save(path,value); self.reject(); path.write_bytes(before)
+
+    def test_changed_source_and_review_rejected(self):
+        path=self.root/'runtime.json'; before=path.read_bytes()
+        path.write_bytes(before+b' '); self.reject(); path.write_bytes(before)
+        self.controller.bridge_check=lambda root:{'different':True}; self.reject()
+
+    def test_concurrent_continuations_dispatch_once(self):
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+            results=list(pool.map(lambda _:self.call(),range(4)))
+        self.assertEqual(sum(row['dispatched'] for row in results),1)
+        self.wait_phase(bridge.CONTINUATIONS['continue_approved_task'][0])
+
+    def test_continuation_spawn_error_is_consumed_after_restart(self):
+        with mock.patch.object(bridge.subprocess,'Popen',side_effect=OSError('fixture spawn failure')):
+            with self.assertRaises(OSError):self.call()
+        restarted=bridge.Controller(self.root,bridge_check=lambda root:{'fixture':True})
+        self.assertFalse(restarted.call('continue_approved_task',dict(preparation_directory=str(self.base)))['dispatched'])
+        (self.base/bridge.CONTINUATIONS['continue_approved_task'][0]/'result.json').unlink()
+        self.assertFalse(self.call()['dispatched'])
+
+    def test_prior_continuation_must_finish_before_health_resume(self):
+        self.call(); self.wait_phase(bridge.CONTINUATIONS['continue_approved_task'][0])
+        self.android_complete()
+        path=self.base/bridge.CONTINUATIONS['continue_approved_task'][0]/'result.json'
+        data=path.read_bytes(); path.unlink(); self.reject('resume_approved_health'); path.write_bytes(data)
+        self.assertTrue(self.call('resume_approved_health')['dispatched'])
+        self.wait_phase(bridge.CONTINUATIONS['resume_approved_health'][0])
+
+    def test_schema_exposes_no_command_or_approval_override(self):
+        definitions={row['name']:row for row in bridge.tools()}
+        for tool in bridge.CONTINUATIONS:
+            schema=definitions[tool]['inputSchema']
+            self.assertEqual(set(schema['properties']),{'preparation_directory'})
+            self.assertFalse(schema['additionalProperties'])
+            self.assertFalse(definitions[tool]['annotations']['readOnlyHint'])
+            with self.assertRaises(ValueError):
+                self.controller.call(tool,dict(preparation_directory=str(self.base),command='anything'))
 
 
 if __name__ == '__main__':
