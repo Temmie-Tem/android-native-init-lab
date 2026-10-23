@@ -23,11 +23,18 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-The next selected H0 unit is [P458 ordinary reboot feasibility](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_DESIGN_H0_2026-10-24.md):
-one requested reboot and two healthy Debian boots using the retained minimal
-architecture. Qualify the shutdown dependencies and second-boot admission on
-private ARM64 VM disks first. Package/cron workloads and server work are outside
-this unit; this selection grants no device effect.
+[P458 ordinary reboot feasibility](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_H0_2026-10-24.md)
+is **PASS_H0_REBOOT_FEASIBILITY** after independent review. One ordinary SysV
+reboot produces two real ARM64 VM Debian boots, each with over 120 seconds of
+service/SSH evidence, the same SSH key and exact first-boot file retention.
+Five mount-frontier cases, fifteen cut/reader cases, three first-boot failure
+cases and eleven host tests pass; all eleven past-failure checklist IDs are
+reconciled. The second-boot mount-counter guard also rejects a clean error-
+unmount before file creation. It does not bound first-boot pre-record attempts
+or physical kernel starts. Actual dmesg rotation needs finite production rules.
+The bounded H0 design/proposal unit is complete; no physical candidate, complete
+root admission, policy activation or new device grant is claimed. Package/cron
+workloads and server work remain outside this unit.
 
 [P457 persistence read](docs/reports/S22PLUS_AUTOBOOT_PERSISTENCE_P457_RUN_2026-10-24.md)
 is consumed with **PASS_P456_LIVE_PAIR_RETAINED_AFTER_ANDROID_RETURN** and
@@ -545,17 +552,19 @@ assumed.
 
 P457 is the latest closed healthy unit. Together with the original P456 live
 proof, it confirms the selected headless service/SSH path and subsequent
-retention of that same boot's two authenticated files. The next bounded H0
-unit is P458's ordinary Debian reboot design and executable ARM64 feasibility
-checks using the retained minimal initial-PID1 architecture. Qualify the
-exact P456 history and each proposed writable lifetime through the existing
-complete protected-root admission. Define its finite reboot ownership, fresh
-per-boot records and original-A return before any physical successor. The
-completion criterion is a tested concrete successor proposal, including the
-second-boot consumption boundary and interrupted paths; P457's read
-grant is consumed and supplies no new boot or writable authority. Clean
-filesystem shutdown and the historical watchdog/reset uncertainty remain
-separate from proved file retention and healthy Android return.
+retention of that same boot's two authenticated files. P458 completed the
+ordinary-reboot H0 design, actual ARM64 feasibility and interrupted-path checks.
+Its [concrete successor scope](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_H0_2026-10-24.md#smallest-physical-successor-decision)
+uses the retained minimal architecture and existing production consumers.
+The next implementation unit must qualify exact P456 history, finite dmesg
+rotation and both phases through complete protected-root admission; resolve
+any stronger first-phase baseline claim; and extend the actual owner to one
+reboot, a fixed second observation window, fresh per-boot evidence and original-A
+return. Current automatic policy admits one installed lifetime. Its reviewed
+specialization, actual artifact qualification and a new attended finite grant
+must precede physical use. P457's read grant remains consumed. Physical clean
+shutdown and watchdog/reset uncertainty remain separate from VM evidence,
+proved file retention and healthy Android return.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the

@@ -75,6 +75,15 @@ ABI·SEMANTIC 누락과, 새 선택의 관측 주체 등록을 빠뜨린 ROUTE·
 첫 VM의 기능 성공과 뒤의 해석 실패를 분리하고 원본 로그를 보존했다.
 새 ID나 승인 단계는 추가하지 않으며 실기 성공을 뜻하지 않는다.
 
+2026-10-24 H0 갱신: [P458 재부팅 검증과 11개 ID 대조](../reports/S22PLUS_DEBIAN_REBOOT_P458_H0_2026-10-24.md#past-failure-checklist-reconciliation)는
+실제 SSH factory의 인자 타입, 저장된 상대경로를 거부하는 원래 receipt 소비기,
+인증 기록과 요약의 baseline·시계·PID 연결 누락을 실기 전에 수정했다.
+두 번의 실제 ARM64 Debian 부팅과 중단·거부 시험으로 확인하고, 기존 raw와
+소스 snapshot을 보존했다. 파일 생성 전 RW mount 뒤 clean error-unmount도
+소비를 되돌리지 않음을 확인했지만, 최초 기록 전 시도 전체를 제한했다고
+주장하지 않는다. 기존 IO·SEMANTIC·WIRE·PERSIST·ROUTE 항목의 적용이며
+새 ID, 승인 단계 또는 실기 권한을 추가하지 않는다.
+
 ## 사용 방법
 
 1. S22+ 변경마다 이 표를 확인하고, 비싼 빌드나 기기 실험 전에 실제로 도달하는 코드에 해당하는 항목을 고른다.
