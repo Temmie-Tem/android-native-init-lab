@@ -23,22 +23,26 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P456 minimal boot](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_H0_2026-10-23.md)
-is **PASS_H0 / PASS_GO**, with a concrete **READY_H0_PRELIVE_ONLY** task.
-A required sealed RAM sequence checks inherited mounts
-and runs Debian hostname, mdev, urandom and bootmisc before the unchanged
-packaged runlevel-2 services. It retains both complete protected-root admissions,
-service/SSH/shutdown predicates and physical original-A recovery. The exact
-P452 pair from closed P455 is prospective history, never admission by itself.
-The actual A/B packages, 27 real-Debian ARM64 VM cases, ten ARM64 component
-cases and 120 focused tests pass. Independent review covers 141 host and 159
-runtime/collector sources with no open findings. The eleven past-failure
-checklist items were applied, including sparse-device dependency and collector
-route fixes. The exact one-operation/3600-second attended approval has been
-returned and recorded; no P456 grant or device effect exists. The
-[terminal-tool correction](docs/reports/S22PLUS_APPROVED_TERMINAL_AUTOBOOT_H0_2026-10-23.md)
-connects this profile to the existing tool; its updated worker must be loaded
-before tool dispatch. The prepared task, entry and returned approval are unchanged.
+[P456 minimal boot](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_RUN_2026-10-24.md)
+is consumed with **PASS_DEBIAN_AUTOMATIC_INITIAL_PID1_TO_SSH** and
+**ANDROID_CLOSED_HEALTHY**. One real boot proves Debian initial PID1, installed
+SysVinit PID1, the selected minimal sysinit and runlevel 2, 120-second sampled
+init/cron/sshd liveness, NCM and two same-boot SSH responses 126.830 seconds apart.
+The fixed shutdown request and departure completed. N and original A were each
+transferred once. A post-A ADB read failed; only the remaining health checks
+continued, with no additional transfer. The 346 raw captures and unchanged
+19-row journal were rederived before task closure; no F1 owner remains.
+Fixed same-returned-boot retained-log D0 supplied no authenticated transition
+facts, separate from the complete live proof. Clean native filesystem shutdown,
+next-boot persistence and ordinary Debian reboot remain unproved.
+
+The [H0 qualification](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_H0_2026-10-23.md)
+retains actual A/B packages, 27 real-Debian ARM64 VM cases, ten component cases,
+120 focused tests and independent review of 141 host/159 runtime sources.
+The [terminal-tool correction](docs/reports/S22PLUS_APPROVED_TERMINAL_AUTOBOOT_H0_2026-10-23.md)
+started P456 through the approved connector. Normal physical-return continuation
+still required a manual CLI command; completing that host-only connector path
+is the current bounded tooling unit. It grants no new device experiment.
 
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:
@@ -508,12 +512,12 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P455 is the latest closed healthy unit. The P452 pair proves installed PID1
-and rcS entry/fork, while physical services/SSH remain unproved. P456 is the
-selected minimal functional successor with H0 qualification complete and an
-unexecuted finite attended proposal. Keep physical
-NO_PROOF, positive retained facts, VM capability and healthy Android return
-distinct; no watchdog/reset cause has been proved.
+P456 is the latest closed healthy unit and proves the selected one-boot
+headless Debian service/SSH path. Finish the host-only connector continuation
+requested by the operator. Further native boots or persistence experiments
+need their own qualified scope and current protected-root admission; P456 is
+consumed. Its sampled service/SSH proof, healthy Android return, unproved clean
+filesystem shutdown and historical watchdog/reset uncertainty remain distinct.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -521,8 +525,8 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P450/P451 and P452 through P455 are consumed and closed. The exact P455 pair
-is prospective P456 history; P454's negative complete-root result remains.
+P450/P451 and P452 through P456 are consumed and closed. The exact P455 pair
+was qualified P456 history; P454's historical negative complete-root result remains.
 Neither the reader's clean superblock nor original-A health proves complete
 writer eligibility. Both current protected admissions, current review and
 qualification, and a returned attended finite grant remain required. Do not
@@ -532,12 +536,11 @@ Compare only source-bound per-boot facts when choosing a functional successor;
 optional cause analysis does not replace current-root admission or reopen a
 consumed action. All new work starts from the closed healthy Android state.
 
-1. **Integrated headless access:** qualify one complete Debian-owned boot path
-   through platform preparation, protected root admission, installed PID1,
-   rcS/runlevel 2, 120 seconds of sampled init/cron/sshd liveness, Debian NCM
-   and same-boot pinned SSH. Include useful bounded observations in that path
-   without turning each record into a separate whole-device milestone. Close
-   through the selected fixed shutdown and original-A return/health procedure.
+1. **Integrated headless access:** P456 proves the selected minimal one-boot
+   path through initial/installed PID1, protected admissions, runlevel 2,
+   120-second sampled init/cron/sshd liveness, NCM and same-boot pinned SSH.
+   The fixed shutdown request and original-A return/health completed; clean
+   native filesystem shutdown is a separate unproved property.
 2. **Persistence and ordinary service:** after healthy closure, qualify
    package-managed service behavior, retained data/configuration and ordinary
    Debian reboot under the applicable separate scope.
