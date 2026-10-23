@@ -23,6 +23,20 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P457 persistence read](docs/reports/S22PLUS_AUTOBOOT_PERSISTENCE_P457_RUN_2026-10-24.md)
+is consumed with **PASS_P456_LIVE_PAIR_RETAINED_AFTER_ANDROID_RETURN** and
+**ANDROID_CLOSED_HEALTHY**. P456's early 10,972-byte / 14-record file and runtime
+3,456-byte / 25-record file match its original physical live snapshot byte for
+byte, with the same authenticated boot and nonce. The records through
+SERVICES_120S_COMPLETE survived the Android return. The protected mountless
+view is state 1 / RECOVER 0 / orphan 0, with no mount, replay or filesystem write.
+N/A each transferred once. A post-A inventory returned exit 0 but no target;
+the original selector stopped, then the existing health-only recovery branch
+completed at 103.920 seconds without another transfer. H0 closure rederived
+648 raw captures and the unchanged 20-row journal; no F1 owner remains.
+This proves selected file retention, not clean shutdown, complete current-root
+admission, a new Debian service lifetime or ordinary Debian reboot.
+
 [P456 minimal boot](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_RUN_2026-10-24.md)
 is consumed with **PASS_DEBIAN_AUTOMATIC_INITIAL_PID1_TO_SSH** and
 **ANDROID_CLOSED_HEALTHY**. One real boot proves Debian initial PID1, installed
@@ -33,8 +47,9 @@ transferred once. A post-A ADB read failed; only the remaining health checks
 continued, with no additional transfer. The 346 raw captures and unchanged
 19-row journal were rederived before task closure; no F1 owner remains.
 Fixed same-returned-boot retained-log D0 supplied no authenticated transition
-facts, separate from the complete live proof. Clean native filesystem shutdown,
-next-boot persistence and ordinary Debian reboot remain unproved.
+facts, separate from the complete live proof. Clean native filesystem shutdown
+and ordinary Debian reboot remain unproved; P457 separately verifies the two
+selected files' post-Android-return persistence.
 
 The [H0 qualification](docs/reports/S22PLUS_DEBIAN_MINIMAL_P456_H0_2026-10-23.md)
 retains actual A/B packages, 27 real-Debian ARM64 VM cases, ten component cases,
@@ -51,8 +66,8 @@ keeps the connection stable while loading reviewed task code in fresh processes.
 It has 29 passing tests and independent **PASS_GO** for the next normal startup;
 the current worker remains intact and no further restart is requested now.
 Only the compatible MCP script for its next connection has been selected. These H0 tools grant no new device
-experiment. Persistence and ordinary Debian reboot remain separately qualified
-future work.
+experiment. Package/configuration persistence and ordinary Debian reboot remain
+separately qualified future work.
 
 [P455 post-replay read](docs/reports/S22PLUS_AUTOBOOT_EVIDENCE_P455_RUN_2026-10-23.md)
 is consumed and **ANDROID_CLOSED_HEALTHY**. Both P452 files are captured:
@@ -103,9 +118,9 @@ capture or recovery continuation. One N/A pair is consumed; no F1 owner remains.
 
 P455 closes the selected P452 file-pair retrieval after P454's replay. P454's
 ten unaccounted entries and negative complete-root comparison remain unchanged.
-The selected successor is P456 H0 preparation from this exact first-boot history;
-a writable candidate requires qualified history and complete protected
-current-root admission. No successor is granted by this read.
+This exact first-boot history was qualified for the later closed P456 run.
+A writable successor still requires qualified history and complete protected
+current-root admission. No successor is granted by this historical read.
 The [mountkernfs analysis](docs/reports/S22PLUS_MOUNTKERNFS_P453_ANALYSIS_H0_2026-10-23.md)
 still separates source-time work, reused mounts and three new model mounts.
 A forced pstore-mount failure returned script exit 0, so status alone is not
@@ -522,20 +537,18 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P456 is the latest closed healthy unit and proves the selected one-boot
-headless Debian service/SSH path. The operator ended connector work and resumed
-Debian development. P457 prepares the existing mountless read-only reader for
-P456's exact early/runtime files, to measure their retention after Android
-return and the present superblock state, RECOVER and orphan fields. Compare
-authenticated captured bytes with P456's live snapshot; the snapshot alone is
-not persistence proof. [P457 H0 preparation](docs/reports/S22PLUS_AUTOBOOT_PERSISTENCE_P457_H0_2026-10-24.md)
-is complete: qualified fresh artifact, independent PASS_GO and reviewed actual
-prelive proposal/entry, with no grant or device effect. Its one attended
-root-evidence operation (1800 seconds) awaits the actual returned finite grant.
-P456 is consumed. Its sampled service/SSH proof, healthy Android
-return, unproved clean filesystem shutdown and historical watchdog/reset
-uncertainty remain distinct. Later writable boot and ordinary Debian reboot
-need their own qualified scope and complete current protected-root admission.
+P457 is the latest closed healthy unit. Together with the original P456 live
+proof, it confirms the selected headless service/SSH path and subsequent
+retention of that same boot's two authenticated files. The next bounded H0
+unit is a concrete package-managed service/data-persistence and ordinary Debian
+reboot design using the retained minimal initial-PID1 architecture. Qualify the
+exact P456 history and each proposed writable lifetime through the existing
+complete protected-root admission. Define its finite reboot ownership, fresh
+per-boot records and original-A return before any physical successor. The
+completion criterion is a qualified concrete successor proposal; P457's read
+grant is consumed and supplies no new boot or writable authority. Clean
+filesystem shutdown and the historical watchdog/reset uncertainty remain
+separate from proved file retention and healthy Android return.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -543,8 +556,9 @@ Reuse root-transition, installed-init and same-first-gadget work, with the
 and current watchdog observations where useful. The product remains services
 and same-boot SSH; diagnostics do not become a second general runtime.
 
-P450/P451 and P452 through P456 are consumed and closed. The exact P455 pair
-was qualified P456 history; P454's historical negative complete-root result remains.
+P450/P451 and P452 through P457 are consumed and closed. The exact P455 pair
+was qualified P456 history; P457 now authenticates P456's complete selected pair.
+P454's historical negative complete-root result remains.
 Neither the reader's clean superblock nor original-A health proves complete
 writer eligibility. Both current protected admissions, current review and
 qualification, and a returned attended finite grant remain required. Do not
@@ -561,7 +575,8 @@ consumed action. All new work starts from the closed healthy Android state.
    native filesystem shutdown is a separate unproved property.
 2. **Persistence and ordinary service:** after healthy closure, qualify
    package-managed service behavior, retained data/configuration and ordinary
-   Debian reboot under the applicable separate scope.
+   Debian reboot under the applicable separate scope. P457 proves preservation
+   of P456's two run files, not this broader service/reboot milestone.
 3. **Later hardware:** Wi-Fi, display/input, audio and desktop follow the
    usable headless Debian base.
 
