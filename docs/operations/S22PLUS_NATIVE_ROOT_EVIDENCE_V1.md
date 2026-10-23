@@ -147,8 +147,8 @@ original-A root-health brackets, shell-v2, full GPT and Android32 statfs reads,
 including bounded pure-read reobservation. Offline preparation may use retained
 target/recovery bindings but claims no fresh health; execution repeats complete
 fresh checks. Neither preparation opens a grant, changes mode, mounts or reads
-native_data, or transfers an image. The current prospective P455 reader selects
-the dedicated capability record `s22plus_native_root_evidence_p455_review.json`.
+native_data, or transfers an image. The current prospective P457 reader selects
+the dedicated capability record `s22plus_native_root_evidence_p457_review.json`.
 The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p427_review.json`, consumed P429 review
 `s22plus_native_root_evidence_p429_review.json`, consumed P431 review
@@ -162,7 +162,8 @@ The earlier `s22plus_native_root_evidence_v1_review.json`, consumed P427 review
 `s22plus_native_root_evidence_p447_review.json`, consumed P449 review
 `s22plus_native_root_evidence_p449_review.json`, consumed P451 review
 `s22plus_native_root_evidence_p451_review.json`, consumed P453 review
-`s22plus_native_root_evidence_p453_review.json`, and all retained
+`s22plus_native_root_evidence_p453_review.json`, consumed P455 review
+`s22plus_native_root_evidence_p455_review.json`, and all retained
 artifacts preserve their original source identities; this selection does not
 repin an old review or renew a consumed reader. Only the new reviewed pair
 selects the two-file table and its declared binary bound. P440 seals the same
@@ -237,3 +238,14 @@ and P454's negative complete-root comparison remain unchanged. Neither the
 replay's clean superblock nor its healthy Android return proves the files'
 current contents, their boot/nonce join or writable-root admission. This reader
 adds no inventory, mount, repair, replay, write or installed execution.
+
+P457 seals exactly the early/runtime pair for the closed P456 automatic writer.
+P456's authenticated live service/SSH envelope supplies a comparison baseline;
+its early channel is a RAM mirror and does not establish file persistence.
+This fresh reader keeps the two paths, metadata, whole-file limits, partition
+RO, mountless acquisition and original-A return unchanged. Later captured
+files are authenticated against the original physical writer and compared
+with that live baseline, with boot/nonce joining checked separately. Current
+superblock state, RECOVER and orphan observations remain distinct from file
+retention, clean shutdown and complete writable-root admission. No replay,
+repair, filesystem write, installed execution or ordinary reboot is added.

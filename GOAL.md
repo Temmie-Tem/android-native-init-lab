@@ -523,11 +523,19 @@ assumed.
 ## Next bounded unit and milestones
 
 P456 is the latest closed healthy unit and proves the selected one-boot
-headless Debian service/SSH path. Finish the host-only connector continuation
-requested by the operator. Further native boots or persistence experiments
-need their own qualified scope and current protected-root admission; P456 is
-consumed. Its sampled service/SSH proof, healthy Android return, unproved clean
-filesystem shutdown and historical watchdog/reset uncertainty remain distinct.
+headless Debian service/SSH path. The operator ended connector work and resumed
+Debian development. P457 prepares the existing mountless read-only reader for
+P456's exact early/runtime files, to measure their retention after Android
+return and the present superblock state, RECOVER and orphan fields. Compare
+authenticated captured bytes with P456's live snapshot; the snapshot alone is
+not persistence proof. [P457 H0 preparation](docs/reports/S22PLUS_AUTOBOOT_PERSISTENCE_P457_H0_2026-10-24.md)
+is complete: qualified fresh artifact, independent PASS_GO and reviewed actual
+prelive proposal/entry, with no grant or device effect. Its one attended
+root-evidence operation (1800 seconds) awaits the actual returned finite grant.
+P456 is consumed. Its sampled service/SSH proof, healthy Android
+return, unproved clean filesystem shutdown and historical watchdog/reset
+uncertainty remain distinct. Later writable boot and ordinary Debian reboot
+need their own qualified scope and complete current protected-root admission.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
