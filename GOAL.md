@@ -23,16 +23,30 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P458 physical preparation](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_PHYSICAL_PREPARE_2026-10-25.md)
+has a verified fixed Android D0 baseline **M=18**, same-boot original-A health,
+an identical A/B physical candidate, all **25 ARM64 cases PASS**, and a qualified
+38,021,161-byte boot-only AP. The concrete unexecuted task selects one attended
+3600-second operation, two Debian boots and four bounded writable lifetimes
+through M+4=22. Independent **PASS_READY_H0_AND_UNEXECUTED_ENTRY** and the actual
+approved-tool bundle/status checks pass. No returned approval,
+grant, dispatch or new N/A transfer exists. The approved terminal worker is
+currently unavailable and has not been started. Fresh live preflight and all
+four complete protected admissions remain required at execution; no physical
+Debian reboot or final persistence is claimed. A90, S20+ and server work are
+untouched.
+
 [P458 production integration](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_INTEGRATION_H0_2026-10-25.md)
 is **PASS_H0_PRODUCTION_INTEGRATION** after independent **PASS_GO** review.
 The actual two-boot root/runtime/owner and finite rotation rules pass 25 ARM64
 integration cases, 121 focused tests, raw evidence rederivation and boot-only
 artifact qualification. All eleven past-failure checklist IDs are assessed
 (DISPLAY is inapplicable). Synthetic baseline packages are expressly rejected
-by physical image admission. The next physical candidate needs the reviewed
-fixed D0 baseline, fresh exact artifact qualification and its attended finite
-grant/current target-health-recovery binding. No device grant, device effect or
-server action was opened by this H0 task; A90 and S20+ remain isolated.
+by physical image admission. The later physical preparation above supplies its
+separate D0 baseline and exact artifact qualification; attended finite authority
+and current target-health-recovery binding remain execution requirements. No
+device grant, device effect or server action was opened by the integration
+task; A90 and S20+ remain isolated.
 
 [P458 ordinary reboot feasibility](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_H0_2026-10-24.md)
 is **PASS_H0_REBOOT_FEASIBILITY** after independent review. One ordinary SysV
@@ -561,21 +575,19 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P457 is the latest closed healthy unit. Together with the original P456 live
+P457 is the latest closed healthy F1 unit. Together with the original P456 live
 proof, it confirms the selected headless service/SSH path and subsequent
 retention of that same boot's two authenticated files. P458 completed the
-ordinary-reboot H0 design, actual ARM64 feasibility and interrupted-path checks.
-Its [concrete successor scope](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_H0_2026-10-24.md#smallest-physical-successor-decision)
-uses the retained minimal architecture and existing production consumers.
-The next implementation unit must qualify exact P456 history, finite dmesg
-rotation and both phases through complete protected-root admission; resolve
-any stronger first-phase baseline claim; and extend the actual owner to one
-reboot, a fixed second observation window, fresh per-boot evidence and original-A
-return. Current automatic policy admits one installed lifetime. Its reviewed
-specialization, actual artifact qualification and a new attended finite grant
-must precede physical use. P457's read grant remains consumed. Physical clean
-shutdown and watchdog/reset uncertainty remain separate from VM evidence,
-proved file retention and healthy Android return.
+ordinary-reboot design, production integration, exact P456 history and finite
+dmesg rules, both complete protected admissions per boot, and the two-boot owner.
+The separate physical preparation now supplies a fixed D0 baseline M=18 and
+a freshly qualified candidate. Its unexecuted task retains the
+[reviewed finite scope](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md): one ordinary
+reboot, a fixed second observation window, fresh per-boot evidence and physical
+original-A return. The prepared-entry review is complete; the exact finite
+attended approval may now be presented. No grant has been opened. P457's read grant
+remains consumed. Physical clean shutdown and watchdog/reset uncertainty remain
+separate from VM evidence, proved file retention and healthy Android return.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
