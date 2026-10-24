@@ -1,5 +1,6 @@
 """Bind automatic boot to its exact physical archive and real ARM64 corpus."""
 import hashlib
+from dataclasses import replace
 import gzip
 import io
 from pathlib import Path,PurePosixPath
@@ -8,6 +9,7 @@ import stat
 
 import device_action_raw_capture_v1 as raw
 import s22plus_debian_access_v1 as access
+import s22plus_debian_reboot_baseline_v1 as baseline
 import s22plus_debian_autoboot_profile_v1 as profile
 import s22plus_debian_autoboot_protocol_v1 as protocol
 import s22plus_debian_early_profile_v1 as early
@@ -70,8 +72,9 @@ def producer(built,*,virtual):
     post_p447=profile.post_p447_selected(built)
     script_channel=profile.script_channel_selected(built)
     minimal=profile.minimal_selected(built)
-    namespace=profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    reboot=profile.reboot_selected(built)
+    namespace=profile.reboot_spec.NAMESPACE if reboot else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.reboot_spec.VERSION if reboot else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
@@ -81,7 +84,7 @@ def producer(built,*,virtual):
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
     if transition:
-        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal) and
+        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot) and
             built['additional_history']==profile.additional_history(),'transition admission/observation differs')
     else:require('additional_history' not in built,'legacy producer cannot adopt new history')
     if rcs:require(built['runtime_history']==profile.runtime_history(),'rcS runtime history differs')
@@ -108,15 +111,15 @@ def producer(built,*,virtual):
             verify(built['headers']['installed/s22plus_autoboot_script_seal_v1.h']).read_bytes()==
             profile.script_spec(minimal).script_header(),'script channel generated declaration differs')
     else:require('script_declaration' not in built,'unselected script channel declaration')
-    if single_cpu:require(built['current_history']==profile.singlecpu_history(post_p447,script_channel,minimal),'single CPU authenticated history differs')
+    if single_cpu:require(built['current_history']==profile.singlecpu_history(post_p447,script_channel,minimal,reboot),'single CPU authenticated history differs')
     else:require('current_history' not in built,'legacy producer cannot adopt single CPU history')
     if 'transition_fault' in built:
         require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ())+
-                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ())+(profile.minimal_spec.FAULTS if minimal else ()),
+                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ())+(profile.minimal_spec.FAULTS if minimal else ())+(profile.reboot_spec.FAULTS if reboot else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
-    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)
+    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -129,16 +132,28 @@ def producer(built,*,virtual):
         'automatic fixed tools differ')
     require(built['measured']['helper_sha256']==built['helper']['sha256'] and
         set(built['measured'])=={'shell_sha256','init_sha256','helper_sha256'},'automatic measurements differ')
-    init,assets=profile.payloads(built['run_id'],virt=virtual,single_cpu=single_cpu,minimal=minimal)
+    init,assets=profile.payloads(built['run_id'],virt=virtual,single_cpu=single_cpu,minimal=minimal,reboot=reboot)
     require(built['installed_init']==dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()) and
         set(built['assets'])==set(assets)|{'hook'} and built['assets']['hook']==built['hook'],
         'automatic installed init/assets differ')
     for name,data in assets.items():
         require(verify(built['assets'][name]).read_bytes()==data,'automatic RAM overlay differs')
+    if reboot:
+        require(built['reboot_baseline']==baseline.binding(built['reboot_baseline']['receipt']) and
+            built['reboot']==profile.reboot_spec.declaration(built['run_id'],built['reboot_baseline']['initial_mount_count']),
+            'reboot sealed baseline or declaration differs')
+        require(verify(built['headers']['early/s22plus_debian_reboot_seal_v1.h']).read_bytes()==
+            profile.reboot_spec.seal(built['run_id'],built['reboot_baseline']['initial_mount_count']),
+            'reboot generated seal differs')
+    else:require('reboot' not in built and 'reboot_baseline' not in built,'unselected reboot declaration')
+    if reboot and 'initramfs' in built:template_binding(built)
     return built
 
 
 def vm_results(tested,built,key):
+    if profile.reboot_selected(built):
+        from s22plus_debian_reboot_qualification_v1 import vm_results as reboot_vm_results
+        return reboot_vm_results(tested,built,key)
     transition,rcs,watchdog=profile.variants(built)
     phase=profile.phase_selected(built)
     single_cpu=profile.singlecpu_selected(built)
@@ -250,6 +265,7 @@ def image_binding(image):
                 ('key','key'),('runtime_sources','runtime_sources')):
         require(artifact[a]==image[b],'automatic artifact/image join differs')
     built=producer(read(verify(artifact['build'])),virtual=False)
+    if profile.reboot_selected(built):baseline.binding(built['reboot_baseline']['receipt'],physical=True)
     require(built['schema']=='s22plus-debian-autoboot-h0-v1' and built['status']=='H0_INITRAMFS_BUILT' and
         built['ab_identical'] is True and built['run_id']==image['run_id_hex'] and
         built['namespace']==image['namespace'] and built['version']==image['version'] and
@@ -317,3 +333,46 @@ def payload_binding(built):
 def archive_binding(image,artifact):
     archive.archive_binding(image,artifact)
     payload_binding(read(verify(artifact['build'])))
+
+
+def template_binding(built):
+    """Re-derive every repacked member, including undeclared base contents."""
+    receipt=read(verify(profile.reboot_spec.P457_RETRIEVAL))['writer_build']
+    original=read(verify(receipt))
+    require(original['namespace']==profile.MINIMAL_NAMESPACE and original['version']==profile.MINIMAL_VERSION and
+        original['transition_observer']==profile.MINIMAL_OBSERVER and original['virtual'] is False and
+        original['ab_identical'] is True and original['modules']==built['modules'] and
+        all(original['measured'][name]==built['measured'][name] for name in ('init_sha256','shell_sha256')),
+        'automatic template identity differs')
+    def decode(source):
+        with gzip.GzipFile(fileobj=io.BytesIO(verify(source,maximum=32*1024**2).read_bytes())) as stream:
+            data=stream.read(128*1024**2+1)
+        require(len(data)<=128*1024**2 and data[:6]==b'070701','template CPIO bound differs')
+        fields=[int(data[6+i*8:14+i*8],16) for i in range(13)];end=(110+fields[11]+3)&~3
+        require(data[110:110+fields[11]]==b'.\0' and fields[6]==0 and stat.S_ISDIR(fields[1]) and
+            fields[2:4]==[0,0] and not any(data[112:end]),'template leading root differs')
+        position=end
+        while position<len(data) and any(data[position:position+110]):
+            require(data[position:position+6]==b'070701','template member header differs')
+            values=[int(data[position+6+i*8:position+14+i*8],16) for i in range(13)]
+            require(values[7:11]==[0,0,0,0] and values[12]==0 and values[11]>0,
+                'template archive device or checksum fields differ')
+            name=data[position+110:position+110+values[11]]
+            start=(position+110+values[11]+3)&~3;position=(start+values[6]+3)&~3
+            require(position<=len(data),'template member exceeds archive')
+            if name==b'TRAILER!!!\0':break
+        rows=archive.transport.boot_verify.parse_newc(data[end:])
+        require(len({e.name for e in rows})==len(rows),'template duplicate members')
+        return data[:end],rows
+    root,old=decode(original['initramfs']);new_root,new=decode(built['initramfs'])
+    expected=profile.ramdisk_payloads(built);expected['scripts/fyg8-dev']=built['startup_script']
+    require(root==new_root and len(old)==len(new) and set(expected)<={e.name for e in old},
+        'repack root, member count or vocabulary differs')
+    require(built['construction']==dict(method='EXACT_MEASURED_TEMPLATE_REPACK',template_build=receipt,
+        template=original['initramfs'],replaced=sorted(expected),unmodified_members=len(old)-len(expected),
+        package_installation=False),'repack construction receipt differs')
+    for first,second in zip(old,new):
+        body=verify(expected[first.name],maximum=8*1024**2).read_bytes() if first.name in expected else first.data
+        require(replace(second,data=first.data)==first and second.data==body,
+            'repack changed an undeclared member or metadata')
+    return True

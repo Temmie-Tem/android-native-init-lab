@@ -41,7 +41,8 @@ TRANSFER_SOURCE=pin(Path(__file__).resolve())
 def before_window_transfer(image,grant,now):
     if image['profile']==autoboot.PROFILE:
         from s22plus_debian_file_profile_v1 import before_transfer
-        before_transfer(grant,now)
+        from s22plus_debian_reboot_access_v1 import selected as reboot_selected
+        before_transfer(grant,now,boots=2 if reboot_selected(dict(operation=autoboot.OPERATION,N=image)) else 1)
     elif image['profile'] in early.WINDOW_PROFILES:
         early.before_window_transfer(image,grant,now)
 
@@ -753,10 +754,14 @@ class Adapter:
                 return file_window(self,request)
             from s22plus_debian_early_observation_v1 import rederive
             return rederive(self.folder(step.name),request['N'])
-        if step.action in ('debian-health','debian-shutdown'):
+        if step.action in ('debian-health','debian-shutdown','debian-reboot'):
             require(request['operation'] in (handoff.OPERATION,integrated.OPERATION,autoboot.OPERATION),'unselected Debian access result')
             from s22plus_debian_access_v1 import access_for
-            access=access_for(self,request)
+            access=access_for(self,request,step.name)
+            if step.action=='debian-reboot':
+                from s22plus_debian_reboot_access_v1 import selected as reboot_selected
+                require(reboot_selected(request),'unselected reboot recovery result')
+                return access.rederive_control('reboot')
             return access.rederive_health() if step.action=='debian-health' else access.rederive_shutdown()
         if step.action=='transfer': return self.recover_transfer_result(step,request)
         if step.action=='physical':

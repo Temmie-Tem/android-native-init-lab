@@ -15,9 +15,10 @@ CASES=('normal','dirty','wrong-uuid','existing-record','insert-error','ram-log-m
 PARTIAL_WRITES=('short-write','file-sync-error','parent-sync-error','unmount-error')
 
 
-def before_transfer(grant,now):
+def before_transfer(grant,now,*,boots=1):
+    require(type(boots) is int and boots in (1,2),'unselected boot window count')
     require(type(now) is int and now>=grant['opened_ns'] and
-        grant['deadline_ns']-now>(TRANSFER_SECONDS+WINDOW_SECONDS+RETURN_SECONDS)*1_000_000_000,
+        grant['deadline_ns']-now>(TRANSFER_SECONDS+boots*WINDOW_SECONDS+RETURN_SECONDS)*1_000_000_000,
         'file pilot lacks remaining transfer, window and physical-return budget')
 
 

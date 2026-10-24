@@ -17,6 +17,7 @@ def source_files(virt=False):
         's22plus_debian_handoff_hook_v1.c','s22plus_debian_handoff_observer_v2.inc.c',
         's22plus_autoboot_watchdog_v1.h',
         's22plus_debian_handoff_root_v2.inc.c','s22plus_debian_evidence_v1.inc.c',
+        's22plus_debian_evidence_chain_v1.h',
         's22plus_autoboot_singlecpu_v1.h')),
         ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-adopt-g1'})
 

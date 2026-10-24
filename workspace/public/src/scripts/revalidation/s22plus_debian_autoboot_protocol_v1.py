@@ -9,16 +9,29 @@ import s22plus_switch_root_protocol_v1 as transition
 import s22plus_debian_autoboot_profile_v1 as profile
 from s22plus_native_records_v3 import require
 
-MAXIMUM=400000
+MAXIMUM=450000
 TRACE_MAXIMUM=262144
 
 
-def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot):
+def reboot_binding(selected,phase):
+    enabled=profile.reboot_selected(selected)
+    require((phase in (1,2) and type(phase) is int) if enabled else phase is None,
+        'automatic evidence phase does not match selected format')
+    if enabled:
+        from s22plus_debian_reboot_v1 import declaration
+        value=selected['reboot'];require(value==declaration(selected['run_id'],value['initial_mount_count']),
+            'reboot declaration differs')
+        return dict(phase=phase,initial_mount_count=value['initial_mount_count'])
+    return None
+
+
+def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot,phase=None):
     require(type(ssh_boot) is str and re.fullmatch(
         r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}',ssh_boot),'SSH boot identity differs')
+    reboot=reboot_binding(selected,phase)
     run=bytes.fromhex(selected['run_id']);boot=hashlib.sha256(ssh_boot.encode()).digest()
     first=early.decode(early_bytes,key=key,run=run,expected=selected['measured'],
-        module_names=[m['runtime_name'] for m in selected['modules']],storage_first=True,diagnostic=True,autoboot=True)
+        module_names=[m['runtime_name'] for m in selected['modules']],storage_first=True,diagnostic=True,autoboot=True,reboot=reboot)
     require(first['pre_unmount_complete'] and first['kernel_boot_identity_sha256']==boot.hex(),
         'automatic early record crosses SSH boot')
     nonce=hashlib.sha256(early_bytes[:256]).digest()
@@ -35,7 +48,7 @@ def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot):
     expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),boot=boot.hex(),
         nonce_sha256=hashlib.sha256(nonce).hexdigest(),init_sha256=selected['installed_init']['sha256'],
         hook_sha256=selected['hook']['sha256'],root_device=state.proof['root_device'])
-    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected))
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot)
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and not runtime['required_check_stopped'] and
         runtime['automatic_start'] and not runtime['report_disabled'],'automatic service observation is incomplete')
     return dict(schema='s22plus-debian-autoboot-proof-v1',status='PASS_AUTOMATIC_DEBIAN_SERVICES',
@@ -44,30 +57,49 @@ def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot):
         host_start_requests=0,ssh_access_proved=False,clean_shutdown_proved=False,replay_authorized=False)
 
 
-def envelope(output,*,key,selected):
+def envelope(output,*,key,selected,phase=None):
     require(type(output) is bytes and len(output)<=MAXIMUM,'SSH evidence exceeds fixed bound')
-    lines=output.splitlines()
-    require(len(lines)==6 and output.endswith(b'\n') and lines[0]==b'S22_AUTO_EVIDENCE_V1' and
-        lines[-1]==b'S22_AUTO_EVIDENCE_END','SSH evidence framing differs')
+    reboot=reboot_binding(selected,phase);lines=output.splitlines()
+    if reboot is None:
+        require(len(lines)==6 and lines[0]==b'S22_AUTO_EVIDENCE_V1' and
+            lines[-1]==b'S22_AUTO_EVIDENCE_END','SSH evidence framing differs')
+        body,ssh_boot=lines[2:5],lines[1]
+    else:
+        require(len(lines)==(7 if phase==1 else 9) and lines[0]==b'S22_REBOOT_EVIDENCE_V1' and
+            lines[1]==f'phase={phase}'.encode() and lines[-1]==b'S22_REBOOT_EVIDENCE_END',
+            'reboot SSH evidence framing/phase differs')
+        body,ssh_boot=lines[3:-1],lines[2]
+    require(output.endswith(b'\n'),'SSH evidence has no terminal newline')
     values=[]
-    for index,line in enumerate(lines[2:5]):
+    for index,line in enumerate(body):
         data=base64.b64decode(line,validate=True)
         require(0<len(data)<=(TRACE_MAXIMUM if index==2 else 16384),'SSH evidence member exceeds bound')
         values.append(data)
-    return decode(*values,key=key,selected=selected,ssh_boot=lines[1].decode('ascii')),values
+    proof=decode(*values[:3],key=key,selected=selected,ssh_boot=ssh_boot.decode('ascii'),phase=phase)
+    if reboot is not None:
+        proof.update(schema='s22plus-debian-reboot-proof-v1',phase=phase)
+        if phase==2:
+            prior=local_records(*values[3:],key=key,selected=selected,
+                root_device=proof['transition']['proof']['root_device'],phase=1)
+            require(prior['runtime']['reboot_intent'] and
+                prior['kernel_boot_identity_sha256']!=proof['kernel_boot_identity_sha256'],
+                'second boot lacks first completed reboot intent or a fresh boot')
+            proof['prior']=prior
+    return proof,values
 
 
-def local_records(early_bytes,runtime_bytes,*,key,selected,root_device):
+def local_records(early_bytes,runtime_bytes,*,key,selected,root_device,phase=None):
     """Storage records alone make no live SSH or transition-receipt claim."""
+    reboot=reboot_binding(selected,phase)
     run=bytes.fromhex(selected['run_id'])
     first=early.decode(early_bytes,key=key,run=run,expected=selected['measured'],
-        module_names=[m['runtime_name'] for m in selected['modules']],storage_first=True,diagnostic=True,autoboot=True)
+        module_names=[m['runtime_name'] for m in selected['modules']],storage_first=True,diagnostic=True,autoboot=True,reboot=reboot)
     require(first['pre_unmount_complete'],'automatic early file is incomplete')
     nonce=hashlib.sha256(early_bytes[:256]).digest()
     expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),
         boot=first['kernel_boot_identity_sha256'],nonce_sha256=hashlib.sha256(nonce).hexdigest(),
         init_sha256=selected['installed_init']['sha256'],hook_sha256=selected['hook']['sha256'],root_device=root_device)
-    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected))
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot)
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and
         not runtime['required_check_stopped'] and runtime['automatic_start'] and
         not runtime['report_disabled'],'automatic local service evidence is incomplete')

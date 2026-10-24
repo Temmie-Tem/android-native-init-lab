@@ -1,3 +1,5 @@
+#ifndef S22_EARLY_PROTOCOL_V1_H
+#define S22_EARLY_PROTOCOL_V1_H
 /* Fixed H0/physical early-boot evidence protocol; no command executor. */
 #define EARLY_REQUEST 48U
 #define EARLY_PROOF 176U
@@ -48,3 +50,5 @@ static void early_tag(uint8_t out[32],const uint8_t nonce[32],unsigned kind,
     s22plus_max77705_runtime_sha256_update(&h,inner,sizeof(inner));
     s22plus_max77705_runtime_sha256_final(&h,out);
 }
+
+#endif

@@ -35,9 +35,9 @@ def sources(selected):
     result={actor:selected[name]['sha256'] for actor,name in
         ((1,'writer'),(2,'entry'),(3,'witness'),(4,'hook'),(5,'writer'))}
     schema=selected.get('transition_observer',{}).get('schema')
-    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1','s22plus-autoboot-minimal-v1'):
+    if schema in ('s22plus-autoboot-rcs-v1','s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1','s22plus-autoboot-minimal-v1','s22plus-autoboot-reboot-v1'):
         result.update({6:selected['hook']['sha256'],7:selected['hook']['sha256']})
-    if schema in ('s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1','s22plus-autoboot-minimal-v1'):result[8]=selected['hook']['sha256']
+    if schema in ('s22plus-autoboot-watchdog-v1','s22plus-autoboot-phase-v1','s22plus-autoboot-singlecpu-v1','s22plus-autoboot-script-channel-v1','s22plus-autoboot-minimal-v1','s22plus-autoboot-reboot-v1'):result[8]=selected['hook']['sha256']
     return result
 
 

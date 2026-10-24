@@ -11,7 +11,7 @@ DOMAIN=b'S22PLUS-FYG8-DEBIAN-FILE-PILOT-v1'
 HEADER,RECORD,RECORDS,MAXIMUM=256,128,8,16384
 
 
-def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first=False,diagnostic=False,autoboot=False):
+def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first=False,diagnostic=False,autoboot=False,reboot=None):
     domain=DOMAIN;version=1;magic=b'S22FL01\0';record_magic=b'S22FLR1\0';count=RECORDS;phases=3
     if storage_first:
         import s22plus_debian_file_first_protocol_v1 as first
@@ -22,11 +22,19 @@ def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first
     if autoboot:
         from s22plus_debian_autoboot_profile_v1 import DOMAIN as domain
         require(diagnostic and storage_first,'automatic early record requires supervised storage-first')
+    if reboot is not None:
+        from s22plus_debian_reboot_v1 import EARLY_DOMAIN,PHASES,count as mount_count
+        require(autoboot and set(reboot)=={'phase','initial_mount_count'} and
+            type(reboot['phase']) is int and reboot['phase'] in PHASES,'early reboot selection differs')
+        mount_count(reboot['initial_mount_count'])
+        domain=EARLY_DOMAIN;version=4;magic=b'S22FL04\0';record_magic=b'S22FLR4\0'
     require(type(data) is bytes and HEADER<=len(data)<=MAXIMUM and len(key)==32 and len(run)==16,
         'file evidence size or identity differs')
     header=data[:HEADER];proof=header[32:208];boot=proof[16:48]
     require(header[:8]==magic and struct.unpack_from('<II',header,8)==(version,HEADER) and
-        header[16:32]==run and not any(header[216:224]) and
+        header[16:32]==run and (struct.unpack_from('<II',header,216)==
+            (reboot['phase'],reboot['initial_mount_count']+2*reboot['phase']-1) if reboot is not None
+            else not any(header[216:224])) and
         hmac.compare_digest(header[224:],common.tag(key,run,boot,0,0,header[:224],domain=domain)),
         'file header authentication differs')
     pid1,child,status,length=struct.unpack_from('<4I',proof)
@@ -74,6 +82,9 @@ def decode(data,*,key,run,expected,module_names,allow_prefix=False,storage_first
         raw=dict(size=len(data),sha256=hashlib.sha256(data).hexdigest()))
     if diagnostic:result.update(schema='s22plus-debian-diagnostic-file-v1',pid1_ancestry='fixed-supervisor-child')
     if autoboot:result.update(schema='s22plus-debian-autoboot-early-file-v1',automatic_start=True)
+    if reboot is not None:
+        result.update(schema='s22plus-debian-reboot-early-file-v1',reboot_phase=dict(reboot,
+            early_mount_count=reboot['initial_mount_count']+2*reboot['phase']-1))
     if storage_first:
         result.update(preparation_module_completions=parsed['module_completions'],
             client_attempt_records=sum(r['kind']==2 for r in rows),

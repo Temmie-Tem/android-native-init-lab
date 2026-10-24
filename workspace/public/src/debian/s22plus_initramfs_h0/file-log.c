@@ -28,7 +28,11 @@ static size_t log_size;
 #include "file-first-plan.h"
 #define FL_RECORDS (2U+FF_CLIENT_COUNT*2U)
 #define FL_PHASES FF_CLIENT_COUNT
-#ifdef S22_FAILURE_OBSERVER
+#ifdef S22_DEBIAN_REBOOT
+#define FL_MAGIC "S22FL04\0"
+#define FL_RECORD_MAGIC "S22FLR4\0"
+#define FL_VERSION 4U
+#elif defined(S22_FAILURE_OBSERVER)
 #define FL_MAGIC "S22FL03\0"
 #define FL_RECORD_MAGIC "S22FLR3\0"
 #define FL_VERSION 3U
@@ -204,13 +208,19 @@ static int fl_record(int fd,unsigned kind,unsigned phase,int error_code) {
 #endif
 static int fl_file(int root,dev_t device) {
     int parent=fl_parent(root,device);if(parent<0)return fs1_error();
-    char name[64];snprintf(name,sizeof(name),
+    char name[64];
+#ifdef S22_DEBIAN_REBOOT
+    if(!rb_valid_phase(rb_phase)){(void)close(parent);return EPROTO;}
+    snprintf(name,sizeof(name),"%s",rb_leaf(rb_phase,0));
+#else
+    snprintf(name,sizeof(name),
 #ifdef S22_DEBIAN_AUTOBOOT
         "s22-early-%s",
 #else
         "s22-evidence-%s",
 #endif
         fs1_run_id);
+#endif
     int late=fl_time();if(late){(void)close(parent);return late;}
     int fd=openat(parent,name,FL_ACCESS|O_CREAT|O_EXCL|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC,0600);
     int error=fd<0?fs1_error():0;struct stat st;
@@ -220,6 +230,9 @@ static int fl_file(int root,dev_t device) {
     uint8_t header[FL_HEADER]={0};memcpy(header,FL_MAGIC,8);
     early_put32(header+8,FL_VERSION);early_put32(header+12,FL_HEADER);memcpy(header+16,early_run,16);
     memcpy(header+32,proof,sizeof(proof));fl_u64(header+208,fl_origin);
+#ifdef S22_DEBIAN_REBOOT
+    early_put32(header+216,rb_phase);early_put32(header+220,rb_after_early(rb_phase));
+#endif
     early_tag(header+224,proof+16,0,0,header,224);
     if(!error)error=fl_write(fd,header,sizeof(header));
     if(!error)error=fl_write(fd,log_bytes,log_size);
@@ -252,6 +265,9 @@ static int fl_write_mount(void) {
     fo_phase(FO_WRITABLE);
     struct fs1_endpoint e=fl_endpoint;e.node_fd=-1;e.node_created=e.disk_created=0;
     int error=0,root=-1;bool nodes=false,directory=false,mounted=false;
+#ifdef S22_DEBIAN_REBOOT
+    bool counted=false;
+#endif
     if(fl_time() || mkdir("/dev/.s22-ext4-v1",0700))return EIO;
     nodes=true;e.node_fd=open("/dev/.s22-ext4-v1",O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     if(e.node_fd<0){error=fs1_error();goto done;}
@@ -259,11 +275,24 @@ static int fl_write_mount(void) {
        (error=fs1_make_node(&e,"lu0",e.disk,0400)) || (error=fs1_not_mounted(e.partition)) ||
        (error=ri_ro(&e,false)) || (error=fs1_gpt_exact(&e)) || (error=fs1_read_super(&e,false)))goto done;
     if(!fs1_superblock(e.superblock,1024,fs1_uuid,FS1_BLOCKS)){error=EPROTO;goto done;}
+#ifdef S22_DEBIAN_REBOOT
+    if(!rb_valid_phase(rb_phase) || (error=rb_read_count(&e,rb_before_early(rb_phase),true))) {if(!error)error=EPROTO;goto done;}
+#endif
     if(mkdir(fl_root,0700)){error=fs1_error();goto done;}directory=true;
     if((error=fl_time()) || (error=rj_clear_ro(&e)))goto done;
     if((error=fl_time()))goto done;
-    if(mount(fs1_node,fl_root,"ext4",MS_NOSUID|MS_NODEV|MS_NOEXEC,"nodiscard")){error=fs1_error();goto done;}
-    mounted=true;root=open(fl_root,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
+    if(mount(fs1_node,fl_root,"ext4",MS_NOSUID|MS_NODEV|MS_NOEXEC,
+#ifdef S22_DEBIAN_REBOOT
+        "nodiscard,barrier=1"
+#else
+        "nodiscard"
+#endif
+        )){error=fs1_error();goto done;}
+    mounted=true;
+#ifdef S22_DEBIAN_REBOOT
+    counted=true;if((error=rb_read_count(&e,rb_after_early(rb_phase),false)))goto done;
+#endif
+    root=open(fl_root,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);
     if(root<0){error=fs1_error();goto done;}
     if(!(error=fl_directory(root,e.partition)))error=fl_file(root,e.partition);
     if(AT_SYS(AT_ROOT_CLOSE,close(root)) && !error)error=fs1_error();
@@ -282,6 +311,9 @@ done:
         if(!cleanup)cleanup=AT_CHECK(AT_SUPER_READ,fs1_read_super(&e,false));
         if(!cleanup)cleanup=AT_CHECK(AT_SUPER_CLEAN,fs1_superblock(e.superblock,1024,fs1_uuid,FS1_BLOCKS)?0:EPROTO);
         if(!cleanup)cleanup=AT_CHECK(AT_GPT_CHECK,fs1_gpt_exact(&e));
+#ifdef S22_DEBIAN_REBOOT
+        if(!cleanup && counted)cleanup=rb_read_count(&e,rb_after_early(rb_phase),true);
+#endif
         fo_failure(FO_CLEANUP,cleanup);if(!error)error=cleanup;
     }
 leave:

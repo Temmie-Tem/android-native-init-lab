@@ -3,7 +3,8 @@ from pathlib import Path
 from s22plus_native_records_v3 import require,pin
 from s22plus_debian_autoboot_profile_v1 import TRANSITION_CASES,RCS_CASES,SINGLECPU_FAULTS,SCRIPT_FAULTS
 from s22plus_debian_autoboot_minimal_v1 import FAULTS as MINIMAL_FAULTS
-CASES=TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS+SCRIPT_FAULTS+MINIMAL_FAULTS
+from s22plus_debian_reboot_v1 import FAULTS as REBOOT_FAULTS
+CASES=REBOOT_FAULTS+TRANSITION_CASES+RCS_CASES+SINGLECPU_FAULTS+SCRIPT_FAULTS+MINIMAL_FAULTS
 
 
 def source(out,original,fault,native):
@@ -17,7 +18,10 @@ def source(out,original,fault,native):
         path=folder/name;text=path.read_text()
         require(text.count(old)==count,'transition fixture anchor differs: '+name)
         path.write_text(text.replace(old,new))
-    if fault in MINIMAL_FAULTS:
+    if fault=='reboot-clean-error':
+        edit('file-log.c','root=open(fl_root,O_RDONLY|O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC);',
+            'errno=EIO;root=-1; /* VM-only failure after a real counted RW setup. */')
+    elif fault in MINIMAL_FAULTS:
         injection={
             'minimal-missing-program':'if(phase==1 && unlink(AP_DISPATCHER))dh_hook_fail(errno);',
             'minimal-changed-program':'''if(phase==1) {

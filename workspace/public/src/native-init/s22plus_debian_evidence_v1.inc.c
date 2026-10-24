@@ -1,55 +1,23 @@
 /* Bounded per-run evidence owned by the sequential Debian hooks. Every append
  * revalidates the entire authenticated chain and closes all borrowed fds.
  * The chain itself carries START/report-disabled state across hook execs. */
-struct de_chain {
-    unsigned count,started,off,complete,released,stopped,progress,last_kind,last_phase;
-    unsigned boundary[2],last_event[2],status[2];
-    uint64_t elapsed,pid[2],wait_ms[2],progress_ms;
-    uint8_t tag[32];
-};
+#include "s22plus_debian_evidence_chain_v1.h"
 static struct de_chain de;
 static struct dh_state *de_binding;
 static int de_loaded,de_failed;
 static ino_t de_inode;
 static unsigned de_mode;
-static uint64_t de_u64(const uint8_t *p) {
-    uint64_t n=0;for(unsigned i=0;i<8;++i)n|=(uint64_t)p[i]<<(8*i);return n;
-}
-static void de_put64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(8*i));}
-static void de_tag(uint8_t out[32],const uint8_t *p,size_t n) {
-#ifdef S22_DEBIAN_AUTOBOOT
-    static const char domain[]="S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1";
-#else
-    static const char domain[]="S22PLUS-FYG8-DEBIAN-DURABLE-v1";
-#endif
-    uint8_t pad[64],inner[32];struct s22plus_max77705_runtime_sha256 h;
-    memset(pad,0x36,64);for(unsigned i=0;i<32;++i)pad[i]^=sw_key[i];
-    s22plus_max77705_runtime_sha256_init(&h);
-    s22plus_max77705_runtime_sha256_update(&h,pad,64);
-    s22plus_max77705_runtime_sha256_update(&h,(const uint8_t *)domain,sizeof(domain)-1);
-    s22plus_max77705_runtime_sha256_update(&h,p,n);
-    s22plus_max77705_runtime_sha256_final(&h,inner);
-    memset(pad,0x5c,64);for(unsigned i=0;i<32;++i)pad[i]^=sw_key[i];
-    s22plus_max77705_runtime_sha256_init(&h);
-    s22plus_max77705_runtime_sha256_update(&h,pad,64);
-    s22plus_max77705_runtime_sha256_update(&h,inner,32);
-    s22plus_max77705_runtime_sha256_final(&h,out);
-}
 static int de_time(void) {
     uint64_t now=sw_now();return now>=sw.deadline_ms || sw.deadline_ms-now>SW_TIMEOUT_MS ? ETIMEDOUT : 0;
-}
-static int de_transport_error(int error) {
-    return error==EIO || error==ENODEV || error==ENXIO || error==EPIPE || error==ECONNRESET || error==ETIMEDOUT;
-}
-static int de_tag_equal(const uint8_t *a,const uint8_t *b) {
-    unsigned different=0;for(unsigned i=0;i<32;++i)different|=a[i]^b[i];return !different;
 }
 static void de_header(uint8_t h[DE_HEADER]) {
     memset(h,0,DE_HEADER);memcpy(h,"S22DE01\0",8);sw_put32(h+8,1);sw_put32(h+12,DE_HEADER);
     memcpy(h+16,sw.run,16);memcpy(h+32,sw.boot,32);memcpy(h+64,sw.nonce,32);
     de_put64(h+96,sw.deadline_ms-SW_TIMEOUT_MS);de_put64(h+104,sw.deadline_ms);
     sw_put32(h+112,
-#ifdef S22_AUTOBOOT_SINGLECPU
+#ifdef S22_DEBIAN_REBOOT
+        7
+#elif defined(S22_AUTOBOOT_SINGLECPU)
         6
 #elif defined(S22_DEBIAN_AUTOBOOT)
         5
@@ -58,68 +26,10 @@ static void de_header(uint8_t h[DE_HEADER]) {
 #endif
         );sw_put32(h+116,DE_RECORD);sw_put32(h+120,DE_RECORDS);sw_put32(h+124,DE_MAXIMUM);
     memcpy(h+128,dh_init_sha256,32);memcpy(h+160,de_binding->hook_sha,32);de_put64(h+192,sw.root_device);
+#ifdef S22_DEBIAN_REBOOT
+    sw_put32(h+200,rb_phase);sw_put32(h+204,RB_BASE_COUNT);sw_put32(h+208,rb_installed(rb_phase));
+#endif
     de_tag(h+224,h,224);
-}
-static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
-    unsigned seq=fs1_u32(r+8),kind=fs1_u32(r+12),phase=fs1_u32(r+24),event=fs1_u32(r+28),flags=fs1_u32(r+56);
-    uint64_t elapsed=de_u64(r+16),a=de_u64(r+32),b=de_u64(r+40),c=de_u64(r+48);
-    uint8_t tag[32];de_tag(tag,r,96);
-    if(memcmp(r,"S22DER1\0",8) || seq!=s->count || seq>=DE_RECORDS || fs1_u32(r+60) ||
-       elapsed>=SW_TIMEOUT_MS || (seq && elapsed<s->elapsed) || flags!=s->off || s->stopped ||
-       !de_tag_equal(r+64,s->tag) || !de_tag_equal(r+96,tag))return EPROTO;
-    if(kind==DE_INIT) {
-        if(seq || phase || event || a!=1 || b || c)return EPROTO;
-    } else if(kind==DE_START) {
-        if(seq!=1 || s->started || phase || event || a!=DH_START_SEQUENCE || b || c)return EPROTO;
-        s->started=1;
-    } else if(kind==DE_REPORT_LOST) {
-        if(!s->started || s->off || s->released || phase>2 || event || !a || a>4095)return EPROTO;
-        if(!b) {
-            if(c || (a!=ENOENT && a!=EIO && a!=ENODEV && a!=ENXIO) ||
-               !((phase==1 && ((!s->progress && s->last_kind==DE_START) ||
-                 (s->progress==1 && s->last_kind==DE_BOUNDARY && s->last_event[0]==1))) ||
-                 (phase==2 && s->progress==2 && s->last_kind==DE_PROGRESS)))return EPROTO;
-        } else {
-            if(!de_transport_error((int)a))return EPROTO;
-            if(b==DH_START_ACK) {if(phase || c!=DH_START_SEQUENCE || s->last_kind!=DE_START)return EPROTO;}
-            else if(b==DH_PROGRESS) {
-                if(s->last_kind!=DE_PROGRESS || phase!=(s->progress<=2 ? 1U : 2U) || c!=2000+s->progress-1)return EPROTO;
-            } else if(b==DH_BOUNDARY) {
-                if(s->last_kind!=DE_BOUNDARY || !phase || phase!=s->last_phase ||
-                   c!=(phase==1 ? 3000U : 3100U)+s->boundary[phase-1]-1)return EPROTO;
-            } else return EPROTO;
-        }
-        s->off=1;
-    } else if(kind==DE_PROGRESS) {
-        unsigned ordinal=s->progress,expected=ordinal<3 ? ordinal+1 : 4;
-        if(!s->started || s->complete || ordinal>=DH_SAMPLES+3 || phase!=expected ||
-           event!=(ordinal<3 ? 0 : ordinal-2) || !sc_valid(c) ||
-           (ordinal<2 ? a || b : b!=3 || a<(uint64_t)event*DH_SAMPLE_MS ||
-             a>(uint64_t)event*DH_SAMPLE_MS+10000U || a>elapsed || (ordinal>=3 && a<=s->progress_ms)) ||
-           (ordinal==1 && (s->last_event[0]!=5 || s->status[0])) ||
-           (ordinal==2 && (s->last_event[1]!=5 || s->status[1])))return EPROTO;
-        s->progress++;s->progress_ms=a;
-    } else if(kind==DE_BOUNDARY) {
-        if(!s->started || s->complete || phase<1 || phase>2 || s->progress!=phase)return EPROTO;
-        unsigned i=phase-1,last=s->last_event[i];
-        if(s->boundary[i]>=DH_BOUNDARY_MAX ||
-           (last==0 ? event!=(phase==1 ? 1U : 2U) : last==1 ? event!=2 : last==2 ? event!=3 :
-            last==3 || last==4 ? event!=4 && event!=5 : 1) ||
-           (event<=2 ? a || b : a<=1 || a>INT_MAX || (event!=5 && b) || b>65535) ||
-           (phase==1 && event==2 ? (s->off ? c!=0 : c<s->wait_ms[i] || c>elapsed) : c!=0) ||
-           (event>=4 && (a!=s->pid[i] || (event==4 && elapsed-s->wait_ms[i]<DH_SAMPLE_MS))))return EPROTO;
-        s->boundary[i]++;s->last_event[i]=event;s->pid[i]=a;s->status[i]=(unsigned)b;s->wait_ms[i]=elapsed;
-    } else if(kind==DE_COMPLETE) {
-        if(!s->started || s->complete || s->progress!=DH_SAMPLES+3 || phase || event || a || b || c)return EPROTO;
-        s->complete=1;
-    } else if(kind==DE_RELEASE) {
-        if(!s->complete || s->off || s->released || phase || event || a!=DH_RELEASE_SEQUENCE || b || c)return EPROTO;
-        s->released=1;
-    } else if(kind==DE_STOP) {
-        if(!seq || phase || event || !a || a>4095 || b!=SW_WITNESS || c)return EPROTO;
-        s->stopped=1;
-    } else return EPROTO;
-    memcpy(s->tag,r+96,32);s->count++;s->elapsed=elapsed;s->last_kind=kind;s->last_phase=phase;return 0;
 }
 static int de_directory(int fd) {
     struct stat st;struct statfs fs;
@@ -168,8 +78,14 @@ static int de_scan(int fd,struct de_chain *state) {
     return 0;
 }
 static int de_open(int append) {
+#ifdef S22_DEBIAN_REBOOT
+    if(!rb_valid_phase(rb_phase)){errno=EPROTO;return -1;}
+    const char *name=rb_leaf(rb_phase,1);
+#else
+    const char *name=dh_evidence_name;
+#endif
     int parent=de_parent(0);if(parent<0)return -1;
-    int fd=openat(parent,dh_evidence_name,(append ? O_RDWR|O_APPEND : O_RDONLY)|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC);
+    int fd=openat(parent,name,(append ? O_RDWR|O_APPEND : O_RDONLY)|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC);
     int error=fd<0 ? fs1_error() : 0;
     if(close(parent) && !error)error=fs1_error();
     if(error){if(fd>=0)(void)close(fd);errno=error;return -1;}return fd;
@@ -181,11 +97,17 @@ static int de_load(struct dh_state *state) {
     if(error){de_failed=1;return error;}de_loaded=1;return 0;
 }
 static int de_begin(struct dh_state *state) {
+#ifdef S22_DEBIAN_REBOOT
+    if(!rb_valid_phase(rb_phase))return EPROTO;
+    const char *name=rb_leaf(rb_phase,1);
+#else
+    const char *name=dh_evidence_name;
+#endif
     de_binding=state;int current=de_time();if(current){de_failed=1;return current;}
     int parent=de_parent(1);if(parent<0){de_failed=1;return fs1_error();}
     current=de_time();if(current){(void)close(parent);de_failed=1;return current;}
     mode_t mask=umask(0);
-    int fd=openat(parent,dh_evidence_name,O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
+    int fd=openat(parent,name,O_RDWR|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
     int error=fd<0 ? fs1_error() : 0;umask(mask);
     uint8_t header[DE_HEADER];de_header(header);
 #if defined(S22_ROOT_INSPECT_VIRT_TEST) && S22_DEBIAN_FAULT == 28

@@ -42,6 +42,11 @@ def package(out,build,vm):
         runtime_sources=runtime,autoboot_boot=artifact,gpt=plan['basis']['gpt'],android_return=basis)
     image['qualification']=publish(out/'qualification.json',dict(schema=profile.SCHEMA+'-qualification',
         status='PASS_H0_ARTIFACT_AND_VM',image=dict(image),vm=pin(vm/'result.json'),device_actions=0))
+    if profile.reboot_selected(built) and built['reboot_baseline']['kind']=='H0_SYNTHETIC':
+        qualification.archive_binding(image,read(verify(artifact)))
+        return publish(out/'h0-synthetic-package.json',dict(schema='s22plus-debian-reboot-h0-package-v1',
+            status='PASS_H0_SYNTHETIC_ARTIFACT_AND_VM',baseline=built['reboot_baseline'],
+            image_shape=image,physical_readiness=False,device_actions=0))
     qualification.archive_binding(image,profile.image_binding(image))
     return publish(out/'image.json',image)
 

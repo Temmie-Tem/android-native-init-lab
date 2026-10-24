@@ -13,6 +13,9 @@
 #endif
 #include "s22plus_native_root_inspect_seal_v1.h"
 #include <stdarg.h>
+#ifdef S22_DEBIAN_REBOOT
+#include "s22plus_debian_reboot_common_v1.h"
+#endif
 
 _Static_assert(BLKROSET == 0x125d && BLKROGET == 0x125e, "target ARM64 block RO ioctls");
 
@@ -388,6 +391,9 @@ static int ri_run(int argc, char **argv, const char *mode, ri_observer observe) 
     if (admission > 0) { error=admission; goto done; }
     if (admission < 0) goto final;
     if (!clean) goto final;
+#ifdef S22_DEBIAN_REBOOT
+    if((error=rb_admission_count(before)))goto done;
+#endif
     /* A negative callback is a settled scientific stop, not an errno. */
     int pre_mount = RI_PRE_MOUNT(&e);
     if (pre_mount > 0) { error=pre_mount; goto done; }

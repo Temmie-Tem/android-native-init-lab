@@ -94,8 +94,10 @@ class Access:
         raw.require_success(handle);return pin(handle.receipt_path)
 
     def ssh(self,command,folder,label,found,guard,*,before=None,deadline_ns=None):
+        reboot=getattr(self,'reboot_phase',None) is not None
         require(command in ('health','shutdown') or
-            command=='evidence' and self.request['operation']=='debian-autoboot','SSH command outside fixed scope')
+            command=='evidence' and self.request['operation']=='debian-autoboot' or
+            command=='reboot' and reboot and self.reboot_phase==1,'SSH command outside fixed scope')
         guard();require(endpoint(self.plan['link'])==found,'SSH endpoint changed')
         for name in ('ssh','client_key','known_hosts'):verify(self.plan[name],maximum=32*1024*1024)
         args=[self.plan['ssh']['path'],'-F','/dev/null','-i',self.plan['client_key']['path'],
@@ -108,7 +110,7 @@ class Access:
         timeout=20 if deadline_ns is None else min(20,(deadline_ns-clock())/1_000_000_000)
         require(timeout>0,'SSH read window expired')
         return raw.acquire_command(args,folder,label,timeout=timeout,
-            stdout_maximum=400000 if command=='evidence' else 65536,stderr_maximum=16384)
+            stdout_maximum=450000 if reboot and command in ('evidence','reboot','shutdown') else 400000 if command=='evidence' else 65536,stderr_maximum=16384)
 
     def configure_link(self,folder,found,guard):
         connection=self.plan['network_uuid']
@@ -177,9 +179,13 @@ class Access:
             clean_shutdown_proved=False)
         publish(folder/'result.json',value);cleanup(self.adapter,self.request);return value
 
+    def cleanup_folder(self):return self.adapter.folder('debian-health')
+
+    def cleanup_interfaces(self,selected):return [selected['endpoint']['interface']]
+
     def cleanup(self):
         """Only our recorded UUID/name/MAC/interface; host failure never gates A."""
-        folder=self.adapter.folder('debian-health');intent=folder/'network-intent.json'
+        folder=self.cleanup_folder();intent=folder/'network-intent.json'
         if not intent.exists():return dict(status='NOT_CREATED')
         output=folder/('cleanup-'+uuid.uuid4().hex);output.mkdir(mode=0o700)
         try:
@@ -199,7 +205,7 @@ class Access:
                 if handle.returncode==10 and not stdout:return False
                 raw.require_success(handle);rows=stdout.decode('ascii').splitlines()
                 require(len(rows)==4 and rows[:2]==['s22-debian-'+self.plan['candidate']['run_id'],connection] and
-                    rows[2].lower()==self.plan['link']['host_mac'] and rows[3]==selected['endpoint']['interface'],
+                    rows[2].lower()==self.plan['link']['host_mac'] and rows[3] in self.cleanup_interfaces(selected),
                     'cleanup UUID now belongs to another host connection')
                 return True
             existed=inspect('before')
@@ -245,13 +251,16 @@ class Access:
 def cleanup(adapter,request):
     # A reporting/disk error here must not turn a local cleanup into another
     # device-health prerequisite or reopen a closed operation.
-    try:return Access(adapter,request).cleanup()
+    try:return access_for(adapter,request).cleanup()
     except (ValueError,OSError,KeyError,TypeError,raw.RawCaptureError) as error:
         return dict(status='HOST_CLEANUP_UNPROVED',error_type=type(error).__name__,original_A_recovery_blocked=False)
 
 
-def access_for(adapter,request):
+def access_for(adapter,request,step=None):
     if request['operation']=='debian-autoboot':
         from s22plus_debian_autoboot_access_v1 import Access as AutomaticAccess
+        from s22plus_debian_reboot_access_v1 import selected as reboot_selected,Access as RebootAccess
+        if reboot_selected(request):
+            return RebootAccess(adapter,request,phase=1 if step in ('debian-health','debian-reboot') else 2)
         return AutomaticAccess(adapter,request)
     return Access(adapter,request)

@@ -25,6 +25,9 @@ static int dh_stage_assets(void) {
 static void dh_activate_root(struct fs1_endpoint *e) {
     if(chdir("/") || AT_SYS(AT_CLOSE_ADMISSION_FDS,syscall(SYS_close_range,5U,UINT_MAX,0U)) || AT_SYS(AT_ADMISSION_UNMOUNT,umount2(ri_root,0)))sw_stop(fs1_error());
     sw_require(AT_CHECK(AT_ACTIVATION_NOT_MOUNTED,fs1_not_mounted(e->partition)));
+#ifdef S22_DEBIAN_REBOOT
+    sw_require(rb_valid_phase(rb_phase) ? rb_read_count(e,rb_after_early(rb_phase),true) : EPROTO);
+#endif
     int fd=fs1_open_block(fs1_node,e->partition,FS1_BYTES),value=0,actual=-1;
     if(fd<0)sw_stop(fs1_error());
     /* The compound host intent owns this sole RO-clear and writable mount.
@@ -34,7 +37,16 @@ static void dh_activate_root(struct fs1_endpoint *e) {
     uint64_t ro=1;sw_require(fs1_number(e->sys_partition,"ro",&ro));if(ro)sw_stop(EPROTO);
     if(AT_SYS(AT_ACTIVATION_NODE_CLOSE,close(fd)))sw_stop(fs1_error());
     if(sw_now()>=sw.deadline_ms)sw_stop(ETIMEDOUT);
-    if(AT_SYS_GUARD(AT_WRITABLE_MOUNT,sw_require(sw_now()>=sw.deadline_ms?ETIMEDOUT:0),mount(fs1_node,ri_root,"ext4",0,"errors=remount-ro,nodiscard")))sw_stop(fs1_error());
+    if(AT_SYS_GUARD(AT_WRITABLE_MOUNT,sw_require(sw_now()>=sw.deadline_ms?ETIMEDOUT:0),mount(fs1_node,ri_root,"ext4",0,
+#ifdef S22_DEBIAN_REBOOT
+        "errors=remount-ro,nodiscard,barrier=1"
+#else
+        "errors=remount-ro,nodiscard"
+#endif
+        )))sw_stop(fs1_error());
+#ifdef S22_DEBIAN_REBOOT
+    sw_require(rb_read_count(e,rb_installed(rb_phase),false));
+#endif
     struct stat st;struct statfs fs;
     if(stat(ri_root,&st) || statfs(ri_root,&fs) || st.st_dev!=e->partition || fs.f_type!=0xef53 ||
        (fs.f_flags&(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID)))sw_stop(EPROTO);

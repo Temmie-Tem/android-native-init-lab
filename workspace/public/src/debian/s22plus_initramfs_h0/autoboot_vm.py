@@ -33,7 +33,8 @@ def prepare(out,build,helper,case):
     post_p447=build_api.profile.post_p447_selected(selected)
     script_channel=build_api.profile.script_channel_selected(selected)
     minimal=build_api.profile.minimal_selected(selected)
-    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal),'case does not belong to selected variant')
+    reboot=build_api.profile.reboot_selected(selected)
+    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot),'case does not belong to selected variant')
     require(selected['virtual'] is True and physical['virtual'] is False and selected['run_id']==physical['run_id'] and
         build_api.profile.variants(physical)==(transition,rcs,watchdog) and
         build_api.profile.phase_selected(physical)==phase and
@@ -41,6 +42,8 @@ def prepare(out,build,helper,case):
         build_api.profile.post_p447_selected(physical)==post_p447 and
         build_api.profile.script_channel_selected(physical)==script_channel and
         build_api.profile.minimal_selected(physical)==minimal and
+        physical.get('reboot')==selected.get('reboot') and
+        physical.get('reboot_baseline')==selected.get('reboot_baseline') and
         physical.get('idle_policy')==selected.get('idle_policy') and
         selected['modules']==physical['modules'] and
         selected['measured']['init_sha256']==physical['measured']['init_sha256'] and
@@ -77,10 +80,10 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
-    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)):
+    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot)):
         if case=='missing-second-history' and index==1:continue
         if case=='missing-runtime-history' and index==2:continue
-        selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime',7:'p445-early',8:'p448-early',9:'p448-runtime',10:'p452-early',11:'p452-runtime'}.get(index)
+        selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime',7:'p445-early',8:'p448-early',9:'p448-runtime',10:'p452-early',11:'p452-runtime',12:'p456-early',13:'p456-runtime'}.get(index)
         if selected_pair and case=='missing-'+selected_pair:continue
         body=verify(history['source']).read_bytes()
         if (case=='changed-history' or case=='changed-runtime-history' and index==2 or
@@ -110,10 +113,11 @@ def prepare(out,build,helper,case):
     if case=='dirty':vm.fixture.debug(native,out,'dirty','ssv state 0')
     if case in ('foreign-file','existing-early','existing-runtime'):
         path='/etc/unexpected-autoboot' if case=='foreign-file' else '/var/lib/lab/'+(
-            's22-early-' if case=='existing-early' else 's22-evidence-')+selected['run_id']
+            's22-early-' if case=='existing-early' else 's22-evidence-')+selected['run_id']+('-b1' if reboot else '')
         (out/'sentinel').write_bytes(b'DO_NOT_OVERWRITE\n')
         vm.fixture.debug(native,out,'sentinel',f'write {out}/sentinel {path}')
         vm.fixture.debug(native,out,'sentinel-mode',f'set_inode_field {path} mode 0100600')
+    if reboot:vm.fixture.debug(native,out,'sealed-count',f'ssv mnt_count {selected["reboot"]["initial_mount_count"]}')
     binding=read(verify(vm.fixture.profile.filesystem.BINDING));vm.fixture.make_disk(native,out/'disk.img',binding)
     publish(out/'setup.json',dict(case=case,build=pin(build/'build.json'),helper=pin(helper/'request.json'),
         initramfs=pin(out/'initramfs.cpio.gz',maximum=32*1024**2),source=pin(Path(__file__)),device_actions=0))
@@ -121,7 +125,7 @@ def prepare(out,build,helper,case):
 
 
 def ssh_command(plan,port,command):
-    require(command in ('health','evidence','shutdown'),'unselected automatic VM SSH command')
+    require(command in ('health','evidence','shutdown','reboot'),'unselected automatic VM SSH command')
     args=lifecycle.ssh_command(plan,port,'health');args[-1]=command;return args
 
 

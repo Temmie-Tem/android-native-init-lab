@@ -6,6 +6,9 @@
 #include "s22plus_switch_root_common_v1.inc.c"
 #include "s22plus_debian_handoff_common_v1.inc.c"
 #include "s22plus_autoboot_singlecpu_v1.h"
+#ifdef S22_DEBIAN_REBOOT
+#include "s22plus_debian_reboot_common_v1.h"
+#endif
 #include "s22plus_debian_evidence_v1.inc.c"
 #if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
 static void ap_abort(void);
@@ -19,7 +22,7 @@ static __attribute__((noreturn)) void dh_hook_fail(int error) {
     dprintf(2,"DHVM_HOOK_PARK errno=%d\n",error);
 #endif
     unsigned reason=error>0 && error<4096 ? (unsigned)error : EPROTO;
-    if(de_loaded && !de_failed && !de.stopped)(void)de_event(DE_STOP,0,0,reason,SW_WITNESS,0);
+    if(de_loaded && !de_failed && !de.stopped && !de.control)(void)de_event(DE_STOP,0,0,reason,SW_WITNESS,0);
 #ifndef S22_DEBIAN_AUTOBOOT
     if(sw.deadline_ms && !sw_broken && !de.off && !sw_fd_type()) {
         uint8_t body[12];sw_put32(body,SW_STOP);sw_put32(body+4,reason);sw_put32(body+8,sw_last_stage);
@@ -182,6 +185,20 @@ static int dh_retire_acm(void) {
 #include "s22plus_debian_handoff_observer_v2.inc.c"
 int main(int argc,char **argv) {
     struct dh_state state={0};int error;
+#ifdef S22_DEBIAN_REBOOT
+    if((error=rb_current_early()))return 110;
+    if(argc==2 && (!strcmp(argv[1],"phase") || !strcmp(argv[1],"reboot-intent") || !strcmp(argv[1],"shutdown-intent"))) {
+        at_disable();pid_t cron=0,sshd=0;
+        if((error=dh_load(&state)) || memcmp(rb_early_nonce,sw.nonce,32) || (error=dh_actual_init(&state)))return 111;
+        if(!strcmp(argv[1],"phase"))return printf("%u\n",rb_phase)<0 || fflush(stdout) ? 112 : 0;
+        unsigned kind=!strcmp(argv[1],"reboot-intent") ? RB_REBOOT_INTENT : RB_SHUTDOWN_INTENT;
+        if((kind==RB_REBOOT_INTENT ? rb_phase!=1 : rb_phase!=2) ||
+           (error=de_load(&state)) || !de.complete || de.control || de.off || de.stopped ||
+           (error=dh_service("/run/crond.pid","/usr/sbin/cron",dh_cron_size,dh_cron_sha256,&cron)) ||
+           (error=dh_service("/run/sshd.pid","/usr/sbin/sshd",dh_sshd_size,dh_sshd_sha256,&sshd)) || cron==sshd)return 113;
+        return de_event(kind,rb_phase,0,RB_BASE_COUNT,rb_installed(rb_phase),0) ? 114 : 0;
+    }
+#endif
     /* The separately selected rcS invocation has a distinct bounded actor. */
     if(argc==2 && !strcmp(argv[1],"init"))AT_POINT(AT_HOOK_ENTRY,0,0);
 #ifdef S22_AUTOBOOT_RCS_TRACE
@@ -202,6 +219,9 @@ int main(int argc,char **argv) {
 #endif
     (void)state_stage;
     if((error=AT_CHECK(state_stage,dh_load(&state))))dh_hook_fail(error);
+#ifdef S22_DEBIAN_REBOOT
+    if(memcmp(rb_early_nonce,sw.nonce,32))dh_hook_fail(EPROTO);
+#endif
     sw_last_stage=SW_WITNESS;
     if(!strcmp(argv[1],"park"))dh_hook_fail(EIO);
     if(strcmp(argv[1],"init")) {

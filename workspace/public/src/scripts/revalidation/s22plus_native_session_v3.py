@@ -68,6 +68,8 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
 
 
 def operation_steps(request):
+    from s22plus_debian_reboot_access_v1 import selected as reboot_selected,normal_steps as reboot_steps
+    if reboot_selected(request):return reboot_steps()
     return steps(request['operation'],reentry=request['reentry'],hud=request['hud'],
         native_bootstrap=request.get('S') is not None)
 
@@ -238,11 +240,15 @@ class Session:
             value=self.adapter.integrated_observe(step,self.request,guard=guard,before_start=dispatch)
         elif step.action=='health':
             value=self.adapter.android_health(step,self.request,guard=guard)
-        elif step.action in ('debian-health','debian-shutdown'):
+        elif step.action in ('debian-health','debian-shutdown','debian-reboot'):
             require(self.request['operation'] in ('debian-handoff','debian-integrated','debian-autoboot'),'unselected Debian access')
             from s22plus_debian_access_v1 import access_for
-            access=access_for(self.adapter,self.request)
-            value=access.health(step,guard) if step.action=='debian-health' else access.shutdown(step,guard,dispatch)
+            access=access_for(self.adapter,self.request,step.name)
+            if step.action=='debian-reboot':
+                from s22plus_debian_reboot_access_v1 import selected as reboot_selected
+                require(reboot_selected(self.request),'unselected ordinary reboot')
+                value=access.reboot(step,guard,dispatch)
+            else:value=access.health(step,guard) if step.action=='debian-health' else access.shutdown(step,guard,dispatch)
         else:
             raise SessionError('unknown native step')
         return self.result(step,value)
@@ -274,7 +280,7 @@ class Session:
                 recovery_terminal_covers_effects(self.adapter,self.request,selected_steps,effects)
             else:require(covered,'recovery terminal does not cover the latest effect')
         else:
-            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot','debian-shutdown')
+            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot','debian-shutdown','debian-reboot')
                 or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')
                 or self.request['operation']=='native-ext4' and step.name=='experiment-first'
                 or mutates_step(self.request['operation'],step.name)]

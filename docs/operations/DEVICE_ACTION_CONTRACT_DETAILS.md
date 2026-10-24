@@ -99,6 +99,10 @@ permission to perform host-only work.
    one installed-root lifetime, each after complete protected admission, with
    distinct bounded records and one first-gadget NCM attempt. One fresh N owns
    the startup; physical original-A return, no repair and no replay remain.
+   Its separately reviewed [bounded reboot specialization](S22PLUS_DEBIAN_REBOOT_V1.md)
+   permits two admitted boots and four exact writable lifetimes, sealed count M,
+   one ordinary reboot and final shutdown under the same attended finite owner.
+   Each boot retains both complete admissions; no further startup is admitted.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -174,6 +178,13 @@ permission to perform host-only work.
    historical-file input, checked same-boot early-file admission and automatic
    installed services/first-gadget attempt. N-transfer intent consumes startup;
    the declared absolute deadline and one-shot recovery owner remain binding.
+   The [bounded reboot specialization](S22PLUS_DEBIAN_REBOOT_V1.md) expressly
+   replaces only that single-boot lifetime limit with two admitted boots/four
+   fixed lifetimes and one ordinary reboot, retaining per-boot absolute device
+   deadlines, fixed host windows and the same physical original-A recovery.
+   Its separately named pre-build D0 permits only the existing native_data
+   node's first 4096-byte read after exact GPT and health admission; no write,
+   mount, RO ioctl, node creation or staged helper is added by that read.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1249,6 +1260,21 @@ from service, SSH and shutdown proof. All original CPU/idle checks, deadlines,
 physical original-A return, no-repair/no-replay rules, current independent
 review and actual qualification precede a new attended finite grant. It adds
 no recovery guarantee and does not repin consumed predecessors.
+
+The separately reviewed [bounded ordinary-reboot specialization](S22PLUS_DEBIAN_REBOOT_V1.md)
+adds only `post-autoboot-p457-reboot-v1`: two admitted boots and four fixed
+native_data writable lifetimes sealed to pre-build mount count M, one ordinary
+reboot and final shutdown, two original fixed host windows within the same
+one-operation/3600-second attended grant, and original physical A recovery.
+Both complete protected admissions remain mandatory in each boot. It adds
+only its exact current/history files, finite packaged-log rotation rules and
+optional producer-derived old shutdown file; no wildcard, repair or replay.
+Its named `debian-reboot-baseline-d0-v1` permits the current foreground task's
+fixed existing-node 4096-byte native_data read with exact closed-return/GPT/
+Android32 binding and same-boot health brackets after current review/adoption.
+It requires no physical attendance or per-read request, adds no mount, ioctl,
+node, helper, write or control, and is not full-root admission. Synthetic H0
+baselines cannot admit physical use. No consumed artifact or grant changes.
 
 ## S22+ native-first installed-Debian handoff
 

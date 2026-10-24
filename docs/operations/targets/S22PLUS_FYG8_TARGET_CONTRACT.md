@@ -746,6 +746,23 @@ attended grant and physical original-A recovery remain mandatory. Independent
 review and actual artifact/ARM64 qualification precede that grant. P454's
 negative comparison and all consumed source/approval records remain intact.
 
+The separate [bounded reboot specialization](../S22PLUS_DEBIAN_REBOOT_V1.md)
+is adopted only for `post-autoboot-p457-reboot-v1`. It selects two admitted
+Debian boots, four exact native_data writable lifetimes, sealed count M, one
+ordinary reboot and final shutdown inside the same attended one-operation/
+3600-second owner and original physical A recovery. Each boot retains both
+complete clean protected admissions and its absolute device deadline. The
+second fixed host window begins at the durable reboot intent; uncertain
+control never repeats. Exact first-pair continuity, different authenticated
+boots, boot-count increment, finite log rotation and the policy's restrictive
+optional producer-derived shutdown file are required. Its reviewed fixed
+`debian-reboot-baseline-d0-v1` is bound to the foreground task without per-read
+approval or attendance, subject to exact closed-return/GPT/health and global
+owner exclusion; it reads only the existing node's first 4096 bytes. It grants
+no filesystem write or execution. Physical image admission requires a current
+physical baseline; explicitly synthetic H0 qualification is insufficient.
+Independent review and actual artifact/ARM64 qualification precede any grant.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

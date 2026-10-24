@@ -332,7 +332,7 @@ class Controller:
         from s22plus_native_task_v3 import validate_grant
         from s22plus_native_session_v3 import Session, Step
         from s22plus_native_adapter_v3 import Adapter
-        from s22plus_debian_autoboot_session_v1 import normal_steps
+        from s22plus_native_session_v3 import operation_steps
         base, directory = bound['base'], bound['directory']
         require(bound['operation'] == 'debian-autoboot', 'continuation requires automatic boot')
         require(not (directory / 'closed.json').exists(), 'task is already closed')
@@ -378,12 +378,12 @@ class Controller:
         else:
             require(not android and not any(row['event'] == 'stopped' for row in rows),
                 'normal continuation is stopped or already returning')
-            plan = normal_steps()
+            plan = operation_steps(request)
             require(not any(row['event'] in ('step-start', 'step-complete', 'effect-intent') and
                 row['data'].get('step') in ('install-android', 'android-final', 'recovery-health')
                 for row in rows) and not any((operation / (step.name + '.json')).exists()
                 for step in plan[-2:]), 'Android return has already started')
-            for step in plan[:4]:
+            for step in plan[:-2]:
                 completed = [row for row in rows if row['event'] == 'step-complete' and
                     row['data']['step'] == step.name]
                 require(len(completed) == 1 and completed[0]['data']['result'] ==

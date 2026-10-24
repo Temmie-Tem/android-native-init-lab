@@ -36,6 +36,19 @@ def singlecpu_health_pair(first,last,plan,boot):
 
 
 class Access(access.Access):
+    health_step='debian-health'
+
+    def decode_evidence(self,output):
+        return protocol.envelope(output,key=verify(self.request['N']['key'],maximum=32).read_bytes(),
+            selected=self.selection())
+
+    def check_health_phase(self,handle):
+        pass
+
+    def network_result(self,folder):
+        access.raw.require_success(access.raw.load_handle(folder/'network-create.capture.json'))
+        access.raw.require_success(access.raw.load_handle(folder/'network-up.capture.json'))
+
     def basis(self):
         rows=Journal(self.adapter.directory/'journal').rows()
         intents=[r for r in rows if r['event']=='effect-intent' and r['data']['step']=='install-native-first']
@@ -56,11 +69,10 @@ class Access(access.Access):
         return read(verify(artifact['build']))
 
     def evidence(self):
-        folder=self.adapter.folder('debian-health');value=read(folder/'evidence.json')
+        folder=self.adapter.folder(self.health_step);value=read(folder/'evidence.json')
         handle=access.raw.load_handle(verify(value['capture']));access.raw.require_success(handle)
         require(not access.raw.read_stderr(handle,maximum=16384),'automatic SSH evidence has diagnostics')
-        proof,_=protocol.envelope(access.raw.read_stdout(handle,maximum=protocol.MAXIMUM),
-            key=verify(self.request['N']['key'],maximum=32).read_bytes(),selected=self.selection())
+        proof,_=self.decode_evidence(access.raw.read_stdout(handle,maximum=protocol.MAXIMUM))
         require(value['proof']==proof,'automatic evidence differs from its raw capture')
         window=read(folder/'window.json')
         require(window['basis']==self.basis() and window['opened_ns']<=value['observed_ns']<window['basis']['deadline_ns'],
@@ -86,7 +98,7 @@ class Access(access.Access):
             for health_ordinal in range(1,30):
                 current();handle=self.ssh('health',folder,f'health-{health_ordinal:03d}',found,current,deadline_ns=deadline)
                 if handle.returncode==0:
-                    singlecpu_health_sample(handle,self.plan)
+                    self.check_health_phase(handle);singlecpu_health_sample(handle,self.plan)
                     first_health=handle;first_finished=clock();break
                 require(not handle.output_exceeded and handle.producer_error_type is None,'initial health producer failed')
                 time.sleep(min(3,max(0,(deadline-clock())/1_000_000_000)))
@@ -96,8 +108,7 @@ class Access(access.Access):
             if handle.returncode==0:
                 access.raw.require_success(handle)
                 require(not access.raw.read_stderr(handle,maximum=16384),'automatic evidence has diagnostics')
-                proof,_=protocol.envelope(access.raw.read_stdout(handle,maximum=protocol.MAXIMUM),
-                    key=verify(self.request['N']['key'],maximum=32).read_bytes(),selected=self.selection())
+                proof,_=self.decode_evidence(access.raw.read_stdout(handle,maximum=protocol.MAXIMUM))
                 current();publish(folder/'evidence.json',dict(capture=pin(handle.receipt_path),proof=proof,observed_ns=clock()))
                 break
             require(not handle.output_exceeded and handle.producer_error_type is None,'automatic evidence producer failed')
@@ -111,6 +122,7 @@ class Access(access.Access):
         for ordinal in range(health_ordinal+1,31):
             current();handle=self.ssh('health',folder,f'health-{ordinal:03d}',found,current,deadline_ns=deadline)
             if handle.returncode==0:
+                self.check_health_phase(handle)
                 health=access.health_projection(handle,self.plan,boot_sha256=proof['kernel_boot_identity_sha256'],autoboot=True)
                 current();require(access.endpoint(self.plan['link'])==found,'automatic NCM changed during health')
                 value=dict(action='debian-health',health=health,evidence=pin(folder/'evidence.json'),
@@ -124,16 +136,18 @@ class Access(access.Access):
         raise TimeoutError('automatic health sample budget exhausted')
 
     def rederive_health(self):
-        folder=self.adapter.folder('debian-health');value=read(folder/'result.json');evidence=self.evidence()
+        folder=self.adapter.folder(self.health_step);value=read(folder/'result.json');evidence=self.evidence()
         require(value['action']=='debian-health' and value['evidence']==pin(folder/'evidence.json') and
             value['endpoint']==pin(folder/'endpoint.json') and value['window']==pin(folder/'window.json'),
             'automatic health receipt location differs')
+        self.check_health_phase(access.raw.load_handle(verify(value['health']['capture'])))
         expected=access.health_projection(access.raw.load_handle(verify(value['health']['capture'])),self.plan,
             boot_sha256=evidence['proof']['kernel_boot_identity_sha256'],autoboot=True)
         require(value['health']==expected,'automatic health raw proof differs')
         from s22plus_debian_autoboot_profile_v1 import singlecpu_selected
         if singlecpu_selected(self.selection()):
             pair=value['ssh_120_seconds']
+            self.check_health_phase(access.raw.load_handle(verify(pair['first']['health']['capture'])))
             require(pair==singlecpu_health_pair(
                 access.raw.load_handle(verify(pair['first']['health']['capture'])),
                 access.raw.load_handle(verify(value['health']['capture'])),self.plan,
@@ -145,6 +159,5 @@ class Access(access.Access):
                 serial=self.plan['link']['serial'],product='S22 Debian research').items()) and
             found['topology'] in (access.target.lane.SOURCE_TOPOLOGY,access.target.lane.CANDIDATE_TOPOLOGY),
             'automatic health timing or endpoint differs')
-        access.raw.require_success(access.raw.load_handle(folder/'network-create.capture.json'))
-        access.raw.require_success(access.raw.load_handle(folder/'network-up.capture.json'))
+        self.network_result(folder)
         return value

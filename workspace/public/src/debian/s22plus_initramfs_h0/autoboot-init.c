@@ -34,7 +34,13 @@ static int ab_receipt(void) {
     }
     if(fd>=0 && close(fd) && !error)error=fs1_error();
     if(error)return error;
-    const uint8_t *proof=ab_early+32;uint8_t tag[32],boot[32],hash[32];
+    uint8_t boot[32];
+#ifdef S22_DEBIAN_REBOOT
+    rb_phase=early_u32(ab_early+216);
+    if((error=rb_early(ab_early,ab_size,rb_phase)) || (error=sw_boot(boot)))return error;
+    if(memcmp(boot,ab_early+48,32))return EPROTO;
+#else
+    const uint8_t *proof=ab_early+32;uint8_t tag[32],hash[32];
     unsigned log_size=early_u32(proof+12);
     early_tag(tag,proof+16,0,0,ab_early,224);
     uint64_t origin=fs1_u64(ab_early+208),last=0;
@@ -59,6 +65,7 @@ static int ab_receipt(void) {
         for(unsigned j=32;j<64;++j)if(row[j])return EPROTO;
         last=elapsed;previous=row+96;
     }
+#endif
     sw_hash(ab_early,ab_size,ab_hash);memcpy(sw.boot,boot,32);
     /* The nonce denotes this automatic same-boot record, not a host request. */
     sw_hash(ab_early,256,sw.nonce);
@@ -66,7 +73,13 @@ static int ab_receipt(void) {
 }
 static int ab_owned_file(int root,dev_t device) {
     char path[128],leaf[NAME_MAX+1];
-    int n=snprintf(path,sizeof(path),"var/lib/lab/s22-early-%s",fs1_run_id);
+    int n=snprintf(path,sizeof(path),
+#ifdef S22_DEBIAN_REBOOT
+        "%s",rb_paths[rb_phase-1][0]
+#else
+        "var/lib/lab/s22-early-%s",fs1_run_id
+#endif
+        );
     if(n<=0 || n>=(int)sizeof(path))return EOVERFLOW;
     int parent=ri_parent(root,device,path,leaf);if(parent<0)return fs1_error();
     struct stat st;uint8_t hash[32];

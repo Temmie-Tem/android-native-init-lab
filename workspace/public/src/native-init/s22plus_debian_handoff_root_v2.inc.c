@@ -1,6 +1,9 @@
 /* Prospective admission after P410's one writable lifetime. The immutable
  * archive still supplies every path, mode, owner, symlink and content hash.
  * Only declared data files may differ; no repair or journal replay occurs. */
+#ifdef S22_DEBIAN_REBOOT
+#include "s22plus_debian_reboot_root_v1.inc.c"
+#endif
 static int dh_mutable_stat(const struct dh_mutable *rule,const struct stat *st,dev_t device) {
     if(st->st_dev!=device || st->st_mode!=rule->mode || st->st_uid || st->st_gid!=rule->gid ||
        (S_ISDIR(st->st_mode) && st->st_nlink!=2) || (rule->archive && st->st_size%400) ||
@@ -42,6 +45,9 @@ static int dh_root_extras(int root,dev_t device,unsigned *extra) {
                         else value=value*10+(unsigned)(count[j]-'0');
                     }
                     if(!error && (!value || value>=100000))error=EPROTO;
+#ifdef S22_DEBIAN_REBOOT
+                    if(!error && (!rb_valid_phase(rb_phase) || value>99997U+rb_phase))error=EPROTO;
+#endif
 #else
                     if(read(fd,count,sizeof(count))!=2 || memcmp(count,"1\n",2))error=EPROTO;
 #endif
@@ -73,5 +79,9 @@ static int dh_root_extras(int root,dev_t device,unsigned *extra) {
     }
 #endif
 #endif
+ #ifdef S22_DEBIAN_REBOOT
+    int reboot_error=rb_root_extras(root,device,extra);
+    if(reboot_error)return reboot_error;
+ #endif
     return 0;
 }

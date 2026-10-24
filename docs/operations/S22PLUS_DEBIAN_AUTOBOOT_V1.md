@@ -464,3 +464,14 @@ raw failures, source snapshots, journal, structured terminal and canonical
 timeline. Independent review covers the changed boundaries, reachable owner,
 actual producer/consumer and representative real ARM64 failures. A90 and S20+
 remain outside this scope.
+
+## Separately selected bounded ordinary reboot
+
+[Bounded reboot V1](S22PLUS_DEBIAN_REBOOT_V1.md) specializes only
+`post-autoboot-p457-reboot-v1`, retaining this lane's original owner and return.
+Its two admitted boots, four fixed writable lifetimes, sealed pre-build M,
+one ordinary reboot, per-boot fixed windows, exact files and finite log rotation
+replace the single-boot limits only for that separately reviewed selection.
+The named fixed baseline D0 and synthetic-versus-physical distinction are
+specified there. All old variants, consumed runs and historical pins retain
+their original interpretation; no older grant selects the specialization.

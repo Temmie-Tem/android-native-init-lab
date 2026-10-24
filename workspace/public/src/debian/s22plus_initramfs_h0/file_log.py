@@ -31,7 +31,7 @@ def validate_identity(namespace,version):
         'file candidate version differs')
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=None,storage_first=False,diagnostic=False,diagnostic_fault=None,namespace=None,version=None,autoboot=False,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False,reboot=None):
     h0.require(not diagnostic or storage_first,"diagnostics require storage-first")
     h0.require(not autoboot or diagnostic and storage_first,'autoboot requires supervised storage-first')
     h0.require(not transition or autoboot,'transition observer requires automatic startup')
@@ -70,7 +70,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
             h0.HERE/'usb-first-prepare.c','-o',out/'fyg8-prepare'],out/'module-compile.log')
     if autoboot:
         import s22plus_debian_autoboot_profile_v1 as automatic
-        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal)
+        generated=automatic.admission_headers(run,transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot is not None)
     else:generated=admission.headers(run)
     for name,data in generated['headers'].items():(out/name).write_bytes(data)
     (out/'table.bin').write_bytes(generated['table'])
@@ -81,14 +81,18 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     h0.require(original.count(needle)==1,'Debian init adaptation differs')
     init=original.replace(needle,b'. /scripts/fyg8-dev\n');shell=early.shell_input(packages)
     measured=dict(shell_sha256=fyg8.digest(shell),init_sha256=fyg8.digest(init),helper_sha256=h0.sha(out/'fyg8-prepare'))
-    text=early.array('early_key',key)+early.array('early_run',bytes.fromhex(run))
+    text='#ifndef S22_EARLY_SEAL_V1_H\n#define S22_EARLY_SEAL_V1_H\n'+early.array('early_key',key)+early.array('early_run',bytes.fromhex(run))
     for name,field in (('early_shell_hash','shell_sha256'),('early_init_hash','init_sha256'),('early_helper_hash','helper_sha256')):
         text+=early.array(name,bytes.fromhex(measured[field]))
     if storage_first:
         import s22plus_debian_file_first_plan_v1 as first
         text+='static const uint64_t early_helper_size='+str((out/'fyg8-prepare').stat().st_size)+'ULL;\n'
-    text+='#define EARLY_DOMAIN '+json.dumps(automatic.DOMAIN.decode() if autoboot else ('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else (first.DOMAIN if storage_first else protocol.DOMAIN).decode()))+'\n'
+    text+='#define EARLY_DOMAIN '+json.dumps((automatic.reboot_spec.EARLY_DOMAIN if reboot is not None else automatic.DOMAIN).decode() if autoboot else ('S22PLUS-FYG8-DEBIAN-FAILURE-v1' if diagnostic else (first.DOMAIN if storage_first else protocol.DOMAIN).decode()))+'\n'
+    text+='#endif\n'
     (out/'early-seal.h').write_text(text)
+    if reboot is not None:
+        h0.require(autoboot and minimal,'reboot requires selected automatic minimal path')
+        (out/'s22plus_debian_reboot_seal_v1.h').write_bytes(automatic.reboot_spec.seal(run,reboot['initial_mount_count']))
     source,extra=file_log_faults.source(out,h0.HERE/'file-log.c',fault) if fault else (h0.HERE/'file-log.c',[])
     fault_sources=[]
     if transition_fault:
@@ -97,6 +101,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     h0.run([*flags,*(['-DS22_ROOT_INSPECT_VIRT_TEST'] if virt else []),
         *(['-DFL_STORAGE_FIRST'] if storage_first else []),*(['-DS22_FAILURE_OBSERVER'] if diagnostic else []),
         *(['-DS22_DEBIAN_AUTOBOOT'] if autoboot else []),
+        *(['-DS22_DEBIAN_REBOOT'] if reboot is not None else []),
         *(['-DS22_AUTOBOOT_SINGLECPU'] if single_cpu else []),
         *(['-DS22_AUTOBOOT_TRACE=1','-DS22_AUTOBOOT_HISTORY'] if transition else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')
@@ -137,7 +142,9 @@ def snapshot(out):
     import s22plus_debian_file_first_profile_v1
     rows={r['path']:r for r in early.snapshot(out)}
     paths=set(admission.source_files())|{h0.HERE/'file-hook',Path(protocol.__file__),
-        fyg8.ext4.NATIVE/'s22plus_autoboot_singlecpu_v1.h'}|set(h0.HERE.glob('*.h'))
+        fyg8.ext4.NATIVE/'s22plus_autoboot_singlecpu_v1.h',
+        *(fyg8.ext4.NATIVE/n for n in ('s22plus_debian_reboot_common_v1.h',
+            's22plus_debian_reboot_root_v1.inc.c','s22plus_debian_evidence_chain_v1.h'))}|set(h0.HERE.glob('*.h'))
     for path in sorted(paths):
         dest=out/'source-snapshot'/path.relative_to(h0.ROOT)
         dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes(path.read_bytes())

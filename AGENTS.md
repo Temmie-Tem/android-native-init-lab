@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **56** (supersedes revision 55; 2026-10-23)
+Contract-Revision: **57** (supersedes revision 56; 2026-10-25)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`dfba77404cb91d5e8cdd0a21bfaf6099fd3157482e0ffe84d955241ee7f19bb0`.
+`d4600577aed080915ae041dacd5ada4b49fd198125dcfdf5a6500848b3c00b95`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -119,7 +119,8 @@ Read an exception's complete conditions before considering it applicable.
    and [Debian early file pilot exception](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md)
    and [Debian storage-first file exception](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md)
    and [Debian-owned integrated boot exception](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md)
-   and [automatic Debian boot exception](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md).
+   and [automatic Debian boot exception](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md)
+   and its separately reviewed [bounded ordinary-reboot specialization](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -197,6 +198,11 @@ Read an exception's complete conditions before considering it applicable.
    permits one sealed native_data-only JBD2 replay and exact finalization, then
    restored partition RO and complete protected root admission. It adds no
    general fsck repair, formatter, GPT mutation, reinstall or Debian execution.
+   The separately reviewed [bounded Debian reboot](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md)
+   specializes only automatic boot with two admitted boots, four fixed
+   writable lifetimes, sealed ext4 mount count, one ordinary reboot and one
+   shutdown under the same attended owner and original-A recovery. Its named
+   pre-build D0 reads only the fixed native_data superblock block.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -263,6 +269,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ Debian progress and same-gadget handoff | [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md); one fresh attended operation, clean protected current-root admission, finite Debian service observation before same-g1 NCM/SSH, fixed shutdown and physical original-A return; no repair or replay. |
 | S22+ Debian-owned integrated boot | [Initial PID1 through installed services](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md); one fresh attended compound operation, protected current root, bounded services/local records, same-gadget SSH and physical original-A return; no repair or replay. |
 | S22+ automatic Debian boot | [Transfer-owned startup](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md); one fresh attended N, two admitted bounded filesystem lifetimes, absolute device deadline, local service proof and one NCM attempt, fixed SSH shutdown and physical original-A return; no repair or replay. |
+| S22+ bounded Debian reboot | [Two admitted automatic boots](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md); sealed pre-build M, four exact writable lifetimes, one ordinary reboot, one final shutdown, two fixed observation windows inside one attended finite grant and physical original-A return; no repair or replay. |
 | S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md); one reviewed strict writer, fresh attended grant, protected post-check and one original-A return, no repair replay or reinstall. |
 | X | Forbidden; remain H0. |
 
