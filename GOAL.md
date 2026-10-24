@@ -23,6 +23,13 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+The selected bounded unit is now [P458 physical-runtime integration](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_INTEGRATION_DESIGN_H0_2026-10-25.md):
+connect full-root admission, finite rotation rules and the two-boot owner to the
+actual production paths, then qualify artifacts/consumers and complete the
+checklist and independent review. Seal an externally read initial mount count
+so first-phase file absence cannot silently reset consumption. This is H0
+implementation and review; no new live device grant or server action is opened.
+
 [P458 ordinary reboot feasibility](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_H0_2026-10-24.md)
 is **PASS_H0_REBOOT_FEASIBILITY** after independent review. One ordinary SysV
 reboot produces two real ARM64 VM Debian boots, each with over 120 seconds of
