@@ -1,5 +1,10 @@
 # P460 physical candidate preparation
 
+Subsequent state: the separately approved
+[P460 physical run](S22PLUS_DEBIAN_CRON_CONFIG_P460_RUN_2026-10-26.md) consumed
+this prepared task and closed healthy. The preparation status below records
+the boundary before that execution and grants no replay.
+
 Status: **PASS_READY_H0_AND_UNEXECUTED_ENTRY**, with independent review and no
 findings. The fixed Android D0, fresh physical-baseline build, all 49 ARM64 cases,
 actual boot-only package and concrete execution plan pass. No F1 grant,

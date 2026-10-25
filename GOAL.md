@@ -23,21 +23,29 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P460 physical execution](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_RUN_2026-10-26.md)
+is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**.
+The exact persistent cron.d configuration survives one ordinary reboot; actual
+second-boot packaged cron creates its exclusive 512-byte report, and checked
+daemon/process settlement, unlink and synchronization retire the configuration.
+Both boots prove Debian PID1, protected root admissions, 120-second services and
+pinned SSH samples spanning 120970/120810 ms; installed count advances 6→7.
+One N and one original A transferred. An uncertain return reply was not repeated;
+after raw-proved A, one failed ADB read was resolved by the existing health-only
+continuation. H0 closure rederived 693 captures and the unchanged 24-row journal,
+with no F1 owner remaining. Final Android health completed at 806.633 seconds,
+and task closure at 971.989 seconds. Final post-shutdown native_data consistency,
+package installation and general configuration management remain unproved.
+
 [P460 physical preparation](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_PREPARE_2026-10-26.md)
-is **PASS_READY_H0_AND_UNEXECUTED_ENTRY**, with independent review and no findings.
-Fixed D0 proves **clean M=26**; the A/B-identical physical-baseline candidate
-passes all **49 ARM64 cases**, raw rederivation, the 38,041,641-byte boot-only
-package and cold original-image admission. Its concrete 3,600-second,
-one-operation attended task and source snapshot pass both phase constructors,
-original bundle validation and nine approval negatives. Actual v6 worker status
-shows no approval/grant and all four dispatch paths **NOT_DISPATCHED**; N remains
-unclaimed and no F1 owner remains. The
+passed **PASS_READY_H0_AND_UNEXECUTED_ENTRY** with independent review before
+the separately approved execution above. Fixed D0 proved clean M=26; the
+A/B-identical candidate passed all 49 ARM64 cases, the 38,041,641-byte boot-only
+package, cold image admission, both phase constructors and nine approval
+negatives. Its previously unclaimed task is now consumed and closed. The
 [authorized host cleanup](docs/reports/S22PLUS_HOST_SCRATCH_CLEANUP_2026-10-26.md)
 removed 506.73 GiB while preserving P460, recovery/physical evidence and the
 shared future-VM seed. About 500 GiB remains after the new qualification artifacts.
-No F1 grant, transfer or physical P460 execution has occurred. A new exact finite
-approval, physical attendance/Download recovery and fresh runtime admission
-remain required for execution; P459 stays consumed.
 
 [P460 persistent cron configuration](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_H0_2026-10-26.md)
 is **PASS_H0_PRODUCTION_CRON_CONFIG / independent PASS_GO**. Actual ARM64 boot 1
