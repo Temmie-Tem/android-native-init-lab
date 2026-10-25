@@ -103,6 +103,10 @@ permission to perform host-only work.
    permits two admitted boots and four exact writable lifetimes, sealed count M,
    one ordinary reboot and final shutdown under the same attended finite owner.
    Each boot retains both complete admissions; no further startup is admitted.
+   The separate [bounded cron specialization](S22PLUS_DEBIAN_CRON_V1.md)
+   adds only fixed packaged cron lifecycle, one boot-1 integrity report and
+   exact boot-2 retention checks inside those same four writable lifetimes.
+   Its schedule and bounded temporary-file storage are RAM only.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -185,6 +189,11 @@ permission to perform host-only work.
    Its separately named pre-build D0 permits only the existing native_data
    node's first 4096-byte read after exact GPT and health admission; no write,
    mount, RO ioctl, node creation or staged helper is added by that read.
+   The [bounded cron specialization](S22PLUS_DEBIAN_CRON_V1.md) adds one
+   exclusive authenticated native_data report from a fixed packaged-cron job,
+   fixed RAM schedule transitions and a bounded RAM `/tmp` mount. It retains
+   the same two boots, admissions, original deadlines and physical A recovery;
+   it adds no package installation, persistent configuration or repair.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1275,6 +1284,27 @@ Android32 binding and same-boot health brackets after current review/adoption.
 It requires no physical attendance or per-read request, adds no mount, ioctl,
 node, helper, write or control, and is not full-root admission. Synthetic H0
 baselines cannot admit physical use. No consumed artifact or grant changes.
+
+The separately reviewed [bounded cron specialization](S22PLUS_DEBIAN_CRON_V1.md)
+adds only `post-autoboot-p458-cron-v1`: fixed packaged cron stop/start/restart
+before the unchanged stable-service observation, one fixed boot-1 job and one
+512-byte exclusive report on native_data, authenticated by both boot-2
+admissions and compared exactly with its acknowledged first-boot bytes.
+Its exact RAM crontab is armed once and retired before the output attempt;
+an exclusive RAM intent prevents retries by already queued invocations.
+Only its separately owned one-shot RAM revocation remains allowed on failure
+or expiry: revoke the exact READY and mounted schedule inodes, set the schedule
+mtime to zero to invalidate cron's cached system table, and record their
+outcomes in RAM. It adds no disk write, control retry, renewed workload budget
+or quiescence claim; in-flight effects remain uncertain and physical A is required.
+Original PAM behavior is retained and temporary output is confined to an
+8 MiB/512-inode RAM `/tmp`. It retains the original two-boot/four-lifetime
+owner, fixed pre-build D0, no-replay rules and physical original-A return.
+The four exact final P458 snapshots are prospective producer-derived input,
+not post-Android retention proof. Package installation, persistent-config
+changes, wildcard admission, filesystem repair and automatic recovery remain
+outside this specialization. Current review, real qualification and a fresh
+attended finite grant are still required; no consumed record is repinned.
 
 ## S22+ native-first installed-Debian handoff
 

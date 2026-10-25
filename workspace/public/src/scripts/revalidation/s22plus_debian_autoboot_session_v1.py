@@ -63,6 +63,11 @@ def reboot_terminal(adapter,request,*,recovered):
                     'installed boot count did not advance exactly once')
                 result.update(status='PASS_TWO_DEBIAN_BOOTS_SSH',ordinary_reboot_proved=True,
                     ssh_access_proved=True,first_post_reboot_root_clean=True)
+                if 'cron' in evidence['proof']:
+                    require(result['boots'][0]['observation']['cron']==evidence['proof']['cron'],
+                        'cron proof changed across the ordinary reboot')
+                    result.update(cron_workload_proved=True,cron_exact_retention_proved=True,
+                        persistent_configuration_proved=False,package_installation_proved=False)
         except (ValueError,OSError,KeyError,RawCaptureError) as error:
             result['evidence_error']=dict(phase=phase,type=type(error).__name__,message=str(error)[:256]);break
     return result

@@ -25,9 +25,12 @@ def rejection(serial,case):
 
 def vm_results(tested,built,key):
     from s22plus_debian_autoboot_qualification_v1 import producer
+    from s22plus_debian_autoboot_profile_v1 import cron_selected,cron_spec
+    cron=cron_selected(built)
     require(tested['schema']=='s22plus-debian-reboot-vm-v1' and tested['status']=='PASS' and
         tested['device_actions']==0 and tested['source_inputs']==built['source_inputs'] and
-        tuple(row['case'] for row in tested['cases'])==('two-boot-normal','clean-error-unmount','second-root-control',*spec.ROOT_CASES),
+        tuple(row['case'] for row in tested['cases'])==('two-boot-normal','clean-error-unmount','second-root-control',*spec.ROOT_CASES,
+            *(cron_spec.ROOT_CASES if cron else ()),*(tuple(cron_spec.RUNTIME_FAULTS) if cron else ())),
         'two-boot VM corpus or source closure differs')
     sources={r['path']:r['sha256'] for r in built['source_inputs']}
     positive=None
@@ -36,7 +39,7 @@ def vm_results(tested,built,key):
             row['physical_readiness'] is False,'VM result promoted authority or omitted isolation')
         helper=producer(read(verify(row['helper'])),virtual=True)
         require(helper['source_inputs']==built['source_inputs'] and helper['run_id']==built['run_id'] and
-            helper['reboot']==built['reboot'] and helper['reboot_baseline']==built['reboot_baseline'] and
+            helper.get('cron')==built.get('cron') and helper['reboot']==built['reboot'] and helper['reboot_baseline']==built['reboot_baseline'] and
             helper['modules']==built['modules'] and helper['history']==built['history'] and
             verify(helper['key']).read_bytes()==key,'two-boot VM helper does not join physical-format build')
         require(row['build']['sha256']==tested['build_sha256'],'two-boot VM build receipt differs')
@@ -49,6 +52,14 @@ def vm_results(tested,built,key):
             require(sources.get(name)==receipt['sha256'],'VM driver is not frozen in the build')
             verify(receipt)
         serial=verify(row['serial'],maximum=8*1024**2).read_bytes()
+        if cron and row['case'] in cron_spec.RUNTIME_FAULTS:
+            from cron_vm_faults import validate_serial
+            require(row['scope']=='H0_ARM64_DECLARED_CRON_FAILURE' and row['kernel_stopped_by_h0_driver'] is True and
+                row['workload_success'] is False and row['replay_authorized'] is False and row['returncode']==-9 and
+                helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<215,
+                'runtime failure was promoted to success or changed its substitution')
+            verify(row['command']);validate_serial(serial,row['case'])
+            continue
         if row['case']=='changed-current-receipt':
             require(row['runtime_absent'] is True and row['disk_before']!=row['disk_after'] and
                 b'AUTO_VM_RECEIPT_MUTATED' in serial and b'reboot: Power down' in serial and
@@ -125,7 +136,11 @@ def vm_results(tested,built,key):
                 if kind!='transition':require(verify(row['persisted'][f'{phase}-{kind}']).read_bytes()==final[index],
                     'final disk evidence differs from acknowledged bytes')
             if phase==2:
-                require(parts[3:]==first_parts[:2] and proof['kernel_boot_identity_sha256']!=previous,
+                require(parts[3:5]==first_parts[:2] and proof['kernel_boot_identity_sha256']!=previous,
                     'second VM boot did not preserve the exact first pair')
+            if cron:
+                require(verify(boot['files']['cron']).read_bytes()==final[-1]==verify(row['persisted']['cron']).read_bytes(),
+                    'cron persisted bytes differ from the acknowledged producer')
+                if phase==2:require(final[-1]==first_parts[-1],'cron bytes changed across reboot')
             previous=proof['kernel_boot_identity_sha256'];first_parts=final
     return tested

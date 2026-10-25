@@ -5,6 +5,9 @@
 #define DE_CHAIN_KEY early_key
 #include "s22plus_debian_evidence_chain_v1.h"
 #undef DE_CHAIN_KEY
+#ifdef S22_DEBIAN_CRON
+#include "s22plus_debian_cron_v1.h"
+#endif
 
 static int rb_file(int root,dev_t device,unsigned phase,unsigned runtime,
                    uint8_t data[16384],size_t *size,bool absent) {
@@ -93,6 +96,14 @@ static int rb_root_extras(int root,dev_t device,unsigned *extra) {
         if(!memcmp(boot,first+48,32))return EPROTO;
         *extra+=2;
     }
+#ifdef S22_DEBIAN_CRON
+    uint8_t cron[CR_SIZE],hook[32];
+    if((error=cr_read(root,device,cron,rb_phase==1)))return error;
+    if(rb_phase==2) {
+        if((error=rb_hook_digest(hook)) || (error=cr_valid(cron,first,device,hook)))return error;
+        ++*extra;
+    }
+#endif
     for(unsigned p=rb_phase;p<=2;++p)for(unsigned kind=0;kind<2;++kind) {
 #ifdef S22_AUTOBOOT_SECOND_ADMISSION
         /* Its exact same-boot early file is checked by ab_owned_file. */

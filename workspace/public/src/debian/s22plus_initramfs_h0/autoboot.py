@@ -24,11 +24,13 @@ from s22plus_native_records_v3 import pin,read,verify
 def sources():
     return sorted(set(handoff.source_files())|set(file_log.admission.source_files())|
         {p for p in h0.HERE.iterdir() if p.is_file() and p.suffix in ('.py','.c','.h')}|
-        {Path(profile.__file__),Path(profile.phase_spec.__file__),Path(profile.minimal_spec.__file__),Path(profile.reboot_spec.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
+        {Path(profile.__file__),Path(profile.phase_spec.__file__),Path(profile.minimal_spec.__file__),Path(profile.reboot_spec.__file__),Path(profile.cron_spec.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
          handoff.base.NATIVE/'s22plus_autoboot_transition_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_singlecpu_v1.h',
          handoff.base.NATIVE/'s22plus_debian_reboot_common_v1.h',
          handoff.base.NATIVE/'s22plus_debian_reboot_root_v1.inc.c',
+         handoff.base.NATIVE/'s22plus_debian_cron_v1.h',
+         handoff.base.NATIVE/'s22plus_debian_cron_runtime_v1.inc.c',
          handoff.base.NATIVE/'s22plus_autoboot_transition_stages_v1.def',
          handoff.base.NATIVE/'s22plus_autoboot_phase_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_phase_parse_v1.h',
@@ -66,7 +68,7 @@ fyg8_stop
     return text[:-len('fyg8_stop\n')]+tail
 
 
-def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,script_channel=False,minimal=False,reboot=None):
+def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=None,rcs=False,watchdog=False,phase=False,single_cpu=False,script_channel=False,minimal=False,reboot=None,cron=False):
     flags=[*integrated.FLAGS,'-DS22_DEBIAN_HANDOFF','-DS22_DEBIAN_AUTOBOOT',
         '-I',out,'-I',headers,'-I',fyg8.ext4.NATIVE,'-I',h0.HERE]
     if transition:flags+=['-DS22_AUTOBOOT_TRACE='+str(dict(entry=2,witness=3,hook=4)[name]),'-DS22_AUTOBOOT_HISTORY']
@@ -76,9 +78,13 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     if script_channel:flags+=['-DS22_AUTOBOOT_SCRIPT_CHANNEL']
     if minimal:flags+=['-DS22_AUTOBOOT_MINIMAL']
     if reboot is not None:flags+=['-DS22_DEBIAN_REBOOT']
+    if cron:flags+=['-DS22_DEBIAN_CRON']
     if single_cpu:flags+=['-DS22_AUTOBOOT_SINGLECPU']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
-    if transition_fault:
+    if transition_fault in profile.cron_spec.RUNTIME_FAULTS:
+        h0.require(virt and cron,'cron faults require the selected VM')
+        flags+=['-DCR_VM_FAULT='+str(profile.cron_spec.RUNTIME_FAULTS[transition_fault])]
+    elif transition_fault:
         import autoboot_transition_faults
         source,_=autoboot_transition_faults.source(out,source,transition_fault,fyg8.ext4.NATIVE)
     for side in 'ab':
@@ -88,7 +94,7 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     return pin(out/(name+'-a'),maximum=8*1024**2)
 
 
-def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False,reboot=None):
+def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transition=False,transition_fault=None,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False,reboot=None,cron=False):
     h0.require(transition_fault is None or virt and transition,'transition fault requires virtual observation')
     h0.require(not rcs or transition,'rcS observation requires the transition variant')
     h0.require(not watchdog or rcs,'watchdog observation requires the rcS variant')
@@ -100,17 +106,19 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
     h0.require(not script_channel or post_p447,'script channel requires the current single CPU history')
     h0.require(idle_policy in profile.IDLE_POLICIES if watchdog else idle_policy is None,
         'idle policy requires the selected watchdog variant')
+    h0.require(not cron or reboot is not None and reboot['initial_mount_count']==profile.cron_spec.EXPECTED_MOUNT_COUNT,
+        'cron requires the exact post-P458 mount count and reboot selection')
     if reboot is not None:
         h0.require(minimal and reboot==baseline.binding(reboot['receipt']),
             'reboot needs minimal selection and a rederived pre-build baseline')
     out=h0.private(out,fresh=fresh);saved=snapshot(out) if fresh else read(out/'source-inputs.json')
     run=run or uuid.uuid4().hex;key=key or secrets.token_bytes(32)
-    namespace=profile.reboot_spec.NAMESPACE if reboot is not None else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.reboot_spec.VERSION if reboot is not None else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    namespace=profile.cron_spec.NAMESPACE if cron else profile.reboot_spec.NAMESPACE if reboot is not None else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.cron_spec.VERSION if cron else profile.reboot_spec.VERSION if reboot is not None else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     prefix=out/'early';prefix.mkdir(mode=0o700)
     file_log.snapshot(prefix)
     first=file_log.prepare(prefix,inputs,packages,run=run,key=key,virt=virt,fresh=False,
-        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal,reboot=reboot)
+        storage_first=True,diagnostic=True,autoboot=True,namespace=namespace,version=version,transition=transition,transition_fault=transition_fault,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal,reboot=reboot,cron=cron)
     destination=out/'installed';destination.mkdir(mode=0o700)
     base=handoff.base
     for name in ('s22plus_native_ext4_seal_v1.h','s22plus_native_root_inspect_seal_v1.h',
@@ -118,16 +126,16 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         (destination/name).write_bytes((prefix/name).read_bytes())
     (destination/'s22plus_native_staged_preflight_seal_v1.h').write_bytes(base.staged.header())
     (destination/'s22plus_switch_root_seal_v1.h').write_bytes(base.seal(run,key))
-    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal,reboot=reboot is not None))
+    (destination/'s22plus_debian_handoff_seal_v1.h').write_bytes(profile.header(namespace,version,run,virt=virt,transition=transition,rcs=rcs,watchdog=watchdog,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal,reboot=reboot is not None,cron=cron))
     if phase:(destination/'s22plus_autoboot_phase_seal_v1.h').write_bytes(profile.phase_spec.header(virt=virt))
     if script_channel:(destination/'s22plus_autoboot_script_seal_v1.h').write_bytes(profile.script_spec(minimal).script_header())
-    installed_init,assets=profile.payloads(run,virt=virt,single_cpu=single_cpu,minimal=minimal,reboot=reboot is not None)
+    installed_init,assets=profile.payloads(run,virt=virt,single_cpu=single_cpu,minimal=minimal,reboot=reboot is not None,cron=cron)
     for name,data in assets.items():(destination/name).write_bytes(data)
-    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot)
+    hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
     handoff.payload_header(destination,hook,virt,minimal=minimal)
-    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot)
+    witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
-    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot)
+    entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
     (out/'fyg8-dev').write_text(dev_script())
     result=dict(namespace=namespace,version=version,profile=profile.PROFILE,
         run_id=run,virtual=virt,inputs=str(h0.private(inputs)),packages=str(h0.private(packages)),
@@ -139,7 +147,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         deadline_ms=300000,observer_revision=6 if single_cpu else 5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
             sorted(list(prefix.glob('*.h'))+list(destination.glob('*.h')))})
-    if transition:result.update(transition_observer=profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot is not None),additional_history=first['additional_history'])
+    if transition:result.update(transition_observer=profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot is not None,cron),additional_history=first['additional_history'])
     if rcs:result['runtime_history']=first['runtime_history']
     if watchdog:result.update(watchdog_history=first['watchdog_history'],idle_policy=idle_policy)
     if phase:result.update(phase_history=first['phase_history'],phase_declaration=profile.phase_spec.declaration())
@@ -149,6 +157,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
     if reboot is not None:
         result['reboot']=profile.reboot_spec.declaration(run,reboot['initial_mount_count'])
         result['reboot_baseline']=reboot
+    if cron:result['cron']=profile.cron_spec.declaration(run)
     if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
         first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
     for row in saved:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'automatic source changed')
@@ -225,9 +234,9 @@ def repack_template(out,selected):
         package_installation=False)
 
 
-def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False,reboot=None):
+def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False,reboot=None,cron=False):
     out=h0.private(out,fresh=True);saved=snapshot(out)
-    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal,reboot=reboot)
+    selected=prepare(out,inputs,packages,fresh=False,transition=transition,rcs=rcs,watchdog=watchdog,idle_policy=idle_policy,phase=phase,single_cpu=single_cpu,post_p447=post_p447,script_channel=script_channel,minimal=minimal,reboot=reboot,cron=cron)
     if reboot is not None:selected['construction']=repack_template(out,selected)
     else:
         h0.run(['unshare','--user','--map-auto','--map-root-user','--mount','--pid','--fork','--mount-proc',
@@ -260,6 +269,7 @@ if __name__=='__main__':
     parser.add_argument('--post-p447',action='store_true',help='P448: exact authenticated P445 early history')
     parser.add_argument('--script-channel',action='store_true',help='P452: P451-authenticated P448 pair and bounded RAM rcS channel')
     parser.add_argument('--minimal',action='store_true',help='P456: fixed minimal sysinit and exact P455 history')
+    parser.add_argument('--cron',action='store_true',help='P459: one packaged-cron workload and exact retained output')
     parser.add_argument('--reboot-baseline',type=Path,help='P458: exact fixed D0 or explicitly H0 synthetic baseline receipt')
     args=parser.parse_args()
     h0.require(not args.minimal or args.script_channel,'--minimal requires --script-channel')
@@ -272,6 +282,9 @@ if __name__=='__main__':
     if args.reboot_baseline:
         h0.require(args.minimal,'--reboot-baseline requires --minimal')
         options['reboot']=baseline.binding(pin(h0.private(args.reboot_baseline)))
+    if args.cron:
+        h0.require(args.reboot_baseline is not None,'--cron requires a fixed reboot baseline')
+        options['cron']=True
     if args.action=='inside':inside(h0.private(args.output))
     elif args.action=='prepare':prepare(args.output,args.inputs,args.packages,virt=args.virt,**options)
     else:build(args.output,args.inputs,args.packages,**options)

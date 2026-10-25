@@ -120,7 +120,7 @@ def shutdown_marker():
         presence_previously_observed=False,metadata_previously_observed=False)
 
 
-def qualify(script,run):
+def qualify(script,run,*,cron=False):
     """Fixed forced-command vocabulary; no new standalone persistent marker."""
     first,second=paths(run,1),paths(run,2)
     function=f'''rb_phase() {{
@@ -171,4 +171,12 @@ rb_evidence() {{
   printf 'DEBIAN_SHUTDOWN_REQUEST_ACCEPTED\\n'
   ;;
 '''
-    return script[:begin]+controls+script[end:]
+    result=script[:begin]+controls+script[end:]
+    if cron:
+        from s22plus_debian_cron_v1 import path
+        for phase in (1,2):
+            needle=(f"/{first['runtime']} /run/s22-debian/transition" if phase==1 else f"/{first['early']} /{first['runtime']}").encode()+b';;'
+            require(result.count(needle)==1,'cron envelope insertion differs')
+            result=result.replace(needle,needle[:-2]+b' /'+path(run).encode()+b';;')
+        result=result.replace(b'S22_REBOOT_EVIDENCE_V1',b'S22_CRON_EVIDENCE_V1').replace(b'S22_REBOOT_EVIDENCE_END',b'S22_CRON_EVIDENCE_END')
+    return result

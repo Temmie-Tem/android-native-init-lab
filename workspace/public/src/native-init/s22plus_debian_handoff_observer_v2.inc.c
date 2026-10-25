@@ -150,9 +150,22 @@ static void dh_wait_script(struct dh_state *state,unsigned phase,const char *pat
     dh_boundary(phase,5,child,(unsigned)status,0);
     if(!WIFEXITED(status) || WEXITSTATUS(status))dh_hook_fail(ECHILD);
 }
-static int dh_service(const char *pidfile,const char *executable,uint64_t size,const uint8_t sha[32],pid_t *identity) {
-    char text[64],path[128],extra;struct stat file,actual,root;
-    int error=fs1_read_text(pidfile,text,sizeof(text));if(error)return error;
+/* A missing startup object may be reobserved by the cron lifecycle caller.
+ * Identity/content/forbidden-FD mismatches retain their original hard errors. */
+static int dh_service_absent(unsigned *retry,unsigned stage,int cause,int error) {
+    if(retry && (cause==ENOENT || cause==ESRCH))*retry=stage;
+    return error;
+}
+static int dh_service_probe(const char *pidfile,const char *executable,uint64_t size,const uint8_t sha[32],
+                            pid_t *identity,unsigned *retry) {
+    char text[64]={0},path[128],extra;struct stat file,actual,root;
+    if(retry)*retry=0;
+    int error=fs1_read_text(pidfile,text,sizeof(text));
+    if(error) {
+        if(retry && error==EPROTO && !text[0] && !lstat(pidfile,&actual) &&
+            S_ISREG(actual.st_mode) && !actual.st_uid && !actual.st_size)*retry=1;
+        return dh_service_absent(retry,1,error,error);
+    }
     long pid=0;if(sscanf(text,"%ld %c",&pid,&extra)!=1 || pid<=1 || pid>INT_MAX)return EPROTO;
     if(*identity && *identity!=(pid_t)pid)return EPROTO;
     int fd=fs1_pin_file(executable,size,sha,true);if(fd<0)return fs1_error();
@@ -160,22 +173,30 @@ static int dh_service(const char *pidfile,const char *executable,uint64_t size,c
     if(close(fd) && !error)error=fs1_error();
     if(error)return error;
     snprintf(path,sizeof(path),"/proc/%ld/exe",pid);
-    if(stat(path,&actual) || file.st_dev!=actual.st_dev || file.st_ino!=actual.st_ino || kill((pid_t)pid,0))return EPROTO;
+    if(stat(path,&actual))return dh_service_absent(retry,2,errno,EPROTO);
+    if(file.st_dev!=actual.st_dev || file.st_ino!=actual.st_ino)return EPROTO;
+    if(kill((pid_t)pid,0))return dh_service_absent(retry,2,errno,EPROTO);
     snprintf(path,sizeof(path),"/proc/%ld/root",pid);
-    if(stat("/",&root) || stat(path,&actual) || root.st_dev!=actual.st_dev || root.st_ino!=actual.st_ino)return EPROTO;
-    snprintf(path,sizeof(path),"/proc/%ld/fd",pid);DIR *fds=opendir(path);if(!fds)return fs1_error();
+    if(stat("/",&root))return EPROTO;
+    if(stat(path,&actual))return dh_service_absent(retry,3,errno,EPROTO);
+    if(root.st_dev!=actual.st_dev || root.st_ino!=actual.st_ino)return EPROTO;
+    snprintf(path,sizeof(path),"/proc/%ld/fd",pid);DIR *fds=opendir(path);
+    if(!fds){error=fs1_error();return dh_service_absent(retry,4,error,error);}
     unsigned count=0;
     for(;;) {
         errno=0;struct dirent *entry=readdir(fds);
         if(!entry){if(errno)error=errno;break;}
         if(entry->d_name[0]=='.')continue;
-        if(++count>128 || fstatat(dirfd(fds),entry->d_name,&actual,0)
+        if(++count>128){error=EPROTO;break;}
+        if(fstatat(dirfd(fds),entry->d_name,&actual,0)) {
+            error=dh_service_absent(retry,5,errno,EPROTO);break;
+        }
 #ifndef S22_DEBIAN_AUTOBOOT
-           || (S_ISCHR(actual.st_mode) && (uint64_t)actual.st_rdev==sw.tty_device)
+        if(S_ISCHR(actual.st_mode) && (uint64_t)actual.st_rdev==sw.tty_device){error=EPROTO;break;}
 #endif
-           ) {error=EPROTO;break;}
         char link[256];ssize_t n=readlinkat(dirfd(fds),entry->d_name,link,sizeof(link)-1);
-        if(n<0 || n>=(ssize_t)sizeof(link)-1){error=EPROTO;break;}link[n]=0;
+        if(n<0){error=dh_service_absent(retry,6,errno,EPROTO);break;}
+        if(n>=(ssize_t)sizeof(link)-1){error=EPROTO;break;}link[n]=0;
         if(strstr(link,"s22-switch-state") ||
 #ifdef S22_DEBIAN_AUTOBOOT
            strstr(link,"s22-autoboot-trace") ||
@@ -186,6 +207,12 @@ static int dh_service(const char *pidfile,const char *executable,uint64_t size,c
     if(error)return error;
     *identity=(pid_t)pid;return 0;
 }
+static int dh_service(const char *pidfile,const char *executable,uint64_t size,const uint8_t sha[32],pid_t *identity) {
+    return dh_service_probe(pidfile,executable,size,sha,identity,NULL);
+}
+#ifdef S22_DEBIAN_CRON
+#include "s22plus_debian_cron_runtime_v1.inc.c"
+#endif
 static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char *mode) {
     int error;
     if(!strcmp(mode,"rcs")) {
@@ -223,6 +250,9 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     dh_wait_script(state,2,"/etc/init.d/rc","2");
     if((error=dh_actual_init(state)))dh_hook_fail(error);
     dh_claim("runlevel-complete","runlevel-started");
+#ifdef S22_DEBIAN_CRON
+    if((error=cr_lifecycle(state)))dh_hook_fail(error);
+#endif
     pid_t cron=0,ssh=0;uint64_t started=sw_now();
 #if S22_DEBIAN_FAULT == 8
     if((error=dh_service("/run/crond.pid","/usr/sbin/cron",dh_cron_size,dh_cron_sha256,&cron)) ||
@@ -245,6 +275,9 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
             dh_hook_fail(error ? error : EPROTO);
         dh_progress(2+sample,sample ? 4 : 3,sample,sw_now()-started,3);
     }
+#ifdef S22_DEBIAN_CRON
+    if((error=cr_complete(state)))dh_hook_fail(error);
+#endif
     if((error=de_event(DE_COMPLETE,0,0,0,0,0)))dh_hook_fail(error);
 #ifdef S22_DEBIAN_AUTOBOOT
     dh_claim("autoboot-complete","runlevel-complete");

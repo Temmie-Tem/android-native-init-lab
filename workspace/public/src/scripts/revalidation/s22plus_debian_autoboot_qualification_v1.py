@@ -73,8 +73,9 @@ def producer(built,*,virtual):
     script_channel=profile.script_channel_selected(built)
     minimal=profile.minimal_selected(built)
     reboot=profile.reboot_selected(built)
-    namespace=profile.reboot_spec.NAMESPACE if reboot else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.reboot_spec.VERSION if reboot else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    cron=profile.cron_selected(built)
+    namespace=profile.cron_spec.NAMESPACE if cron else profile.reboot_spec.NAMESPACE if reboot else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.cron_spec.VERSION if cron else profile.reboot_spec.VERSION if reboot else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
@@ -84,7 +85,7 @@ def producer(built,*,virtual):
         len(verify(built['key'],maximum=32).read_bytes())==32,'automatic run/key identity differs')
     require(built['history']==profile.history(),'automatic historical input differs')
     if transition:
-        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot) and
+        require(built['transition_observer']==profile.observer(rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot,cron) and
             built['additional_history']==profile.additional_history(),'transition admission/observation differs')
     else:require('additional_history' not in built,'legacy producer cannot adopt new history')
     if rcs:require(built['runtime_history']==profile.runtime_history(),'rcS runtime history differs')
@@ -111,15 +112,15 @@ def producer(built,*,virtual):
             verify(built['headers']['installed/s22plus_autoboot_script_seal_v1.h']).read_bytes()==
             profile.script_spec(minimal).script_header(),'script channel generated declaration differs')
     else:require('script_declaration' not in built,'unselected script channel declaration')
-    if single_cpu:require(built['current_history']==profile.singlecpu_history(post_p447,script_channel,minimal,reboot),'single CPU authenticated history differs')
+    if single_cpu:require(built['current_history']==profile.singlecpu_history(post_p447,script_channel,minimal,reboot,cron),'single CPU authenticated history differs')
     else:require('current_history' not in built,'legacy producer cannot adopt single CPU history')
     if 'transition_fault' in built:
         require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ())+
-                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ())+(profile.minimal_spec.FAULTS if minimal else ())+(profile.reboot_spec.FAULTS if reboot else ()),
+                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ())+(profile.minimal_spec.FAULTS if minimal else ())+(profile.reboot_spec.FAULTS if reboot else ())+ (tuple(profile.cron_spec.RUNTIME_FAULTS) if cron else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
-    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot)
+    table,count,boot_count=profile.retained_comparison(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot,cron)
     require(verify(built['table']).read_bytes()==table and built['admission']['table']==built['table'] and
         built['admission']['table_count']==count and built['admission']['boot_count']==boot_count,
         'automatic immutable table differs')
@@ -132,7 +133,7 @@ def producer(built,*,virtual):
         'automatic fixed tools differ')
     require(built['measured']['helper_sha256']==built['helper']['sha256'] and
         set(built['measured'])=={'shell_sha256','init_sha256','helper_sha256'},'automatic measurements differ')
-    init,assets=profile.payloads(built['run_id'],virt=virtual,single_cpu=single_cpu,minimal=minimal,reboot=reboot)
+    init,assets=profile.payloads(built['run_id'],virt=virtual,single_cpu=single_cpu,minimal=minimal,reboot=reboot,cron=cron)
     require(built['installed_init']==dict(size=len(init),sha256=hashlib.sha256(init).hexdigest()) and
         set(built['assets'])==set(assets)|{'hook'} and built['assets']['hook']==built['hook'],
         'automatic installed init/assets differ')
@@ -146,6 +147,12 @@ def producer(built,*,virtual):
             profile.reboot_spec.seal(built['run_id'],built['reboot_baseline']['initial_mount_count']),
             'reboot generated seal differs')
     else:require('reboot' not in built and 'reboot_baseline' not in built,'unselected reboot declaration')
+    if cron:
+        require(built.get('cron')==profile.cron_spec.declaration(built['run_id']) and
+            built['reboot']['initial_mount_count']==profile.cron_spec.EXPECTED_MOUNT_COUNT and
+            verify(built['headers']['early/s22plus_debian_cron_seal_v1.h']).read_bytes()==profile.cron_spec.seal(built['run_id']),
+            'cron declaration or generated seal differs')
+    else:require('cron' not in built,'unselected cron declaration')
     if reboot and 'initramfs' in built:template_binding(built)
     return built
 

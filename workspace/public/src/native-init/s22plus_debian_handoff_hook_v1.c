@@ -13,7 +13,13 @@
 #if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
 static void ap_abort(void);
 #endif
+#ifdef S22_DEBIAN_CRON
+static void cr_abort(void);
+#endif
 static __attribute__((noreturn)) void dh_hook_fail(int error) {
+#ifdef S22_DEBIAN_CRON
+    cr_abort();
+#endif
 #if defined(S22_AUTOBOOT_PHASE_TRACE) || defined(S22_AUTOBOOT_SCRIPT_CHANNEL)
     ap_abort();
 #endif
@@ -187,6 +193,16 @@ int main(int argc,char **argv) {
     struct dh_state state={0};int error;
 #ifdef S22_DEBIAN_REBOOT
     if((error=rb_current_early()))return 110;
+#ifdef S22_DEBIAN_CRON
+    if(argc==2 && !strcmp(argv[1],"cron-job")) {
+        at_disable();
+        if((error=dh_load(&state)) || memcmp(rb_early_nonce,sw.nonce,32) ||
+           (error=dh_actual_init(&state)))return 115;
+        error=cr_job(&state);
+        if(error)cr_abort();
+        return error ? 116 : 0;
+    }
+#endif
     if(argc==2 && (!strcmp(argv[1],"phase") || !strcmp(argv[1],"reboot-intent") || !strcmp(argv[1],"shutdown-intent"))) {
         at_disable();pid_t cron=0,sshd=0;
         if((error=dh_load(&state)) || memcmp(rb_early_nonce,sw.nonce,32) || (error=dh_actual_init(&state)))return 111;

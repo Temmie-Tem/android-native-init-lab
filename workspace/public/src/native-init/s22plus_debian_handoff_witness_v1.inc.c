@@ -76,6 +76,14 @@ static __attribute__((noreturn)) void dh_exec_init(void) {
     dh_overlay("/run/s22-debian/qualify","/usr/local/sbin/lab-qualify");
     dh_overlay("/run/s22-debian/defer-usb","/etc/init.d/lab-usb");
     dh_overlay("/run/s22-debian/crontab","/etc/crontab");
+#ifdef S22_DEBIAN_CRON
+    /* Packaged cron opens a temporary output file before the job's redirection.
+     * Its scratch storage is bounded RAM, never another native_data writer. */
+    if(lstat("/tmp",&st) || st.st_dev!=(dev_t)sw.root_device ||
+       st.st_mode!=(S_IFDIR|01777) || st.st_uid || st.st_gid ||
+       mount("tmpfs","/tmp","tmpfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,"size=8m,nr_inodes=512,mode=1777"))sw_stop(EPROTO);
+    struct statfs scratch;if(statfs("/tmp",&scratch) || scratch.f_type!=0x01021994L)sw_stop(EPROTO);
+#endif
     char log[256];int n=snprintf(log,sizeof(log),
 #ifdef S22_DEBIAN_AUTOBOOT
         "%sBOOTSTRAP_AUTOBOOT pid=1 children=0 backend=s22plus-fyg8\n",

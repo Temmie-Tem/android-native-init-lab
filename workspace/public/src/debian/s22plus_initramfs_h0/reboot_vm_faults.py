@@ -8,6 +8,7 @@ import subprocess
 import autoboot_vm as automatic
 import h0
 import s22plus_debian_reboot_v1 as spec
+import s22plus_debian_cron_v1 as cron_spec
 from s22plus_debian_reboot_qualification_v1 import rejection
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
@@ -55,7 +56,7 @@ def boundaries(native,out):
 
 
 def run(out,build,helper,positive,case,clean=None):
-    require(case in CASES+('clean-error-unmount','second-root-control'),'unselected reboot root fault')
+    require(case in CASES+cron_spec.ROOT_CASES+('clean-error-unmount','second-root-control'),'unselected reboot root fault')
     selected=automatic.prepare(out,build,helper,'changed-receipt' if case=='changed-current-receipt' else 'normal')
     native=out/'native.ext4';fixture=automatic.vm.fixture
     provenance='INITIAL_ROOT'
@@ -63,7 +64,7 @@ def run(out,build,helper,positive,case,clean=None):
         require(clean is not None,'retry needs the original counted error-unmount fixture')
         h0.run(['cp','--reflink=auto','--sparse=always',clean/'native-after.ext4',native],out/'copy-error.log')
         provenance='ORIGINAL_COUNTED_ERROR_UNMOUNT'
-    if case in SECOND:
+    if case in SECOND or case in cron_spec.ROOT_CASES and case!='cron-existing-first':
         h0.run(['cp','--reflink=auto','--sparse=always',positive/'native-after.ext4',native],out/'copy-final.log')
         provenance='RECONSTRUCTED_SECOND_ROOT_FROM_CLOSED_VM_ONLY'
         if case!='third-start':
@@ -101,6 +102,24 @@ def run(out,build,helper,positive,case,clean=None):
             original=(positive/'boot-1/runtime.bin').read_bytes()
             body=original[:-128] if case.endswith('incomplete') else original[:-1]+bytes([original[-1]^1])
             put(native,out,'prior-mutated',path,body,0o100600)
+    if case in cron_spec.ROOT_CASES:
+        require(automatic.build_api.profile.cron_selected(selected),'unselected cron fault')
+        path=cron_spec.path(selected['run_id']);body=(positive/'boot-1/cron.bin').read_bytes()
+        if case=='cron-missing':debug(native,out,'cron-missing',f'rm /{path}')
+        elif case=='cron-symlink':
+            debug(native,out,'cron-remove',f'rm /{path}')
+            debug(native,out,'cron-symlink',f'symlink /{path} /etc/passwd')
+        else:
+            if case=='cron-changed':body=body[:-1]+bytes([body[-1]^1])
+            if case=='cron-oversized':body+=b'X'
+            if case=='cron-wrong-boot':
+                import hmac
+                value=bytearray(body);value[32]^=1
+                value[480:]=hmac.digest(verify(selected['key']).read_bytes(),cron_spec.DOMAIN+b'\x01'+value[:480],'sha256');body=bytes(value)
+            put(native,out,'cron-fault',path,body,0o100644 if case=='cron-mode' else 0o100600)
+            if case=='cron-linked':
+                debug(native,out,'cron-alias',f'ln /{path} /var/lib/lab/s22-cron-alias')
+                debug(native,out,'cron-linked',f'set_inode_field /{path} links_count 2')
     (out/'disk.img').unlink()
     fixture.make_disk(native,out/'disk.img',read(verify(fixture.profile.filesystem.BINDING)))
     before=fixture.fixture_tools.sparse_digest(out/'disk.img');outside=automatic.lifecycle.outside_native(out/'disk.img')
@@ -162,7 +181,7 @@ def suite(out,build,helper,positive):
     generated=builder.prepare(fault,Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition=True,
         transition_fault='reboot-clean-error',rcs=True,watchdog=True,idle_policy='cpuidle-off',
-        single_cpu=True,post_p447=True,script_channel=True,minimal=True,reboot=built['reboot_baseline'])
+        single_cpu=True,post_p447=True,script_channel=True,minimal=True,reboot=built['reboot_baseline'],cron=automatic.build_api.profile.cron_selected(built))
     require(generated['source_inputs']==built['source_inputs'] and
         generated['hook']['sha256']==read(helper/'request.json')['hook']['sha256'],
         'fault helper sources or unchanged prior runtime producer differ')
@@ -172,5 +191,5 @@ def suite(out,build,helper,positive):
         try:return run(out/case,build,fault if case=='clean-error-retry' else helper,positive,case,out/'clean-error-unmount')
         except Exception as error:
             publish(out/(case+'-failure.json'),dict(error_type=type(error).__name__,message=str(error),device_actions=0));raise
-    with ThreadPoolExecutor(max_workers=2) as pool:rows=list(pool.map(single,CASES))
+    with ThreadPoolExecutor(max_workers=2) as pool:rows=list(pool.map(single,CASES+(cron_spec.ROOT_CASES if builder.profile.cron_selected(built) else ())))
     value=dict(status='PASS',cases=[clean,second,*rows],device_actions=0);publish(out/'result.json',value);return value

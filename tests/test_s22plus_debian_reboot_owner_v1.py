@@ -12,7 +12,8 @@ import s22plus_debian_autoboot_session_v1 as coordinator
 
 
 class Device(prior.Device):
-    def prepare(self,*args,**kw):return dict(target='fixture',N=dict(namespace='p458'))
+    namespace='p458'
+    def prepare(self,*args,**kw):return dict(target='fixture',N=dict(namespace=self.namespace))
 
 
 class FixtureAccess(prior.previous.FixtureAccess):
@@ -72,12 +73,19 @@ class OwnerTests(unittest.TestCase):
         device.mode='Download';session.resume(attended=True);self.assertEqual(device.installed,['N','A'])
 
     def test_second_window_is_reserved_before_transfer(self):
-        image=dict(profile='debian-autoboot-v1',namespace='p458')
         grant=dict(opened_ns=0,deadline_ns=2000_000_000_000)
-        adapter.before_window_transfer(image,grant,439_000_000_000)
-        for now in (440_000_000_000,800_000_000_000):
-            with self.assertRaises(ValueError):adapter.before_window_transfer(image,grant,now)
+        for namespace in ('p458','p459'):
+            image=dict(profile='debian-autoboot-v1',namespace=namespace)
+            adapter.before_window_transfer(image,grant,439_000_000_000)
+            for now in (440_000_000_000,800_000_000_000):
+                with self.subTest(namespace=namespace,now=now),self.assertRaises(ValueError):
+                    adapter.before_window_transfer(image,grant,now)
         adapter.before_window_transfer(dict(image,namespace='p456'),grant,799_000_000_000)
+
+
+class CronOwnerTests(OwnerTests):
+    def operation(self):
+        with mock.patch.object(Device,'namespace','p459'):return super().operation()
 
 
 class ControlTests(unittest.TestCase):

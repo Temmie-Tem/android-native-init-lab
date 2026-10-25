@@ -23,6 +23,15 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P459 cron qualification](docs/reports/S22PLUS_DEBIAN_CRON_P459_H0_2026-10-25.md)
+is **PASS_H0_PRODUCTION_CRON / independent PASS_GO**. Actual packaged-cron
+stop/start/restart, one integrity report and exact two-boot retention pass the
+45-case ARM64 corpus and 48 focused tests. Readiness races and cached-schedule
+revocation are covered without command or output replay. The physical image
+consumer rejects synthetic baseline data. A fresh fixed D0, physical candidate
+and finite attended grant remain pending; no P459 device effect is open.
+Package installation and persistent configuration are later separate work.
+
 [P458 successor execution](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_SUCCESSOR_RUN_2026-10-25.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**. Two
 physical Debian boots prove PID1, 120-second local service evidence and pinned
@@ -622,20 +631,18 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P458 is the latest closed healthy F1 unit, with no N transfer and NO_PROOF for
-Debian. P457 and the original P456 live proof still confirm the selected
-headless service/SSH path and subsequent retention of that boot's two files.
-P458 completed the
-ordinary-reboot design, production integration, exact P456 history and finite
-dmesg rules, both complete protected admissions per boot, and the two-boot owner.
-The separate physical preparation supplied a fixed D0 baseline M=18 and
-a qualified candidate for the
-[reviewed finite scope](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md): one ordinary
-reboot, a fixed second observation window, fresh per-boot evidence and physical
-original-A return. Its operation stopped before N, recovered and closed; the
-next bounded H0 work is the deadline and reusable-worker repair recorded above.
-P457 and P458 grants remain consumed. Physical clean shutdown and watchdog/reset uncertainty remain
-separate from VM evidence, proved file retention and healthy Android return.
+The P458 successor is closed healthy with two physical Debian boots, one
+ordinary reboot, two SSH observation windows and exact first-pair retention.
+Its N and original A each transferred once; both P458 operations and grants
+remain consumed. The bounded deadline/worker repair is already complete.
+
+P459 now selects the smallest ordinary-service follow-up: one real packaged
+cron workload and exact data preservation across the same two-boot sequence.
+Complete source-bound H0/ARM64 qualification and independent review, then
+prepare the fresh physical baseline and candidate for one attended finite
+operation. Its report is new data; its crontab remains a fixed RAM overlay.
+Physical post-shutdown consistency and watchdog/reset uncertainty remain
+separate from VM evidence, retained data and healthy Android return.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the
@@ -662,8 +669,9 @@ consumed action. All new work starts from the closed healthy Android state.
    native filesystem shutdown is a separate unproved property.
 2. **Persistence and ordinary service:** after healthy closure, qualify
    package-managed service behavior, retained data/configuration and ordinary
-   Debian reboot under the applicable separate scope. P457 proves preservation
-   of P456's two run files, not this broader service/reboot milestone.
+   Debian reboot under the applicable separate scope. The P458 successor
+   proves two boots and first-pair retention; P459 adds one scheduled workload.
+   Package installation and persistent configuration remain separate.
 3. **Later hardware:** Wi-Fi, display/input, audio and desktop follow the
    usable headless Debian base.
 

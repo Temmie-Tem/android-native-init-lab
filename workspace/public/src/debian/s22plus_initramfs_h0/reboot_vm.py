@@ -28,6 +28,7 @@ def snapshot(handle,key,selected,phase,command=None):
 
 def run(out,build,helper):
     selected=automatic.prepare(out,build,helper,'normal');require('reboot' in selected,'VM requires two-boot selection')
+    cron=builder.profile.cron_selected(selected)
     disk=out/'disk.img';fixture=automatic.vm.fixture;life=automatic.lifecycle
     import reboot_vm_faults as faults
     faults.boundaries(out/'native.ext4',out)
@@ -83,18 +84,20 @@ def run(out,build,helper):
                 while time.monotonic()-started<120.1:current();time.sleep(.2)
                 last=ssh('health','health');pair=singlecpu_health_pair(first,last,plan,proof['kernel_boot_identity_sha256'])
                 if phase==2:
-                    require(values[3:]==first_control[:2] and pair['last']['health']['boot_count']==
+                    require(values[3:5]==first_control[:2] and pair['last']['health']['boot_count']==
                         boots[0]['ssh_120_seconds']['last']['health']['boot_count']+1,'VM second boot history/count differs')
+                if cron and phase==2:require(values[-1]==first_control[-1],'VM cron output changed across reboot')
                 verb='reboot' if phase==1 else 'shutdown'
                 requested=time.monotonic();control=ssh(verb,verb)
                 controlled,final=snapshot(control,key,selected,phase,verb)
                 require(controlled['runtime'][verb+'_intent'] and final[0]==values[0] and final[2:]==values[2:] and
                     final[1][:-128]==values[1] and len(final[1])==len(values[1])+128,'VM control tail differs')
-                for name,data in zip(('early','runtime','transition','first-early','first-runtime'),final):
+                names=('early','runtime','transition')+(('first-early','first-runtime') if phase==2 else ())+ (('cron',) if cron else ())
+                for name,data in zip(names,final):
                     (folder/(name+'.bin')).write_bytes(data)
                 boots.append(dict(phase=phase,proof=proof,proof_capture=proof_capture,control=controlled,
                     control_capture=pin(control.receipt_path),ssh_120_seconds=pair,
-                    files={name:pin(folder/(name+'.bin')) for name in ('early','runtime','transition')}))
+                    files={name:pin(folder/(name+'.bin')) for name in ('early','runtime','transition')+(('cron',) if cron else ())}))
                 if phase==1:first_control=final;deadline=requested+360
             process.wait(timeout=max(1,deadline-time.monotonic()))
         serial=(out/'serial.log').read_bytes()
@@ -115,6 +118,12 @@ def run(out,build,helper):
                 require(destination.read_bytes()==verify(boot['files'][kind]).read_bytes(),
                     'final disk does not retain exact acknowledged files')
                 persisted[f'{boot["phase"]}-{kind}']=pin(destination)
+        if cron:
+            destination=out/'persisted-cron.bin'
+            fixture.debug(native,out,'dump-cron',f'dump /{builder.profile.cron_spec.path(selected["run_id"])} {destination}')
+            require(destination.read_bytes()==verify(boots[0]['files']['cron']).read_bytes()==verify(boots[1]['files']['cron']).read_bytes(),
+                'final disk does not retain exact cron workload')
+            persisted['cron']=pin(destination)
         result=dict(status='PASS',case='two-boot-normal',scope='PRODUCTION_RUNTIME_ARM64_WITH_HARDWARE_SUBSTITUTIONS',
             build=pin(build/'build.json'),helper=pin(helper/'request.json'),setup=pin(out/'setup.json'),
             source=pin(Path(__file__)),boots=boots,initial_superblock=initial,final_superblock=final_root,
@@ -137,11 +146,15 @@ def suite(out,build):
     selected=builder.prepare(out/'virtual',Path(built['inputs']),Path(built['packages']),
         run=built['run_id'],key=verify(built['key']).read_bytes(),virt=True,transition=True,rcs=True,
         watchdog=True,idle_policy='cpuidle-off',single_cpu=True,post_p447=True,script_channel=True,
-        minimal=True,reboot=built['reboot_baseline'])
+        minimal=True,reboot=built['reboot_baseline'],cron=builder.profile.cron_selected(built))
     require(selected['source_inputs']==built['source_inputs'],'reboot suite source closure differs')
     positive=run(out/'normal',build,out/'virtual')
     rejected=faults.suite(out/'rejections',build,out/'virtual',out/'normal')
-    result=dict(schema='s22plus-debian-reboot-vm-v1',status='PASS',cases=[positive,*rejected['cases']],
+    runtime=[]
+    if builder.profile.cron_selected(built):
+        import cron_vm_faults
+        runtime=cron_vm_faults.suite(out/'runtime-failures',build)['cases']
+    result=dict(schema='s22plus-debian-reboot-vm-v1',status='PASS',cases=[positive,*rejected['cases'],*runtime],
         build_sha256=pin(build/'build.json')['sha256'],source_inputs=built['source_inputs'],device_actions=0)
     publish(out/'result.json',result);return result
 

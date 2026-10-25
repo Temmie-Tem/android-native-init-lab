@@ -29,7 +29,7 @@ DEBIAN_FAILURE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_d
 DEBIAN_FILE_FIRST_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_file_first_v1_review.json'
 DEBIAN_STAGE_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_stage_probe_v1_review.json'
 DEBIAN_INTEGRATED_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_integrated_v1_review.json'
-DEBIAN_AUTOBOOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_autoboot_p458_review.json'
+DEBIAN_AUTOBOOT_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_debian_autoboot_p459_review.json'
 LOG_CALIBRATION_CAPABILITY='workspace/public/src/device-action/bindings/s22plus_native_log_calibration_v1_review.json'
 PROFILE='workspace/public/src/device-action/profiles/s22plus_fyg8.json'
 SOURCE_ENTRY=('s22plus_native_task_v3','s22plus_native_adapter_v3','s22plus_native_session_v3',
@@ -69,6 +69,7 @@ def source_paths(root):
         'docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md',
         'docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md',
         'docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md',
+        'docs/operations/S22PLUS_DEBIAN_CRON_V1.md',
         'docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md',
         'docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md',
         'docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md',
@@ -320,12 +321,18 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
                 b'S22PLUS_DEBIAN_AUTOBOOT_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and
                 b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/'docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md'),
                 'automatic Debian is not common-incorporated and adopted by the exact target')
-            if task['N']['namespace']=='p458':
+            if task['N']['namespace'] in ('p458','p459'):
                 from s22plus_debian_reboot_v1 import POLICY as reboot_policy
                 name=Path(reboot_policy).name.encode()
                 require(name in details and name in read_bytes(Path(root)/TARGET_CONTRACT) and
                     b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/reboot_policy),
                     'two-boot Debian specialization is not common-incorporated and adopted')
+            if task['N']['namespace']=='p459':
+                from s22plus_debian_cron_v1 import POLICY as cron_policy
+                name=Path(cron_policy).name.encode()
+                require(name in details and name in read_bytes(Path(root)/TARGET_CONTRACT) and
+                    b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(Path(root)/cron_policy),
+                    'cron workload specialization is not common-incorporated and adopted')
         if task['N']['profile']==integrated_profile:
             require(b'S22PLUS_DEBIAN_INTEGRATED_V1.md' in details and
                 b'S22PLUS_DEBIAN_INTEGRATED_V1.md' in read_bytes(Path(root)/TARGET_CONTRACT) and

@@ -34,7 +34,8 @@ def prepare(out,build,helper,case):
     script_channel=build_api.profile.script_channel_selected(selected)
     minimal=build_api.profile.minimal_selected(selected)
     reboot=build_api.profile.reboot_selected(selected)
-    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot),'case does not belong to selected variant')
+    cron=build_api.profile.cron_selected(selected)
+    require(case in build_api.profile.cases(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot,cron),'case does not belong to selected variant')
     require(selected['virtual'] is True and physical['virtual'] is False and selected['run_id']==physical['run_id'] and
         build_api.profile.variants(physical)==(transition,rcs,watchdog) and
         build_api.profile.phase_selected(physical)==phase and
@@ -42,6 +43,7 @@ def prepare(out,build,helper,case):
         build_api.profile.post_p447_selected(physical)==post_p447 and
         build_api.profile.script_channel_selected(physical)==script_channel and
         build_api.profile.minimal_selected(physical)==minimal and
+        physical.get('cron')==selected.get('cron') and
         physical.get('reboot')==selected.get('reboot') and
         physical.get('reboot_baseline')==selected.get('reboot_baseline') and
         physical.get('idle_policy')==selected.get('idle_policy') and
@@ -80,7 +82,7 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
-    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot)):
+    for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot,cron)):
         if case=='missing-second-history' and index==1:continue
         if case=='missing-runtime-history' and index==2:continue
         selected_pair={3:'p437-early',4:'p437-runtime',5:'p441-early',6:'p441-runtime',7:'p445-early',8:'p448-early',9:'p448-runtime',10:'p452-early',11:'p452-runtime',12:'p456-early',13:'p456-runtime'}.get(index)

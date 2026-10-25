@@ -763,6 +763,21 @@ no filesystem write or execution. Physical image admission requires a current
 physical baseline; explicitly synthetic H0 qualification is insufficient.
 Independent review and actual artifact/ARM64 qualification precede any grant.
 
+The separate [bounded cron specialization](../S22PLUS_DEBIAN_CRON_V1.md) is
+adopted only for `post-autoboot-p458-cron-v1`, namespace `p459`, under that
+same two-boot owner. Boot 1 adds fixed packaged cron stop/start/restart, a
+once-armed/retired RAM schedule and one exclusive 512-byte native_data report.
+Boot 2 authenticates the exact first-boot report before both writable
+lifetimes; the host compares its acknowledged bytes across the reboot.
+Original PAM and bounded RAM temporary-file work are qualified without
+altering installed package policy. No package installation, persistent-config
+change, arbitrary command, repair or further boot is selected. The four final
+P458 files enter only as exact authenticated producer-derived expectations;
+current retention and clean state remain fresh admission facts. The existing
+fixed pre-build D0 may be reused with its unchanged exact commands and review
+requirements. New source-bound review, complete artifact/ARM64 qualification,
+current physical baseline and a fresh attended finite grant remain required.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

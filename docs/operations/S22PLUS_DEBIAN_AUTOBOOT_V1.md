@@ -6,6 +6,11 @@ are selected. Profile `debian-autoboot-v1` and V3 operation `debian-autoboot`
 require their own source-bound independent review and actual qualification.
 No predecessor approval, consumed image or historical review selects this lane.
 
+The separately selected [bounded reboot](S22PLUS_DEBIAN_REBOOT_V1.md) and
+[bounded cron](S22PLUS_DEBIAN_CRON_V1.md) specializations retain the original
+owner and specialize only their explicitly declared lifetimes and workload.
+The original selection and consumed artifacts do not acquire those effects.
+
 ## Finite ownership and return
 
 One returned attended grant binds one fresh N, exact original A, target,

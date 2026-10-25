@@ -65,8 +65,10 @@ def envelope(output,*,key,selected,phase=None):
             lines[-1]==b'S22_AUTO_EVIDENCE_END','SSH evidence framing differs')
         body,ssh_boot=lines[2:5],lines[1]
     else:
-        require(len(lines)==(7 if phase==1 else 9) and lines[0]==b'S22_REBOOT_EVIDENCE_V1' and
-            lines[1]==f'phase={phase}'.encode() and lines[-1]==b'S22_REBOOT_EVIDENCE_END',
+        cron=profile.cron_selected(selected)
+        prefix=b'S22_CRON' if cron else b'S22_REBOOT'
+        require(len(lines)==(7 if phase==1 else 9)+int(cron) and lines[0]==prefix+b'_EVIDENCE_V1' and
+            lines[1]==f'phase={phase}'.encode() and lines[-1]==prefix+b'_EVIDENCE_END',
             'reboot SSH evidence framing/phase differs')
         body,ssh_boot=lines[3:-1],lines[2]
     require(output.endswith(b'\n'),'SSH evidence has no terminal newline')
@@ -79,12 +81,21 @@ def envelope(output,*,key,selected,phase=None):
     if reboot is not None:
         proof.update(schema='s22plus-debian-reboot-proof-v1',phase=phase)
         if phase==2:
-            prior=local_records(*values[3:],key=key,selected=selected,
+            prior=local_records(*values[3:5],key=key,selected=selected,
                 root_device=proof['transition']['proof']['root_device'],phase=1)
             require(prior['runtime']['reboot_intent'] and
                 prior['kernel_boot_identity_sha256']!=proof['kernel_boot_identity_sha256'],
                 'second boot lacks first completed reboot intent or a fresh boot')
             proof['prior']=prior
+        if profile.cron_selected(selected):
+            require(selected.get('cron')==profile.cron_spec.declaration(selected['run_id']),
+                'cron workload declaration differs')
+            source=values[0] if phase==1 else values[3]
+            source_boot=proof['kernel_boot_identity_sha256'] if phase==1 else prior['kernel_boot_identity_sha256']
+            proof['cron']=profile.cron_spec.decode(values[-1],key=key,run=selected['run_id'],
+                boot=source_boot,nonce=hashlib.sha256(source[:256]).digest(),
+                root_device=proof['transition']['proof']['root_device'],hook_sha256=selected['hook']['sha256'],
+                baseline=selected['reboot']['initial_mount_count'])
     return proof,values
 
 
