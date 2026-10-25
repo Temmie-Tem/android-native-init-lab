@@ -23,6 +23,14 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P460 physical preparation](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_PREPARE_2026-10-26.md)
+has a fresh fixed-D0 **clean M=26**, an A/B-identical physical-baseline build
+and a passing normal ARM64 two-boot path. The compatible independent review
+record and existing v6 transport are verified. Preparation is **incomplete due
+to host storage**: about 15 GiB remains, while the complete corpus uses about
+22 GiB. Full candidate qualification, package, task and entry review are pending.
+No F1 grant, transfer or physical P460 execution has occurred.
+
 [P460 persistent cron configuration](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_H0_2026-10-26.md)
 is **PASS_H0_PRODUCTION_CRON_CONFIG / independent PASS_GO**. Actual ARM64 boot 1
 creates one disk cron.d file; boot 2 consumes it through packaged cron and
