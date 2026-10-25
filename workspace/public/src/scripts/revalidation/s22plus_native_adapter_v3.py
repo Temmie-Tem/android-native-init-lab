@@ -508,12 +508,13 @@ class Adapter:
             arrival_deadline=ready['deadline_ns']
         elif request['operation'] in (handoff.OPERATION,integrated.OPERATION,autoboot.OPERATION) and step.name=='install-android':
             from s22plus_debian_access_v1 import access_for
+            from s22plus_debian_reboot_access_v1 import download_selected,return_request
             value=access_for(self,request).rederive_shutdown()
-            ready=read(self.directory/'debian-return-ready.json')
+            ready=return_request(self,request) if download_selected(request) else read(self.directory/'debian-return-ready.json')
             require(ready['operation']==pin(self.directory/'operation.json') and
                 read(verify(ready['shutdown']))==value and ready['deadline_ns']<=read(verify(request['grant']))['deadline_ns'] and
                 0<ready['deadline_ns']-ready['requested_ns']<=600_000_000_000,
-                'physical Download return lacks original bounded request')
+                'Download return lacks original bounded request')
             arrival_deadline=ready['deadline_ns']
         else:
             intents=[row for row in Journal(self.directory/'journal').rows() if row['event']=='effect-intent']

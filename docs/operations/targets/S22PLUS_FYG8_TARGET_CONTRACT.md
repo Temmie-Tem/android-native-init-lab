@@ -794,6 +794,23 @@ Current independent review, full artifact/ARM64 qualification, physical
 baseline and the existing fresh attended finite grant remain required. No
 package installation, other configuration change or new recovery lane is added.
 
+The common-incorporated [Debian Download return specialization](../S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
+is adopted only for `post-autoboot-p460-download-v1`, namespace `p461`, under
+the same two-boot/four-lifetime attended owner. The final RAM SysV hook checks
+the exact root and ext4 superblock RO, claims preparation/control once, loads
+the five exact declared stock modules and issues one literal Download restart.
+The first reboot remains ordinary; all cron creation, consumption, retirement,
+root admissions and original deadlines remain. Stock initialization effects
+and error-path hazards are part of this attended specialization.
+Only actual exact Download arrival within 90 seconds of the original final
+control intent, clipped to the grant, permits automatic original-A transfer.
+Physical fallback retains the original owner and cannot prove automatic
+return. No control/module/transfer retry, unattended operation, automatic
+failure recovery, dump acquisition, repair or new partition payload is added.
+Five P460 final-producer expectations remain distinct from current clean or
+post-Android retention proof. Fresh physical baseline, full qualification,
+independent review and the existing finite attended grant remain mandatory.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

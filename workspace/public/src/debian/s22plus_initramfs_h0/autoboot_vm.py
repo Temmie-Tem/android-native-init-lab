@@ -127,7 +127,7 @@ def prepare(out,build,helper,case):
 
 
 def ssh_command(plan,port,command):
-    require(command in ('health','evidence','shutdown','reboot'),'unselected automatic VM SSH command')
+    require(command in ('health','evidence','shutdown','reboot','download'),'unselected automatic VM SSH command')
     args=lifecycle.ssh_command(plan,port,'health');args[-1]=command;return args
 
 

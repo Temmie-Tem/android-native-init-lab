@@ -95,9 +95,11 @@ class Access:
 
     def ssh(self,command,folder,label,found,guard,*,before=None,deadline_ns=None):
         reboot=getattr(self,'reboot_phase',None) is not None
-        require(command in ('health','shutdown') or
+        download=reboot and self.final_command()=='download'
+        require(command=='health' or command=='shutdown' and not download or
             command=='evidence' and self.request['operation']=='debian-autoboot' or
-            command=='reboot' and reboot and self.reboot_phase==1,'SSH command outside fixed scope')
+            command=='reboot' and reboot and self.reboot_phase==1 or
+            command=='download' and download and self.reboot_phase==2,'SSH command outside fixed scope')
         guard();require(endpoint(self.plan['link'])==found,'SSH endpoint changed')
         for name in ('ssh','client_key','known_hosts'):verify(self.plan[name],maximum=32*1024*1024)
         args=[self.plan['ssh']['path'],'-F','/dev/null','-i',self.plan['client_key']['path'],
@@ -110,7 +112,7 @@ class Access:
         timeout=20 if deadline_ns is None else min(20,(deadline_ns-clock())/1_000_000_000)
         require(timeout>0,'SSH read window expired')
         return raw.acquire_command(args,folder,label,timeout=timeout,
-            stdout_maximum=450000 if reboot and command in ('evidence','reboot','shutdown') else 400000 if command=='evidence' else 65536,stderr_maximum=16384)
+            stdout_maximum=450000 if reboot and command in ('evidence','reboot','shutdown','download') else 400000 if command=='evidence' else 65536,stderr_maximum=16384)
 
     def configure_link(self,folder,found,guard):
         connection=self.plan['network_uuid']

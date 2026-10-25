@@ -89,6 +89,8 @@ class Coordinator:
 
     def cleanup(self):access.cleanup(self.session.adapter,self.session.request)
 
+    def prepare_automatic_return(self):return False
+
     def walk(self,*,allow_return):
         session=self.session
         for step in self.steps():
@@ -97,7 +99,7 @@ class Coordinator:
             if matches:
                 require(len(matches)==1,'duplicate Debian step completion')
                 session.adapter.validate_result(step,read(verify(matches[0]['data']['result'])),session.request);continue
-            if step.name=='install-android' and not allow_return:
+            if step.name=='install-android' and not allow_return and not self.prepare_automatic_return():
                 now=clock()
                 receipt=publish(session.directory/self.READY_FILE,dict(operation=pin(session.directory/'operation.json'),
                     **{self.SUBJECT_FIELD:pin(session.directory/(self.SUBJECT_STEP+'.json'))},requested_ns=now,

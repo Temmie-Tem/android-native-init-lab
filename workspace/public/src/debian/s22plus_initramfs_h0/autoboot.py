@@ -24,7 +24,7 @@ from s22plus_native_records_v3 import pin,read,verify
 def sources():
     return sorted(set(handoff.source_files())|set(file_log.admission.source_files())|
         {p for p in h0.HERE.iterdir() if p.is_file() and p.suffix in ('.py','.c','.h')}|
-        {Path(profile.__file__),Path(profile.phase_spec.__file__),Path(profile.minimal_spec.__file__),Path(profile.reboot_spec.__file__),Path(profile.cron_spec.__file__),Path(profile.cron_config_spec.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
+        {Path(profile.__file__),Path(profile.phase_spec.__file__),Path(profile.minimal_spec.__file__),Path(profile.reboot_spec.__file__),Path(profile.cron_spec.__file__),Path(profile.cron_config_spec.__file__),Path(profile.download_spec.__file__),Path(profile.download_spec.stock.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
          handoff.base.NATIVE/'s22plus_autoboot_transition_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_singlecpu_v1.h',
          handoff.base.NATIVE/'s22plus_debian_reboot_common_v1.h',
@@ -33,6 +33,7 @@ def sources():
          handoff.base.NATIVE/'s22plus_debian_cron_runtime_v1.inc.c',
          handoff.base.NATIVE/'s22plus_debian_cron_config_v1.h',
          handoff.base.NATIVE/'s22plus_debian_cron_config_runtime_v1.inc.c',
+         handoff.base.NATIVE/'s22plus_debian_download_return_v1.inc.c',
          handoff.base.NATIVE/'s22plus_autoboot_transition_stages_v1.def',
          handoff.base.NATIVE/'s22plus_autoboot_phase_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_phase_parse_v1.h',
@@ -81,12 +82,13 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     if minimal:flags+=['-DS22_AUTOBOOT_MINIMAL']
     if reboot is not None:flags+=['-DS22_DEBIAN_REBOOT']
     if cron:flags+=['-DS22_DEBIAN_CRON']
-    if cron=='config':flags+=['-DS22_DEBIAN_CRON_CONFIG']
+    if cron in ('config','download'):flags+=['-DS22_DEBIAN_CRON_CONFIG']
+    if cron=='download':flags+=['-DS22_DEBIAN_DOWNLOAD']
     if single_cpu:flags+=['-DS22_AUTOBOOT_SINGLECPU']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
     if transition_fault in profile.cron_variant(cron).RUNTIME_FAULTS:
         h0.require(virt and cron,'cron faults require the selected VM')
-        if cron!='config':flags+=['-DCR_VM_FAULT='+str(profile.cron_variant(cron).RUNTIME_FAULTS[transition_fault])]
+        if cron not in ('config','download'):flags+=['-DCR_VM_FAULT='+str(profile.cron_variant(cron).RUNTIME_FAULTS[transition_fault])]
     elif transition_fault:
         import autoboot_transition_faults
         source,_=autoboot_transition_faults.source(out,source,transition_fault,fyg8.ext4.NATIVE)
@@ -134,8 +136,9 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
     if script_channel:(destination/'s22plus_autoboot_script_seal_v1.h').write_bytes(profile.script_spec(minimal).script_header())
     installed_init,assets=profile.payloads(run,virt=virt,single_cpu=single_cpu,minimal=minimal,reboot=reboot is not None,cron=cron)
     for name,data in assets.items():(destination/name).write_bytes(data)
+    if cron=='download':(destination/'s22plus_debian_download_seal_v1.h').write_bytes(profile.download_spec.return_header())
     hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
-    handoff.payload_header(destination,hook,virt,minimal=minimal)
+    handoff.payload_header(destination,hook,virt,minimal=minimal,download=cron=='download')
     witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
     entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
@@ -145,7 +148,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         key=pin(prefix/'key'),startup_script=pin(out/'fyg8-dev'),modules=first['modules'],measured=first['measured'],history=first['history'],
         helper=pin(prefix/'fyg8-prepare'),writer=pin(prefix/'file-log'),entry=entry,hook=hook,witness=witness,
         busybox=base.busybox(),checker=pin(prefix/'s22-fs-e2fsck'),table=pin(prefix/'table.bin'),
-        admission=first['admission'],assets=dict(handoff.asset_rows(destination,hook,virt,minimal=minimal)),
+        admission=first['admission'],assets=dict(handoff.asset_rows(destination,hook,virt,minimal=minimal,download=cron=='download')),
         installed_init=dict(size=len(installed_init),sha256=fyg8.digest(installed_init)),
         deadline_ms=300000,observer_revision=6 if single_cpu else 5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
@@ -161,6 +164,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         result['reboot']=profile.reboot_spec.declaration(run,reboot['initial_mount_count'])
         result['reboot_baseline']=reboot
     if cron:result['cron']=profile.cron_variant(cron).declaration(run)
+    if cron=='download':result['download_return']=profile.download_spec.return_declaration()
     if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
         first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
     for row in saved:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'automatic source changed')
@@ -174,7 +178,7 @@ def inside(out):
     tree=h0.builder_tree(out,packages)
     for name,row in payloads(selected).items():
         target=tree/name;target.write_bytes(verify(row,maximum=8*1024**2).read_bytes())
-        target.chmod(0o400 if name in ('s22-root-inspect.table','s22-debian-inittab','s22-debian-crontab') else 0o500)
+        target.chmod(0o400 if name in ('s22-root-inspect.table','s22-debian-inittab','s22-debian-crontab') or name.endswith('.ko') else 0o500)
     (tree/'lab/modules').mkdir(parents=True)
     for row in selected['modules']:
         path=out/'early'/row['name'] if row['runtime_name']=='sec_log_buf' else inputs/'modules'/row['name']
@@ -214,27 +218,32 @@ def repack_template(out,selected):
     leading_root=original[:root_size]
     replacements['scripts/fyg8-dev']=selected['startup_script']
     names=[e.name for e in entries]
-    h0.require(len(names)==len(set(names)) and all(names.count(name)==1 for name in replacements),
+    additions=profile.download_spec.ramdisk_additions(selected)
+    h0.require(len(names)==len(set(names)) and all(names.count(name)==1 for name in set(replacements)-set(additions)) and
+        not set(additions)&set(names),
         'repack members are missing or duplicate')
     # Assert the original construction's exact source binding before replacement.
     old_payloads=payloads(source);old_payloads['scripts/fyg8-dev']=source['startup_script']
-    h0.require(set(old_payloads)==set(replacements),'repack changes the base member vocabulary')
+    h0.require(set(old_payloads)|set(additions)==set(replacements),'repack changes the base member vocabulary')
     for item in entries:
         if item.name in old_payloads:
             h0.require(item.data==verify(old_payloads[item.name],maximum=8*1024**2).read_bytes(),
                 'template payload does not join its original producer')
     replacement_bytes={name:verify(row,maximum=8*1024**2).read_bytes() for name,row in replacements.items()}
+    extra=profile.download_spec.repack_entries(entries,additions,replacement_bytes)
     for label in ('a','b'):
-        result=[replace(e,data=replacement_bytes[e.name]) if e.name in replacement_bytes else e for e in entries]
+        result=[replace(e,data=replacement_bytes[e.name]) if e.name in replacement_bytes else e for e in entries]+extra
         (out/('initramfs-'+label+'.cpio.gz')).write_bytes(gzip.compress(leading_root+fyg8_vm.newc(result),mtime=0))
     decoded=list(fyg8.debian_entries(out/'initramfs-a.cpio.gz'))
-    h0.require(len(decoded)==len(entries),'repack changed member count')
+    h0.require(len(decoded)==len(entries)+len(extra) and decoded[len(entries):]==extra,'repack changed added members')
     for old,new in zip(entries,decoded):
         h0.require(replace(new,data=old.data)==old and new.data==replacement_bytes.get(old.name,old.data),
             'repack changed an undeclared member or metadata')
-    return dict(method='EXACT_MEASURED_TEMPLATE_REPACK',template_build=retrieval['writer_build'],
-        template=source['initramfs'],replaced=sorted(replacements),unmodified_members=len(entries)-len(replacements),
-        package_installation=False)
+    receipt=dict(method='EXACT_MEASURED_TEMPLATE_REPACK',template_build=retrieval['writer_build'],
+        template=source['initramfs'],replaced=sorted(set(replacements)-set(additions)),
+        unmodified_members=len(entries)-len(old_payloads),package_installation=False)
+    if additions:receipt['added']=additions
+    return receipt
 
 
 def build(out,inputs,packages,*,transition=False,rcs=False,watchdog=False,idle_policy=None,phase=False,single_cpu=False,post_p447=False,script_channel=False,minimal=False,reboot=None,cron=False):
@@ -275,6 +284,7 @@ if __name__=='__main__':
     cron_choice=parser.add_mutually_exclusive_group()
     cron_choice.add_argument('--cron',action='store_true',help='P459: one packaged-cron workload and exact retained output')
     cron_choice.add_argument('--cron-config',action='store_true',help='P460: persistent configuration consumed and retired after reboot')
+    cron_choice.add_argument('--download-return',action='store_true',help='P461: same workload, final SysV shutdown into Download')
     parser.add_argument('--reboot-baseline',type=Path,help='P458: exact fixed D0 or explicitly H0 synthetic baseline receipt')
     args=parser.parse_args()
     h0.require(not args.minimal or args.script_channel,'--minimal requires --script-channel')
@@ -287,9 +297,9 @@ if __name__=='__main__':
     if args.reboot_baseline:
         h0.require(args.minimal,'--reboot-baseline requires --minimal')
         options['reboot']=baseline.binding(pin(h0.private(args.reboot_baseline)))
-    if args.cron or args.cron_config:
+    if args.cron or args.cron_config or args.download_return:
         h0.require(args.reboot_baseline is not None,'--cron requires a fixed reboot baseline')
-        options['cron']='config' if args.cron_config else True
+        options['cron']='download' if args.download_return else 'config' if args.cron_config else True
     if args.action=='inside':inside(h0.private(args.output))
     elif args.action=='prepare':prepare(args.output,args.inputs,args.packages,virt=args.virt,**options)
     else:build(args.output,args.inputs,args.packages,**options)

@@ -63,7 +63,7 @@ static int cf_prior_chain(const uint8_t *data,size_t size,const uint8_t early[25
     uint8_t tag[32],nonce[32];de_tag(tag,data,224);early_hash(early,256,nonce);
     if(memcmp(data,"S22DE01\0",8) || fs1_u32(data+8)!=1 || fs1_u32(data+12)!=DE_HEADER ||
        memcmp(data+16,early_run,16) || memcmp(data+32,early+48,32) || memcmp(data+64,nonce,32) ||
-       fs1_u64(data+96) || fs1_u64(data+104)!=300000 || fs1_u32(data+112)!=8 ||
+       fs1_u64(data+96) || fs1_u64(data+104)!=300000 || fs1_u32(data+112)!=DE_SELECTED_REVISION ||
        fs1_u32(data+116)!=DE_RECORD || fs1_u32(data+120)!=DE_RECORDS || fs1_u32(data+124)!=DE_MAXIMUM ||
        memcmp(data+128,rb_init_sha256,32) || memcmp(data+160,hook,32) || fs1_u64(data+192)!=(uint64_t)device ||
        fs1_u32(data+200)!=1 || fs1_u32(data+204)!=RB_BASE_COUNT || fs1_u32(data+208)!=RB_BASE_COUNT+2 ||

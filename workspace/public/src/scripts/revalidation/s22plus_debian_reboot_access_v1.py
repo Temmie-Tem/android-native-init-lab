@@ -6,13 +6,40 @@ import s22plus_debian_autoboot_protocol_v1 as protocol
 import s22plus_debian_reboot_v1 as spec
 import s22plus_debian_cron_v1 as cron_spec
 import s22plus_debian_cron_config_v1 as cron_config_spec
+import s22plus_debian_download_v1 as download_spec
 from s22plus_debian_autoboot_access_v1 import Access as AutomaticAccess
 from s22plus_native_records_v3 import Journal,clock,pin,publish,read,require,verify
 
 
 def selected(request):
     image=request.get('N') or {}
-    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE)
+    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE,download_spec.NAMESPACE)
+
+
+def download_selected(request):
+    return selected(request) and request['N'].get('namespace')==download_spec.NAMESPACE
+
+
+def control_step(command):return 'debian-shutdown' if command=='download' else 'debian-'+command
+
+
+def return_request(adapter,request,*,create=False):
+    require(download_selected(request),'unselected automatic Download return')
+    selected=Access(adapter,request,phase=2)
+    control=selected.rederive_control('download');folder=adapter.folder('debian-shutdown')
+    intent=read(folder/'intent.json')
+    rows=[r for r in Journal(adapter.directory/'journal').rows() if r['event']=='effect-intent' and
+        r['data']['step']=='debian-shutdown']
+    require(len(rows)==1 and rows[0]['data']['action']=='debian-shutdown' and
+        rows[0]['data']['role']=='N' and rows[0]['data']['detail']==intent and
+        read(adapter.directory/'debian-shutdown.json')==control,'Download return lacks original completed control')
+    expected=dict(operation=pin(adapter.directory/'operation.json'),
+        shutdown=pin(adapter.directory/'debian-shutdown.json'),intent=pin(folder/'intent.json'),
+        mode='AUTOMATIC_DOWNLOAD',requested_ns=intent['dispatch_ns'],deadline_ns=intent['deadline_ns'])
+    path=adapter.directory/'debian-return-ready.json'
+    if create and not path.exists():publish(path,expected)
+    require(read(path)==expected,'Download return deadline or original intent differs')
+    return expected
 
 
 def normal_steps():
@@ -24,7 +51,7 @@ def normal_steps():
 
 
 def capture_body(handle,address,command):
-    require(command in ('reboot','shutdown') and not handle.timed_out and not handle.output_exceeded and
+    require(command in ('reboot','shutdown','download') and not handle.timed_out and not handle.output_exceeded and
         handle.producer_error_type is None,'reboot control producer failed')
     stdout=base.raw.read_stdout(handle,maximum=spec.EVIDENCE_MAXIMUM)
     stderr=base.raw.read_stderr(handle,maximum=16384)
@@ -42,6 +69,8 @@ class Access(AutomaticAccess):
         protocol.reboot_binding(self.selection(),phase)
         self.reboot_phase=phase
         self.health_step='debian-health' if phase==1 else 'debian-health-second'
+
+    def final_command(self):return 'download' if download_selected(self.request) else 'shutdown'
 
     def basis(self):
         if self.reboot_phase==1:return super().basis()
@@ -131,8 +160,8 @@ class Access(AutomaticAccess):
         return [first['endpoint']['interface'],selected['endpoint']['interface']]
 
     def control_evidence(self,command):
-        require((self.reboot_phase,command) in ((1,'reboot'),(2,'shutdown')),'control phase differs')
-        folder=self.adapter.folder('debian-'+command)
+        require((self.reboot_phase,command) in ((1,'reboot'),(2,self.final_command())),'control phase differs')
+        folder=self.adapter.folder(control_step(command))
         handle=base.raw.load_handle(folder/(command+'.capture.json'))
         proof,values=protocol.envelope(capture_body(handle,self.plan['link']['ssh_address'],command),
             key=verify(self.request['N']['key'],maximum=32).read_bytes(),selected=self.selection(),phase=self.reboot_phase)
@@ -145,7 +174,7 @@ class Access(AutomaticAccess):
         return proof,values
 
     def rederive_control(self,command):
-        health=self.rederive_health();folder=self.adapter.folder('debian-'+command)
+        health=self.rederive_health();folder=self.adapter.folder(control_step(command))
         intent=read(folder/'intent.json');proof,_=self.control_evidence(command)
         require(intent['endpoint']==health['endpoint'] and intent['phase']==self.reboot_phase and
             intent['command']==command and intent['health']==pin(self.adapter.folder(self.health_step)/'result.json') and
@@ -157,14 +186,16 @@ class Access(AutomaticAccess):
             departure['deadline_ns']==intent['deadline_ns'] and
             intent['dispatch_ns']<=departure['observed_ns']<intent['deadline_ns'],
             'control departure does not join original dispatch')
-        return dict(action='debian-'+command,phase=self.reboot_phase,
+        result=dict(action=control_step(command),phase=self.reboot_phase,
             accepted=dict(dispatch_capture=pin(folder/(command+'.capture.json')),request_accepted=True,
                 clean_shutdown_proved=False,proof=proof),departure=pin(folder/'departure.json'),
             clean_shutdown_proved=False)
+        if command=='download':result['command']=command
+        return result
 
     def control(self,command,step,guard,before):
         require((self.reboot_phase,command,step.name,step.action) in (
-            (1,'reboot','debian-reboot','debian-reboot'),(2,'shutdown','debian-shutdown','debian-shutdown')),
+            (1,'reboot','debian-reboot','debian-reboot'),(2,self.final_command(),'debian-shutdown','debian-shutdown')),
             'unselected reboot control step')
         health=self.rederive_health();found=read(verify(health['endpoint']))
         folder=self.adapter.folder(step.name,create=True)
@@ -181,9 +212,9 @@ class Access(AutomaticAccess):
         departed=base.target.wait_departure(snapshot,folder,deadline_ns=detail['deadline_ns'],guard=guard)
         publish(folder/'departure.json',departed)
         value=self.rederive_control(command);publish(folder/'result.json',value)
-        if command=='shutdown':base.cleanup(self.adapter,self.request)
+        if command in ('shutdown','download'):base.cleanup(self.adapter,self.request)
         return value
 
     def reboot(self,step,guard,before):return self.control('reboot',step,guard,before)
-    def shutdown(self,step,guard,before):return self.control('shutdown',step,guard,before)
-    def rederive_shutdown(self):return self.rederive_control('shutdown')
+    def shutdown(self,step,guard,before):return self.control(self.final_command(),step,guard,before)
+    def rederive_shutdown(self):return self.rederive_control(self.final_command())

@@ -153,6 +153,11 @@ def producer(built,*,virtual):
             verify(built['headers']['early/s22plus_debian_cron_seal_v1.h']).read_bytes()==profile.cron_variant(cron).seal(built['run_id']),
             'cron declaration or generated seal differs')
     else:require('cron' not in built,'unselected cron declaration')
+    if profile.download_selected(built):
+        require(built.get('download_return')==profile.download_spec.return_declaration() and
+            verify(built['headers']['installed/s22plus_debian_download_seal_v1.h']).read_bytes()==profile.download_spec.return_header(),
+            'Download return declaration or seal differs')
+    else:require('download_return' not in built,'unselected Download return')
     if reboot and 'initramfs' in built:template_binding(built)
     return built
 
@@ -316,7 +321,7 @@ def payload_binding(built):
     for name,pinned in expected.items():
         item=entries[name]
         mode=0o755 if name=='scripts/fyg8-dev' else 0o400 if name in (
-            's22-root-inspect.table','s22-debian-inittab','s22-debian-crontab') else 0o500
+            's22-root-inspect.table','s22-debian-inittab','s22-debian-crontab') or name.endswith('.ko') else 0o500
         require(item.file_type=='regular' and (item.uid,item.gid,item.nlink,item.mode&0o7777)==(0,0,1,mode) and
             item.data==verify(pinned,maximum=8*1024**2).read_bytes(),'automatic CPIO payload differs: '+name)
     require(entries['init'].file_type=='regular' and
@@ -373,11 +378,18 @@ def template_binding(built):
         return data[:end],rows
     root,old=decode(original['initramfs']);new_root,new=decode(built['initramfs'])
     expected=profile.ramdisk_payloads(built);expected['scripts/fyg8-dev']=built['startup_script']
-    require(root==new_root and len(old)==len(new) and set(expected)<={e.name for e in old},
+    additions=profile.download_spec.ramdisk_additions(built)
+    extra=profile.download_spec.repack_entries(old,additions,
+        {name:verify(expected[name],maximum=8*1024**2).read_bytes() for name in additions})
+    require(root==new_root and len(old)+len(extra)==len(new) and
+        set(expected)-set(additions)<={e.name for e in old} and not set(additions)&{e.name for e in old} and
+        list(new[len(old):])==extra,
         'repack root, member count or vocabulary differs')
-    require(built['construction']==dict(method='EXACT_MEASURED_TEMPLATE_REPACK',template_build=receipt,
-        template=original['initramfs'],replaced=sorted(expected),unmodified_members=len(old)-len(expected),
-        package_installation=False),'repack construction receipt differs')
+    construction=dict(method='EXACT_MEASURED_TEMPLATE_REPACK',template_build=receipt,
+        template=original['initramfs'],replaced=sorted(set(expected)-set(additions)),
+        unmodified_members=len(old)-len(expected)+len(additions),package_installation=False)
+    if additions:construction['added']=additions
+    require(built['construction']==construction,'repack construction receipt differs')
     for first,second in zip(old,new):
         body=verify(expected[first.name],maximum=8*1024**2).read_bytes() if first.name in expected else first.data
         require(replace(second,data=first.data)==first and second.data==body,

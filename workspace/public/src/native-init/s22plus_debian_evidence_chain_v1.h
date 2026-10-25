@@ -1,6 +1,19 @@
 /* Shared authenticated wire reader used by live hooks and protected admission. */
 #ifndef S22PLUS_DEBIAN_EVIDENCE_CHAIN_V1_H
 #define S22PLUS_DEBIAN_EVIDENCE_CHAIN_V1_H
+#ifdef S22_DEBIAN_DOWNLOAD
+#define DE_SELECTED_REVISION 9U
+#elif defined(S22_DEBIAN_CRON_CONFIG)
+#define DE_SELECTED_REVISION 8U
+#elif defined(S22_DEBIAN_REBOOT)
+#define DE_SELECTED_REVISION 7U
+#elif defined(S22_AUTOBOOT_SINGLECPU)
+#define DE_SELECTED_REVISION 6U
+#elif defined(S22_DEBIAN_AUTOBOOT)
+#define DE_SELECTED_REVISION 5U
+#else
+#define DE_SELECTED_REVISION 4U
+#endif
 #ifndef DE_CHAIN_KEY
 #define DE_CHAIN_KEY sw_key
 #endif
@@ -22,7 +35,9 @@ static uint64_t de_u64(const uint8_t *p) {
 }
 static void de_put64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(8*i));}
 static void de_tag(uint8_t out[32],const uint8_t *p,size_t n) {
-#ifdef S22_DEBIAN_CRON_CONFIG
+#ifdef S22_DEBIAN_DOWNLOAD
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-DOWNLOAD-DURABLE-v1";
+#elif defined(S22_DEBIAN_CRON_CONFIG)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-CRON-CONFIG-DURABLE-v1";
 #elif defined(S22_DEBIAN_REBOOT)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-REBOOT-DURABLE-v1";

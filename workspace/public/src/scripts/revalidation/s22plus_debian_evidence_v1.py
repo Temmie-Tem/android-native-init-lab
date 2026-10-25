@@ -37,7 +37,7 @@ def seal(run):
         'static const char dh_evidence_name[]="'+value['path'].rsplit('/',1)[1]+'";\n').encode()
 
 
-def tag(key,body,*,autoboot=False,reboot=False,cron_config=False):
+def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False):
     domain=b'S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1' if autoboot else DOMAIN
     if reboot:
         from s22plus_debian_reboot_v1 import DURABLE_DOMAIN
@@ -45,11 +45,14 @@ def tag(key,body,*,autoboot=False,reboot=False,cron_config=False):
     if cron_config:
         from s22plus_debian_cron_config_v1 import DURABLE_DOMAIN
         require(reboot and autoboot,'configuration durable domain requires reboot');domain=DURABLE_DOMAIN
+    if download:
+        from s22plus_debian_download_v1 import DURABLE_DOMAIN
+        require(cron_config,'Download durable domain needs configuration selection');domain=DURABLE_DOMAIN
     return hmac.new(key,domain+body,hashlib.sha256).digest()
 
 
 class Chain:
-    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False):
+    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False):
         self.tag=first_tag;self.rows=[];self.started=False;self.off=False;self.complete=False
         self.released=False;self.stopped=False;self.progress=[];self.boundaries=[];self.elapsed=0
         self.autoboot=autoboot
@@ -58,13 +61,15 @@ class Chain:
         self.reboot=reboot;self.control=None
         require(type(cron_config) is bool and (not cron_config or reboot is not None),
             'configuration chain needs a reboot binding')
+        require(type(download) is bool and (not download or cron_config),'Download chain selection differs')
+        self.download=download
         self.cron_config=cron_config;self.config_created=[];self.config_retired=None
 
     def append(self,raw,key):
         require(len(raw)==RECORD and raw[:8]==b'S22DER1\0','durable record framing differs')
         seq,kind,elapsed,phase,event,a,b,c,flags,reserved=struct.unpack_from('<IIQIIQQQII',raw,8)
         require(seq==len(self.rows)<RECORDS and not reserved and flags==int(self.off) and not self.stopped and self.control is None and
-            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config)),
+            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config,download=self.download)),
             'durable record sequence, deadline, state or authentication differs')
         row=dict(sequence=seq,kind=kind,name=NAMES[kind-1] if kind in range(1,9) else 'UNKNOWN',
             elapsed_ms=elapsed,phase=phase,event=event,a=a,b=b,c=c,report_disabled=bool(flags))
@@ -168,7 +173,7 @@ class Chain:
         self.tag=raw[96:];self.elapsed=elapsed;self.rows.append(row)
 
 
-def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False):
+def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False):
     """Expected identity comes from the retained qualified image/authenticated run.
 
     A valid historical prefix can survive a later malformed/torn tail. It
@@ -186,10 +191,10 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         'durable file size or key differs')
     h=data[:HEADER]
     require(h[:8]==b'S22DE01\0' and struct.unpack_from('<II',h,8)==(1,HEADER) and
-        struct.unpack_from('<4I',h,112)==(8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
+        struct.unpack_from('<4I',h,112)==(9 if download else 8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
         (struct.unpack_from('<3I',h,200)==(reboot['phase'],reboot['initial_mount_count'],reboot['initial_mount_count']+2*reboot['phase'])
             and not any(h[212:224]) if reboot is not None else not any(h[200:224])) and
-        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config)),
+        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config,download=download)),
         'durable header authentication or shape differs')
     origin,deadline=struct.unpack_from('<QQ',h,96);device=struct.unpack_from('<Q',h,192)[0]
     require(deadline>=300000 and deadline-origin==300000 and h[16:32].hex()==expected['run_id_hex'] and
@@ -198,7 +203,7 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         device==os.makedev(expected['root_device']['major'],expected['root_device']['minor']),
         'durable identity does not join retained run/boot/init/root')
     require(not autoboot or (origin,deadline)==(0,300000),'automatic deadline was renewed')
-    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config);error=None;pos=HEADER
+    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config,download=download);error=None;pos=HEADER
     while pos<len(data):
         try:chain.append(data[pos:pos+RECORD],key)
         except ValueError as failure:
@@ -225,6 +230,7 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         result.update(schema='s22plus-debian-reboot-durable-projection-v1',
             reboot_phase=dict(reboot,installed_mount_count=reboot['initial_mount_count']+2*reboot['phase']),
             reboot_intent=chain.control==9,shutdown_intent=chain.control==10)
+    if download:result['download_intent']=chain.control==10
     if cron_config:
         result['configuration_created']=None
         if len(chain.config_created)==2:

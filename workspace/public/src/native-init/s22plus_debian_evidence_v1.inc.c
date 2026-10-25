@@ -14,19 +14,7 @@ static void de_header(uint8_t h[DE_HEADER]) {
     memset(h,0,DE_HEADER);memcpy(h,"S22DE01\0",8);sw_put32(h+8,1);sw_put32(h+12,DE_HEADER);
     memcpy(h+16,sw.run,16);memcpy(h+32,sw.boot,32);memcpy(h+64,sw.nonce,32);
     de_put64(h+96,sw.deadline_ms-SW_TIMEOUT_MS);de_put64(h+104,sw.deadline_ms);
-    sw_put32(h+112,
-#ifdef S22_DEBIAN_CRON_CONFIG
-        8
-#elif defined(S22_DEBIAN_REBOOT)
-        7
-#elif defined(S22_AUTOBOOT_SINGLECPU)
-        6
-#elif defined(S22_DEBIAN_AUTOBOOT)
-        5
-#else
-        4
-#endif
-        );sw_put32(h+116,DE_RECORD);sw_put32(h+120,DE_RECORDS);sw_put32(h+124,DE_MAXIMUM);
+    sw_put32(h+112,DE_SELECTED_REVISION        );sw_put32(h+116,DE_RECORD);sw_put32(h+120,DE_RECORDS);sw_put32(h+124,DE_MAXIMUM);
     memcpy(h+128,dh_init_sha256,32);memcpy(h+160,de_binding->hook_sha,32);de_put64(h+192,sw.root_device);
 #ifdef S22_DEBIAN_REBOOT
     sw_put32(h+200,rb_phase);sw_put32(h+204,RB_BASE_COUNT);sw_put32(h+208,rb_installed(rb_phase));

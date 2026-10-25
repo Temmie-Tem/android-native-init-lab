@@ -111,6 +111,12 @@ permission to perform host-only work.
    permits one exact boot-1 cron.d file, one boot-2 integrity report and one
    successful-path unlink of that same configuration inside those four
    lifetimes. Failure cleanup remains RAM only; no installation or repair.
+   The separate [Debian Download return specialization](S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
+   retains those four lifetimes and replaces only final power-off with its
+   fixed late stock-module preparation and one Download restart after checked
+   root read-only cleanup. Exact Download arrival permits one original-A
+   transfer within the original final-control deadline; attended physical
+   recovery remains required on uncertainty. It adds no partition payload.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -202,6 +208,12 @@ permission to perform host-only work.
    separately permits only its exact configuration creation, second-boot
    consumption and successful-path retirement. It retains both admissions,
    all original deadlines, no replay and the same physical original-A return.
+   The [Debian Download return specialization](S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
+   separately permits its exact five stock modules and literal Download
+   restart from the final RAM SysV hook after verified root-superblock RO.
+   It includes the declared stock NODUMP/disable_sdi, FULLDUMP and
+   SEC_DEBUG_MODE initialization effects. It authorizes no dump acquisition,
+   panic, EDL, arbitrary NVMEM write, alternate control or automatic recovery.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1334,6 +1346,27 @@ original-A return remain. Five P459 final producer snapshots are prospective
 exact expectations, not post-return retention or present-clean-state proof.
 Package installation, general configuration mutation, repair, automatic
 recovery and any consumed-operation replay remain outside this specialization.
+
+The separately reviewed [Debian Download return specialization](S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
+adds only `post-autoboot-p460-download-v1`, namespace `p461`. It retains the
+same cron configuration workload, two boots, four admitted writable lifetimes
+and ordinary first reboot. The final authenticated `download` intent selects
+the RAM serial SysV dispatcher and fixed final hook after normal K01–K05
+cleanup. Exact native_data root identity and ext4 superblock RO, one exclusive
+RAM claim and the original deadline precede preparation/control. The five
+declared stock modules are inserted once from pinned RAM descriptors; exact
+SDAM providers, registry and writer binding are checked. Their documented
+initialization effects and stock error-path hazard remain attended work.
+One literal Download restart has no alternate control or replay. A failed or
+returned operation parks without disk cleanup; RAM error evidence is bounded
+and available only after its unique log has opened.
+The host observes exact Download and transfers original A within 90 seconds
+of the original final-control intent, clipped to the original grant. Healthy
+normal closure joins that ticket and original A; physical fallback cannot
+prove automatic return. An uncertain owner uses only its original attended
+recovery. This does not activate unattended execution or failure recovery.
+Five P460 final producer expectations retain their original source provenance;
+they do not prove current clean state or post-Android file retention.
 
 ## S22+ native-first installed-Debian handoff
 

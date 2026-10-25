@@ -29,7 +29,7 @@ def snapshot(handle,key,selected,phase,command=None):
 def run(out,build,helper):
     selected=automatic.prepare(out,build,helper,'normal');require('reboot' in selected,'VM requires two-boot selection')
     cron=builder.profile.cron_selected(selected)
-    config=cron=='config'
+    config=cron in ('config','download')
     disk=out/'disk.img';fixture=automatic.vm.fixture;life=automatic.lifecycle
     import reboot_vm_faults as faults
     faults.boundaries(out/'native.ext4',out)
@@ -95,7 +95,7 @@ def run(out,build,helper):
                         boots[0]['ssh_120_seconds']['last']['health']['boot_count']+1,'VM second boot history/count differs')
                 if config and phase==2:require(values[-2]==first_control[-1],'VM configuration snapshot changed across reboot')
                 elif cron and phase==2:require(values[-1]==first_control[-1],'VM cron output changed across reboot')
-                verb='reboot' if phase==1 else 'shutdown'
+                verb='reboot' if phase==1 else 'download' if cron=='download' else 'shutdown'
                 requested=time.monotonic();control=ssh(verb,verb)
                 controlled,final=snapshot(control,key,selected,phase,verb)
                 require(controlled['runtime'][verb+'_intent'] and final[0]==values[0] and final[2:]==values[2:] and
@@ -130,6 +130,7 @@ def run(out,build,helper):
         serial=(out/'serial.log').read_bytes()
         require(process.returncode==0 and b'reboot: Power down' in serial and b'reboot: Restarting system' in serial,
             'actual VM reboot and final poweroff not observed')
+        if cron=='download':builder.profile.download_spec.validate_vm_return(serial)
         require(life.outside_native(disk)==outside,'two-boot VM wrote outside native_data')
         native=file_log_vm.extract_native(out)
         with native.open('rb') as stream:final_block=stream.read(4096)

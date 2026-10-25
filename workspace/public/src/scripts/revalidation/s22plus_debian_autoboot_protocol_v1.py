@@ -49,7 +49,7 @@ def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot,phase=N
         nonce_sha256=hashlib.sha256(nonce).hexdigest(),init_sha256=selected['installed_init']['sha256'],
         hook_sha256=selected['hook']['sha256'],root_device=state.proof['root_device'])
     runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot,
-        cron_config=profile.cron_config_selected(selected))
+        cron_config=profile.cron_config_selected(selected),download=profile.download_selected(selected))
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and not runtime['required_check_stopped'] and
         runtime['automatic_start'] and not runtime['report_disabled'],'automatic service observation is incomplete')
     return dict(schema='s22plus-debian-autoboot-proof-v1',status='PASS_AUTOMATIC_DEBIAN_SERVICES',
@@ -67,8 +67,8 @@ def envelope(output,*,key,selected,phase=None):
         body,ssh_boot=lines[2:5],lines[1]
     else:
         cron=profile.cron_selected(selected)
-        prefix=b'S22_CRON_CONFIG' if cron=='config' else b'S22_CRON' if cron else b'S22_REBOOT'
-        require(len(lines)==(7 if phase==1 else 9)+int(bool(cron))+int(cron=='config' and phase==2) and lines[0]==prefix+b'_EVIDENCE_V1' and
+        prefix=b'S22_CRON_CONFIG' if cron in ('config','download') else b'S22_CRON' if cron else b'S22_REBOOT'
+        require(len(lines)==(7 if phase==1 else 9)+int(bool(cron))+int(cron in ('config','download') and phase==2) and lines[0]==prefix+b'_EVIDENCE_V1' and
             lines[1]==f'phase={phase}'.encode() and lines[-1]==prefix+b'_EVIDENCE_END',
             'reboot SSH evidence framing/phase differs')
         body,ssh_boot=lines[3:-1],lines[2]
@@ -89,7 +89,7 @@ def envelope(output,*,key,selected,phase=None):
                 'second boot lacks first completed reboot intent or a fresh boot')
             proof['prior']=prior
         if profile.cron_config_selected(selected):
-            spec=profile.cron_config_spec
+            spec=profile.cron_variant(profile.cron_selected(selected))
             require(selected.get('cron')==spec.declaration(selected['run_id']),'configuration declaration differs')
             snapshot=values[-1] if phase==1 else values[-2]
             require(snapshot==spec.schedule(selected['run_id']),'configuration RAM snapshot differs')
@@ -135,7 +135,7 @@ def local_records(early_bytes,runtime_bytes,*,key,selected,root_device,phase=Non
         boot=first['kernel_boot_identity_sha256'],nonce_sha256=hashlib.sha256(nonce).hexdigest(),
         init_sha256=selected['installed_init']['sha256'],hook_sha256=selected['hook']['sha256'],root_device=root_device)
     runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot,
-        cron_config=profile.cron_config_selected(selected))
+        cron_config=profile.cron_config_selected(selected),download=profile.download_selected(selected))
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and
         not runtime['required_check_stopped'] and runtime['automatic_start'] and
         not runtime['report_disabled'],'automatic local service evidence is incomplete')

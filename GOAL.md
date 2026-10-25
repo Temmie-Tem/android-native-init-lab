@@ -23,16 +23,20 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[Debian Download return assessment](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_RETURN_H0_ASSESSMENT_2026-10-26.md)
-is **H0 complete; implementation and device qualification remain prospective**.
-The retained five-module stock route resolves against the current Image, while
-actual packaged ARM64 reboot and shutdown-script fixtures show why changing
-only the shutdown command is insufficient. The next bounded capability keeps
-Debian PID1 and SysV cleanup, then uses a RAM final helper for one authenticated
-Download request and measured original-A return. Module probe effects, actual
-root read-only state and final Download arrival still need scoped qualification.
-The first run remains attended; unattended/deferred recovery is separate policy
-work. No new device authority, runtime change or replay is included.
+[P461 Debian Download return preparation](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_PREPARE_2026-10-26.md)
+is **PASS_H0_ARTIFACT_AND_VM / independent PASS_GO**. It keeps Debian PID1 and
+SysV cleanup, then checks actual root RO and uses one fixed RAM helper for
+the five stock modules and one authenticated Download restart. The actual
+clean-M30 candidate passes all 49 ARM64 cases, 64 focused tests, thirty physical-
+helper fixture cases, the 38,082,601-byte boot-only package and cold original
+image admission. Review binds 157 host and 178 runtime sources with no findings.
+The exact one-operation/3600-second task and source snapshot pass independent
+**PASS_READY_H0_AND_UNEXECUTED_ENTRY**, including nine approval negatives.
+The connected worker confirms no dispatch; current attended approval is pending.
+The [P461 specialization](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
+has no opened grant or image transfer. Actual Samsung Download
+arrival remains unproved. The first run is attended; unattended/deferred
+recovery is separate policy work. No consumed action gains replay authority.
 
 [P460 physical execution](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**.
@@ -693,18 +697,14 @@ assumed.
 
 ## Next bounded unit and milestones
 
-The P458 successor is closed healthy with two physical Debian boots, one
-ordinary reboot, two SSH observation windows and exact first-pair retention.
-Its N and original A each transferred once; both P458 operations and grants
-remain consumed. The bounded deadline/worker repair is already complete.
-
-P459 completes the selected ordinary-service follow-up: one real packaged
-cron workload and exact data preservation across the same two-boot sequence,
-followed by healthy original-A closure. H0 qualification, independent review
-and the separately approved physical unit are complete. Its report is persisted
-data; its crontab remains a fixed RAM overlay. Package installation or persistent
-configuration needs a separately selected bounded unit; no successor effect
-is opened by this completion.
+P460 is closed healthy with two physical Debian boots, one ordinary reboot,
+two SSH observation windows and actual persistent cron configuration creation,
+second-boot consumption and successful-path retirement. Its N, original A and
+finite grant remain consumed. P461 retains that bounded workload and replaces
+only the final power-off with checked SysV cleanup and one fixed Download
+request, followed by measured original-A return. Finish the actual-baseline
+artifact/corpus, independent capability/entry review and concrete attended
+preparation before any new F1. Package installation remains a later unit.
 Physical post-shutdown consistency and watchdog/reset uncertainty remain
 separate from VM evidence, retained data and healthy Android return.
 
@@ -735,8 +735,9 @@ consumed action. All new work starts from the closed healthy Android state.
    package-managed service behavior, retained data/configuration and ordinary
    Debian reboot under the applicable separate scope. The P458 successor
    proves two boots and first-pair retention; P459 proves a real scheduled cron
-   workload and exact report retention across reboot. Package installation and
-   persistent configuration remain separate.
+   workload and exact report retention across reboot; P460 proves exact
+   persistent configuration consumption and retirement. Package installation
+   and general configuration management remain separate.
 3. **Later hardware:** Wi-Fi, display/input, audio and desktop follow the
    usable headless Debian base.
 

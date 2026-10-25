@@ -27,7 +27,7 @@ def vm_results(tested,built,key):
     from s22plus_debian_autoboot_qualification_v1 import producer
     from s22plus_debian_autoboot_profile_v1 import cron_selected,cron_variant
     cron=cron_selected(built)
-    cron_spec=cron_variant(cron);config=cron=='config'
+    cron_spec=cron_variant(cron);config=cron in ('config','download')
     require(tested['schema']=='s22plus-debian-reboot-vm-v1' and tested['status']=='PASS' and
         tested['device_actions']==0 and tested['source_inputs']==built['source_inputs'] and
         tuple(row['case'] for row in tested['cases'])==('two-boot-normal','clean-error-unmount','second-root-control',*spec.ROOT_CASES,
@@ -106,6 +106,7 @@ def vm_results(tested,built,key):
         require(row['scope']=='PRODUCTION_RUNTIME_ARM64_WITH_HARDWARE_SUBSTITUTIONS' and
             row['physical_boot_proved'] is False and b'reboot: Restarting system' in serial and
             b'reboot: Power down' in serial and len(row['boots'])==2,'two actual VM boots absent')
+        if cron=='download':cron_spec.validate_vm_return(serial)
         for name in ('initial','final'):
             require(baseline.block_projection(verify(row[name+'_block']).read_bytes())==row[name+'_superblock'],
                 'VM superblock does not rederive')
@@ -151,7 +152,7 @@ def vm_results(tested,built,key):
                 capture=raw.load_handle(verify(sample['health']['capture']))
                 require(raw.read_stdout(capture,maximum=65536).count(f'S22_REBOOT_PHASE {phase}\n'.encode())==1,
                     'VM SSH health phase differs')
-            verb='reboot' if phase==1 else 'shutdown'
+            verb='reboot' if phase==1 else 'download' if cron=='download' else 'shutdown'
             handle=raw.load_handle(verify(boot['control_capture']))
             controlled,final=protocol.envelope(owner.capture_body(handle,'127.0.0.1',verb),key=key,selected=helper,phase=phase)
             require(controlled==boot['control'] and controlled['runtime'][verb+'_intent'] and

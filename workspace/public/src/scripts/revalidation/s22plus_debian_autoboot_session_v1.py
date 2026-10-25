@@ -1,6 +1,6 @@
 """One automatic N lifetime, fixed shutdown, attended original-A return."""
 from device_action_raw_capture_v1 import RawCaptureError
-from s22plus_native_records_v3 import read,require
+from s22plus_native_records_v3 import pin,read,require,verify
 from s22plus_debian_handoff_session_v1 import Coordinator as PhysicalCoordinator,intents,validate_task
 from s22plus_debian_autoboot_access_v1 import Access
 
@@ -44,12 +44,19 @@ class Coordinator(PhysicalCoordinator):
         from s22plus_native_session_v3 import operation_steps
         return operation_steps(self.session.request)
 
+    def prepare_automatic_return(self):
+        from s22plus_debian_reboot_access_v1 import download_selected,return_request
+        if not download_selected(self.session.request):return False
+        return_request(self.session.adapter,self.session.request,create=True)
+        return True
+
 
 def reboot_terminal(adapter,request,*,recovered):
-    from s22plus_debian_reboot_access_v1 import Access as RebootAccess
+    from s22plus_debian_reboot_access_v1 import Access as RebootAccess,download_selected,return_request
     result=dict(status='NO_PROOF',boots=[],ordinary_reboot_proved=False,ssh_access_proved=False,
         first_post_reboot_root_clean=False,clean_final_shutdown_proved=False,
         normal_return=not recovered,replay_authorized=False)
+    if download_selected(request):result['automatic_download_return_proved']=False
     for phase in (1,2):
         try:
             selected=RebootAccess(adapter,request,phase=phase)
@@ -79,4 +86,22 @@ def reboot_terminal(adapter,request,*,recovered):
                         persistent_configuration_proved=False,package_installation_proved=False)
         except (ValueError,OSError,KeyError,RawCaptureError) as error:
             result['evidence_error']=dict(phase=phase,type=type(error).__name__,message=str(error)[:256]);break
+    # A completed normal A followed by health-only recovery retains the same
+    # automatic Download proof. A physical recover-android transfer cannot
+    # satisfy this original install-android evidence join.
+    if download_selected(request) and result['ssh_access_proved']:
+        try:
+            from s22plus_native_session_v3 import Step
+            ready=return_request(adapter,request)
+            returned=adapter.recover_transfer_result(Step('install-android','transfer','A'),request)
+            launch=read(verify(returned['launch']))
+            require(launch['arrival_deadline_ns']==ready['deadline_ns'] and
+                ready['requested_ns']<launch['boottime_ns']<ready['deadline_ns'] and
+                launch['ticket'] and launch['revalidation'] and returned['completed'] is True,
+                'automatic Download/A does not join the original final intent')
+            result.update(status='PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN',
+                automatic_download_return_proved=True,download_return=pin(adapter.directory/'debian-return-ready.json'),
+                original_A_return=returned)
+        except (ValueError,OSError,KeyError,RawCaptureError) as error:
+            result['download_error']=dict(type=type(error).__name__,message=str(error)[:256])
     return result

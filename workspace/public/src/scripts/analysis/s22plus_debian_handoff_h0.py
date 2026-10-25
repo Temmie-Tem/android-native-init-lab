@@ -35,21 +35,23 @@ def prepare_headers(out,run,options,virt):
         (out/name).write_bytes(data);(out/name).chmod(0o400 if name in ('inittab','crontab') else 0o500)
 
 
-def asset_rows(out,hook,virt,*,minimal=False):
-    return [('hook',hook),*((name,pin(out/name)) for name in ('inittab','qualify','defer-usb','crontab','usb')+(('rc-minimal',) if minimal else ()))]
+def asset_rows(out,hook,virt,*,minimal=False,download=False):
+    from s22plus_debian_download_v1 import ASSET_NAMES
+    extra=ASSET_NAMES if download else ()
+    return [('hook',hook),*((name,pin(out/name)) for name in ('inittab','qualify','defer-usb','crontab','usb')+(('rc-minimal',) if minimal else ())+extra)]
 
 
-def payload_bytes(out,hook,virt,*,minimal=False):
+def payload_bytes(out,hook,virt,*,minimal=False,download=False):
     text='struct dh_asset { const char *source,*name; uint64_t size; unsigned mode; uint8_t digest[32]; };\n'
     text+='static const struct dh_asset dh_assets[]={\n'
-    for name,row in asset_rows(out,hook,virt,minimal=minimal):
+    for name,row in asset_rows(out,hook,virt,minimal=minimal,download=download):
         text+='{'+json.dumps('/s22-debian-'+name)+','+json.dumps(name)+','+str(row['size'])+'ULL,'
-        text+=('0400' if name in ('inittab','crontab') else '0500')+',{'+','.join(map(str,bytes.fromhex(row['sha256'])))+'}},\n'
+        text+=('0400' if name in ('inittab','crontab') or name.endswith('.ko') else '0500')+',{'+','.join(map(str,bytes.fromhex(row['sha256'])))+'}},\n'
     return (text+'};\n').encode()
 
 
-def payload_header(out,hook,virt,*,minimal=False):
-    (out/'s22plus_debian_handoff_payload_v1.h').write_bytes(payload_bytes(out,hook,virt,minimal=minimal))
+def payload_header(out,hook,virt,*,minimal=False,download=False):
+    (out/'s22plus_debian_handoff_payload_v1.h').write_bytes(payload_bytes(out,hook,virt,minimal=minimal,download=download))
 
 
 def result_fields(out,hook,options,virt,run):

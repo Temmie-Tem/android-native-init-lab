@@ -141,12 +141,12 @@ static int dh_report(unsigned kind,unsigned sequence,const void *body,size_t siz
     (void)kind;(void)sequence;(void)body;(void)size;return dh_reporting_open();
 }
 #endif
-static int dh_actual_init(struct dh_state *state) {
+static int dh_actual_init_mode(struct dh_state *state,bool readonly) {
     struct stat st,root,exe;struct statfs fs;
     if(getpid()<=1 || getuid() || geteuid() || getgid() || getegid() ||
        access("/proc/1/ns/pid",F_OK)==0 || stat("/",&root) || (uint64_t)root.st_dev!=sw.root_device ||
        stat("/proc/1/root",&st) || st.st_dev!=root.st_dev || st.st_ino!=root.st_ino ||
-       statfs("/",&fs) || fs.f_type!=0xef53 || (fs.f_flags&(ST_RDONLY|ST_NODEV|ST_NOEXEC|ST_NOSUID)) ||
+       statfs("/",&fs) || fs.f_type!=0xef53 || ((bool)(fs.f_flags&ST_RDONLY)!=readonly) || (fs.f_flags&(ST_NODEV|ST_NOEXEC|ST_NOSUID)) ||
        stat("/usr/sbin/init",&exe) || stat("/proc/1/exe",&st) || exe.st_dev!=st.st_dev || exe.st_ino!=st.st_ino)return EPROTO;
     int error=dh_pin_init();if(error)return error;
     if(stat(DH_HOOK_PATH,&st) || stat("/proc/self/exe",&exe) || st.st_dev!=exe.st_dev || st.st_ino!=exe.st_ino)return EPROTO;
@@ -175,6 +175,7 @@ static int dh_actual_init(struct dh_state *state) {
     if(closedir(d) && !error)error=fs1_error();
     return error;
 }
+static int dh_actual_init(struct dh_state *state) {return dh_actual_init_mode(state,false);}
 static int dh_retire_acm(void) {
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     return S22_DEBIAN_FAULT==2 ? EIO : 0;
@@ -189,8 +190,15 @@ static int dh_retire_acm(void) {
 #endif
 }
 #include "s22plus_debian_handoff_observer_v2.inc.c"
+#ifdef S22_DEBIAN_DOWNLOAD
+#include "s22plus_debian_download_return_v1.inc.c"
+#endif
 int main(int argc,char **argv) {
     struct dh_state state={0};int error;
+#ifdef S22_DEBIAN_DOWNLOAD
+    if(argc==2 && !strcmp(argv[1],"return-park"))dl_park(EIO);
+    if(argc==2 && !strcmp(argv[1],"return-final"))dl_final();
+#endif
 #ifdef S22_DEBIAN_REBOOT
     if((error=rb_current_early()))return 110;
 #ifdef S22_DEBIAN_CRON
@@ -203,7 +211,13 @@ int main(int argc,char **argv) {
         return error ? 116 : 0;
     }
 #endif
-    if(argc==2 && (!strcmp(argv[1],"phase") || !strcmp(argv[1],"reboot-intent") || !strcmp(argv[1],"shutdown-intent"))) {
+    if(argc==2 && (!strcmp(argv[1],"phase") || !strcmp(argv[1],"reboot-intent") || !strcmp(argv[1],
+#ifdef S22_DEBIAN_DOWNLOAD
+        "download-intent"
+#else
+        "shutdown-intent"
+#endif
+        ))) {
         at_disable();pid_t cron=0,sshd=0;
         if((error=dh_load(&state)) || memcmp(rb_early_nonce,sw.nonce,32) || (error=dh_actual_init(&state)))return 111;
         if(!strcmp(argv[1],"phase"))return printf("%u\n",rb_phase)<0 || fflush(stdout) ? 112 : 0;

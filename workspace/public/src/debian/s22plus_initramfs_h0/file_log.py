@@ -108,7 +108,8 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
         *(['-DS22_DEBIAN_AUTOBOOT'] if autoboot else []),
         *(['-DS22_DEBIAN_REBOOT'] if reboot is not None else []),
         *(['-DS22_DEBIAN_CRON'] if cron else []),
-        *(['-DS22_DEBIAN_CRON_CONFIG'] if cron=='config' else []),
+        *(['-DS22_DEBIAN_CRON_CONFIG'] if cron in ('config','download') else []),
+        *(['-DS22_DEBIAN_DOWNLOAD'] if cron=='download' else []),
         *(['-DS22_AUTOBOOT_SINGLECPU'] if single_cpu else []),
         *(['-DS22_AUTOBOOT_TRACE=1','-DS22_AUTOBOOT_HISTORY'] if transition else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')
