@@ -23,18 +23,26 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P458 execution](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_RUN_2026-10-25.md)
+closed its one-operation grant with **NO_PROOF / ANDROID_CLOSED_HEALTHY**.
+The Android-to-Download command ran once, but its host departure window had
+already expired 2.214537 seconds before durable intent; the observer took no
+sample. N transfer was never reached. One original-A recovery and a subsequent
+health-only continuation completed without another transfer. Closure rederived
+223 raw captures and the unchanged ten-row journal; no F1 owner remains.
+The operation is consumed; N content was not globally claimed. No Debian boot
+or current native_data consistency is proved. The next H0 unit repairs deadline
+ordering and the approved worker's missing stopped-owner recovery/health paths.
+A90, S20+ and server work remain untouched.
+
 [P458 physical preparation](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_PHYSICAL_PREPARE_2026-10-25.md)
-has a verified fixed Android D0 baseline **M=18**, same-boot original-A health,
-an identical A/B physical candidate, all **25 ARM64 cases PASS**, and a qualified
-38,021,161-byte boot-only AP. The concrete unexecuted task selects one attended
+qualified a fixed Android D0 baseline **M=18**, same-boot original-A health,
+an identical A/B physical candidate, all **25 ARM64 cases PASS**, and the
+38,021,161-byte boot-only AP. Its concrete task selected one attended
 3600-second operation, two Debian boots and four bounded writable lifetimes
-through M+4=22. Independent **PASS_READY_H0_AND_UNEXECUTED_ENTRY** and the actual
-approved-tool bundle/status checks pass. No returned approval,
-grant, dispatch or new N/A transfer exists. The approved terminal worker is
-currently unavailable and has not been started. Fresh live preflight and all
-four complete protected admissions remain required at execution; no physical
-Debian reboot or final persistence is claimed. A90, S20+ and server work are
-untouched.
+through M+4=22. Independent **PASS_READY_H0_AND_UNEXECUTED_ENTRY** and the original
+bundle/status checks passed before execution. Those retained qualifications
+remain distinct from the stopped physical result above and grant no replay.
 
 [P458 production integration](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_INTEGRATION_H0_2026-10-25.md)
 is **PASS_H0_PRODUCTION_INTEGRATION** after independent **PASS_GO** review.
@@ -575,18 +583,19 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P457 is the latest closed healthy F1 unit. Together with the original P456 live
-proof, it confirms the selected headless service/SSH path and subsequent
-retention of that same boot's two authenticated files. P458 completed the
+P458 is the latest closed healthy F1 unit, with no N transfer and NO_PROOF for
+Debian. P457 and the original P456 live proof still confirm the selected
+headless service/SSH path and subsequent retention of that boot's two files.
+P458 completed the
 ordinary-reboot design, production integration, exact P456 history and finite
 dmesg rules, both complete protected admissions per boot, and the two-boot owner.
-The separate physical preparation now supplies a fixed D0 baseline M=18 and
-a freshly qualified candidate. Its unexecuted task retains the
+The separate physical preparation supplied a fixed D0 baseline M=18 and
+a qualified candidate for the
 [reviewed finite scope](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md): one ordinary
 reboot, a fixed second observation window, fresh per-boot evidence and physical
-original-A return. The prepared-entry review is complete; the exact finite
-attended approval may now be presented. No grant has been opened. P457's read grant
-remains consumed. Physical clean shutdown and watchdog/reset uncertainty remain
+original-A return. Its operation stopped before N, recovered and closed; the
+next bounded H0 work is the deadline and reusable-worker repair recorded above.
+P457 and P458 grants remain consumed. Physical clean shutdown and watchdog/reset uncertainty remain
 separate from VM evidence, proved file retention and healthy Android return.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
