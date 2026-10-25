@@ -23,6 +23,17 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[Debian Download return assessment](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_RETURN_H0_ASSESSMENT_2026-10-26.md)
+is **H0 complete; implementation and device qualification remain prospective**.
+The retained five-module stock route resolves against the current Image, while
+actual packaged ARM64 reboot and shutdown-script fixtures show why changing
+only the shutdown command is insufficient. The next bounded capability keeps
+Debian PID1 and SysV cleanup, then uses a RAM final helper for one authenticated
+Download request and measured original-A return. Module probe effects, actual
+root read-only state and final Download arrival still need scoped qualification.
+The first run remains attended; unattended/deferred recovery is separate policy
+work. No new device authority, runtime change or replay is included.
+
 [P460 physical execution](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**.
 The exact persistent cron.d configuration survives one ordinary reboot; actual
