@@ -1,6 +1,6 @@
 # P460 physical candidate preparation
 
-Status: **PREPARATION_INCOMPLETE_STORAGE_LIMIT**. The fixed Android D0, fresh
+Status: **PREPARATION_IN_PROGRESS_CANDIDATE_QUALIFICATION**. The fixed Android D0, fresh
 physical-baseline build and its normal ARM64 two-boot path pass. The new
 candidate's complete failure corpus, physical package, task and prepared-entry
 review are not complete. No F1 grant, operator-approval record, transfer,
@@ -54,7 +54,7 @@ opening and one attended execution. They have not prepared a task or run an
 entry. The eventual prepared-entry review must bind the actual package/task
 and the closed P459 predecessor before the original bundle can admit them.
 
-## Storage limit and remaining work
+## Resolved storage limit and remaining work
 
 The retained complete H0 corpus occupies about **22 GiB**. Available space was
 16 GiB before this preparation and about 15 GiB after the new normal path.
@@ -62,7 +62,12 @@ The complete new failure suite was therefore not launched. Existing successful
 and failed evidence was preserved. Ordinary cache sizes were inspected without
 deletion; those caches do not provide the additional ten GiB needed with margin.
 
-After space is available, continue the new candidate's remaining 36 root/control
+The [authorized host cleanup](S22PLUS_HOST_SCRATCH_CLEANUP_2026-10-26.md) has now
+resolved that limit: 506.73 GiB of old host scratch was retired, leaving about
+521 GiB available. P460, recovery/physical evidence and the shared complete.ext4
+seed used to construct new test disks were preserved.
+
+Continue the new candidate's remaining 36 root/control
 and 12 runtime cases, then rederive the complete 49-case corpus. Package its
 actual boot-only image, validate the original image consumer in a fresh process,
 prepare the concrete task/snapshot and obtain the existing narrow entry review.
