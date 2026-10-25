@@ -4,18 +4,27 @@
 #ifndef DE_CHAIN_KEY
 #define DE_CHAIN_KEY sw_key
 #endif
+#ifdef S22_DEBIAN_CRON_CONFIG
+#include "s22plus_debian_cron_seal_v1.h"
+#endif
 struct de_chain {
     unsigned count,started,off,complete,released,stopped,progress,last_kind,last_phase,control;
     unsigned boundary[2],last_event[2],status[2];
     uint64_t elapsed,pid[2],wait_ms[2],progress_ms;
     uint8_t tag[32];
+#ifdef S22_DEBIAN_CRON_CONFIG
+    unsigned boot_phase,config_created,config_retired;
+    uint64_t config_inode,config_mtime_sec,config_mtime_nsec,config_ctime_sec,config_ctime_nsec,config_created_ms;
+#endif
 };
 static uint64_t de_u64(const uint8_t *p) {
     uint64_t n=0;for(unsigned i=0;i<8;++i)n|=(uint64_t)p[i]<<(8*i);return n;
 }
 static void de_put64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(8*i));}
 static void de_tag(uint8_t out[32],const uint8_t *p,size_t n) {
-#ifdef S22_DEBIAN_REBOOT
+#ifdef S22_DEBIAN_CRON_CONFIG
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-CRON-CONFIG-DURABLE-v1";
+#elif defined(S22_DEBIAN_REBOOT)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-REBOOT-DURABLE-v1";
 #elif defined(S22_DEBIAN_AUTOBOOT)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1";
@@ -95,7 +104,28 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
         s->boundary[i]++;s->last_event[i]=event;s->pid[i]=a;s->status[i]=(unsigned)b;s->wait_ms[i]=elapsed;
     } else if(kind==DE_COMPLETE) {
         if(!s->started || s->complete || s->progress!=DH_SAMPLES+3 || phase || event || a || b || c)return EPROTO;
+#ifdef S22_DEBIAN_CRON_CONFIG
+        if(s->boot_phase==1 ? s->config_created!=2 || s->config_retired :
+           s->boot_phase!=2 || s->config_created || !s->config_retired)return EPROTO;
+#endif
         s->complete=1;
+#ifdef S22_DEBIAN_CRON_CONFIG
+    } else if(kind==11U) {
+        if(s->boot_phase!=1 || !s->started || s->complete || s->progress!=2 ||
+           s->last_event[1]!=5 || s->status[1] || phase!=1 || event!=s->config_created+1 || event>2)return EPROTO;
+        if(event==1) {
+            if(!a || !b || c>=1000000000ULL)return EPROTO;
+            s->config_inode=a;s->config_mtime_sec=b;s->config_mtime_nsec=c;
+        } else {
+            if(!a || b>=1000000000ULL || c!=CF_CONFIG_SIZE || s->last_kind!=11U)return EPROTO;
+            s->config_ctime_sec=a;s->config_ctime_nsec=b;s->config_created_ms=elapsed;
+        }
+        s->config_created++;
+    } else if(kind==12U) {
+        if(s->boot_phase!=2 || !s->started || s->complete || s->progress!=DH_SAMPLES+3 ||
+           s->config_created || s->config_retired || phase!=2 || event!=1 || !a || b<=1 || b>INT_MAX || !c)return EPROTO;
+        s->config_inode=a;s->config_retired=1;
+#endif
     } else if(kind==DE_RELEASE) {
 #ifdef S22_DEBIAN_AUTOBOOT
         return EPROTO;

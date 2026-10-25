@@ -92,13 +92,13 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     (out/'early-seal.h').write_text(text)
     if cron:
         h0.require(autoboot and reboot is not None,'cron requires automatic reboot selection')
-        (out/'s22plus_debian_cron_seal_v1.h').write_bytes(automatic.cron_spec.seal(run))
+        (out/'s22plus_debian_cron_seal_v1.h').write_bytes(automatic.cron_variant(cron).seal(run))
     if reboot is not None:
         h0.require(autoboot and minimal,'reboot requires selected automatic minimal path')
         (out/'s22plus_debian_reboot_seal_v1.h').write_bytes(automatic.reboot_spec.seal(run,reboot['initial_mount_count']))
     source,extra=file_log_faults.source(out,h0.HERE/'file-log.c',fault) if fault else (h0.HERE/'file-log.c',[])
     fault_sources=[]
-    if transition_fault and autoboot and transition_fault in automatic.cron_spec.RUNTIME_FAULTS:
+    if transition_fault and autoboot and transition_fault in automatic.cron_variant(cron).RUNTIME_FAULTS:
         h0.require(virt and cron,'cron faults require selected VM')
     elif transition_fault:
         import autoboot_transition_faults
@@ -108,6 +108,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
         *(['-DS22_DEBIAN_AUTOBOOT'] if autoboot else []),
         *(['-DS22_DEBIAN_REBOOT'] if reboot is not None else []),
         *(['-DS22_DEBIAN_CRON'] if cron else []),
+        *(['-DS22_DEBIAN_CRON_CONFIG'] if cron=='config' else []),
         *(['-DS22_AUTOBOOT_SINGLECPU'] if single_cpu else []),
         *(['-DS22_AUTOBOOT_TRACE=1','-DS22_AUTOBOOT_HISTORY'] if transition else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')

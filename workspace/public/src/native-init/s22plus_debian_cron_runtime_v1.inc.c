@@ -4,6 +4,22 @@
 #define CR_READY "/run/s22-debian/cron-ready"
 #define CR_INTENT "/run/s22-debian/cron-intent"
 #define CR_DONE "/run/s22-debian/cron-done"
+#ifdef S22_DEBIAN_CRON_CONFIG
+/* All virtual helpers contain the same fault-capable binary. A selected H0
+ * kernel argument chooses the substitution, so a real first-boot snapshot
+ * remains source-bound when exercising a later boot's failure paths. */
+static bool cf_fault(unsigned wanted) {
+#ifdef S22_ROOT_INSPECT_VIRT_TEST
+    char text[4096],expected[40];
+    if(fs1_read_text("/proc/cmdline",text,sizeof(text)))return false;
+    snprintf(expected,sizeof(expected),"s22cf_fault=%u",wanted);
+    size_t n=strlen(expected);char *at=strstr(text,expected);
+    return at && (at==text || at[-1]==' ') && (at[n]==' ' || at[n]=='\n' || !at[n]);
+#else
+    (void)wanted;return false;
+#endif
+}
+#endif
 #if defined(CR_VM_FAULT) && !defined(S22_ROOT_INSPECT_VIRT_TEST)
 #error "cron fault injection is H0 only"
 #endif
@@ -34,8 +50,8 @@ static int cr_revoke(const char *path,bool schedule) {
     if(close(fd) && !error)error=fs1_error();
     return error;
 }
-static void cr_abort(void) {
-    if(!cr_abort_allowed)return;
+static int cr_revoke_once(bool fresh) {
+    if(!cr_abort_allowed)return fresh ? EALREADY : 0;
     cr_abort_allowed=false;
     /* A separate once-only RAM revocation remains allowed on expiry. It is
      * not a retry of the job, schedule arming, retirement or disk write. */
@@ -44,6 +60,9 @@ static void cr_abort(void) {
     if(!claim_error && (fstat(parent,&st) || fstatfs(parent,&fs) || fs.f_type!=0x01021994L ||
         st.st_uid || st.st_gid || st.st_mode!=(S_IFDIR|0700) || st.st_nlink<2))claim_error=EPROTO;
     int claim=-1;
+#ifdef S22_DEBIAN_CRON_CONFIG
+    if(!claim_error && cf_fault(12))claim_error=EIO;
+#endif
     if(!claim_error) {
         mode_t mask=umask(0);claim=openat(parent,"cron-revocation",O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0400);
         if(claim<0)claim_error=fs1_error();
@@ -57,15 +76,25 @@ static void cr_abort(void) {
             ready=(int)fs1_u32(old+8);schedule=(int)fs1_u32(old+12);
         }
         dprintf(2,"CRON_RAM_REVOKE claim_errno=%d ready_errno=%d schedule_errno=%d\n",claim_error,ready,schedule);
-        return;
+        return claim_error;
     }
-    int ready=cr_revoke(CR_READY,false),schedule=cr_revoke("/run/s22-debian/crontab",true);
+    int ready=cr_revoke(CR_READY,false);
+#ifdef S22_DEBIAN_CRON_CONFIG
+    int schedule=0; /* Only the RAM admission gate is revoked on this path. */
+#else
+    int schedule=cr_revoke("/run/s22-debian/crontab",true);
+#endif
     uint8_t outcome[CR_SIZE]={0};memcpy(outcome,"S22CRRV1",8);sw_put32(outcome+8,(unsigned)ready);sw_put32(outcome+12,(unsigned)schedule);
     int recorded=write(claim,outcome,sizeof(outcome))==sizeof(outcome) && !fsync(claim) ? 0 : EIO;
     if(close(claim) && !recorded)recorded=fs1_error();
+#ifdef S22_DEBIAN_CRON_CONFIG
+    if(!recorded && cf_fault(3))recorded=EIO;
+#endif
     if(recorded)claim_error=recorded;
     dprintf(2,"CRON_RAM_REVOKE claim_errno=%d ready_errno=%d schedule_errno=%d\n",claim_error,ready,schedule);
+    return claim_error ? claim_error : ready ? ready : schedule;
 }
+static void cr_abort(void) {(void)cr_revoke_once(false);}
 
 static int cr_ram_read(const char *path,uint8_t data[CR_SIZE]) {
     int fd=open(path,O_RDONLY|O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC);
@@ -83,8 +112,12 @@ static int cr_ram_create(const char *path,const uint8_t data[CR_SIZE]) {
     int error=fd<0 ? fs1_error() : 0;umask(mask);struct statfs fs;
     if(!error && (fstatfs(fd,&fs) || fs.f_type!=0x01021994L || write(fd,data,CR_SIZE)!=CR_SIZE || fsync(fd)))error=EIO;
     if(fd>=0 && close(fd) && !error)error=fs1_error();
+#ifdef S22_DEBIAN_CRON_CONFIG
+    if(!error && !strcmp(path,CR_DONE) && (cf_fault(2) || cf_fault(12)))error=EIO;
+#endif
     return error;
 }
+#ifndef S22_DEBIAN_CRON_CONFIG
 static int cr_schedule_change(bool arm) {
     const char *before=arm ? cr_idle : cr_schedule,*after=arm ? cr_schedule : cr_idle;
     size_t old_size=strlen(before),size=strlen(after);uint8_t bytes[256];struct stat st,target,back;struct statfs fs;
@@ -110,6 +143,7 @@ static int cr_schedule_change(bool arm) {
     if(close(fd) && !error)error=fs1_error();
     return error;
 }
+#endif
 static int cr_process(pid_t pid,pid_t *parent,uint64_t *ticks) {
     char path[64],text[4096];snprintf(path,sizeof(path),"/proc/%ld/stat",(long)pid);
     int error=fs1_read_text(path,text,sizeof(text));
@@ -222,6 +256,10 @@ static int cr_wait_daemon(pid_t *pid,uint64_t *ticks,uint64_t deadline,unsigned 
     }
 }
 static int cr_job(struct dh_state *state);
+#ifdef S22_DEBIAN_CRON_CONFIG
+static int cf_job_binding(const uint8_t data[CR_SIZE]);
+static int cf_publish_success(void);
+#else
 static int cr_lifecycle(struct dh_state *state) {
     if(rb_phase!=1)return 0;
     cr_abort_allowed=true;
@@ -267,6 +305,7 @@ static int cr_lifecycle(struct dh_state *state) {
 #endif
     return error;
 }
+#endif
 static int cr_ancestors(uint8_t intent[CR_SIZE]) {
     pid_t pid=getpid(),master=(pid_t)cr_u64(intent+CR_RESTARTED_PID);unsigned count=0;
     struct stat root,expected_cron,expected_shell;
@@ -300,6 +339,12 @@ static int cr_job(struct dh_state *state) {
     /* Already queued invocations may exist after schedule retirement. They
      * cannot retry the schedule change, output creation or an uncertain write. */
     struct stat st;
+#ifdef S22_DEBIAN_CRON_CONFIG
+    /* Boot 1 may dispatch the installed line, but cannot claim an intent or
+     * write a report. RAM readiness exists only on the admitted second boot. */
+    if(rb_phase!=2)return 0;
+    if(cf_fault(4))return 0;
+#endif
 #if defined(CR_VM_FAULT) && CR_VM_FAULT == 9
     int count_fd=open("/run/s22-debian/cron-vm-invocations",O_WRONLY|O_CREAT|O_APPEND|O_NOFOLLOW|O_CLOEXEC,0600);
     if(count_fd<0)return fs1_error();
@@ -316,10 +361,20 @@ static int cr_job(struct dh_state *state) {
     if(error==ENOENT)return 0;
     if(error)return error;
     cr_tag(tag,2,data,480);
-    if(rb_phase!=1 || memcmp(tag,data+480,32) || memcmp(data+16,sw.run,16) ||
+    if(rb_phase!=
+#ifdef S22_DEBIAN_CRON_CONFIG
+       2
+#else
+       1
+#endif
+       || memcmp(tag,data+480,32) || memcmp(data+16,sw.run,16) ||
        memcmp(data+32,sw.boot,32) || memcmp(data+64,sw.nonce,32) || memcmp(data+256,state->hook_sha,32))return EPROTO;
     pid_t daemon=(pid_t)cr_u64(data+CR_RESTARTED_PID);uint64_t ticks;
     if((error=cr_daemon(&daemon,&ticks)) || ticks!=cr_u64(data+CR_RESTARTED_TICKS))return error ? error : EPROTO;
+#ifdef S22_DEBIAN_CRON_CONFIG
+    if((uint64_t)daemon!=cr_u64(data+CR_DAEMON_PID))return EPROTO;
+    if((error=cf_job_binding(data)))return error;
+#endif
     cr_put64(data+CR_JOB_MS,sw_now());cr_put64(data+CR_JOB_PID,(uint64_t)getpid());cr_put64(data+CR_PARENT_PID,(uint64_t)getppid());
     memcpy(intent,data,sizeof(intent));
     if((error=cr_ancestors(intent)))return error;
@@ -329,7 +384,9 @@ static int cr_job(struct dh_state *state) {
 #if defined(CR_VM_FAULT) && CR_VM_FAULT == 9
     return EIO; /* The real scheduled job loaded the active cron cache. */
 #endif
+#ifndef S22_DEBIAN_CRON_CONFIG
     if((error=cr_schedule_change(false)))return error;
+#endif
     /* The actual scheduled task hashes the two retained installed programs. */
     const char *names[]={"/usr/sbin/cron","/usr/sbin/sshd"};
     const uint8_t *hashes[]={cr_cron_sha,cr_sshd_sha};const uint64_t sizes[]={CR_CRON_BYTES,CR_SSHD_BYTES};
@@ -352,6 +409,9 @@ static int cr_job(struct dh_state *state) {
     mode_t mask=umask(0);int fd=openat(parent,strrchr(cr_path,'/')+1,O_WRONLY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,0600);
     error=fd<0 ? fs1_error() : 0;umask(mask);
     size_t amount=CR_SIZE;
+#ifdef S22_DEBIAN_CRON_CONFIG
+    if(cf_fault(11))amount=CR_SIZE/2;
+#endif
 #if defined(CR_VM_FAULT) && CR_VM_FAULT == 2
     amount=CR_SIZE/2;
 #endif
@@ -360,10 +420,13 @@ static int cr_job(struct dh_state *state) {
     if(fd>=0 && close(fd) && !error)error=fs1_error();
     if(close(parent) && !error)error=fs1_error();
     if(error)return error;
-    return cr_ram_create(CR_DONE,data);
+    error=cr_ram_create(CR_DONE,data);
+#ifdef S22_DEBIAN_CRON_CONFIG
+    if(!error)error=cf_publish_success();
+#endif
+    return error;
 }
-static int cr_complete(struct dh_state *state) {
-    if(rb_phase!=1)return 0; /* Boot 2 already required the report in both protected admissions. */
+static int cr_report_complete(struct dh_state *state) {
 #if defined(CR_VM_FAULT) && CR_VM_FAULT == 9
     uint8_t claimed[CR_SIZE],claimed_tag[32];
     int cached_error=cr_ram_read(CR_INTENT,claimed);
@@ -426,3 +489,10 @@ static int cr_complete(struct dh_state *state) {
     if(!error && memcmp(done,disk,CR_SIZE))error=EPROTO;
     return error;
 }
+#ifdef S22_DEBIAN_CRON_CONFIG
+#include "s22plus_debian_cron_config_runtime_v1.inc.c"
+#else
+static int cr_complete(struct dh_state *state) {
+    return rb_phase==1 ? cr_report_complete(state) : 0;
+}
+#endif

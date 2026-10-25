@@ -15,7 +15,9 @@ static void de_header(uint8_t h[DE_HEADER]) {
     memcpy(h+16,sw.run,16);memcpy(h+32,sw.boot,32);memcpy(h+64,sw.nonce,32);
     de_put64(h+96,sw.deadline_ms-SW_TIMEOUT_MS);de_put64(h+104,sw.deadline_ms);
     sw_put32(h+112,
-#ifdef S22_DEBIAN_REBOOT
+#ifdef S22_DEBIAN_CRON_CONFIG
+        8
+#elif defined(S22_DEBIAN_REBOOT)
         7
 #elif defined(S22_AUTOBOOT_SINGLECPU)
         6
@@ -72,6 +74,9 @@ static int de_scan(int fd,struct de_chain *state) {
        before.st_ctim.tv_sec!=after.st_ctim.tv_sec || before.st_ctim.tv_nsec!=after.st_ctim.tv_nsec)return EIO;
     de_header(expected);if(memcmp(raw,expected,DE_HEADER))return EPROTO;
     memset(state,0,sizeof(*state));memcpy(state->tag,raw+224,32);
+#ifdef S22_DEBIAN_CRON_CONFIG
+    state->boot_phase=fs1_u32(raw+200);
+#endif
     for(size_t pos=DE_HEADER;pos<(size_t)before.st_size;pos+=DE_RECORD)
         if((error=de_apply(state,raw+pos)))return error;
     if(!de_inode)de_inode=before.st_ino;

@@ -9,6 +9,7 @@ import autoboot_vm as automatic
 import h0
 import s22plus_debian_reboot_v1 as spec
 import s22plus_debian_cron_v1 as cron_spec
+import s22plus_debian_cron_config_v1 as config_spec
 from s22plus_debian_reboot_qualification_v1 import rejection
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
@@ -56,18 +57,25 @@ def boundaries(native,out):
 
 
 def run(out,build,helper,positive,case,clean=None):
-    require(case in CASES+cron_spec.ROOT_CASES+('clean-error-unmount','second-root-control'),'unselected reboot root fault')
+    require(case in CASES+cron_spec.ROOT_CASES+config_spec.ROOT_CASES+('clean-error-unmount','second-root-control'),'unselected reboot root fault')
     selected=automatic.prepare(out,build,helper,'changed-receipt' if case=='changed-current-receipt' else 'normal')
+    config=automatic.build_api.profile.cron_config_selected(selected)
     native=out/'native.ext4';fixture=automatic.vm.fixture
     provenance='INITIAL_ROOT'
     if case=='clean-error-retry':
         require(clean is not None,'retry needs the original counted error-unmount fixture')
         h0.run(['cp','--reflink=auto','--sparse=always',clean/'native-after.ext4',native],out/'copy-error.log')
         provenance='ORIGINAL_COUNTED_ERROR_UNMOUNT'
-    if case in SECOND or case in cron_spec.ROOT_CASES and case!='cron-existing-first':
-        h0.run(['cp','--reflink=auto','--sparse=always',positive/'native-after.ext4',native],out/'copy-final.log')
-        provenance='RECONSTRUCTED_SECOND_ROOT_FROM_CLOSED_VM_ONLY'
-        if case!='third-start':
+    if case in SECOND or case in cron_spec.ROOT_CASES and case!='cron-existing-first' or case.startswith('config-second-'):
+        source=positive/('native-first.ext4' if config and case!='third-start' else 'native-after.ext4')
+        if config and case!='third-start':
+            snap=read(positive/'first-root.json')
+            require(source.is_file() and not source.is_symlink() and snap['path']==str(source) and
+                snap['origin']=='ACTUAL_FIRST_KERNEL_REBOOT_EXIT' and
+                fixture.fixture_tools.sparse_digest(source)==snap['sparse_sha256'],'first-boot root snapshot changed')
+        h0.run(['cp','--reflink=auto','--sparse=always',source,native],out/'copy-final.log')
+        provenance='ACTUAL_FIRST_KERNEL_REBOOT_ROOT' if config and case!='third-start' else 'RECONSTRUCTED_SECOND_ROOT_FROM_CLOSED_VM_ONLY'
+        if case!='third-start' and not config:
             for kind,path in spec.paths(selected['run_id'],2).items():debug(native,out,'remove-second-'+kind,f'rm /{path}')
             debug(native,out,'second-count',f'ssv mnt_count {selected["reboot"]["initial_mount_count"]+2}')
             first=read(positive/'result.json')['boots'][0]['ssh_120_seconds']['last']['health']['boot_count']
@@ -120,6 +128,27 @@ def run(out,build,helper,positive,case,clean=None):
             if case=='cron-linked':
                 debug(native,out,'cron-alias',f'ln /{path} /var/lib/lab/s22-cron-alias')
                 debug(native,out,'cron-linked',f'set_inode_field /{path} links_count 2')
+    if case in config_spec.ROOT_CASES:
+        require(config,'unselected persistent configuration root fault')
+        path=config_spec.config_path(selected['run_id']);body=config_spec.schedule(selected['run_id'])
+        if case.endswith('-report'):
+            put(native,out,'unexpected-report',config_spec.path(selected['run_id']),b'PARTIAL',0o100600)
+        elif case=='config-second-missing':debug(native,out,'config-missing',f'rm /{path}')
+        elif case=='config-second-symlink':
+            debug(native,out,'config-remove',f'rm /{path}')
+            debug(native,out,'config-symlink',f'symlink /{path} /etc/passwd')
+        elif case=='config-second-mode':debug(native,out,'config-mode',f'set_inode_field /{path} mode 0100600')
+        elif case=='config-second-linked':
+            debug(native,out,'config-alias',f'ln /{path} /etc/cron.d/unexpected-alias')
+            debug(native,out,'config-linked',f'set_inode_field /{path} links_count 2')
+        elif case in ('config-second-mtime','config-second-ctime'):
+            field=case.rsplit('-',1)[1]
+            debug(native,out,'config-time',f'set_inode_field /{path} {field} 1')
+        elif case=='config-second-foreign':put(native,out,'foreign-config','etc/cron.d/unselected',body)
+        else:
+            if case=='config-second-changed':body=body[:-2]+b'X\n'
+            if case=='config-second-partial':body=body[:31]
+            put(native,out,'config-mutated',path,body)
     (out/'disk.img').unlink()
     fixture.make_disk(native,out/'disk.img',read(verify(fixture.profile.filesystem.BINDING)))
     before=fixture.fixture_tools.sparse_digest(out/'disk.img');outside=automatic.lifecycle.outside_native(out/'disk.img')
@@ -191,5 +220,6 @@ def suite(out,build,helper,positive):
         try:return run(out/case,build,fault if case=='clean-error-retry' else helper,positive,case,out/'clean-error-unmount')
         except Exception as error:
             publish(out/(case+'-failure.json'),dict(error_type=type(error).__name__,message=str(error),device_actions=0));raise
-    with ThreadPoolExecutor(max_workers=2) as pool:rows=list(pool.map(single,CASES+(cron_spec.ROOT_CASES if builder.profile.cron_selected(built) else ())))
+    cron=builder.profile.cron_selected(built)
+    with ThreadPoolExecutor(max_workers=2) as pool:rows=list(pool.map(single,CASES+(builder.profile.cron_variant(cron).ROOT_CASES if cron else ())))
     value=dict(status='PASS',cases=[clean,second,*rows],device_actions=0);publish(out/'result.json',value);return value

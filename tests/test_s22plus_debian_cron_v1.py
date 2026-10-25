@@ -113,8 +113,9 @@ with patch.object(subprocess, 'Popen', deny), patch.object(socket, 'socket', den
         with tempfile.TemporaryDirectory() as temporary:
             root=Path(temporary);run='07'*16
             publish(root/'grant.json',dict(fixture=True))
-            for namespace,observer in (('p458',profile.REBOOT_OBSERVER),('p459',profile.CRON_OBSERVER)):
-                built=dict(run_id=run,transition_observer=observer,reboot=cron.reboot.declaration(run,22))
+            for namespace,observer,count in (('p458',profile.REBOOT_OBSERVER,22),('p459',profile.CRON_OBSERVER,22),
+                    ('p460',profile.CRON_CONFIG_OBSERVER,26)):
+                built=dict(run_id=run,transition_observer=observer,reboot=cron.reboot.declaration(run,count))
                 publish(root/(namespace+'-build.json'),built)
                 publish(root/(namespace+'-artifact.json'),dict(build=pin(root/(namespace+'-build.json'))))
                 request=dict(operation='debian-autoboot',N=dict(namespace=namespace,version='fixture',

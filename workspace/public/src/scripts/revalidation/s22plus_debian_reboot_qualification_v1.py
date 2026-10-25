@@ -25,8 +25,9 @@ def rejection(serial,case):
 
 def vm_results(tested,built,key):
     from s22plus_debian_autoboot_qualification_v1 import producer
-    from s22plus_debian_autoboot_profile_v1 import cron_selected,cron_spec
+    from s22plus_debian_autoboot_profile_v1 import cron_selected,cron_variant
     cron=cron_selected(built)
+    cron_spec=cron_variant(cron);config=cron=='config'
     require(tested['schema']=='s22plus-debian-reboot-vm-v1' and tested['status']=='PASS' and
         tested['device_actions']==0 and tested['source_inputs']==built['source_inputs'] and
         tuple(row['case'] for row in tested['cases'])==('two-boot-normal','clean-error-unmount','second-root-control',*spec.ROOT_CASES,
@@ -53,12 +54,23 @@ def vm_results(tested,built,key):
             verify(receipt)
         serial=verify(row['serial'],maximum=8*1024**2).read_bytes()
         if cron and row['case'] in cron_spec.RUNTIME_FAULTS:
-            from cron_vm_faults import validate_serial
-            require(row['scope']=='H0_ARM64_DECLARED_CRON_FAILURE' and row['kernel_stopped_by_h0_driver'] is True and
+            from cron_vm_faults import validate_serial,validate_config_serial
+            require(row['scope']==('H0_ARM64_DECLARED_CRON_CONFIG_FAILURE' if config else 'H0_ARM64_DECLARED_CRON_FAILURE') and row['kernel_stopped_by_h0_driver'] is True and
                 row['workload_success'] is False and row['replay_authorized'] is False and row['returncode']==-9 and
                 helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<215,
                 'runtime failure was promoted to success or changed its substitution')
-            verify(row['command']);validate_serial(serial,row['case'])
+            verify(row['command']);(validate_config_serial if config else validate_serial)(serial,row['case'])
+            if config:
+                if row['case'] not in cron_spec.FIRST_PHASE_FAULTS:
+                    require(row['runtime_basis']=='ACTUAL_FIRST_KERNEL_REBOOT_ROOT' and
+                        read(verify(row['positive']))==positive and row['first_root']==positive['first_root'],
+                        'second-boot failure did not use the actual first-boot root')
+                if row['case']=='config-create-partial':
+                    require(row['partial_creation_checked'] is True and row['post_stop_configuration_retention_proved'] is False and
+                        'configuration_after' not in row,'partial creation was promoted to post-stop retention')
+                elif row['case'] not in ('config-covering-bind','config-unlink-sync'):
+                    expected=cron_spec.schedule(built['run_id'])
+                    require(verify(row['configuration_after']).read_bytes()==expected,'failed operation retired or changed its configuration')
             continue
         if row['case']=='changed-current-receipt':
             require(row['runtime_absent'] is True and row['disk_before']!=row['disk_after'] and
@@ -100,6 +112,20 @@ def vm_results(tested,built,key):
         m=built['reboot']['initial_mount_count']
         require(row['initial_superblock']['initial_mount_count']==m and
             row['final_superblock']['initial_mount_count']==m+4,'four clean RW setups not demonstrated')
+        if config:
+            from reboot_vm_faults import automatic
+            first=read(verify(row['first_root']));first_path=Path(first['path'])
+            require(first_path==verify(row['first_root']).parent/'native-first.ext4' and
+                first_path.is_file() and not first_path.is_symlink() and first['device_actions']==0 and
+                first['origin']=='ACTUAL_FIRST_KERNEL_REBOOT_EXIT' and
+                first['sparse_sha256']==automatic.vm.fixture.fixture_tools.sparse_digest(first_path) and
+                first['block']['initial_mount_count']==m+2 and row['config_absent_after_retirement'] is True and
+                row['vm_reboot_boundary']=='GUEST_REBOOT_EXIT_THEN_FRESH_QEMU_KERNEL',
+                'first-root snapshot or final retirement differs')
+            verify(row['second_command'])
+            require(verify(row['config_absence']).read_bytes()==b'debugfs 1.47.2 (1-Jan-2025)\n/'+
+                cron_spec.config_path(built['run_id']).encode()+b': File not found by ext2_lookup \n',
+                'final configuration absence does not rederive')
         fixture=read(verify(row['boundary_fixture']))
         require(fixture['kind']=='H0_SYNTHETIC' and fixture['device_actions']==0 and
             set(fixture['files'])==set(spec.ROTATIONS)|{'var/lib/lab/shutdown-start','var/lib/lab/boot-count'},
@@ -138,7 +164,13 @@ def vm_results(tested,built,key):
             if phase==2:
                 require(parts[3:5]==first_parts[:2] and proof['kernel_boot_identity_sha256']!=previous,
                     'second VM boot did not preserve the exact first pair')
-            if cron:
+            if config:
+                require(verify(boot['files']['config']).read_bytes()==(final[-1] if phase==1 else final[-2])==
+                    cron_spec.schedule(built['run_id']),'configuration snapshot differs from the consumed bytes')
+                if phase==2:
+                    require(final[-2]==first_parts[-1] and verify(boot['files']['cron']).read_bytes()==final[-1]==
+                        verify(row['persisted']['cron']).read_bytes(),'configuration report or preservation differs')
+            elif cron:
                 require(verify(boot['files']['cron']).read_bytes()==final[-1]==verify(row['persisted']['cron']).read_bytes(),
                     'cron persisted bytes differ from the acknowledged producer')
                 if phase==2:require(final[-1]==first_parts[-1],'cron bytes changed across reboot')

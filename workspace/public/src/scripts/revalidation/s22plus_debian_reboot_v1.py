@@ -172,7 +172,15 @@ rb_evidence() {{
   ;;
 '''
     result=script[:begin]+controls+script[end:]
-    if cron:
+    if cron=='config':
+        from s22plus_debian_cron_config_v1 import path
+        for phase in (1,2):
+            needle=(f"/{first['runtime']} /run/s22-debian/transition" if phase==1 else f"/{first['early']} /{first['runtime']}").encode()+b';;'
+            require(result.count(needle)==1,'configuration envelope insertion differs')
+            additions=b' /run/s22-debian/cron-config'+(b' /'+path(run).encode() if phase==2 else b'')
+            result=result.replace(needle,needle[:-2]+additions+b';;')
+        result=result.replace(b'S22_REBOOT_EVIDENCE_V1',b'S22_CRON_CONFIG_EVIDENCE_V1').replace(b'S22_REBOOT_EVIDENCE_END',b'S22_CRON_CONFIG_EVIDENCE_END')
+    elif cron:
         from s22plus_debian_cron_v1 import path
         for phase in (1,2):
             needle=(f"/{first['runtime']} /run/s22-debian/transition" if phase==1 else f"/{first['early']} /{first['runtime']}").encode()+b';;'

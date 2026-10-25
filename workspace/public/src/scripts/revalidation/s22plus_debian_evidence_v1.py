@@ -37,28 +37,34 @@ def seal(run):
         'static const char dh_evidence_name[]="'+value['path'].rsplit('/',1)[1]+'";\n').encode()
 
 
-def tag(key,body,*,autoboot=False,reboot=False):
+def tag(key,body,*,autoboot=False,reboot=False,cron_config=False):
     domain=b'S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1' if autoboot else DOMAIN
     if reboot:
         from s22plus_debian_reboot_v1 import DURABLE_DOMAIN
         require(autoboot,'reboot durable domain requires automatic startup');domain=DURABLE_DOMAIN
+    if cron_config:
+        from s22plus_debian_cron_config_v1 import DURABLE_DOMAIN
+        require(reboot and autoboot,'configuration durable domain requires reboot');domain=DURABLE_DOMAIN
     return hmac.new(key,domain+body,hashlib.sha256).digest()
 
 
 class Chain:
-    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None):
+    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False):
         self.tag=first_tag;self.rows=[];self.started=False;self.off=False;self.complete=False
         self.released=False;self.stopped=False;self.progress=[];self.boundaries=[];self.elapsed=0
         self.autoboot=autoboot
         require(not single_cpu or autoboot,'single CPU evidence requires automatic startup')
         self.single_cpu=single_cpu
         self.reboot=reboot;self.control=None
+        require(type(cron_config) is bool and (not cron_config or reboot is not None),
+            'configuration chain needs a reboot binding')
+        self.cron_config=cron_config;self.config_created=[];self.config_retired=None
 
     def append(self,raw,key):
         require(len(raw)==RECORD and raw[:8]==b'S22DER1\0','durable record framing differs')
         seq,kind,elapsed,phase,event,a,b,c,flags,reserved=struct.unpack_from('<IIQIIQQQII',raw,8)
         require(seq==len(self.rows)<RECORDS and not reserved and flags==int(self.off) and not self.stopped and self.control is None and
-            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None)),
+            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config)),
             'durable record sequence, deadline, state or authentication differs')
         row=dict(sequence=seq,kind=kind,name=NAMES[kind-1] if kind in range(1,9) else 'UNKNOWN',
             elapsed_ms=elapsed,phase=phase,event=event,a=a,b=b,c=c,report_disabled=bool(flags))
@@ -125,7 +131,24 @@ class Chain:
         elif kind==COMPLETE:
             require(self.started and not self.complete and len(self.progress)==15 and (phase,event,a,b,c)==(0,0,0,0,0),
                 'durable local completion precedes full service proof')
+            if self.cron_config:
+                require((len(self.config_created)==2 and self.config_retired is None) if self.reboot['phase']==1 else
+                    not self.config_created and self.config_retired is not None,'configuration lifecycle is incomplete')
             self.complete=True
+        elif kind==11 and self.cron_config:
+            from s22plus_debian_cron_config_v1 import schedule
+            require(self.reboot['phase']==1 and self.started and not self.complete and len(self.progress)==2 and
+                self.boundaries[-1]['phase']==2 and self.boundaries[-1]['event']==5 and self.boundaries[-1]['b']==0 and
+                phase==1 and event==len(self.config_created)+1 and event<=2,'configuration creation ordering differs')
+            require((a>0 and b>0 and c<1000000000) if event==1 else
+                a>0 and b<1000000000 and c==len(schedule('0'*32)) and self.rows[-1]['kind']==11,
+                'configuration creation metadata differs')
+            row['name']='CONFIG_CREATED';self.config_created.append(row)
+        elif kind==12 and self.cron_config:
+            require(self.reboot['phase']==2 and self.started and not self.complete and len(self.progress)==15 and
+                not self.config_created and self.config_retired is None and phase==2 and event==1 and
+                a>0 and 1<b<=2147483647 and c>0,'configuration retirement ordering differs')
+            row['name']='CONFIG_RETIRED';self.config_retired=row
         elif kind==RELEASE:
             require(not self.autoboot,'automatic record cannot claim host release')
             require(self.complete and not self.off and not self.released and (phase,event,a,b,c)==(0,0,9,0,0),
@@ -145,13 +168,14 @@ class Chain:
         self.tag=raw[96:];self.elapsed=elapsed;self.rows.append(row)
 
 
-def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None):
+def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False):
     """Expected identity comes from the retained qualified image/authenticated run.
 
     A valid historical prefix can survive a later malformed/torn tail. It
     grants no continuation and does not claim complete file or host delivery.
     """
     require(not single_cpu or autoboot,'single CPU evidence requires automatic startup')
+    require(type(cron_config) is bool and (not cron_config or reboot is not None),'configuration needs reboot')
     if reboot is not None:
         from s22plus_debian_reboot_v1 import PHASES,count as mount_count
         require(autoboot and single_cpu and set(reboot)=={'phase','initial_mount_count'} and
@@ -162,10 +186,10 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         'durable file size or key differs')
     h=data[:HEADER]
     require(h[:8]==b'S22DE01\0' and struct.unpack_from('<II',h,8)==(1,HEADER) and
-        struct.unpack_from('<4I',h,112)==(7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
+        struct.unpack_from('<4I',h,112)==(8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
         (struct.unpack_from('<3I',h,200)==(reboot['phase'],reboot['initial_mount_count'],reboot['initial_mount_count']+2*reboot['phase'])
             and not any(h[212:224]) if reboot is not None else not any(h[200:224])) and
-        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None)),
+        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config)),
         'durable header authentication or shape differs')
     origin,deadline=struct.unpack_from('<QQ',h,96);device=struct.unpack_from('<Q',h,192)[0]
     require(deadline>=300000 and deadline-origin==300000 and h[16:32].hex()==expected['run_id_hex'] and
@@ -174,7 +198,7 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         device==os.makedev(expected['root_device']['major'],expected['root_device']['minor']),
         'durable identity does not join retained run/boot/init/root')
     require(not autoboot or (origin,deadline)==(0,300000),'automatic deadline was renewed')
-    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot);error=None;pos=HEADER
+    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config);error=None;pos=HEADER
     while pos<len(data):
         try:chain.append(data[pos:pos+RECORD],key)
         except ValueError as failure:
@@ -201,4 +225,13 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         result.update(schema='s22plus-debian-reboot-durable-projection-v1',
             reboot_phase=dict(reboot,installed_mount_count=reboot['initial_mount_count']+2*reboot['phase']),
             reboot_intent=chain.control==9,shutdown_intent=chain.control==10)
+    if cron_config:
+        result['configuration_created']=None
+        if len(chain.config_created)==2:
+            a,b=chain.config_created
+            result['configuration_created']=dict(config_inode=a['a'],config_mtime_sec=a['b'],config_mtime_nsec=a['c'],
+                config_ctime_sec=b['a'],config_ctime_nsec=b['b'],config_size=b['c'],config_created_ms=b['elapsed_ms'])
+        row=chain.config_retired
+        result['configuration_retired']=None if row is None else dict(config_inode=row['a'],daemon_pid=row['b'],
+            daemon_ticks=row['c'],elapsed_ms=row['elapsed_ms'])
     return result

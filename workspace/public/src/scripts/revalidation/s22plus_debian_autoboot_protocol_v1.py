@@ -48,7 +48,8 @@ def decode(early_bytes,runtime_bytes,trace_bytes,*,key,selected,ssh_boot,phase=N
     expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),boot=boot.hex(),
         nonce_sha256=hashlib.sha256(nonce).hexdigest(),init_sha256=selected['installed_init']['sha256'],
         hook_sha256=selected['hook']['sha256'],root_device=state.proof['root_device'])
-    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot)
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot,
+        cron_config=profile.cron_config_selected(selected))
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and not runtime['required_check_stopped'] and
         runtime['automatic_start'] and not runtime['report_disabled'],'automatic service observation is incomplete')
     return dict(schema='s22plus-debian-autoboot-proof-v1',status='PASS_AUTOMATIC_DEBIAN_SERVICES',
@@ -66,8 +67,8 @@ def envelope(output,*,key,selected,phase=None):
         body,ssh_boot=lines[2:5],lines[1]
     else:
         cron=profile.cron_selected(selected)
-        prefix=b'S22_CRON' if cron else b'S22_REBOOT'
-        require(len(lines)==(7 if phase==1 else 9)+int(cron) and lines[0]==prefix+b'_EVIDENCE_V1' and
+        prefix=b'S22_CRON_CONFIG' if cron=='config' else b'S22_CRON' if cron else b'S22_REBOOT'
+        require(len(lines)==(7 if phase==1 else 9)+int(bool(cron))+int(cron=='config' and phase==2) and lines[0]==prefix+b'_EVIDENCE_V1' and
             lines[1]==f'phase={phase}'.encode() and lines[-1]==prefix+b'_EVIDENCE_END',
             'reboot SSH evidence framing/phase differs')
         body,ssh_boot=lines[3:-1],lines[2]
@@ -87,7 +88,30 @@ def envelope(output,*,key,selected,phase=None):
                 prior['kernel_boot_identity_sha256']!=proof['kernel_boot_identity_sha256'],
                 'second boot lacks first completed reboot intent or a fresh boot')
             proof['prior']=prior
-        if profile.cron_selected(selected):
+        if profile.cron_config_selected(selected):
+            spec=profile.cron_config_spec
+            require(selected.get('cron')==spec.declaration(selected['run_id']),'configuration declaration differs')
+            snapshot=values[-1] if phase==1 else values[-2]
+            require(snapshot==spec.schedule(selected['run_id']),'configuration RAM snapshot differs')
+            created=(proof if phase==1 else prior)['runtime']['configuration_created']
+            require(created is not None,'configuration creation evidence is absent')
+            if phase==1:
+                proof['cron_configuration']=dict(status='PASS_CONFIG_CREATED',created=created,
+                    configuration_sha256=hashlib.sha256(snapshot).hexdigest(),configuration_consumed=False,
+                    configuration_retired=False,package_installation_proved=False)
+            else:
+                consumed=spec.decode(values[-1],key=key,run=selected['run_id'],
+                    boot=proof['kernel_boot_identity_sha256'],nonce=hashlib.sha256(values[0][:256]).digest(),
+                    root_device=proof['transition']['proof']['root_device'],hook_sha256=selected['hook']['sha256'],
+                    baseline=selected['reboot']['initial_mount_count'],first_boot=prior['kernel_boot_identity_sha256'],
+                    first_nonce=hashlib.sha256(values[3][:256]).digest(),created=created)
+                retired=proof['runtime']['configuration_retired']
+                require(retired is not None and retired['config_inode']==created['config_inode'] and
+                    retired['daemon_pid']!=consumed['daemon_pid'] and
+                    consumed['hash_completed_ms']<=retired['elapsed_ms']<300000,
+                    'configuration retirement does not follow the consumed job')
+                proof['cron_configuration']=dict(consumed,created=created,retired=retired,configuration_retired=True)
+        elif profile.cron_selected(selected):
             require(selected.get('cron')==profile.cron_spec.declaration(selected['run_id']),
                 'cron workload declaration differs')
             source=values[0] if phase==1 else values[3]
@@ -110,7 +134,8 @@ def local_records(early_bytes,runtime_bytes,*,key,selected,root_device,phase=Non
     expected=dict(key_sha256=hashlib.sha256(key).hexdigest(),run_id_hex=run.hex(),
         boot=first['kernel_boot_identity_sha256'],nonce_sha256=hashlib.sha256(nonce).hexdigest(),
         init_sha256=selected['installed_init']['sha256'],hook_sha256=selected['hook']['sha256'],root_device=root_device)
-    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot)
+    runtime=durable.decode(runtime_bytes,key,expected,autoboot=True,single_cpu=profile.singlecpu_selected(selected),reboot=reboot,
+        cron_config=profile.cron_config_selected(selected))
     require(runtime['complete_framing'] and runtime['local_runtime_proved'] and
         not runtime['required_check_stopped'] and runtime['automatic_start'] and
         not runtime['report_disabled'],'automatic local service evidence is incomplete')

@@ -74,8 +74,8 @@ def producer(built,*,virtual):
     minimal=profile.minimal_selected(built)
     reboot=profile.reboot_selected(built)
     cron=profile.cron_selected(built)
-    namespace=profile.cron_spec.NAMESPACE if cron else profile.reboot_spec.NAMESPACE if reboot else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
-    version=profile.cron_spec.VERSION if cron else profile.reboot_spec.VERSION if reboot else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
+    namespace=profile.cron_variant(cron).NAMESPACE if cron else profile.reboot_spec.NAMESPACE if reboot else profile.MINIMAL_NAMESPACE if minimal else profile.SCRIPT_NAMESPACE if script_channel else profile.SINGLECPU_P447_NAMESPACE if post_p447 else profile.SINGLECPU_NAMESPACE if single_cpu else profile.PHASE_NAMESPACE if phase else profile.WATCHDOG_NAMESPACE if watchdog else profile.RCS_NAMESPACE if rcs else profile.TRANSITION_NAMESPACE if transition else profile.NAMESPACE
+    version=profile.cron_variant(cron).VERSION if cron else profile.reboot_spec.VERSION if reboot else profile.MINIMAL_VERSION if minimal else profile.SCRIPT_VERSION if script_channel else profile.SINGLECPU_P447_VERSION if post_p447 else profile.SINGLECPU_VERSION if single_cpu else profile.PHASE_VERSION if phase else profile.WATCHDOG_VERSION if watchdog else profile.RCS_VERSION if rcs else profile.TRANSITION_VERSION if transition else profile.VERSION
     require(built['profile']==profile.PROFILE and built['namespace']==namespace and
         built['version']==version and built['virtual'] is virtual and
         built['device_actions']==0 and built['active'] is False and built['deadline_ms']==300000 and
@@ -116,7 +116,7 @@ def producer(built,*,virtual):
     else:require('current_history' not in built,'legacy producer cannot adopt single CPU history')
     if 'transition_fault' in built:
         require(virtual and transition and built['transition_fault'] in profile.TRANSITION_CASES+(profile.RCS_CASES if rcs else ())+
-                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ())+(profile.minimal_spec.FAULTS if minimal else ())+(profile.reboot_spec.FAULTS if reboot else ())+ (tuple(profile.cron_spec.RUNTIME_FAULTS) if cron else ()),
+                (profile.SINGLECPU_FAULTS if single_cpu else ())+(profile.SCRIPT_FAULTS if script_channel else ())+(profile.minimal_spec.FAULTS if minimal else ())+(profile.reboot_spec.FAULTS if reboot else ())+ (tuple(profile.cron_variant(cron).RUNTIME_FAULTS) if cron else ()),
             'physical producer includes a test fault')
         for row in built['transition_fault_sources']:verify(row)
     else:require('transition_fault_sources' not in built,'unselected transition fault sources')
@@ -148,9 +148,9 @@ def producer(built,*,virtual):
             'reboot generated seal differs')
     else:require('reboot' not in built and 'reboot_baseline' not in built,'unselected reboot declaration')
     if cron:
-        require(built.get('cron')==profile.cron_spec.declaration(built['run_id']) and
-            built['reboot']['initial_mount_count']==profile.cron_spec.EXPECTED_MOUNT_COUNT and
-            verify(built['headers']['early/s22plus_debian_cron_seal_v1.h']).read_bytes()==profile.cron_spec.seal(built['run_id']),
+        require(built.get('cron')==profile.cron_variant(cron).declaration(built['run_id']) and
+            built['reboot']['initial_mount_count']==profile.cron_variant(cron).EXPECTED_MOUNT_COUNT and
+            verify(built['headers']['early/s22plus_debian_cron_seal_v1.h']).read_bytes()==profile.cron_variant(cron).seal(built['run_id']),
             'cron declaration or generated seal differs')
     else:require('cron' not in built,'unselected cron declaration')
     if reboot and 'initramfs' in built:template_binding(built)

@@ -107,6 +107,10 @@ permission to perform host-only work.
    adds only fixed packaged cron lifecycle, one boot-1 integrity report and
    exact boot-2 retention checks inside those same four writable lifetimes.
    Its schedule and bounded temporary-file storage are RAM only.
+   The separate [persistent cron configuration specialization](S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
+   permits one exact boot-1 cron.d file, one boot-2 integrity report and one
+   successful-path unlink of that same configuration inside those four
+   lifetimes. Failure cleanup remains RAM only; no installation or repair.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -194,6 +198,10 @@ permission to perform host-only work.
    fixed RAM schedule transitions and a bounded RAM `/tmp` mount. It retains
    the same two boots, admissions, original deadlines and physical A recovery;
    it adds no package installation, persistent configuration or repair.
+   The [persistent cron configuration specialization](S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
+   separately permits only its exact configuration creation, second-boot
+   consumption and successful-path retirement. It retains both admissions,
+   all original deadlines, no replay and the same physical original-A return.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1305,6 +1313,27 @@ not post-Android retention proof. Package installation, persistent-config
 changes, wildcard admission, filesystem repair and automatic recovery remain
 outside this specialization. Current review, real qualification and a fresh
 attended finite grant are still required; no consumed record is repinned.
+
+The separately reviewed [persistent cron configuration specialization](S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
+adds only `post-autoboot-p459-cron-config-v1`, namespace `p460`. Boot 1 creates
+one sealed root:root 0644 cron.d file after daemon/cron-process settlement;
+scheduled first-boot invocations cannot claim an intent or write a report.
+Both boot-2 admissions require its exact contents, inode and nanosecond
+mtime/ctime joined to authenticated first-boot creation and reboot records.
+One real second-boot cron job creates a 512-byte exclusive native_data report.
+Checked completion, a final atomic RAM success publication and worker
+settlement precede any retirement. Normal retirement requires a fresh
+successful RAM gate-revocation claim, one daemon stop, settled current-root
+cron/PAM processes, exact held-file verification, one unlink and parent sync,
+then one verified daemon start before completion. A prior abort claim or a
+readable failed completion/revocation record cannot authorize retirement.
+Only fixed one-shot RAM gate revocation remains allowed after failure/expiry;
+there is no disk cleanup, control retry or guaranteed configuration removal.
+The same two-boot/four-lifetime attended owner, fixed baseline D0 and physical
+original-A return remain. Five P459 final producer snapshots are prospective
+exact expectations, not post-return retention or present-clean-state proof.
+Package installation, general configuration mutation, repair, automatic
+recovery and any consumed-operation replay remain outside this specialization.
 
 ## S22+ native-first installed-Debian handoff
 

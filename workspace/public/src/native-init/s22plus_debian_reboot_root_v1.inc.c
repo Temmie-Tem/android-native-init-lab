@@ -51,7 +51,14 @@ static int rb_hook_digest(uint8_t digest[32]) {
     if(!error)s22plus_max77705_runtime_sha256_final(&hash,digest);
     return error;
 }
+#ifdef S22_DEBIAN_CRON_CONFIG
+static struct de_chain rb_config_created;
+#endif
 static int rb_prior_runtime(const uint8_t *data,size_t size,const uint8_t *early,dev_t device) {
+#ifdef S22_DEBIAN_CRON_CONFIG
+    uint8_t hook[32];int error=rb_hook_digest(hook);
+    return error ? error : cf_prior_chain(data,size,early,device,hook,&rb_config_created);
+#else
     if(size<DE_HEADER || size>DE_MAXIMUM || (size-DE_HEADER)%DE_RECORD)return EPROTO;
     uint8_t tag[32],nonce[32],hook[32];de_tag(tag,data,224);early_hash(early,256,nonce);
     int error=rb_hook_digest(hook);if(error)return error;
@@ -67,6 +74,7 @@ static int rb_prior_runtime(const uint8_t *data,size_t size,const uint8_t *early
     for(size_t at=DE_HEADER;at<size;at+=DE_RECORD)if((error=de_apply(&chain,data+at)))return error;
     return chain.complete && chain.control==RB_REBOOT_INTENT && !chain.off && !chain.stopped &&
         !chain.released && chain.last_kind==RB_REBOOT_INTENT ? 0 : EPROTO;
+#endif
 }
 static int rb_root_extras(int root,dev_t device,unsigned *extra) {
     if(!rb_valid_phase(rb_phase))return EPROTO;
@@ -96,7 +104,14 @@ static int rb_root_extras(int root,dev_t device,unsigned *extra) {
         if(!memcmp(boot,first+48,32))return EPROTO;
         *extra+=2;
     }
-#ifdef S22_DEBIAN_CRON
+#ifdef S22_DEBIAN_CRON_CONFIG
+    uint8_t cron[CR_SIZE];struct stat config={0};
+    if((error=cr_read(root,device,cron,true)) || (error=cf_read(root,device,&config,rb_phase==1)))return error;
+    if(rb_phase==2) {
+        if((error=cf_identity(&config,&rb_config_created)))return error;
+        ++*extra;
+    }
+#elif defined(S22_DEBIAN_CRON)
     uint8_t cron[CR_SIZE],hook[32];
     if((error=cr_read(root,device,cron,rb_phase==1)))return error;
     if(rb_phase==2) {

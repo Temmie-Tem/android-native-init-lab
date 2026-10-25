@@ -778,6 +778,22 @@ fixed pre-build D0 may be reused with its unchanged exact commands and review
 requirements. New source-bound review, complete artifact/ARM64 qualification,
 current physical baseline and a fresh attended finite grant remain required.
 
+The separate [persistent cron configuration specialization](../S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
+is adopted only for `post-autoboot-p459-cron-config-v1`, namespace `p460`, under
+the same two-boot/four-lifetime attended owner. Boot 1 creates one exact cron.d
+file but admits no job report; both boot-2 protected admissions require the
+same authenticated inode, contents and nanosecond metadata. One actual
+second-boot cron job creates an exclusive report. Successful completion and
+worker settlement, a fresh checked RAM revocation, daemon/cron-process
+settlement and exact held-file checks precede the single configuration unlink
+and parent sync. Cron must start with full identity checks before completion.
+Failure/expiry permits RAM revocation only and may leave configuration on disk;
+neither later Android health nor a readable failed receipt grants cleanup or
+replay. Five final P459 producer snapshots retain their original provenance.
+Current independent review, full artifact/ARM64 qualification, physical
+baseline and the existing fresh attended finite grant remain required. No
+package installation, other configuration change or new recovery lane is added.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

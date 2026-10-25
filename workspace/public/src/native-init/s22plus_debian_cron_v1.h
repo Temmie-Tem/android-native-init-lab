@@ -8,7 +8,11 @@ static uint64_t cr_u64(const uint8_t *p) {
 }
 static void cr_put64(uint8_t *p,uint64_t value) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(value>>(8*i));}
 static void cr_tag(uint8_t tag[32],unsigned role,const uint8_t *data,size_t size) {
+#ifdef S22_DEBIAN_CRON_CONFIG
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-CRON-CONFIG-v1";
+#else
     static const char domain[]="S22PLUS-FYG8-DEBIAN-CRON-v1";
+#endif
     uint8_t pad[64],inner[32],kind=(uint8_t)role;struct s22plus_max77705_runtime_sha256 h;
     memset(pad,0x36,64);for(unsigned i=0;i<32;++i)pad[i]^=early_key[i];
     s22plus_max77705_runtime_sha256_init(&h);
@@ -23,6 +27,7 @@ static void cr_tag(uint8_t tag[32],unsigned role,const uint8_t *data,size_t size
     s22plus_max77705_runtime_sha256_update(&h,inner,32);
     s22plus_max77705_runtime_sha256_final(&h,tag);
 }
+#ifndef S22_DEBIAN_CRON_CONFIG
 static int cr_valid(const uint8_t data[CR_SIZE],const uint8_t early[256],dev_t device,const uint8_t hook[32]) {
     uint8_t tag[32],nonce[32];cr_tag(tag,1,data,480);early_hash(early,256,nonce);
     if(memcmp(data,"S22CR01\0",8) || fs1_u32(data+8)!=1 || fs1_u32(data+12)!=CR_SIZE ||
@@ -53,6 +58,7 @@ static int cr_valid(const uint8_t data[CR_SIZE],const uint8_t early[256],dev_t d
     for(unsigned i=352;i<480;++i)if(data[i])return EPROTO;
     return 0;
 }
+#endif
 static int cr_directory(int fd,dev_t device) {
     struct stat st;struct statfs fs;
     return fstat(fd,&st) || fstatfs(fd,&fs) || fs.f_type!=0xef53 || st.st_dev!=device ||
@@ -93,4 +99,7 @@ static int cr_read(int root,dev_t device,uint8_t data[CR_SIZE],bool absent) {
     if(close(parent) && !error)error=fs1_error();
     return error;
 }
+#ifdef S22_DEBIAN_CRON_CONFIG
+#include "s22plus_debian_cron_config_v1.h"
+#endif
 #endif

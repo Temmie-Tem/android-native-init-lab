@@ -232,7 +232,7 @@ static int sw_fd_whitelist(int state) {
 struct sw_mount {unsigned id,major,minor;char point[256],root[256],type[32],options[256],super[256];};
 static const char *sw_mountinfo="/proc/self/mountinfo";
 /* No escapes are accepted: every admitted mount has a fixed ASCII path. */
-static int sw_mounts(struct sw_mount out[SW_MAX_MOUNTS],unsigned *count,const char *prefix) {
+static int sw_mounts_parse(struct sw_mount out[SW_MAX_MOUNTS],unsigned *count,const char *prefix,bool whole_roots) {
     char data[32768];int error=fs1_read_text(sw_mountinfo,data,sizeof(data));if(error)return error;
     unsigned used=0;char *save=NULL;
     for(char *line=strtok_r(data,"\n",&save);line;line=strtok_r(NULL,"\n",&save)) {
@@ -249,13 +249,16 @@ static int sw_mounts(struct sw_mount out[SW_MAX_MOUNTS],unsigned *count,const ch
             if(strncmp(row.point,prefix,n) || (row.point[n] && row.point[n]!='/'))continue;
             memmove(row.point,row.point+n,strlen(row.point+n)+1);if(!row.point[0])strcpy(row.point,"/");
         }
-        if(strcmp(row.root,"/"))return EPROTO;
+        if(whole_roots && strcmp(row.root,"/"))return EPROTO;
         for(unsigned i=0;i<used;++i)if(out[i].id==row.id || !strcmp(out[i].point,row.point))return EPROTO;
         out[used++]=row;
     }
     for(unsigned i=0;i<used;++i)for(unsigned j=i+1;j<used;++j)if(strcmp(out[i].point,out[j].point)>0)
         {struct sw_mount temp=out[i];out[i]=out[j];out[j]=temp;}
     *count=used;return used ? 0 : EPROTO;
+}
+static int sw_mounts(struct sw_mount out[SW_MAX_MOUNTS],unsigned *count,const char *prefix) {
+    return sw_mounts_parse(out,count,prefix,true);
 }
 static int sw_mount_allowed(const struct sw_mount *m,int final) {
     const char *expected=NULL;

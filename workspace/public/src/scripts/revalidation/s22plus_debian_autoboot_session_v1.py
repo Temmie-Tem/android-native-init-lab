@@ -63,7 +63,16 @@ def reboot_terminal(adapter,request,*,recovered):
                     'installed boot count did not advance exactly once')
                 result.update(status='PASS_TWO_DEBIAN_BOOTS_SSH',ordinary_reboot_proved=True,
                     ssh_access_proved=True,first_post_reboot_root_clean=True)
-                if 'cron' in evidence['proof']:
+                if 'cron_configuration' in evidence['proof']:
+                    first=result['boots'][0]['observation']['cron_configuration'];second=evidence['proof']['cron_configuration']
+                    require(first['created']==second['created'] and
+                        first['configuration_sha256']==second['configuration_sha256'] and
+                        second['configuration_consumed'] is True and second['configuration_retired'] is True,
+                        'configuration creation, consumption and retirement do not join')
+                    result.update(cron_workload_proved=True,cron_configuration_preserved=True,
+                        cron_configuration_consumed=True,cron_configuration_retired=True,
+                        configuration_retained_after_experiment=False,package_installation_proved=False)
+                elif 'cron' in evidence['proof']:
                     require(result['boots'][0]['observation']['cron']==evidence['proof']['cron'],
                         'cron proof changed across the ordinary reboot')
                     result.update(cron_workload_proved=True,cron_exact_retention_proved=True,

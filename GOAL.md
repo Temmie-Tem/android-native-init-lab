@@ -23,6 +23,14 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P460 persistent cron configuration](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_H0_2026-10-26.md)
+is **PASS_H0_PRODUCTION_CRON_CONFIG / independent PASS_GO**. Actual ARM64 boot 1
+creates one disk cron.d file; boot 2 consumes it through packaged cron and
+retires that exact file. All 49 ARM64 cases, 71 focused tests, boot-only packaging
+and isolated original-consumer checks pass. Synthetic M=26→30 remains H0 only;
+physical admission rejects it. No physical action, baseline read or new grant
+is included. Failure cleanup remains RAM only.
+
 [P459 physical execution](docs/reports/S22PLUS_DEBIAN_CRON_P459_RUN_2026-10-25.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH**, **actual cron workload and exact
 reboot retention proved**, and **ANDROID_CLOSED_HEALTHY**. Packaged cron

@@ -5,13 +5,14 @@ import s22plus_debian_access_v1 as base
 import s22plus_debian_autoboot_protocol_v1 as protocol
 import s22plus_debian_reboot_v1 as spec
 import s22plus_debian_cron_v1 as cron_spec
+import s22plus_debian_cron_config_v1 as cron_config_spec
 from s22plus_debian_autoboot_access_v1 import Access as AutomaticAccess
 from s22plus_native_records_v3 import Journal,clock,pin,publish,read,require,verify
 
 
 def selected(request):
     image=request.get('N') or {}
-    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE)
+    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE)
 
 
 def normal_steps():
@@ -70,7 +71,9 @@ class Access(AutomaticAccess):
             first=Access(self.adapter,self.request,phase=1)
             _,prior=first.control_evidence('reboot')
             require(values[3:5]==prior[:2],'first boot files changed across the ordinary reboot')
-            if protocol.profile.cron_selected(self.selection()):
+            if protocol.profile.cron_config_selected(self.selection()):
+                require(values[-2]==prior[-1],'configuration snapshot changed across the ordinary reboot')
+            elif protocol.profile.cron_selected(self.selection()):
                 require(values[-1]==prior[-1],'cron output changed across the ordinary reboot')
         return proof,values
 

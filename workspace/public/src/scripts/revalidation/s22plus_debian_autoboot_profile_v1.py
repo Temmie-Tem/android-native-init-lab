@@ -9,6 +9,7 @@ import s22plus_debian_autoboot_phase_v1 as phase_spec
 import s22plus_debian_autoboot_minimal_v1 as minimal_spec
 import s22plus_debian_reboot_v1 as reboot_spec
 import s22plus_debian_cron_v1 as cron_spec
+import s22plus_debian_cron_config_v1 as cron_config_spec
 from s22plus_native_records_v3 import read,require,verify
 
 ROOT=handoff.ROOT
@@ -79,6 +80,8 @@ REBOOT_OBSERVER=dict(MINIMAL_OBSERVER,schema='s22plus-autoboot-reboot-v1',
     history_selection=reboot_spec.HISTORY_SELECTION)
 CRON_OBSERVER=dict(REBOOT_OBSERVER,schema='s22plus-autoboot-cron-v1',
     history_selection=cron_spec.HISTORY_SELECTION)
+CRON_CONFIG_OBSERVER=dict(REBOOT_OBSERVER,schema='s22plus-autoboot-cron-config-v1',
+    history_selection=cron_config_spec.HISTORY_SELECTION)
 P455_RETRIEVAL=dict(path=str(ROOT/'workspace/private/outputs/s22plus-autoboot-evidence-p455-h0-20261023-1/retrieval-1/result.json'),
     size=7713,sha256='ce2953428d9df49387387a73beafadaab778ba96685336c2ae4dbd8401ad6fc2')
 P451_HISTORY_CASES=tuple(action+'-p448-'+kind for kind in ('early','runtime')
@@ -113,6 +116,7 @@ def cases(transition=False,rcs=False,watchdog=False,phase=False,single_cpu=False
     require(not post_p447 or single_cpu,'P447 history requires single CPU selection')
     require(not minimal or script_channel,'minimal workload requires its script channel selection')
     require(not reboot or minimal,'reboot requires minimal automatic startup')
+    cron_variant(cron)
     require(not cron or reboot,'cron requires the two-boot selection')
     require(not script_channel or post_p447,'script channel requires the current single CPU history')
     if minimal:return ('normal','dirty','changed-history','foreign-file','existing-early','existing-runtime',
@@ -135,14 +139,15 @@ def observer(rcs=False,watchdog=False,phase=False,single_cpu=False,post_p447=Fal
     require(not post_p447 or single_cpu,'P447 history requires single CPU selection')
     require(not minimal or script_channel,'minimal workload requires its script channel selection')
     require(not reboot or minimal,'reboot requires minimal automatic startup')
+    cron_variant(cron)
     require(not cron or reboot,'cron requires the two-boot selection')
     require(not script_channel or post_p447,'script channel requires the current single CPU history')
-    return CRON_OBSERVER if cron else REBOOT_OBSERVER if reboot else MINIMAL_OBSERVER if minimal else SCRIPT_OBSERVER if script_channel else SINGLECPU_P447_OBSERVER if post_p447 else SINGLECPU_OBSERVER if single_cpu else PHASE_OBSERVER if phase else WATCHDOG_OBSERVER if watchdog else RCS_OBSERVER if rcs else TRANSITION_OBSERVER
+    return CRON_CONFIG_OBSERVER if cron=='config' else CRON_OBSERVER if cron else REBOOT_OBSERVER if reboot else MINIMAL_OBSERVER if minimal else SCRIPT_OBSERVER if script_channel else SINGLECPU_P447_OBSERVER if post_p447 else SINGLECPU_OBSERVER if single_cpu else PHASE_OBSERVER if phase else WATCHDOG_OBSERVER if watchdog else RCS_OBSERVER if rcs else TRANSITION_OBSERVER
 
 
 def variants(built):
     selected=built.get('transition_observer')
-    watchdog=selected in (WATCHDOG_OBSERVER,PHASE_OBSERVER,SINGLECPU_OBSERVER,SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER)
+    watchdog=selected in (WATCHDOG_OBSERVER,PHASE_OBSERVER,SINGLECPU_OBSERVER,SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER)
     return selected is not None,watchdog or selected==RCS_OBSERVER,watchdog
 
 
@@ -164,36 +169,43 @@ def singlecpu_selected(built):
     policy=built.get('cpu_policy')
     require(policy in (None,SINGLECPU_POLICY),'unselected CPU policy')
     if policy is not None:
-        require(built.get('transition_observer') in (SINGLECPU_OBSERVER,SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER) and
+        require(built.get('transition_observer') in (SINGLECPU_OBSERVER,SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER) and
             built.get('idle_policy')=='cpuidle-off','single CPU requires its reviewed history and idle selection')
-    else:require(built.get('transition_observer') not in (SINGLECPU_OBSERVER,SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER),'single CPU declaration lacks CPU selection')
+    else:require(built.get('transition_observer') not in (SINGLECPU_OBSERVER,SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER),'single CPU declaration lacks CPU selection')
     return policy is not None
 
 
 def post_p447_selected(built):
-    selected=built.get('transition_observer') in (SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER)
+    selected=built.get('transition_observer') in (SINGLECPU_P447_OBSERVER,SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER)
     require(not selected or singlecpu_selected(built),'P447 history requires single CPU selection')
     return selected
 
 
 def script_channel_selected(built):
-    selected=built.get('transition_observer') in (SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER)
+    selected=built.get('transition_observer') in (SCRIPT_OBSERVER,MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER)
     require(not selected or singlecpu_selected(built),'script channel requires single CPU selection')
     return selected
 
 
 def minimal_selected(built):
-    selected=built.get('transition_observer') in (MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER)
+    selected=built.get('transition_observer') in (MINIMAL_OBSERVER,REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER)
     require(not selected or script_channel_selected(built),'minimal workload lacks its channel selection')
     return selected
 
 
 
 def reboot_selected(built):
-    return built.get('transition_observer') in (REBOOT_OBSERVER,CRON_OBSERVER)
+    return built.get('transition_observer') in (REBOOT_OBSERVER,CRON_OBSERVER,CRON_CONFIG_OBSERVER)
 
 def cron_selected(built):
-    return built.get('transition_observer')==CRON_OBSERVER
+    return 'config' if cron_config_selected(built) else built.get('transition_observer')==CRON_OBSERVER
+
+def cron_config_selected(built):
+    return built.get('transition_observer')==CRON_CONFIG_OBSERVER
+
+def cron_variant(value):
+    require(value is False or value is True or type(value) is str and value=='config','unselected cron variant')
+    return cron_config_spec if value=='config' else cron_spec
 
 def script_spec(minimal=False):
     return minimal_spec if minimal else phase_spec
@@ -216,9 +228,10 @@ def p452_history():
 def singlecpu_history(post_p447=False,script_channel=False,minimal=False,reboot=False,cron=False):
     require(not minimal or script_channel,'minimal workload requires its script channel selection')
     require(not reboot or minimal,'reboot requires minimal automatic startup')
+    cron_variant(cron)
     require(not cron or reboot,'cron requires the two-boot selection')
     require(not script_channel or post_p447,'current script history requires P447 history')
-    return phase_history()+([p445_history()] if post_p447 else [])+(p448_history() if script_channel else [])+(p452_history() if minimal else [])+(reboot_spec.history() if reboot else [])+(cron_spec.history() if cron else [])
+    return phase_history()+([p445_history()] if post_p447 else [])+(p448_history() if script_channel else [])+(p452_history() if minimal else [])+(reboot_spec.history() if reboot else [])+(cron_spec.history() if cron else [])+(cron_config_spec.history() if cron=='config' else [])
 
 
 def p448_history():
@@ -379,6 +392,7 @@ def histories(transition=False,rcs=False,watchdog=False,phase=False,single_cpu=F
     require(not post_p447 or single_cpu,'P447 history requires single CPU selection')
     require(not minimal or script_channel,'minimal workload requires its script channel selection')
     require(not reboot or minimal,'reboot requires minimal automatic startup')
+    cron_variant(cron)
     require(not cron or reboot,'cron requires the two-boot selection')
     require(not script_channel or post_p447,'script channel requires the current single CPU history')
     return [history()]+([additional_history()] if transition else [])+([runtime_history()] if rcs else [])+(
