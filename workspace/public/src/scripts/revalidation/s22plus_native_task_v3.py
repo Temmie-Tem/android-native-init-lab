@@ -6,6 +6,13 @@ import os
 from pathlib import Path
 import re
 import stat
+import sys
+
+# Retained image qualification uses the frozen ARM64 corpus's serial decoder.
+# Ordinary V3 entry points do not inherit the build driver's module path.
+_corpus_modules = str(Path(__file__).resolve().parents[2] / 'debian/s22plus_initramfs_h0')
+if _corpus_modules not in sys.path:
+    sys.path.append(_corpus_modules)
 
 from s22plus_native_records_v3 import (SCHEMA, canonical, clock, digest, host_boot, pin,
     private_path, publish, read, read_bytes, require, verify)

@@ -2,9 +2,9 @@
 
 Status: **PASS_H0_PRODUCTION_CRON / independent PASS_GO**. The bounded unit is
 one actual packaged-cron job followed by exact data retention across the
-existing two-boot Debian sequence. This report records capability qualification;
-it does not establish physical execution, a current physical baseline or an
-attended grant. A90, S20+ and server work remain untouched.
+existing two-boot Debian sequence. This report records capability qualification
+and subsequent physical preparation; it does not establish physical execution
+or an attended grant. A90, S20+ and server work remain untouched.
 
 ## Resulting behavior
 
@@ -74,9 +74,10 @@ the fixture ownership is explicit. The latter does not claim retained cron data.
 
 The actual **38,041,641-byte boot-only AP** passes archive/payload qualification.
 Its output remains `h0-synthetic-package.json`, without a physical `image.json`.
-The actual physical image consumer rejects the synthetic baseline. Fresh fixed
-D0, an artifact qualified against it, current target/health/recovery checks and
-a returned finite attended grant remain necessary for physical use.
+The actual physical image consumer rejects the synthetic baseline. The separate
+preparation below supplies fixed D0 and its qualified physical artifact;
+current target/health/recovery checks and a returned finite attended grant
+remain necessary for physical use.
 
 ## Findings repaired before physical preparation
 
@@ -125,8 +126,58 @@ passes its original current-source consumer.
 Its separate dispatch review covers the five changed members of the existing
 20-source backend closure; the stable worker and policy are unchanged.
 The immutable [backend v4 review](../../workspace/public/src/device-action/bindings/s22plus_approved_terminal_persistent_v4_review.json)
-is selected, preserving v3. Actual connector status confirms the connected
+was selected for this qualification, preserving v3. Actual connector status confirms the connected
 uid/euid-1000 worker with NoNewPrivs=0 and a fresh backend per request; no restart
 or privilege change was needed. Worker readiness supplies no device authority.
 Historical reviews, consumed records and pre-existing unrelated changes remain
 preserved. No new grant, transfer or device effect belongs to this H0 unit.
+
+## Physical candidate and ordinary-entry correction
+
+The separate fixed Android D0 reads the existing native_data superblock and
+confirms clean M=22, unchanged Android32 geometry and same-boot original-A
+health. It performs no mount, write, control or transfer. This is superblock
+evidence only; both full protected admissions remain execution requirements.
+The physical A/B build is identical and its new run/key pass all 45 ARM64 cases,
+production raw rederivation and independent rederivation. The actual physical
+38,041,641-byte boot-only AP passes original archive/image qualification.
+The normal VM retains the exact 512-byte cron report across both boots and in
+the final disk, with clean M=26 and unchanged bytes outside native_data.
+
+The first ordinary preparation exposed a missing host module search path:
+the build driver could import the frozen cron-failure decoder, while the normal
+V3 entry could not. It stopped before creating a task directory or any device
+effect. The original failure is retained. The seven-line host-only correction
+in `s22plus_native_task_v3.py` appends the exact repository module directory
+once, preserving normal import precedence. No producer, validator or artifact
+input changes; all 172 original runtime source identities remain unchanged.
+
+Seven focused tests pass, including an isolated Python process from an unrelated
+directory and the actual decoder/reload path. A separate cold original
+`image_valid(..., artifact_bytes=True)` invocation passes with every file write,
+process launch, network action and raw acquisition denied. It confirms the
+decoder's exact repository location and revalidates the complete retained
+physical image. Independent **PASS_GO** covers the one changed host source and
+the corresponding dispatch binding. The original review and backend v4 remain
+preserved; immutable backend v5 is selected and the existing connected worker
+reports its exact identity without a restart.
+
+The concrete task selects one attended 3600-second operation: one N transfer,
+two Debian boots, four admitted native_data RW lifetimes, one ordinary reboot,
+one final shutdown and one physical Download/original-A return. The original
+offline preparation and both real phase constructors pass. The exact eight-step
+sequence is retained, and constructor fixture data is rejected as a grant.
+Independent **PASS_READY_H0_AND_UNEXECUTED_ENTRY** has no findings. The actual
+current `Controller.bundle` and its persisted receipt pass; seven negative
+cases reject missing or mismatched approval/binding data. No operator approval,
+grant or dispatch is present. The returned finite approval and current physical
+attendance remain required before execution.
+
+Private evidence adds `baseline-d0-2/result.json`, `physical-build-1`,
+`vm-physical-1/result.json`, `package-physical-1/image.json`,
+`offline-prepare-failure-1.json`, `review-4/closure.json`,
+`host-import-cold-result.json`, `review/independent-host-import-review.json`,
+`review/independent-host-import-bridge-review.json`,
+`host-import-capability-activation.json`, `live-bridge-status-v5.json`,
+`prepared-validation.json`, `unexecuted-validation.json` and
+`review/prepared-entry-review.json`.

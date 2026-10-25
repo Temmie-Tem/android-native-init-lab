@@ -28,8 +28,12 @@ is **PASS_H0_PRODUCTION_CRON / independent PASS_GO**. Actual packaged-cron
 stop/start/restart, one integrity report and exact two-boot retention pass the
 45-case ARM64 corpus and 48 focused tests. Readiness races and cached-schedule
 revocation are covered without command or output replay. The physical image
-consumer rejects synthetic baseline data. A fresh fixed D0, physical candidate
-and finite attended grant remain pending; no P459 device effect is open.
+consumer rejects synthetic baseline data. Fresh fixed D0 confirms clean M=22;
+the separate physical candidate passes all 45 cases and boot-only qualification.
+A host-only import repair passes cold original image admission and independent
+review while preserving every artifact input. The exact task and independent
+entry review are **PASS_READY_H0_AND_UNEXECUTED_ENTRY**. The finite attended
+grant remains pending; no P459 device effect is open.
 Package installation and persistent configuration are later separate work.
 
 [P458 successor execution](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_SUCCESSOR_RUN_2026-10-25.md)
@@ -638,9 +642,10 @@ remain consumed. The bounded deadline/worker repair is already complete.
 
 P459 now selects the smallest ordinary-service follow-up: one real packaged
 cron workload and exact data preservation across the same two-boot sequence.
-Complete source-bound H0/ARM64 qualification and independent review, then
-prepare the fresh physical baseline and candidate for one attended finite
-operation. Its report is new data; its crontab remains a fixed RAM overlay.
+Source-bound H0/ARM64 qualification, independent capability review and the
+fresh physical baseline/candidate and exact entry review are complete. Obtain
+its finite attended grant before the one physical operation.
+Its report is new data; its crontab remains a fixed RAM overlay.
 Physical post-shutdown consistency and watchdog/reset uncertainty remain
 separate from VM evidence, retained data and healthy Android return.
 

@@ -3,6 +3,7 @@ import hashlib
 import hmac
 from pathlib import Path
 import struct
+import subprocess
 import sys
 import tempfile
 import types
@@ -77,6 +78,33 @@ class RecordTests(unittest.TestCase):
 
 
 class FactoryTests(unittest.TestCase):
+    def test_ordinary_task_entry_loads_frozen_corpus_decoder_without_build_path(self):
+        script = '''
+from pathlib import Path
+import importlib, socket, subprocess, sys
+from unittest.mock import patch
+sys.path.insert(0, sys.argv[1])
+def deny(*args, **kwargs): raise AssertionError('import/decoder test cannot acquire effects')
+with patch.object(subprocess, 'Popen', deny), patch.object(socket, 'socket', deny):
+    import s22plus_native_task_v3 as task
+    import device_action_raw_capture_v1 as raw
+    with patch.object(raw, 'acquire_command', deny):
+        import cron_vm_faults
+        assert Path(cron_vm_faults.__file__).resolve() == Path(sys.argv[2])
+        before = list(sys.path)
+        importlib.reload(task)
+        assert sys.path == before
+        assert cron_vm_faults.validate_serial(
+            b'CRON_RAM_REVOKE claim_errno=0 ready_errno=0 schedule_errno=0\\n'
+            b'DHVM_HOOK_PARK errno=2\\n', 'cron-no-job')
+'''
+        with tempfile.TemporaryDirectory() as temporary:
+            result = subprocess.run([sys.executable, '-I', '-c', script,
+                str(ROOT/'workspace/public/src/scripts/revalidation'),
+                str(ROOT/'workspace/public/src/debian/s22plus_initramfs_h0/cron_vm_faults.py')],
+                cwd=temporary, capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+
     def test_actual_two_boot_constructor_and_fixed_steps(self):
         import s22plus_debian_access_v1 as access
         import s22plus_debian_reboot_access_v1 as reboot_access
