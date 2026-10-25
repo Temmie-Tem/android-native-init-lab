@@ -23,6 +23,18 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P458 successor preparation](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_SUCCESSOR_PREPARE_2026-10-25.md)
+is **PASS_READY_H0_AND_UNEXECUTED_ENTRY** with no independent findings. One fresh
+fixed D0 confirms M=18, the identical baseline block and same-boot original-A
+health. The still-unclaimed physical N, unchanged 168-source runtime and 25
+ARM64 cases are reused; the new task binds the reviewed 150-source host repair
+and latest closed P458. The ordinary-terminal worker is connected with the
+exact persistent V3 sources and NoNewPrivs=0. Live connector status confirms
+all four paths NOT_DISPATCHED and no approval, grant or attempt. The requested
+preparation is complete at the approval boundary; a new attended finite grant
+is still required before this separate two-boot operation. The old task stays
+consumed, and no reboot, transfer or native_data write occurred in preparation.
+
 [P458 execution](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_RUN_2026-10-25.md)
 closed its one-operation grant with **NO_PROOF / ANDROID_CLOSED_HEALTHY**.
 The Android-to-Download command ran once, but its host departure window had
