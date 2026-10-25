@@ -6,6 +6,11 @@ existing two-boot Debian sequence. This report records capability qualification
 and subsequent physical preparation; it does not establish physical execution
 or an attended grant. A90, S20+ and server work remain untouched.
 
+The subsequently approved [physical run](S22PLUS_DEBIAN_CRON_P459_RUN_2026-10-25.md)
+completed the workload and exact reboot retention, then closed healthy in
+Android. Its task and grant are consumed; the preparation facts below retain
+their original H0 meaning.
+
 ## Resulting behavior
 
 The [cron specialization](../operations/S22PLUS_DEBIAN_CRON_V1.md) selects
@@ -169,9 +174,10 @@ offline preparation and both real phase constructors pass. The exact eight-step
 sequence is retained, and constructor fixture data is rejected as a grant.
 Independent **PASS_READY_H0_AND_UNEXECUTED_ENTRY** has no findings. The actual
 current `Controller.bundle` and its persisted receipt pass; seven negative
-cases reject missing or mismatched approval/binding data. No operator approval,
-grant or dispatch is present. The returned finite approval and current physical
-attendance remain required before execution.
+cases reject missing or mismatched approval/binding data. At that preparation
+boundary no operator approval, grant or dispatch was present. The later
+physical run supplied its exact returned approval and current attendance;
+neither this readiness nor the consumed grant authorizes a successor.
 
 Private evidence adds `baseline-d0-2/result.json`, `physical-build-1`,
 `vm-physical-1/result.json`, `package-physical-1/image.json`,
