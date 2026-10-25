@@ -251,6 +251,8 @@ class Adapter:
         self.directory=private_path(self.root,directory)
         self.host=None
         self.selected_experiment=experiment
+        from s22plus_native_qualification_v1 import Qualification
+        self.qualification=Qualification()
 
     def configuration(self, request):
         return read(verify(request['task']))
@@ -260,7 +262,7 @@ class Adapter:
         task=self.configuration(request)
         android_completed=self.android_transfer_completed(request)
         validate_task(self.root,task,live=True,recovery=recovery or android_completed,
-            require_android=not android_completed)
+            require_android=not android_completed,qualification=self.qualification)
         grant_path=verify(request['grant']); grant=read(grant_path)
         validate_grant(task,grant,grant_path)
         keys={'schema','operation','reentry','hud','grant','task','N','E','A',
@@ -390,13 +392,19 @@ class Adapter:
 
     def android_download(self, step, request, *, guard, before_dispatch):
         folder=self.folder(step.name,create=True)
-        before=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
-        publish(folder/'departure-before.json',before)
-        deadline=None
-        def dispatch():
-            nonlocal deadline
+        before=deadline=None
+        def intent_detail():
+            nonlocal before, deadline
+            # Session.intent calls this after authority/consumption checks, so
+            # both generation and clock belong to the final dispatch boundary.
+            before=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
             deadline=clock()+30_000_000_000
-            before_dispatch(dict(departure=pin(folder/'departure-before.json'),departure_deadline_ns=deadline))
+            receipt=publish(folder/'departure-before.json',before)
+            return dict(departure=receipt,departure_deadline_ns=deadline)
+        def dispatch():
+            before_dispatch(intent_detail)
+            require(deadline is not None and clock()<deadline,
+                'USB departure deadline expired before Android command dispatch')
         result=self.android(request,folder,guard).download(before_dispatch=dispatch)
         result['departure']=target.wait_departure(before,folder,deadline_ns=deadline,guard=guard)
         publish(folder/'result.json',result)

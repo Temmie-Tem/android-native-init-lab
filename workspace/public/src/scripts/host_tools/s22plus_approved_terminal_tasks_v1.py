@@ -23,6 +23,7 @@ REVIEW = 'workspace/public/src/device-action/bindings/s22plus_approved_terminal_
 POLICY = 'docs/operations/S22PLUS_APPROVED_TERMINAL_PERSISTENT_V1.md'
 DISPATCH = 'terminal-tool-dispatch-v1'
 CONTINUATIONS = {'continue_approved_task': ('terminal-tool-continue-v1', 'continue'),
+    'recover_approved_task': ('terminal-tool-recovery-v1', 'recover'),
     'resume_approved_health': ('terminal-tool-health-v1', 'recover')}
 MAX_REQUEST = 65536
 MAX_RESPONSE = 262144
@@ -44,9 +45,11 @@ INSTRUCTIONS = (
     'approval, bypass the original runner, or infer non-execution from absence. '
     'The operator must remain physically present through original-A return. '
     'continue_approved_task resumes only the existing automatic-boot physical '
-    'return after physical Download. resume_approved_health is '
+    'return after physical Download. recover_approved_task permits only the '
+    'stopped original owner to recover its exact original A after physical Download. '
+    'resume_approved_health is '
     'limited to an already raw-proved original-A transfer; it cannot flash. '
-    'No shell, cancellation, general recovery or other-target execution is exposed.')
+    'No shell, cancellation, arbitrary recovery or other-target execution is exposed.')
 
 
 def require(value, message):
@@ -100,6 +103,12 @@ def review_sources(root):
         'workspace/public/src/scripts/host_tools/s22plus_approved_terminal_tasks_v1.py',
         'workspace/public/src/scripts/host_tools/s22plus_approved_terminal_persistent_v1.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_records_v3.py',
+        'workspace/public/src/scripts/revalidation/device_action_read_dependencies_v1.py',
+        'workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py',
+        'workspace/public/src/scripts/revalidation/s22plus_boot_only_f1_transport.py',
+        'workspace/public/src/scripts/revalidation/s22plus_native_qualification_v1.py',
+        'workspace/public/src/scripts/revalidation/s22plus_native_root_inspect_session_v1.py',
+        'workspace/public/src/scripts/revalidation/s22plus_native_target_io_v3.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_task_v3.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_session_v3.py',
         'workspace/public/src/scripts/revalidation/s22plus_native_adapter_v3.py',
@@ -376,7 +385,8 @@ class Controller:
             'original operation scope differs')
         validate_grant(bound['task_value'], session.grant, directory / 'grant.json')
         health_only = tool == 'resume_approved_health'
-        session.check(recovery=health_only)
+        stopped_recovery = tool == 'recover_approved_task'
+        session.check(recovery=health_only or stopped_recovery)
         require(session.consumed() is not None, 'operation has no original consumption')
         registry.require_f1_owner(self.root, operation, session.binding)
         rows = session.rows()
@@ -385,15 +395,26 @@ class Controller:
             journal_tail=records.pin(session.journal.directory / f'{len(rows)-1:04d}.json'))
         android = [row for row in rows if row['event'] == 'effect-intent' and
             row['data']['action'] == 'transfer' and row['data']['role'] == 'A']
-        if health_only:
-            require(len(android) == 1 and android[0]['data']['step'] == 'install-android',
-                'health continuation requires one original-A intent')
+        if stopped_recovery:
+            require(any(row['event'] == 'stopped' for row in rows) and session.has_recovery_basis(),
+                'recovery requires the stopped original effect owner')
+            require(not (base / CONTINUATIONS['resume_approved_health'][0] / 'intent.json').exists(),
+                'health continuation already consumed the remaining recovery path')
+        if health_only or (stopped_recovery and android):
+            require(len(android) == 1 and android[0]['data']['step'] in ('install-android', 'recover-android'),
+                'health continuation requires one exact original-A intent')
             # This raw consumer raises on uncertainty. The original recover CLI
             # also follows its existing-A branch and has no second-transfer path.
-            step = Step('install-android', 'transfer', 'A')
+            step = Step(android[0]['data']['step'], 'transfer', 'A')
             proof = session.adapter.recover_transfer_result(step, request)
             require(proof['completed'] is True, 'original-A completion is unproved')
             evidence['android_transfer'] = proof
+            evidence['remaining_health_only'] = True
+        elif stopped_recovery:
+            require(not any((operation / name).exists() for name in
+                ('install-android.json', 'recover-android.json', 'android-final.json', 'recovery-health.json')),
+                'Android result without a unique original intent')
+            evidence['remaining_health_only'] = False
         else:
             require(not android and not any(row['event'] == 'stopped' for row in rows),
                 'normal continuation is stopped or already returning')
@@ -463,6 +484,7 @@ class Controller:
         bound = self.bundle(name)
         paths = {'launcher': DISPATCH + '/launcher.log', 'execution': 'execute-1.log',
             'continuation': CONTINUATIONS['continue_approved_task'][0] + '/launcher.log',
+            'recovery': CONTINUATIONS['recover_approved_task'][0] + '/launcher.log',
             'health': CONTINUATIONS['resume_approved_health'][0] + '/launcher.log'}
         require(stream in paths and type(count) is int and 1 <= count <= MAX_LOG,
             'invalid log selection or byte limit')

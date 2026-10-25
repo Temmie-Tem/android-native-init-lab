@@ -79,7 +79,7 @@ class TargetTests(unittest.TestCase):
 
     def test_departure_keeps_original_deadline_and_rejects_identity_drift(self):
         before=dict(snapshot=dict(path='/dev/bus/usb/002/007'),identity={'generation':'old'})
-        with mock.patch.object(target,'clock',side_effect=[1,3]), \
+        with mock.patch.object(target,'clock',side_effect=[1,2,3]), \
                 mock.patch.object(target.usbfs,'snapshot_node',side_effect=target.usbfs.UsbfsEndpointDeparture('/dev/bus/usb/002/007')):
             result=target.wait_departure(before,self.directory,deadline_ns=4,guard=lambda:None)
         self.assertEqual((result['observed_ns'],result['deadline_ns']),(3,4))

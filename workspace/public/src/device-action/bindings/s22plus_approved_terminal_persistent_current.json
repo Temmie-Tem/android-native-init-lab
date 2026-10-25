@@ -1,8 +1,1 @@
-{
-  "review": {
-    "path": "/home/temmie/dev/android-native-init-lab/workspace/public/src/device-action/bindings/s22plus_approved_terminal_persistent_v2_review.json",
-    "sha256": "42273e4f89b02c2a1993e6a25bb7b7755854d65f3b8532854f5542f6b2f2d347",
-    "size": 4153
-  },
-  "schema": "s22plus-approved-terminal-current-review-v1"
-}
+{"review":{"path":"/home/temmie/dev/android-native-init-lab/workspace/public/src/device-action/bindings/s22plus_approved_terminal_persistent_v3_review.json","sha256":"bc99c600d2e5eae839a5e05db77aad55501860417729c53d98f6040eb8097c4a","size":5334},"schema":"s22plus-approved-terminal-current-review-v1"}

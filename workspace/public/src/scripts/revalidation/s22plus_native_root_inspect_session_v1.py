@@ -60,7 +60,7 @@ def normal_steps(operation=profile.OPERATION):
         Step('android-final', 'health', 'A'))
 
 
-def validate_task(task, *, recovery=False):
+def validate_task(task, *, recovery=False, qualification=None):
     require(task['N']['profile'] in PROFILES, 'unknown protected-root image')
     item = next(item for item in ITEMS if task['N']['profile'] in getattr(item,'PROFILES',(item.PROFILE,)))
     require(task['N']['profile'] in getattr(item,'PROFILES',(item.PROFILE,)) and task['operations'] == [item.OPERATION] and
@@ -73,6 +73,8 @@ def validate_task(task, *, recovery=False):
         if item is early and task['N']['profile'] in early.CHECKED_FILE_PROFILES:
             from s22plus_native_adapter_v3 import image_valid
             image_valid(task['N'])
+        elif item is autoboot and qualification is not None:
+            qualification.binding(task['N'], item.image_binding)
         else:item.image_binding(task['N'])
     if item is calibration:
         require(task['seconds']==1800,'log calibration requires its exact 1800-second grant')

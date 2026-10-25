@@ -100,9 +100,9 @@ class Android:
         with transport.pin_regular_file(Path(self.tool['path']),label='ADB',
                 expected_size=self.tool['size'],expected_sha256=self.tool['sha256']) as tool:
             self.guard()
-            if before_launch is not None: before_launch()
+            options=dict(before_spawn=before_launch) if before_launch is not None else {}
             return raw.acquire_command([str(tool.path),*arguments],self.directory,name,
-                timeout=timeout,stdout_maximum=16384,stderr_maximum=16384)
+                timeout=timeout,stdout_maximum=16384,stderr_maximum=16384,**options)
 
     def health(self):
         serial=self.target['serial']
@@ -203,6 +203,7 @@ def wait_departure(before, directory, *, deadline_ns, guard):
     path=before['snapshot']['path']
     while clock()<deadline_ns:
         guard()
+        require(clock()<deadline_ns,'USB departure guard exceeded original deadline')
         try:
             current=usbfs.snapshot_node(path,birth_reader=lambda device:usbfs.read_birth_time_ns(device,Path(directory)))
         except usbfs.UsbfsEndpointDeparture:

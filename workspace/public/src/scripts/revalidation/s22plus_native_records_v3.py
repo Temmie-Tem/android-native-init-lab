@@ -12,6 +12,7 @@ import re
 import stat
 import time
 import uuid
+from device_action_read_dependencies_v1 import record_read
 
 SCHEMA = 's22plus-native-session-v3'
 MAX_RECORD = 2*1024*1024
@@ -66,6 +67,7 @@ def read_bytes(path, *, maximum=MAX_RECORD):
         require(_identity(os.fstat(fd))==_identity(before)==_identity(path.lstat()) and len(data)==before.st_size,
             'record changed during read')
     finally: os.close(fd)
+    record_read(path, before)
     return data
 
 

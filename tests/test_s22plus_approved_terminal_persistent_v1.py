@@ -33,6 +33,79 @@ class ContinuationRegression(previous.ContinuationTests):
         patch=mock.patch.object(previous,'bridge',backend);patch.start();self.addCleanup(patch.stop)
         super().setUp()
 
+    def stop_before_native(self):
+        # Replace only fixture evidence: one Android Download effect, no N/A.
+        for path in self.operation.glob('journal/*.json'): path.unlink()
+        self.journal.append('effect-intent',step='android-download',action='download',role='A')
+        self.journal.append('stopped',error_type='fixture_departure_deadline')
+
+    def test_stopped_pre_native_recovery_is_once_and_preserves_authority(self):
+        self.stop_before_native()
+        protected={p:p.read_bytes() for p in self.directory.rglob('*.json')}
+        with mock.patch.object(previous.records,'clock',return_value=
+                previous.records.read(Path(self.grant['path']))['deadline_ns']+1):
+            self.assertTrue(self.call('recover_approved_task')['dispatched'])
+        self.assertEqual(self.wait_phase(backend.CONTINUATIONS['recover_approved_task'][0])['returncode'],0)
+        self.raw_mock.assert_not_called()
+        self.assertTrue((self.operation/'fixture-recover').exists())
+        self.assertFalse((self.operation/'fixture-continue').exists())
+        self.assertFalse(self.call('recover_approved_task')['dispatched'])
+        for path,data in protected.items(): self.assertEqual(path.read_bytes(),data)
+
+    def test_recover_android_health_uses_exact_raw_step(self):
+        self.stop_before_native()
+        self.journal.append('effect-intent',step='recover-android',action='transfer',role='A')
+        self.assertTrue(self.call('resume_approved_health')['dispatched'])
+        self.wait_phase(backend.CONTINUATIONS['resume_approved_health'][0])
+        self.assertEqual(self.raw_mock.call_args.args[0].name,'recover-android')
+
+    def test_recovery_with_existing_a_is_raw_proved_health_only(self):
+        self.android_complete()
+        self.assertTrue(self.call('recover_approved_task')['dispatched'])
+        self.wait_phase(backend.CONTINUATIONS['recover_approved_task'][0])
+        evidence=previous.records.read(self.base/backend.CONTINUATIONS['recover_approved_task'][0]/'intent.json')
+        self.assertTrue(evidence['remaining_health_only'])
+
+    def test_recovery_rejects_unstopped_uncertain_or_ambiguous_a(self):
+        self.reject('recover_approved_task')
+        self.android_complete()
+        self.raw_mock.side_effect=ValueError('uncertain A')
+        self.reject('recover_approved_task')
+        self.raw_mock.side_effect=None
+        self.journal.append('effect-intent',step='recover-android',action='transfer',role='A')
+        self.reject('recover_approved_task')
+
+    def test_stopped_recovery_rejects_no_effect_or_orphan_results(self):
+        self.stop_before_native()
+        for path in self.operation.glob('journal/*.json'): path.unlink()
+        self.journal.append('stopped',error_type='before_effect')
+        self.reject('recover_approved_task')
+        self.stop_before_native()
+        previous.save(self.operation/'recover-android.json',dict(orphan=True))
+        self.reject('recover_approved_task')
+
+    def test_recovery_rejects_foreign_closed_unsettled_owner(self):
+        self.stop_before_native()
+        for path in (self.directory/'closed.json',self.operation/'terminal.json',self.operation/'unused.json',self.directory/'operation-0002'):
+            path.touch();self.reject('recover_approved_task');path.unlink()
+        owner=self.root/backend.registry.F1_OWNER;data=owner.read_bytes()
+        owner.unlink();self.reject('recover_approved_task');owner.write_bytes(data);owner.chmod(0o400)
+        result=self.base/backend.DISPATCH/'result.json';data=result.read_bytes()
+        result.unlink();self.reject('recover_approved_task');result.write_bytes(data)
+        with backend.registry.target_session_lease(self.root):self.reject('recover_approved_task')
+
+    def test_unresolved_recovery_blocks_health(self):
+        self.stop_before_native();self.call('recover_approved_task')
+        self.wait_phase(backend.CONTINUATIONS['recover_approved_task'][0])
+        self.journal.append('effect-intent',step='recover-android',action='transfer',role='A')
+        result=self.base/backend.CONTINUATIONS['recover_approved_task'][0]/'result.json'
+        data=result.read_bytes();result.unlink();self.reject('resume_approved_health');result.write_bytes(data)
+
+    def test_consumed_health_cannot_be_bypassed_through_recovery(self):
+        self.android_complete();self.call('resume_approved_health')
+        self.wait_phase(backend.CONTINUATIONS['resume_approved_health'][0])
+        self.reject('recover_approved_task')
+
 
 class PersistentTests(unittest.TestCase):
     def setUp(self):
@@ -200,7 +273,7 @@ class PersistentTests(unittest.TestCase):
                 self.assertFalse(invalid['ok'])
             finally:server.shutdown();thread.join()
         self.assertEqual({row['name'] for row in transport.tools()},
-            {'bridge_status','task_status','task_log','start_approved_task','continue_approved_task','resume_approved_health'})
+            {'bridge_status','task_status','task_log','start_approved_task','continue_approved_task','recover_approved_task','resume_approved_health'})
 
     def test_shared_admission_excludes_a_second_backend_process(self):
         script=(f"import sys\nsys.path.insert(0,{str(HOST)!r})\n"+

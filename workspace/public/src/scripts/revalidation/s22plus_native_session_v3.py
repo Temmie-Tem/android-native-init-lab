@@ -180,8 +180,18 @@ class Session:
         if self.request['operation']=='native-ext4' and step.name=='experiment-first':
             from s22plus_native_ext4_session_v1 import claim_effect
             claim_effect(self.adapter,step,self.request)
-        return self.journal.append('effect-intent',step=step.name,action=step.action,
+        deferred_detail=callable(detail)
+        if deferred_detail:
+            require(step.action=='download', 'deferred intent detail is only for Android Download')
+            detail=detail()
+            live_grant(self.grant,recovery=recovery)
+        result=self.journal.append('effect-intent',step=step.name,action=step.action,
             role=step.role,ending=step.ending,recovery=recovery,detail=detail or {})
+        if deferred_detail:
+            # Snapshot/publication may block. Keep the original finite grant
+            # current at the final callback without another expensive check.
+            live_grant(self.grant,recovery=recovery)
+        return result
 
     def result(self, step, value):
         self.adapter.validate_result(step,value,self.request)

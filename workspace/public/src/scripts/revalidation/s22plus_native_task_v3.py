@@ -155,7 +155,7 @@ def android_artifact(root):
         **profile['start_health']['supporting_partition_sha256']))
 
 
-def validate_task(root, task, *, live=False, recovery=False, require_android=True):
+def validate_task(root, task, *, live=False, recovery=False, require_android=True, qualification=None):
     from s22plus_native_adapter_v3 import image_valid
     import s22plus_native_target_io_v3 as target
     keys={'schema','target','lane','N','E','A','adb','odin','host_installation','review','recovery_evidence',
@@ -195,7 +195,7 @@ def validate_task(root, task, *, live=False, recovery=False, require_android=Tru
     require(('debian_access' in task)==(task['N']['profile'] in (handoff_profile,integrated_profile,autoboot_profile)),'unselected Debian access inputs')
     if task['N']['profile'] in (root_inspect_profile,userspace_probe_profile,preflight_profile,staged_profile,switch_profile,handoff_profile,journal_profile,evidence_profile,early_profile,usb_profile,file_profile,file_first_profile,failure_profile,stage_profile,log_profile,integrated_profile,autoboot_profile) or set(task['operations']) & {'root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot'}:
         from s22plus_native_root_inspect_session_v1 import validate_task as root_inspect_task
-        root_inspect_task(task, recovery=recovery)
+        root_inspect_task(task, recovery=recovery, qualification=qualification)
     if task['N']['profile'] in filesystem_profiles or 'native-ext4' in task['operations']:
         from s22plus_native_ext4_session_v1 import validate_task as filesystem_task
         filesystem_task(task)

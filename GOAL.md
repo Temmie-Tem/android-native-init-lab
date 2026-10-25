@@ -31,9 +31,20 @@ sample. N transfer was never reached. One original-A recovery and a subsequent
 health-only continuation completed without another transfer. Closure rederived
 223 raw captures and the unchanged ten-row journal; no F1 owner remains.
 The operation is consumed; N content was not globally claimed. No Debian boot
-or current native_data consistency is proved. The next H0 unit repairs deadline
-ordering and the approved worker's missing stopped-owner recovery/health paths.
-A90, S20+ and server work remain untouched.
+or current native_data consistency is proved. A90, S20+ and server work remain
+untouched.
+
+The [deadline and worker recovery repair](docs/reports/S22PLUS_P458_DEADLINE_RECOVERY_H0_2026-10-25.md)
+is **PASS_H0 / independent PASS_GO**. Download snapshot/deadline publication and
+finite-grant checks now occur at the final process-spawn boundary. Immutable
+image qualification reuse matches the original result and reduces its measured
+repeat from 15.859 to 0.046 seconds while checking 2,071 file identities. The
+fixed worker recovery tool uses only the stopped original owner and original A;
+health continuation accepts either raw-proved A step. One hundred focused tests
+and 20 independent checks pass. No worker or device was started. The seven-tool
+protocol requires one worker/MCP upgrade; later reviewed backend/candidate
+changes retain the stable connection. A future physical task still needs its
+new execution binding and finite authority; the closed P458 grant cannot replay.
 
 [P458 physical preparation](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_PHYSICAL_PREPARE_2026-10-25.md)
 qualified a fixed Android D0 baseline **M=18**, same-boot original-A health,

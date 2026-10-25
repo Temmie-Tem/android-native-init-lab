@@ -182,6 +182,8 @@ def pin_regular_file(
             raise F1TransportError(f"{label} identity does not match its pin")
         pinned = PinnedRegularFile(direct, descriptor, size, digest, identity)
         revalidate_pinned_path(pinned)
+        from device_action_read_dependencies_v1 import record_read
+        record_read(direct, opened)
         yield pinned
         revalidate_pinned_path(pinned)
     finally:

@@ -9,8 +9,9 @@ S22+ contract and its existing exact approved tasks; A90 and S20+ are excluded.
 The ordinary-terminal worker remains unprivileged uid/euid 1000, NoNewPrivs=0,
 with the same mode-0700 runtime directory, mode-0600 same-UID Unix socket and
 exclusive worker lock. No service, setuid helper, polkit/sandbox change, TCP
-listener, live module reload or restart API is added. The six fixed MCP tool
-names and argument shapes remain stable. The worker has no device descriptor.
+listener, live module reload or restart API is added. The seven fixed MCP tool
+names expose only bounded status/logs, exact start, normal return, stopped-owner
+recovery and raw-proved health continuation. The worker has no device descriptor.
 
 The stable transport imports only Python's standard library. Each request
 starts one fixed repository backend with a fixed Python executable, a fresh
@@ -61,9 +62,16 @@ it neither renews a budget nor makes a failed request retryable after intent.
 The backend keeps the existing one-shot dispatch, normal automatic-boot return
 and raw-proved post-A health semantics. Start requires the saved actual human
 approval and unchanged reviewed task/entry. Normal continuation requires the
-existing automatic-boot ready record and original live window. Health
-continuation requires a unique raw-proved completed original-A transfer and
-uses only the original existing-A recovery branch. No general recovery, new
+existing automatic-boot ready record and original live window. The separate
+`recover_approved_task` requires the same stopped, consumed owner and original
+effect recovery basis. It invokes only that owner's fixed `recover` command
+after physical Download, using its original exact A and unchanged approval,
+grant and source binding. An existing A intent requires raw completion; an
+uncertain A never dispatches another transfer. It cannot follow a consumed
+health continuation or bypass an unresolved launcher. Health continuation
+accepts only one raw-proved `install-android` or `recover-android` and uses
+the original existing-A health branch. Each ingress has one durable intent.
+No arbitrary recovery, new
 grant, native control replay or uncertain transfer replay is exposed.
 
 After dispatch the backend flushes exactly one bounded response and closes its
@@ -92,8 +100,10 @@ python3 /home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/ho
 ```
 
 Its MCP registration uses the same script with `mcp`. A fresh MCP connection
-loads the stable six-tool schema. Future candidate changes and reviewed backend
+loads the seven-tool schema. Adding stopped-owner recovery requires one normal
+worker startup and MCP reconnection for this protocol upgrade; this H0 change
+does not start either. Future candidate changes and reviewed backend
 updates use that connection without another worker restart. Verify the exact
 selected backend review and `fresh_backend_per_request` through status before
-future authorized use. Existing P456 is closed and must never be dispatched or
-continued again.
+future authorized use. Existing P456 and P458 are closed and must never be
+dispatched or continued again. Historical six-tool reviews retain their bytes.

@@ -20,7 +20,7 @@ import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 
 SCHEMA = "device_action_raw_capture_v1"
@@ -135,6 +135,7 @@ def _write_all(descriptor: int, payload: bytes) -> None:
 
 
 def _stable_bytes(path: Path, maximum: int) -> tuple[bytes, os.stat_result]:
+    from device_action_read_dependencies_v1 import record_read
     if maximum < 0 or maximum > MAX_STREAM_BYTES:
         raise RawCaptureError("raw stream read bound is invalid")
     descriptor = os.open(
@@ -165,6 +166,7 @@ def _stable_bytes(path: Path, maximum: int) -> tuple[bytes, os.stat_result]:
     current = os.lstat(path)
     if _identity(before) != _identity(after) or _identity(after) != _identity(current):
         raise RawCaptureError(f"raw stream changed while reading: {path.name}")
+    record_read(path, after)
     return b"".join(chunks), after
 
 
@@ -508,6 +510,7 @@ def acquire_command(
     start_new_session: bool = False,
     stdout_name: str | None = None,
     stderr_name: str | None = None,
+    before_spawn: Callable[[], None] | None = None,
 ) -> RawCaptureHandle:
     """Run one command and publish both raw streams before returning a handle."""
 
@@ -539,6 +542,8 @@ def acquire_command(
     interruption: BaseException | None = None
     try:
         try:
+            if before_spawn is not None:
+                before_spawn()
             process = subprocess.Popen(
                 list(argv),
                 stdin=subprocess.DEVNULL,
