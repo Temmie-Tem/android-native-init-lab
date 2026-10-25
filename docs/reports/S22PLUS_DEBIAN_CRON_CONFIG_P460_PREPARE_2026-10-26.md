@@ -1,10 +1,10 @@
 # P460 physical candidate preparation
 
-Status: **PREPARATION_IN_PROGRESS_CANDIDATE_QUALIFICATION**. The fixed Android D0, fresh
-physical-baseline build and its normal ARM64 two-boot path pass. The new
-candidate's complete failure corpus, physical package, task and prepared-entry
-review are not complete. No F1 grant, operator-approval record, transfer,
-device control or physical P460 execution has occurred.
+Status: **PASS_READY_H0_AND_UNEXECUTED_ENTRY**, with independent review and no
+findings. The fixed Android D0, fresh physical-baseline build, all 49 ARM64 cases,
+actual boot-only package and concrete execution plan pass. No F1 grant,
+operator-approval record, transfer, device control or physical P460 execution
+has occurred.
 
 ## Current physical baseline and fresh candidate
 
@@ -22,8 +22,16 @@ All **175 runtime sources** remain identical to the completed
 ARM64 normal path passes both kernel boots, configuration creation and exact
 cross-boot consumption, the cron report and successful configuration retirement.
 The final virtual configuration is absent and storage outside native_data is
-unchanged. This is qualification of a new candidate in a VM, not a physical
-P460 result.
+unchanged. The remaining 36 root/control and 12 runtime-failure cases also pass;
+the original consumer rederives all **49 cases** from their retained raw inputs.
+These are VM results for the physical-baseline candidate, not physical P460
+execution evidence.
+
+The **38,041,641-byte boot-only AP** passes the original packaging and artifact
+checks. A fresh isolated Python process, started outside the repository without
+a preloaded build path, accepts the actual image through the original consumer.
+Writes, subprocesses, network access and device acquisition are denied during
+that cold check. All 175 runtime sources remain unchanged.
 
 ## Review-record compatibility and existing transport
 
@@ -47,14 +55,28 @@ Immutable v6 and its selector pass the original consumers. Actual bridge status
 confirms the existing worker is connected as uid/euid 1000 with NoNewPrivs=0
 and a fresh backend per request. No worker restart or task dispatch occurred.
 
-The private preparation script, exact P460 entry and unexecuted-path checker
-are written and Python compilation passes. They preserve the existing eight
-steps, actual saved-approval requirement, exclusive attempt, one original grant
-opening and one attended execution. They have not prepared a task or run an
-entry. The eventual prepared-entry review must bind the actual package/task
-and the closed P459 predecessor before the original bundle can admit them.
+The original offline preparation now produces the concrete task, proposal and
+host/runtime source snapshot. The task fixes **3,600 seconds, one operation,
+attended recovery** and the existing eight steps: Android Download, N transfer,
+first Debian observation, ordinary reboot, second Debian observation, shutdown,
+original-A transfer and final Android health. Both phase constructors pass, and
+nonexecutable constructor data is rejected as a grant.
 
-## Resolved storage limit and remaining work
+Independent prepared-entry review binds the actual package/task, immutable
+capability review, source snapshot and closed P459 predecessor. The published
+receipt passes the original `Controller.bundle(current=True, approval=False)`;
+**nine missing/altered approval cases** are rejected using in-memory invalid
+fixtures only. The entry retains uid/euid 1000, NoNewPrivs=0, no arguments, an
+exclusive attempt log, one original grant opening and one original attended
+execution. The entry was not executed, and no operator-approval file was created.
+
+Final status through the actual connected worker confirms no approval or grant,
+no terminal result, and **NOT_DISPATCHED** for start, continuation, recovery and
+health continuation. The registry validates, the new N has no current or
+historical/legacy claim, and no F1 owner remains. These are preparation checks;
+they grant no device authority.
+
+## Storage resolution and execution boundary
 
 The retained complete H0 corpus occupies about **22 GiB**. Available space was
 16 GiB before this preparation and about 15 GiB after the new normal path.
@@ -67,22 +89,29 @@ resolved that limit: 506.73 GiB of old host scratch was retired, leaving about
 521 GiB available. P460, recovery/physical evidence and the shared complete.ext4
 seed used to construct new test disks were preserved.
 
-Continue the new candidate's remaining 36 root/control
-and 12 runtime cases, then rederive the complete 49-case corpus. Package its
-actual boot-only image, validate the original image consumer in a fresh process,
-prepare the concrete task/snapshot and obtain the existing narrow entry review.
-Only then may the exact finite attended approval be requested. The prior P459
-grant and candidate remain consumed.
+The new corpus successfully used that retained seed and completed with its
+package and preparation. About **499.72 GiB** remains after creating these new
+P460 qualification artifacts. The cleanup's 521.12 GiB figure records the earlier
+post-cleanup point in time.
+
+Physical execution still requires a new exact finite attended approval, current
+target/artifact/Android-health checks, usable physical Download/original-A
+recovery and fresh protected native-root admissions. The prior P459 grant and
+candidate remain consumed. No execution permission is inferred from this ready
+state or the successful VM corpus.
 
 ABI, IO, SEMANTIC, WIRE, PERSIST and ARTIFACT reuse unchanged capability checks
-and the new build/normal-path evidence; complete candidate qualification remains
-pending. ROUTE and HOST additionally cover the original review predicates and
-live v6 transport. AUDIT preserves all old pins, raw evidence and failed runs.
+and the complete new build/corpus/package evidence. ROUTE and HOST additionally
+cover the original review predicates, both phase constructors, approval
+negatives and live v6 transport. AUDIT preserves all old pins, raw evidence
+and failed runs.
 DISPLAY is inapplicable. RETURN remains the original physical Download/original-A
 route and has not been exercised by P460. A90, S20+ and unrelated changes remain
 untouched.
 
 Private evidence is retained under
 `workspace/private/outputs/s22plus-debian-cron-config-p460-h0-20261025-1/`,
-including `baseline-d0-1`, `physical-build-1`, `vm-physical-1/normal`, the
-immutable review supplements and actual bridge-status capture.
+including `baseline-d0-1`, `physical-build-1`, `vm-physical-1`,
+`package-physical-1`, `offline-prepared-1`, `physical-source-snapshot`,
+the immutable review supplements, actual worker status captures and
+`physical-preparation-ready.json`.

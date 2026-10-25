@@ -24,14 +24,20 @@ A90 and S20+ remain isolated.
 ## Current synthesis and functional priority
 
 [P460 physical preparation](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_PREPARE_2026-10-26.md)
-has a fresh fixed-D0 **clean M=26**, an A/B-identical physical-baseline build
-and a passing normal ARM64 two-boot path. The compatible independent review
-record and existing v6 transport are verified. The
+is **PASS_READY_H0_AND_UNEXECUTED_ENTRY**, with independent review and no findings.
+Fixed D0 proves **clean M=26**; the A/B-identical physical-baseline candidate
+passes all **49 ARM64 cases**, raw rederivation, the 38,041,641-byte boot-only
+package and cold original-image admission. Its concrete 3,600-second,
+one-operation attended task and source snapshot pass both phase constructors,
+original bundle validation and nine approval negatives. Actual v6 worker status
+shows no approval/grant and all four dispatch paths **NOT_DISPATCHED**; N remains
+unclaimed and no F1 owner remains. The
 [authorized host cleanup](docs/reports/S22PLUS_HOST_SCRATCH_CLEANUP_2026-10-26.md)
 removed 506.73 GiB while preserving P460, recovery/physical evidence and the
-shared future-VM seed. About 521 GiB is now available. Full candidate
-qualification, package, task and entry review remain pending.
-No F1 grant, transfer or physical P460 execution has occurred.
+shared future-VM seed. About 500 GiB remains after the new qualification artifacts.
+No F1 grant, transfer or physical P460 execution has occurred. A new exact finite
+approval, physical attendance/Download recovery and fresh runtime admission
+remain required for execution; P459 stays consumed.
 
 [P460 persistent cron configuration](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_H0_2026-10-26.md)
 is **PASS_H0_PRODUCTION_CRON_CONFIG / independent PASS_GO**. Actual ARM64 boot 1
