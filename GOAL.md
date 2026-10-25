@@ -23,17 +23,33 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P458 successor execution](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_SUCCESSOR_RUN_2026-10-25.md)
+is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**. Two
+physical Debian boots prove PID1, 120-second local service evidence and pinned
+SSH pairs spanning 120550/120740 ms. One ordinary reboot joins distinct boots,
+the same SSH key, installed counts 2→3 and exact first-pair retention through
+clean protected second-boot admission. N and original A each transferred once.
+The normal-return RPC reply timed out while its original owner continued; it
+was not repeated. One post-A ADB read failed, then the raw-proved health-only
+continuation completed without another transfer. H0 closure rederived 695
+captures and the unchanged 24-row journal; final Android health completed at
+627.611 seconds, task closure at 713.749 seconds, with no F1 owner remaining.
+The N claim and one-operation grant remain consumed. Final post-shutdown
+native_data consistency/second-pair retention were not separately measured.
+Connector reply latency and the post-A read race remain bounded H0 follow-up
+topics; this successful run grants no additional device operation.
+
 [P458 successor preparation](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_SUCCESSOR_PREPARE_2026-10-25.md)
 is **PASS_READY_H0_AND_UNEXECUTED_ENTRY** with no independent findings. One fresh
 fixed D0 confirms M=18, the identical baseline block and same-boot original-A
 health. The still-unclaimed physical N, unchanged 168-source runtime and 25
 ARM64 cases are reused; the new task binds the reviewed 150-source host repair
 and latest closed P458. The ordinary-terminal worker is connected with the
-exact persistent V3 sources and NoNewPrivs=0. Live connector status confirms
-all four paths NOT_DISPATCHED and no approval, grant or attempt. The requested
-preparation is complete at the approval boundary; a new attended finite grant
-is still required before this separate two-boot operation. The old task stays
-consumed, and no reboot, transfer or native_data write occurred in preparation.
+exact persistent V3 sources and NoNewPrivs=0. Its pre-execution connector status
+confirmed all four paths NOT_DISPATCHED and no approval, grant or attempt.
+That preparation boundary was subsequently consumed by the separately approved
+successful execution above. No reboot, transfer or native_data write occurred
+during preparation, and the earlier stopped P458 task remains consumed.
 
 [P458 execution](docs/reports/S22PLUS_DEBIAN_REBOOT_P458_RUN_2026-10-25.md)
 closed its one-operation grant with **NO_PROOF / ANDROID_CLOSED_HEALTHY**.
