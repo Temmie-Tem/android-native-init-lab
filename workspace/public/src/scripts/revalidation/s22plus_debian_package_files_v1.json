@@ -1,0 +1,462 @@
+{
+  "architecture": "arm64",
+  "package": "hello",
+  "programs": {
+    "usr/bin/dpkg": {
+      "sha256": "d8878dcd8949b2d18359b98082e18b2c3bb77f4cbe14e7a90f58b3fad2670e79",
+      "size": 396184
+    },
+    "usr/bin/dpkg-deb": {
+      "sha256": "496045198f358af6537c40a217ac56d43f14a36a8864778f4e6f5fc5bc6290c1",
+      "size": 199256
+    },
+    "usr/bin/dpkg-split": {
+      "sha256": "00f9938db0c0e2017fdcfa9c5b849e4cefc547b5670b9774ab9816486eacf835",
+      "size": 199104
+    },
+    "usr/local/lib/lab-offline/hello.deb": {
+      "sha256": "7a917c7f44fbd3373dff0f35a0b6bdf8ef564ff90579d8b130ff52fbf33fce1f",
+      "size": 52660
+    }
+  },
+  "rows": [
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 493,
+      "path": "usr/bin/hello",
+      "sha256": "ef8b324e9d8de673554fb5dad0a69ffc9e6c20b93e92fd088745b3243aaad843",
+      "size": 68232
+    },
+    {
+      "existing": false,
+      "kind": "d",
+      "mode": 493,
+      "path": "usr/share/doc/hello",
+      "sha256": null,
+      "size": 0
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/doc/hello/NEWS.gz",
+      "sha256": "f3856083dc825564ae619a1f66d0bdfbfa09897aae17c55b00d50d1739d8b063",
+      "size": 1868
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/doc/hello/changelog.Debian.gz",
+      "sha256": "a63b19654b7b51d520d577f1cbd60b374b1e8a96b1dda28d37e2afaf79d3ef07",
+      "size": 977
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/doc/hello/changelog.gz",
+      "sha256": "4ff9bec3dc72750272f4a7424623d4649cde40c1b5d545482581c0de11695939",
+      "size": 4493
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/doc/hello/copyright",
+      "sha256": "c3d6d02b6210ec90f78926b2da9509ad4372c22450599a0015f26ee05c07a9c6",
+      "size": 2264
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/info/hello.info.gz",
+      "sha256": "ee166c7f9540483d26230680dd47679aa6e886dc550ba2a2a743a84bcafa1edb",
+      "size": 11670
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/bg/LC_MESSAGES/hello.mo",
+      "sha256": "9d071936969e16e4290e8a710069963ec03c83a9c3edd24651639df2c81e7a2e",
+      "size": 1316
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ca/LC_MESSAGES/hello.mo",
+      "sha256": "f5e9c00f553d4607712758fb68876b8c109bf16c4257baadb0d9e2fa562df35f",
+      "size": 2809
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/da/LC_MESSAGES/hello.mo",
+      "sha256": "2757cd115563a8ef0bf5a59054ee60952bf3df514511cb4a3f8f41cd4e3c8502",
+      "size": 2747
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/de/LC_MESSAGES/hello.mo",
+      "sha256": "1603d032318835cd44ee4405372fecbdc02cfff3e844efc07f6da2b18f289211",
+      "size": 3518
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/el/LC_MESSAGES/hello.mo",
+      "sha256": "7bc823a46dae825d3e81a780a69612edb789259beddc00ac6918642f2c0eb4e1",
+      "size": 3329
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/eo/LC_MESSAGES/hello.mo",
+      "sha256": "1dbbeefbed5b68af7e625c1f47042207e3a7382959d9dc346823ecffa2a4ce42",
+      "size": 2541
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/es/LC_MESSAGES/hello.mo",
+      "sha256": "43439f2f27b09e3b5e6d485ebde61387c9cd5f358485c9cd1fa6100f036842d2",
+      "size": 3413
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/et/LC_MESSAGES/hello.mo",
+      "sha256": "e5e15b5291785d0657788c6f6159903ab4eb4e2ce762ef2aa16dd61ae2d1a57e",
+      "size": 2620
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/eu/LC_MESSAGES/hello.mo",
+      "sha256": "81cdc80826cc31028636e559f4c85ddb73f0e84da38b4054e6f454cd2542c8be",
+      "size": 753
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/fa/LC_MESSAGES/hello.mo",
+      "sha256": "cf611a27dc1ee61825fece4f4cb816790e79e5689a08b30cfabad184c783edd5",
+      "size": 849
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/fi/LC_MESSAGES/hello.mo",
+      "sha256": "b18c715f9c5013aaf60c83f8594205e264b3a6c481e6dc163c3eee0fcfba402f",
+      "size": 2576
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/fr/LC_MESSAGES/hello.mo",
+      "sha256": "b92be940fcc2ad006f2680dfca87ba609e0d5e5ff78d14d5cbb3ef1e13a89238",
+      "size": 3515
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ga/LC_MESSAGES/hello.mo",
+      "sha256": "9d7729176f515af0c5f7bf6d24047e50de0eb58f5b273cc09b01bac455909cc7",
+      "size": 1142
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/gl/LC_MESSAGES/hello.mo",
+      "sha256": "1991c64eb327f1a96892945f04f6affc03fdf54d7d926c3dc476ea9962e01ea9",
+      "size": 3527
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/he/LC_MESSAGES/hello.mo",
+      "sha256": "2dcaca64cfa520b07dc0e222f1fc5fb85fd232183ae9ea0267af5d2d80435f3f",
+      "size": 710
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/hr/LC_MESSAGES/hello.mo",
+      "sha256": "0aaf9b47f2bdcbc9e9a18a7b322752c6f8e35f68aebaed55e7d6a4c6eaacdb74",
+      "size": 2927
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/hu/LC_MESSAGES/hello.mo",
+      "sha256": "2bc981110c6b9e70b8707e14350bcdd8b5115b7c78807e1837da45eb20cd0c13",
+      "size": 3682
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/id/LC_MESSAGES/hello.mo",
+      "sha256": "d4d769c4db9cb148b1e148c2cf44386947637fd05965552a406cfe008ef61c83",
+      "size": 3354
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/it/LC_MESSAGES/hello.mo",
+      "sha256": "06c0b4ae6eec00991046995bcf343fccc3b9ff5d1ac27859a640e654bfff43ec",
+      "size": 700
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ja/LC_MESSAGES/hello.mo",
+      "sha256": "c1c1c7a07d7cafd5a76a12eebb93bfe2d8fd16c3af12e954ebdf58e6b1220f1b",
+      "size": 705
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ka/LC_MESSAGES/hello.mo",
+      "sha256": "dec243c7347ed5d9fe1ff1a10c80e4e04c689e5f9d13c21a13f5950650a1f2f8",
+      "size": 898
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ko/LC_MESSAGES/hello.mo",
+      "sha256": "7b08021d4830f44de5760bf6e256b339785bae7e0532ae535201d35ed990a818",
+      "size": 1201
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/lv/LC_MESSAGES/hello.mo",
+      "sha256": "4b79f4d0c20fe71460dd1b1f859a003b5465ade34c7051e2007306187eebf21e",
+      "size": 3475
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ms/LC_MESSAGES/hello.mo",
+      "sha256": "702f29ee730dd24653f20a9494a4c420c1ce07afaeb27ed30e029b9046723869",
+      "size": 1167
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/nb/LC_MESSAGES/hello.mo",
+      "sha256": "07a7bf52fbc89670b0242dc7553d612fb5979cc964ab9192fa79911f6bca0c68",
+      "size": 3331
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/nl/LC_MESSAGES/hello.mo",
+      "sha256": "06083576d94f12ad9ba916ff14b062e090ca3ab0341ec6bd46031bffdebe9762",
+      "size": 3499
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/nn/LC_MESSAGES/hello.mo",
+      "sha256": "0fd666c3bc94426d661716f48464cef62c73e77bf9be250affc604f70f5d6fb8",
+      "size": 731
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/pl/LC_MESSAGES/hello.mo",
+      "sha256": "95d77e08f23cd9cf474f2f091d945637cab441562d5dda1cf5de9d11eef26bf1",
+      "size": 3361
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/pt/LC_MESSAGES/hello.mo",
+      "sha256": "17446abf2433073142c8024a865e14aab8cca41501d425a890ad5f21edde5808",
+      "size": 460
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/pt_BR/LC_MESSAGES/hello.mo",
+      "sha256": "ef63ab305a7fb35a3f945e9efa26244960f65ab8ecf20e52f89ac025d1b13078",
+      "size": 3393
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ro/LC_MESSAGES/hello.mo",
+      "sha256": "d1188b9680917f137cbc7ab990b9a9fdbc8b11ef453491112ef7ad20bba137a5",
+      "size": 735
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/ru/LC_MESSAGES/hello.mo",
+      "sha256": "18df6c9eadb0d432d8bf2c49952e03f7192e0c4b54b5dc04548ebb16cd4ad8f5",
+      "size": 4226
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/sk/LC_MESSAGES/hello.mo",
+      "sha256": "f1f18fe7c3984458a319b2743e397c31e643696a6c5edc645c1d41e225406e40",
+      "size": 3361
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/sl/LC_MESSAGES/hello.mo",
+      "sha256": "1020d0fa7b9e86341d86ceb3205dbafa1304f605f6111063e4e5053d706757fb",
+      "size": 3438
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/sr/LC_MESSAGES/hello.mo",
+      "sha256": "0b62f67ed832768c86ec61097d8c819ce39bf8153a19de4b6e1614d6f606e04a",
+      "size": 4129
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/sv/LC_MESSAGES/hello.mo",
+      "sha256": "93c0d70e3828106d46089116ff0ebb11587c68453160d9ac3659d2778d769a44",
+      "size": 1092
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/th/LC_MESSAGES/hello.mo",
+      "sha256": "52771915c3cbd0bb0e4da7a3d6c699da81a4af785f6c881b1945c5f53b20ade8",
+      "size": 5017
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/tr/LC_MESSAGES/hello.mo",
+      "sha256": "a817e0fc8ce6c609effc31894415a75a1af360333dbb8190d55f077211e15882",
+      "size": 2861
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/uk/LC_MESSAGES/hello.mo",
+      "sha256": "b1b3698b33e632caa7161245cba4a5b211295883d2655dbf036b83cd88609be7",
+      "size": 4531
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/vi/LC_MESSAGES/hello.mo",
+      "sha256": "2a80e0bc6042ca2d90497c9b92bc0d1ca871b2f06d5a835ddf9442725888cd1b",
+      "size": 3863
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/zh_CN/LC_MESSAGES/hello.mo",
+      "sha256": "a63366fa75d8da73ddddeee6ba8192ed92f350c941492981c2394b77a31921ca",
+      "size": 2603
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/locale/zh_TW/LC_MESSAGES/hello.mo",
+      "sha256": "c034aeecdf76487e29786c4e9b3b4e84478293667f02767c39c7ccf8ef446fb7",
+      "size": 2754
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "usr/share/man/man1/hello.1.gz",
+      "sha256": "dd07c212c482b2719d7973f0c795144c77295489a9bf0f1c7fe800d853dad0fd",
+      "size": 790
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "var/lib/dpkg/info/hello.list",
+      "sha256": "4b5e5b5ecd378fb4f04af17d68a303c1efdd26ef1cefcdda71e012ac28738b7e",
+      "size": 4403
+    },
+    {
+      "existing": false,
+      "kind": "f",
+      "mode": 420,
+      "path": "var/lib/dpkg/info/hello.md5sums",
+      "sha256": "0b599996857fe7acfe58ae2a41aef78ba81f6dbe9b5453832e9c39e1d71b191a",
+      "size": 3601
+    },
+    {
+      "before_sha256": "db601fb47948217b560f1c1662683af69220d6265ec65e790c42663fb4bc85e9",
+      "before_size": 122354,
+      "existing": true,
+      "kind": "f",
+      "mode": 420,
+      "path": "var/lib/dpkg/status",
+      "sha256": "a217076dd7d6392f2a64054917002fb0e345318d5b4cc349bd71fa9c6413fd30",
+      "size": 123141
+    },
+    {
+      "before_sha256": "36bcac2085a0a4d0be6ef993c0b2a07dff84b3b3561f725ad7f9ea0e3ba4276b",
+      "before_size": 120696,
+      "existing": true,
+      "kind": "f",
+      "mode": 420,
+      "path": "var/lib/dpkg/status-old",
+      "sha256": "db601fb47948217b560f1c1662683af69220d6265ec65e790c42663fb4bc85e9",
+      "size": 122354
+    }
+  ],
+  "schema": "s22plus-debian-package-files-v1",
+  "version": "2.10-5"
+}

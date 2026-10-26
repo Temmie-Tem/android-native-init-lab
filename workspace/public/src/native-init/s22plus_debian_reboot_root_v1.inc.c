@@ -8,6 +8,9 @@
 #ifdef S22_DEBIAN_CRON
 #include "s22plus_debian_cron_v1.h"
 #endif
+#ifdef S22_DEBIAN_PACKAGE
+#include "s22plus_debian_package_files_v1.h"
+#endif
 
 static int rb_file(int root,dev_t device,unsigned phase,unsigned runtime,
                    uint8_t data[16384],size_t *size,bool absent) {
@@ -119,6 +122,10 @@ static int rb_root_extras(int root,dev_t device,unsigned *extra) {
         ++*extra;
     }
 #endif
+ #ifdef S22_DEBIAN_PACKAGE
+    if((error=pk_check_files(root,device,rb_phase==2)))return error;
+    if(rb_phase==2)*extra+=PK_ADDED;
+ #endif
     for(unsigned p=rb_phase;p<=2;++p)for(unsigned kind=0;kind<2;++kind) {
 #ifdef S22_AUTOBOOT_SECOND_ADMISSION
         /* Its exact same-boot early file is checked by ab_owned_file. */

@@ -1,7 +1,9 @@
 /* Shared authenticated wire reader used by live hooks and protected admission. */
 #ifndef S22PLUS_DEBIAN_EVIDENCE_CHAIN_V1_H
 #define S22PLUS_DEBIAN_EVIDENCE_CHAIN_V1_H
-#ifdef S22_DEBIAN_DOWNLOAD
+#ifdef S22_DEBIAN_PACKAGE
+#define DE_SELECTED_REVISION 10U
+#elif defined(S22_DEBIAN_DOWNLOAD)
 #define DE_SELECTED_REVISION 9U
 #elif defined(S22_DEBIAN_CRON_CONFIG)
 #define DE_SELECTED_REVISION 8U
@@ -25,6 +27,9 @@ struct de_chain {
     unsigned boundary[2],last_event[2],status[2];
     uint64_t elapsed,pid[2],wait_ms[2],progress_ms;
     uint8_t tag[32];
+#ifdef S22_DEBIAN_PACKAGE
+    unsigned package_intent,package_complete;
+#endif
 #ifdef S22_DEBIAN_CRON_CONFIG
     unsigned boot_phase,config_created,config_retired;
     uint64_t config_inode,config_mtime_sec,config_mtime_nsec,config_ctime_sec,config_ctime_nsec,config_created_ms;
@@ -35,7 +40,9 @@ static uint64_t de_u64(const uint8_t *p) {
 }
 static void de_put64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(8*i));}
 static void de_tag(uint8_t out[32],const uint8_t *p,size_t n) {
-#ifdef S22_DEBIAN_DOWNLOAD
+#ifdef S22_DEBIAN_PACKAGE
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-PACKAGE-DURABLE-v1";
+#elif defined(S22_DEBIAN_DOWNLOAD)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-DOWNLOAD-DURABLE-v1";
 #elif defined(S22_DEBIAN_CRON_CONFIG)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-CRON-CONFIG-DURABLE-v1";
@@ -119,6 +126,9 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
         s->boundary[i]++;s->last_event[i]=event;s->pid[i]=a;s->status[i]=(unsigned)b;s->wait_ms[i]=elapsed;
     } else if(kind==DE_COMPLETE) {
         if(!s->started || s->complete || s->progress!=DH_SAMPLES+3 || phase || event || a || b || c)return EPROTO;
+#ifdef S22_DEBIAN_PACKAGE
+        if(!s->package_intent || !s->package_complete)return EPROTO;
+#endif
 #ifdef S22_DEBIAN_CRON_CONFIG
         if(s->boot_phase==1 ? s->config_created!=2 || s->config_retired :
            s->boot_phase!=2 || s->config_created || !s->config_retired)return EPROTO;
@@ -140,6 +150,19 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
         if(s->boot_phase!=2 || !s->started || s->complete || s->progress!=DH_SAMPLES+3 ||
            s->config_created || s->config_retired || phase!=2 || event!=1 || !a || b<=1 || b>INT_MAX || !c)return EPROTO;
         s->config_inode=a;s->config_retired=1;
+#endif
+#ifdef S22_DEBIAN_PACKAGE
+    } else if(kind==13U || kind==14U) {
+        if(!s->started || s->complete || s->progress!=DH_SAMPLES+3 ||
+           (s->boot_phase!=1 && s->boot_phase!=2) || phase!=s->boot_phase || event!=phase ||
+           (phase==1 ? s->config_created!=2 || s->config_retired : s->config_created || !s->config_retired))return EPROTO;
+        if(kind==13U) {
+            if(s->package_intent || s->package_complete || a!=52 || b!=54 || c)return EPROTO;
+            s->package_intent=1;
+        } else {
+            if(!s->package_intent || s->package_complete || s->last_kind!=13U || a<=1 || a>INT_MAX || b || c!=54)return EPROTO;
+            s->package_complete=1;
+        }
 #endif
     } else if(kind==DE_RELEASE) {
 #ifdef S22_DEBIAN_AUTOBOOT

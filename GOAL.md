@@ -23,6 +23,15 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+[P462 preparation](docs/reports/S22PLUS_DEBIAN_PACKAGE_P462_PREPARE_2026-10-26.md)
+is **PASS_READY_H0_AND_UNEXECUTED_ENTRY / independent PASS_GO**. One fixed
+offline hello installation, functional execution and exact ordinary-reboot
+retention pass all 69 ARM64 cases. The final boot-only image, cold admission,
+160 host/182 runtime source bindings, both phase constructors and nine approval
+negatives pass. Task `9065a476db83c9d3e786165ecf3b81cf24d187951cf3f228b5966e4643f595b3`
+has no grant or dispatch; current attendance and a fresh finite grant remain
+required. Physical package installation and retention are still unproved.
+
 [P461 physical execution](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
 ANDROID_CLOSED_HEALTHY**. Both physical Debian boots prove PID1, services and
@@ -701,16 +710,19 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P460 is closed healthy with two physical Debian boots, one ordinary reboot,
-two SSH observation windows and actual persistent cron configuration creation,
-second-boot consumption and successful-path retirement. Its N, original A and
-finite grant remain consumed. P461 retains that bounded workload and replaces
-only the final power-off with checked SysV cleanup and one fixed Download
-request, followed by measured original-A return. Finish the actual-baseline
-artifact/corpus, independent capability/entry review and concrete attended
-preparation before any new F1. Package installation remains a later unit.
-Physical post-shutdown consistency and watchdog/reset uncertainty remain
-separate from VM evidence, retained data and healthy Android return.
+P461 is consumed and closed healthy with two physical Debian boots, exact
+configuration persistence/consumption/retirement and automatic Download/A
+return. P462 is the selected next unit: one offline hello installation,
+functional execution, ordinary reboot and exact package/database retention,
+then the same automatic return and full Android closure. Preparation uses
+current clean physical baseline M=34; the package's successful file effects
+were reproduced twice using actual ARM64 dpkg. Sealed admission, all 69 ARM64
+cases, independent capability/entry checks and the concrete task are qualified.
+Execute that task once only after its fresh finite attended grant. No physical
+package experiment has run.
+The shared ADB readiness fix tolerates only exact transient target absence
+within the original wait; it does not replay control or transfer. Physical
+post-return native_data consistency and failure recovery remain separate facts.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the

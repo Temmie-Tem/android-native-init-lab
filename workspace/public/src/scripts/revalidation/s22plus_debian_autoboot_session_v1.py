@@ -63,6 +63,11 @@ def reboot_terminal(adapter,request,*,recovered):
             evidence=selected.evidence();health=selected.rederive_health()
             result['boots'].append(dict(phase=phase,observation=evidence['proof'],ssh_health=health,
                 status='PASS_DEBIAN_AUTOMATIC_INITIAL_PID1_TO_SSH'))
+            if 'package' in evidence['proof']:
+                package=evidence['proof']['package']
+                result.update(package_installation_proved=package['installation_proved'],
+                    package_function_proved=package['function_proved'],
+                    package_exact_reboot_retention_proved=package['exact_reboot_retention_proved'])
             if phase==1:result['status']='PASS_FIRST_BOOT_SSH'
             else:
                 selected.basis()
@@ -78,7 +83,8 @@ def reboot_terminal(adapter,request,*,recovered):
                         'configuration creation, consumption and retirement do not join')
                     result.update(cron_workload_proved=True,cron_configuration_preserved=True,
                         cron_configuration_consumed=True,cron_configuration_retired=True,
-                        configuration_retained_after_experiment=False,package_installation_proved=False)
+                        configuration_retained_after_experiment=False)
+                    if 'package' not in evidence['proof']:result['package_installation_proved']=False
                 elif 'cron' in evidence['proof']:
                     require(result['boots'][0]['observation']['cron']==evidence['proof']['cron'],
                         'cron proof changed across the ordinary reboot')

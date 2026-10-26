@@ -37,7 +37,7 @@ def seal(run):
         'static const char dh_evidence_name[]="'+value['path'].rsplit('/',1)[1]+'";\n').encode()
 
 
-def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False):
+def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False,package=False):
     domain=b'S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1' if autoboot else DOMAIN
     if reboot:
         from s22plus_debian_reboot_v1 import DURABLE_DOMAIN
@@ -48,11 +48,14 @@ def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False)
     if download:
         from s22plus_debian_download_v1 import DURABLE_DOMAIN
         require(cron_config,'Download durable domain needs configuration selection');domain=DURABLE_DOMAIN
+    if package:
+        from s22plus_debian_package_v1 import DURABLE_DOMAIN
+        require(download,'package durable domain needs Download selection');domain=DURABLE_DOMAIN
     return hmac.new(key,domain+body,hashlib.sha256).digest()
 
 
 class Chain:
-    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False):
+    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False,package=False):
         self.tag=first_tag;self.rows=[];self.started=False;self.off=False;self.complete=False
         self.released=False;self.stopped=False;self.progress=[];self.boundaries=[];self.elapsed=0
         self.autoboot=autoboot
@@ -63,13 +66,16 @@ class Chain:
             'configuration chain needs a reboot binding')
         require(type(download) is bool and (not download or cron_config),'Download chain selection differs')
         self.download=download
+        require(type(package) is bool and (not package or download),
+            'package chain selection differs')
+        self.package=package;self.package_intent=None;self.package_complete=None
         self.cron_config=cron_config;self.config_created=[];self.config_retired=None
 
     def append(self,raw,key):
         require(len(raw)==RECORD and raw[:8]==b'S22DER1\0','durable record framing differs')
         seq,kind,elapsed,phase,event,a,b,c,flags,reserved=struct.unpack_from('<IIQIIQQQII',raw,8)
         require(seq==len(self.rows)<RECORDS and not reserved and flags==int(self.off) and not self.stopped and self.control is None and
-            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config,download=self.download)),
+            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config,download=self.download,package=self.package)),
             'durable record sequence, deadline, state or authentication differs')
         row=dict(sequence=seq,kind=kind,name=NAMES[kind-1] if kind in range(1,9) else 'UNKNOWN',
             elapsed_ms=elapsed,phase=phase,event=event,a=a,b=b,c=c,report_disabled=bool(flags))
@@ -139,6 +145,9 @@ class Chain:
             if self.cron_config:
                 require((len(self.config_created)==2 and self.config_retired is None) if self.reboot['phase']==1 else
                     not self.config_created and self.config_retired is not None,'configuration lifecycle is incomplete')
+            if self.package:
+                require(self.package_intent is not None and self.package_complete is not None,
+                    'package lifecycle is incomplete')
             self.complete=True
         elif kind==11 and self.cron_config:
             from s22plus_debian_cron_config_v1 import schedule
@@ -154,6 +163,21 @@ class Chain:
                 not self.config_created and self.config_retired is None and phase==2 and event==1 and
                 a>0 and 1<b<=2147483647 and c>0,'configuration retirement ordering differs')
             row['name']='CONFIG_RETIRED';self.config_retired=row
+        elif kind in (13,14) and self.package:
+            require(self.started and not self.complete and len(self.progress)==15 and
+                phase==self.reboot['phase'] and event==phase and
+                ((len(self.config_created)==2 and self.config_retired is None) if phase==1 else
+                 not self.config_created and self.config_retired is not None),
+                'package transaction ordering differs')
+            if kind==13:
+                require(self.package_intent is None and self.package_complete is None and (a,b,c)==(52,54,0),
+                    'package transaction intent repeats or differs')
+                row['name']='PACKAGE_INTENT';self.package_intent=row
+            else:
+                require(self.package_intent is not None and self.package_complete is None and
+                    self.rows[-1]['kind']==13 and 1<a<=2147483647 and b==0 and c==54,
+                    'package transaction completion differs')
+                row['name']='PACKAGE_COMPLETE';self.package_complete=row
         elif kind==RELEASE:
             require(not self.autoboot,'automatic record cannot claim host release')
             require(self.complete and not self.off and not self.released and (phase,event,a,b,c)==(0,0,9,0,0),
@@ -173,7 +197,7 @@ class Chain:
         self.tag=raw[96:];self.elapsed=elapsed;self.rows.append(row)
 
 
-def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False):
+def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False,package=False):
     """Expected identity comes from the retained qualified image/authenticated run.
 
     A valid historical prefix can survive a later malformed/torn tail. It
@@ -191,10 +215,10 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         'durable file size or key differs')
     h=data[:HEADER]
     require(h[:8]==b'S22DE01\0' and struct.unpack_from('<II',h,8)==(1,HEADER) and
-        struct.unpack_from('<4I',h,112)==(9 if download else 8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
+        struct.unpack_from('<4I',h,112)==(10 if package else 9 if download else 8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
         (struct.unpack_from('<3I',h,200)==(reboot['phase'],reboot['initial_mount_count'],reboot['initial_mount_count']+2*reboot['phase'])
             and not any(h[212:224]) if reboot is not None else not any(h[200:224])) and
-        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config,download=download)),
+        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config,download=download,package=package)),
         'durable header authentication or shape differs')
     origin,deadline=struct.unpack_from('<QQ',h,96);device=struct.unpack_from('<Q',h,192)[0]
     require(deadline>=300000 and deadline-origin==300000 and h[16:32].hex()==expected['run_id_hex'] and
@@ -203,7 +227,7 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         device==os.makedev(expected['root_device']['major'],expected['root_device']['minor']),
         'durable identity does not join retained run/boot/init/root')
     require(not autoboot or (origin,deadline)==(0,300000),'automatic deadline was renewed')
-    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config,download=download);error=None;pos=HEADER
+    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config,download=download,package=package);error=None;pos=HEADER
     while pos<len(data):
         try:chain.append(data[pos:pos+RECORD],key)
         except ValueError as failure:
@@ -231,6 +255,11 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
             reboot_phase=dict(reboot,installed_mount_count=reboot['initial_mount_count']+2*reboot['phase']),
             reboot_intent=chain.control==9,shutdown_intent=chain.control==10)
     if download:result['download_intent']=chain.control==10
+    if package:
+        result['package']=dict(intent=chain.package_intent,complete=chain.package_complete,
+            phase=reboot['phase'],installation_proved=reboot['phase']==1 and chain.package_complete is not None,
+            function_proved=chain.package_complete is not None,
+            exact_post_state_proved=chain.package_complete is not None)
     if cron_config:
         result['configuration_created']=None
         if len(chain.config_created)==2:

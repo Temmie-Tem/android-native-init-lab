@@ -192,6 +192,14 @@ static int ri_compare_tree(int root, dev_t device, struct ri_compare *c) {
             if (errno == ENOENT) { ++c->missing; c->boot_missing += critical; ri_finding(path,"missing"); }
             else error = fs1_error();
         } else {
+#ifdef S22_DEBIAN_PACKAGE
+            int package=pk_archive(parent,path,leaf,device);
+            if(package) {
+                if(package<0)error=-package;else ++c->matched;
+                if(close(parent) && !error)error=fs1_error();
+                continue;
+            }
+#endif
 #if defined(S22_DEBIAN_HANDOFF) || defined(S22_NATIVE_JOURNAL_RECOVERY)
             int allowed=dh_mutable_archive(path,&st,device);
             if(allowed) {

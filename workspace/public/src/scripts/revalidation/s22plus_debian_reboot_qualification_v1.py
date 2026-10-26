@@ -27,7 +27,7 @@ def vm_results(tested,built,key):
     from s22plus_debian_autoboot_qualification_v1 import producer
     from s22plus_debian_autoboot_profile_v1 import cron_selected,cron_variant
     cron=cron_selected(built)
-    cron_spec=cron_variant(cron);config=cron in ('config','download')
+    cron_spec=cron_variant(cron);config=cron in ('config','download','package')
     require(tested['schema']=='s22plus-debian-reboot-vm-v1' and tested['status']=='PASS' and
         tested['device_actions']==0 and tested['source_inputs']==built['source_inputs'] and
         tuple(row['case'] for row in tested['cases'])==('two-boot-normal','clean-error-unmount','second-root-control',*spec.ROOT_CASES,
@@ -54,7 +54,19 @@ def vm_results(tested,built,key):
             verify(receipt)
         serial=verify(row['serial'],maximum=8*1024**2).read_bytes()
         if cron and row['case'] in cron_spec.RUNTIME_FAULTS:
-            from cron_vm_faults import validate_serial,validate_config_serial
+            from cron_vm_faults import validate_serial,validate_config_serial,validate_package_serial
+            from s22plus_debian_package_v1 import PACKAGE_FAULTS
+            package=cron=='package' and row['case'] in PACKAGE_FAULTS
+            if package:
+                require(row['scope']=='H0_ARM64_DECLARED_PACKAGE_FAILURE' and
+                    row['kernel_stopped_by_h0_driver'] is True and row['workload_success'] is False and
+                    row['replay_authorized'] is False and row['returncode']==-9 and
+                    helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<215,
+                    'package failure was promoted or changed its substitution')
+                verify(row['command']);validate_package_serial(serial,row['case'])
+                require(verify(row['configuration_after']).read_bytes()==cron_spec.schedule(built['run_id']),
+                    'failed package operation changed the first configuration')
+                continue
             require(row['scope']==('H0_ARM64_DECLARED_CRON_CONFIG_FAILURE' if config else 'H0_ARM64_DECLARED_CRON_FAILURE') and row['kernel_stopped_by_h0_driver'] is True and
                 row['workload_success'] is False and row['replay_authorized'] is False and row['returncode']==-9 and
                 helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<215,
@@ -106,7 +118,7 @@ def vm_results(tested,built,key):
         require(row['scope']=='PRODUCTION_RUNTIME_ARM64_WITH_HARDWARE_SUBSTITUTIONS' and
             row['physical_boot_proved'] is False and b'reboot: Restarting system' in serial and
             b'reboot: Power down' in serial and len(row['boots'])==2,'two actual VM boots absent')
-        if cron=='download':cron_spec.validate_vm_return(serial)
+        if cron in ('download','package'):__import__('s22plus_debian_download_v1').validate_vm_return(serial)
         for name in ('initial','final'):
             require(baseline.block_projection(verify(row[name+'_block']).read_bytes())==row[name+'_superblock'],
                 'VM superblock does not rederive')
@@ -152,7 +164,7 @@ def vm_results(tested,built,key):
                 capture=raw.load_handle(verify(sample['health']['capture']))
                 require(raw.read_stdout(capture,maximum=65536).count(f'S22_REBOOT_PHASE {phase}\n'.encode())==1,
                     'VM SSH health phase differs')
-            verb='reboot' if phase==1 else 'download' if cron=='download' else 'shutdown'
+            verb='reboot' if phase==1 else 'download' if cron in ('download','package') else 'shutdown'
             handle=raw.load_handle(verify(boot['control_capture']))
             controlled,final=protocol.envelope(owner.capture_body(handle,'127.0.0.1',verb),key=key,selected=helper,phase=phase)
             require(controlled==boot['control'] and controlled['runtime'][verb+'_intent'] and

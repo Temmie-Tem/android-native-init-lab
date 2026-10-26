@@ -172,7 +172,7 @@ rb_evidence() {{
   ;;
 '''
     result=script[:begin]+controls+script[end:]
-    if cron in ('config','download'):
+    if cron in ('config','download','package'):
         from s22plus_debian_cron_config_v1 import path
         for phase in (1,2):
             needle=(f"/{first['runtime']} /run/s22-debian/transition" if phase==1 else f"/{first['early']} /{first['runtime']}").encode()+b';;'

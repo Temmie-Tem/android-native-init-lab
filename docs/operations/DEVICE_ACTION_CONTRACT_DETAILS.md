@@ -117,6 +117,11 @@ permission to perform host-only work.
    root read-only cleanup. Exact Download arrival permits one original-A
    transfer within the original final-control deadline; attended physical
    recovery remains required on uncertainty. It adds no partition payload.
+   The separate [one offline package specialization](S22PLUS_DEBIAN_PACKAGE_V1.md)
+   permits only its sealed hello installation, package-manager transaction
+   files and exact post-state verification within those same native_data
+   lifetimes. It retains the installed package, never repairs or retries a
+   failed transaction, and adds no other-partition writer.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -214,6 +219,10 @@ permission to perform host-only work.
    It includes the declared stock NODUMP/disable_sdi, FULLDUMP and
    SEC_DEBUG_MODE initialization effects. It authorizes no dump acquisition,
    panic, EDL, arbitrary NVMEM write, alternate control or automatic recovery.
+   The [one offline package specialization](S22PLUS_DEBIAN_PACKAGE_V1.md)
+   separately permits its single fixed dpkg transaction and read-only
+   second-boot function/retention checks. Exact sealed files, no replay,
+   original deadlines and attended original-A recovery remain mandatory.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1367,6 +1376,26 @@ prove automatic return. An uncertain owner uses only its original attended
 recovery. This does not activate unattended execution or failure recovery.
 Five P460 final producer expectations retain their original source provenance;
 they do not prove current clean state or post-Android file retention.
+
+
+The separately reviewed [one offline package specialization](S22PLUS_DEBIAN_PACKAGE_V1.md)
+adds only `post-autoboot-p461-package-v1`, namespace `p462`, to that same owner.
+After first-boot services, one pinned dpkg invocation installs the already
+embedded exact hello arm64 package. Its fixed payload, database replacements
+and documented internal transaction staging/error unwind are the only added
+persistent effects. An authenticated intent precedes installation; settled
+successful children, empty audit/verify output, the fixed hello function,
+exact sealed post-state and checked synchronization precede completion.
+Both second-boot protected admissions require the completed first transaction
+and ordinary reboot, exactly 52 new entries and two database replacements,
+with every other immutable row unchanged and every unknown path rejected.
+The second boot verifies and runs hello without installing again. There is no
+apt/network work, dependency installation, service-policy change, extra boot,
+new writable lifetime or package cleanup. Partial installation may remain;
+original A does not revert native_data, and failure never permits retry or
+repair. Current physical M=34, full qualification, independent review and a
+fresh finite attended grant remain required. The five P461 final producer
+expectations retain their provenance and are not post-Android retention proof.
 
 ## S22+ native-first installed-Debian handoff
 

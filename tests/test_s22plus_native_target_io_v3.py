@@ -98,7 +98,8 @@ class TargetTests(unittest.TestCase):
         client=target.Android(dict(path='/fixture'),self.binding,self.android,self.directory,guard=lambda:None)
         values=iter(('List of devices attached\n',self.inventory,'0',self.inventory,'1'))
         calls=[]
-        def command(arguments,name,*,timeout):
+        def command(arguments,name,*,timeout,before_launch=None):
+            if before_launch:before_launch()
             calls.append(arguments)
             return target.raw.publish_captured_bytes(self.directory,name,stdout=next(values).encode())
         with mock.patch.object(client,'command',side_effect=command),mock.patch.object(target.time,'sleep'):

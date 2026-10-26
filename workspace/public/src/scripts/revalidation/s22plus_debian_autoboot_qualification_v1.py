@@ -153,6 +153,11 @@ def producer(built,*,virtual):
             verify(built['headers']['early/s22plus_debian_cron_seal_v1.h']).read_bytes()==profile.cron_variant(cron).seal(built['run_id']),
             'cron declaration or generated seal differs')
     else:require('cron' not in built,'unselected cron declaration')
+    if profile.package_selected(built):
+        require(built.get('package')==profile.package_spec.package_declaration() and
+            verify(built['headers']['early/s22plus_debian_package_seal_v1.h']).read_bytes()==profile.package_spec.header(),
+            'package declaration or generated seal differs')
+    else:require('package' not in built,'unselected package declaration')
     if profile.download_selected(built):
         require(built.get('download_return')==profile.download_spec.return_declaration() and
             verify(built['headers']['installed/s22plus_debian_download_seal_v1.h']).read_bytes()==profile.download_spec.return_header(),

@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **60** (supersedes revision 59; 2026-10-26)
+Contract-Revision: **61** (supersedes revision 60; 2026-10-26)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`77e3261bb2b74cef195fd8ca970b3733d0293cc3897a9747d1026535b1aee750`.
+`d3cb1fff568832cf996fa5880a1cec8b460dbca4142d6974ac2272f5bdbda2e5`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -123,7 +123,8 @@ Read an exception's complete conditions before considering it applicable.
    and its separately reviewed [bounded ordinary-reboot specialization](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md)
    and [bounded cron workload specialization](docs/operations/S22PLUS_DEBIAN_CRON_V1.md)
    and [persistent cron configuration specialization](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
-   and [Debian Download return specialization](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md).
+   and [Debian Download return specialization](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
+   and [one offline package specialization](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -215,6 +216,10 @@ Read an exception's complete conditions before considering it applicable.
    fixed stock modules and one literal Download restart. Exact arrival and
    original-A dispatch use the original final-intent deadline; physical
    recovery remains attended, with no alternate control or replay.
+   The separately reviewed [one offline package](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md)
+   adds only one sealed hello dpkg transaction and exact reboot-retention/
+   function checks inside the same lifetimes. Partial state may remain;
+   original-A return does not undo it, and no package repair or replay follows.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -285,6 +290,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ persistent cron configuration | [Exact cross-boot consumption and retirement](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md); one boot-1 cron.d file, one boot-2 report and one successful-path unlink inside the same attended two-boot owner; failure revokes RAM only, with physical original-A return and no package install, repair or replay. |
 | S22+ Debian Download return | [Final SysV Download and original-A return](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md); same attended two-boot/four-lifetime workload, checked final root RO, five fixed stock modules and one Download restart, with exact arrival/original-A dispatch inside the original 90-second control window; physical fallback remains distinct from automatic-return proof. |
 | S22+ bounded Debian reboot | [Two admitted automatic boots](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md); sealed pre-build M, four exact writable lifetimes, one ordinary reboot, one final shutdown, two fixed observation windows inside one attended finite grant and physical original-A return; no repair or replay. |
+| S22+ one offline package | [Fixed hello installation and reboot retention](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md); one pinned dpkg transaction, 52 exact additions and two database replacements within the same two-boot/four-lifetime owner, fixed hello output in both boots and attended Download/A return; no apt, package retry, cleanup or repair. |
 | S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md); one reviewed strict writer, fresh attended grant, protected post-check and one original-A return, no repair replay or reinstall. |
 | X | Forbidden; remain H0. |
 

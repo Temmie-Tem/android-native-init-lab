@@ -130,10 +130,20 @@ class Android:
 
     def wait_ready(self, *, deadline_ns):
         """Bounded readiness reads; the required seven-read health is separate."""
+        def remaining_timeout():
+            remaining=(deadline_ns-clock())/1_000_000_000
+            if remaining<.1:raise TimeoutError('Android readiness did not complete')
+            return min(10,remaining)
+        def observe(arguments,name):
+            # Recheck after tool/source guards as well as between the two reads.
+            # A late completion cannot become readiness or renew this deadline.
+            return self.command(arguments,name,timeout=remaining_timeout(),
+                before_launch=remaining_timeout)
         index=0
         while clock()<deadline_ns:
-            inventory=self.command(['devices','-l'],f'wait-{index:03d}-inventory',timeout=10)
+            inventory=observe(['devices','-l'],f'wait-{index:03d}-inventory')
             text=raw.decode_success_stdout(inventory,maximum=16384)
+            require(not raw.read_stderr(inventory,maximum=16384),'ADB readiness inventory returned diagnostics')
             lines=text.splitlines()
             require(lines and lines[0]=='List of devices attached','ADB readiness inventory header differs')
             rows=[line.split() for line in lines[1:] if line.strip()]
@@ -146,8 +156,18 @@ class Android:
             if selected and selected[0][1]=='device':
                 select_android(text,self.target)
                 command=['-s',self.target['serial'],'shell','getprop sys.boot_completed']
-                handle=self.command(command,f'wait-{index:03d}-boot',timeout=10)
-                value=raw.decode_success_stdout(handle,maximum=16)
+                handle=observe(command,f'wait-{index:03d}-boot')
+                vanished=(handle.returncode==1 and not handle.timed_out and not handle.output_exceeded and
+                    handle.producer_error_type is None and raw.read_stdout(handle,maximum=16)==b'' and
+                    raw.read_stderr(handle,maximum=16384)==
+                    ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'))
+                if vanished:
+                    # Keep this immutable failure and select the exact target
+                    # again in the next bounded inventory; never retry control.
+                    value=''
+                else:
+                    value=raw.decode_success_stdout(handle,maximum=16)
+                    require(not raw.read_stderr(handle,maximum=16384),'Android readiness read returned diagnostics')
                 require(value in ('','0','1'),'Android boot-complete property is malformed')
                 if value=='1':
                     require(clock()<deadline_ns,'Android readiness exceeded original deadline')

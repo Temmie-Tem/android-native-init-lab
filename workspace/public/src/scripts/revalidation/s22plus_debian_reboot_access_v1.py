@@ -7,17 +7,18 @@ import s22plus_debian_reboot_v1 as spec
 import s22plus_debian_cron_v1 as cron_spec
 import s22plus_debian_cron_config_v1 as cron_config_spec
 import s22plus_debian_download_v1 as download_spec
+import s22plus_debian_package_v1 as package_spec
 from s22plus_debian_autoboot_access_v1 import Access as AutomaticAccess
 from s22plus_native_records_v3 import Journal,clock,pin,publish,read,require,verify
 
 
 def selected(request):
     image=request.get('N') or {}
-    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE,download_spec.NAMESPACE)
+    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE,download_spec.NAMESPACE,package_spec.NAMESPACE)
 
 
 def download_selected(request):
-    return selected(request) and request['N'].get('namespace')==download_spec.NAMESPACE
+    return selected(request) and request['N'].get('namespace') in (download_spec.NAMESPACE,package_spec.NAMESPACE)
 
 
 def control_step(command):return 'debian-shutdown' if command=='download' else 'debian-'+command

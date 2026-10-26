@@ -10,18 +10,20 @@ import autoboot_vm as automatic
 import h0
 import s22plus_debian_cron_v1 as spec
 import s22plus_debian_cron_config_v1 as config_spec
+import s22plus_debian_package_v1 as package_spec
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
 
 def run(out,build,helper,case,positive=None):
-    require(case in spec.RUNTIME_FAULTS or case in config_spec.RUNTIME_FAULTS,'unselected cron runtime fault')
+    package=case in package_spec.PACKAGE_FAULTS
+    require(case in spec.RUNTIME_FAULTS or case in config_spec.RUNTIME_FAULTS or package,'unselected runtime fault')
     selected=automatic.prepare(out,build,helper,'normal')
     config=automatic.build_api.profile.cron_config_selected(selected)
     require(selected.get('transition_fault')==case and automatic.build_api.profile.cron_selected(selected),
         'runtime fault helper differs')
     fixture=automatic.vm.fixture;life=automatic.lifecycle;disk=out/'disk.img'
     extra={}
-    if config and case not in config_spec.FIRST_PHASE_FAULTS:
+    if config and case not in config_spec.FIRST_PHASE_FAULTS and not package:
         require(positive is not None,'second-boot failure needs the actual first root')
         normal=read(positive/'result.json');first=read(verify(normal['first_root']));source=positive/'native-first.ext4'
         require(first['path']==str(source) and first['origin']=='ACTUAL_FIRST_KERNEL_REBOOT_EXIT' and
@@ -55,7 +57,7 @@ def run(out,build,helper,case,positive=None):
             require(parked,'cron failure did not reach its bounded observation')
             process.kill();process.wait()
         serial=(out/'serial.log').read_bytes()
-        (validate_config_serial if config else validate_serial)(serial,case)
+        (validate_package_serial if package else validate_config_serial if config else validate_serial)(serial,case)
         require(life.outside_native(disk)==outside,'runtime fault wrote outside native_data')
         if config and case=='config-create-partial':
             # Its marker follows the checked 31-byte write, file/parent fsync
@@ -78,11 +80,28 @@ def run(out,build,helper,case,positive=None):
             outside_native_unchanged=True,disk_before=before,disk_after=fixture.fixture_tools.sparse_digest(disk),
             physical_readiness=False,device_actions=0,workload_success=False,replay_authorized=False,**extra)
         if config:result['scope']='H0_ARM64_DECLARED_CRON_CONFIG_FAILURE'
+        if package:result['scope']='H0_ARM64_DECLARED_PACKAGE_FAILURE'
         publish(out/'result.json',result);print('PASS '+case,flush=True);return result
     except Exception as error:
         publish(out/'failure.json',dict(error_type=type(error).__name__,message=str(error),device_actions=0));raise
     finally:
         if process is not None and process.poll() is None:process.kill();process.wait()
+
+
+def validate_package_serial(serial,case):
+    require(case in package_spec.PACKAGE_FAULTS,'unselected package failure')
+    result=re.findall(rb'PACKAGE_RESULT phase=(\d+) intent=(\d+) complete=(\d+) errno=(\d+)\r?\n',serial)
+    parks=re.findall(rb'DHVM_HOOK_PARK errno=(\d+)\r?\n',serial)
+    expected=10 if case=='package-install-error' else 110 if case in ('package-command-timeout','package-orphan-child') else 5 if case=='package-sync-failure' else 17 if case=='package-transaction-remnant' else 71
+    require(result==[(b'1',b'1',b'0',str(expected).encode())] and parks==[str(expected).encode()],
+        'package failure did not stop its one consumed transaction')
+    commands=re.findall(rb'PACKAGE_COMMAND phase=1 step=(\d+) pid=(\d+) status=(\d+) bytes=(\d+) errno=(\d+)\r?\n',serial)
+    steps=[int(r[0]) for r in commands]
+    require(steps==([1] if case=='package-repeat-intent' else [1,2] if case in ('package-install-error','package-command-timeout') else [1,2,3,4] if case=='package-transaction-remnant' else [1,2,3,4,5]),
+        'package failure repeated or advanced its command list')
+    require(b'reboot: Restarting system' not in serial and b'reboot: Power down' not in serial and
+        b'PACKAGE_RESULT phase=2' not in serial,'failed package work performed control or another boot')
+    return True
 
 
 def validate_serial(serial,case):

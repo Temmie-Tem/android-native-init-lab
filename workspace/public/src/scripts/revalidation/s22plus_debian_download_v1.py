@@ -30,8 +30,10 @@ ASSET_NAMES=('rc-return',*(('return-'+name) for name,_,_,_ in stock.MODULES))
 
 
 def ramdisk_additions(selected):
-    if selected['namespace']!=NAMESPACE:return {}
-    require(selected['version']==VERSION and selected['download_return']==return_declaration(),
+    from s22plus_debian_package_v1 import NAMESPACE as package_namespace, VERSION as package_version
+    versions={NAMESPACE:VERSION,package_namespace:package_version}
+    if selected['namespace'] not in versions:return {}
+    require(selected['version']==versions[selected['namespace']] and selected['download_return']==return_declaration(),
         'unselected Download RAM additions')
     return {'s22-debian-'+name:0o100400 if name.endswith('.ko') else 0o100500 for name in ASSET_NAMES}
 

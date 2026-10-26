@@ -213,6 +213,9 @@ static int dh_service(const char *pidfile,const char *executable,uint64_t size,c
 #ifdef S22_DEBIAN_CRON
 #include "s22plus_debian_cron_runtime_v1.inc.c"
 #endif
+#ifdef S22_DEBIAN_PACKAGE
+#include "s22plus_debian_package_runtime_v1.inc.c"
+#endif
 static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char *mode) {
     int error;
     if(!strcmp(mode,"rcs")) {
@@ -277,6 +280,9 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     }
 #ifdef S22_DEBIAN_CRON
     if((error=cr_complete(state)))dh_hook_fail(error);
+#endif
+#ifdef S22_DEBIAN_PACKAGE
+    if((error=pk_complete(state)))dh_hook_fail(error);
 #endif
     if((error=de_event(DE_COMPLETE,0,0,0,0,0)))dh_hook_fail(error);
 #ifdef S22_DEBIAN_AUTOBOOT

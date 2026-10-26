@@ -811,6 +811,24 @@ Five P460 final-producer expectations remain distinct from current clean or
 post-Android retention proof. Fresh physical baseline, full qualification,
 independent review and the existing finite attended grant remain mandatory.
 
+
+The common-incorporated [one offline package specialization](../S22PLUS_DEBIAN_PACKAGE_V1.md)
+is adopted only for `post-autoboot-p461-package-v1`, namespace `p462`, under
+the same attended two-boot/four-lifetime owner and original deadlines.
+One fixed first-boot dpkg transaction installs the embedded sealed hello
+package after a durable intent. It includes only the declared final files and
+ordinary internal transaction staging/error unwind within that invocation.
+Checked completion requires settled children, empty audit/verify output,
+exact file/database hashes, synchronization and the fixed hello function.
+Both second-boot admissions require the completed transaction and ordinary
+reboot, with exactly 52 new entries and two exact database replacements.
+Second-boot work verifies and runs hello without another installation.
+Unknown or partial state is rejected, never learned. Failure may leave partial
+native_data changes that original A cannot undo; no package replay, repair,
+removal or parent cleanup is authorized. Existing Download/A and physical
+fallback remain attended. Fresh physical baseline M=34, full qualification,
+independent review and the existing finite attended grant remain mandatory.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

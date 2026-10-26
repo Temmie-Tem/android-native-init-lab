@@ -137,6 +137,8 @@ def kernel_command_line(selected):
     fault=''
     if build_api.profile.cron_config_selected(selected) and selected.get('transition_fault') in build_api.profile.cron_config_spec.RUNTIME_FAULTS:
         fault='s22cf_fault='+str(build_api.profile.cron_config_spec.RUNTIME_FAULTS[selected['transition_fault']])+' '
+    if build_api.profile.package_selected(selected) and selected.get('transition_fault') in build_api.profile.package_spec.PACKAGE_FAULTS:
+        fault='s22pk_fault='+str(build_api.profile.package_spec.PACKAGE_FAULTS[selected['transition_fault']])+' '
     return fault+('maxcpus=1 ' if build_api.profile.singlecpu_selected(selected) else '')+(
         'cpuidle.off=1 ' if selected.get('idle_policy')=='cpuidle-off' else '')+vm.KERNEL_COMMAND_LINE
 
