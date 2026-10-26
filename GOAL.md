@@ -23,20 +23,24 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P461 Debian Download return preparation](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_PREPARE_2026-10-26.md)
-is **PASS_H0_ARTIFACT_AND_VM / independent PASS_GO**. It keeps Debian PID1 and
-SysV cleanup, then checks actual root RO and uses one fixed RAM helper for
-the five stock modules and one authenticated Download restart. The actual
-clean-M30 candidate passes all 49 ARM64 cases, 64 focused tests, thirty physical-
-helper fixture cases, the 38,082,601-byte boot-only package and cold original
-image admission. Review binds 157 host and 178 runtime sources with no findings.
-The exact one-operation/3600-second task and source snapshot pass independent
-**PASS_READY_H0_AND_UNEXECUTED_ENTRY**, including nine approval negatives.
-The connected worker confirms no dispatch; current attended approval is pending.
-The [P461 specialization](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
-has no opened grant or image transfer. Actual Samsung Download
-arrival remains unproved. The first run is attended; unattended/deferred
-recovery is separate policy work. No consumed action gains replay authority.
+[P461 physical execution](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_RUN_2026-10-26.md)
+is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
+ANDROID_CLOSED_HEALTHY**. Both physical Debian boots prove PID1, services and
+SSH samples spanning 121030/121460 ms; boot count advances 8→9. The exact cron
+configuration survives the ordinary reboot, is consumed by packaged cron and
+is retired. Final authenticated Download, exact arrival and original-A dispatch
+join within 19.736 seconds of the final intent, inside its original 90-second
+window. N and A each transfer once, with no physical-return dispatch. One
+post-A ADB read fails; the original health-only continuation completes without
+another transfer. Final health completes at 605.528 seconds and closure at
+722.303 seconds. H0 closure rederives 629 raw captures and the unchanged 24-row
+journal; no F1 owner remains. Unattended/failure recovery and final post-return
+native_data consistency remain unproved. No consumed action can replay.
+
+[P461 preparation](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_PREPARE_2026-10-26.md)
+passed independent capability and entry review, 49 ARM64 cases, 64 focused
+tests, thirty physical-helper fixtures, boot-only packaging, cold image admission
+and nine approval negatives. Its exact prepared task is now consumed and closed.
 
 [P460 physical execution](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**.

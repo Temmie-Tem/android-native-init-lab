@@ -5,6 +5,10 @@ State: **PASS_READY_H0_AND_UNEXECUTED_ENTRY**, with independent capability
 concrete preparation, not device execution authority. The selected target
 is S22+ FYG8 only. A90, S20+ and their existing changes remain untouched.
 
+This was the pre-execution boundary. The separately approved
+[P461 physical run](S22PLUS_DEBIAN_DOWNLOAD_P461_RUN_2026-10-26.md) subsequently
+completed automatic Download/A return and healthy closure; this task is consumed.
+
 ## Result and implementation
 
 P461 retains P460's two Debian boots, four admitted writable lifetimes and
@@ -78,10 +82,9 @@ The intended operation is one attended P461 `debian-autoboot` owner with a
 3600-second budget: one N transfer, two Debian boots, one ordinary reboot,
 one final Download request and one original-A return with Android health.
 The concrete task is `216b357bf1e38a991f394c07657ae13e5b567e9d56979e2a9b9c4082719ea0d6`.
-Its source snapshot, current capability bindings and independent prepared-entry
-review pass. The returned finite approval and current physical attendance
-confirmation remain pending.
-No P461 grant, entry attempt or image transfer has occurred. Current runtime
-binding and usable physical Download recovery remain required at execution.
-Actual Samsung Download arrival and final post-return filesystem consistency
-remain unproved.
+At preparation, its source snapshot, capability bindings and independent entry
+review passed while returned approval and current attendance were still pending.
+No grant, entry attempt or image transfer had occurred at that boundary. The
+separate run report above records the later human approval, actual Download/A
+proof and closed consumption. Final post-return filesystem consistency remains
+unproved.
