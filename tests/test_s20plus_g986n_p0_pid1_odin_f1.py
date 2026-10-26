@@ -2337,9 +2337,9 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
             ):
                 self.module._active_document_semantics()
 
-    def test_active_semantics_are_anchored_to_authoritative_status_fields(self):
+    def activation_documents(self, *, active=True):
         paths = self.module.P0_POLICY_FILES
-        active = {
+        documents = {
             paths["repository_contract"]: (
                 "# AGENTS\n\n| Target | Current state | Binding target contract | Live process |\n"
                 "| --- | --- | --- | --- |\n| "
@@ -2375,6 +2375,35 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                 + "\n\n## Outcome\n"
             ),
         }
+
+        if not active:
+            for name in self.module.P0_DORMANT_DOCUMENT_SEMANTICS:
+                path = paths[name]
+                before, _ = self.module._activation_marker(
+                    name, self.module.P0_ACTIVE_DOCUMENT_SEMANTICS[name]
+                )
+                after, _ = self.module._activation_marker(
+                    name, self.module.P0_DORMANT_DOCUMENT_SEMANTICS[name]
+                )
+                documents[path] = documents[path].replace(before, after, 1)
+        return documents
+
+    def use_dormant_activation_documents(self):
+        """Bind historical P0 tests to their fixture, independent of live P1 status."""
+        documents = self.activation_documents(active=False)
+        original_read = Path.read_text
+        patcher = mock.patch.object(
+            Path, "read_text", autospec=True,
+            side_effect=lambda path, *args, **kwargs: (
+                documents[path] if path in documents else original_read(path, *args, **kwargs)
+            ),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_active_semantics_are_anchored_to_authoritative_status_fields(self):
+        paths = self.module.P0_POLICY_FILES
+        active = self.activation_documents()
 
         def read_active(path, *_args, **_kwargs):
             return active[path]
@@ -2494,10 +2523,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
 
     def test_activation_document_normalization_allows_only_exact_status_changes(self):
         paths = self.module.P0_POLICY_FILES
-        current = {
-            paths[name]: paths[name].read_text("utf-8")
-            for name in self.module.P0_DORMANT_DOCUMENT_SEMANTICS
-        }
+        current = self.activation_documents(active=False)
         semantics = self.module._current_document_semantics(
             {
                 name: current[paths[name]]
@@ -2532,8 +2558,8 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
 
             actual_marker = marker(actual)
             self.assertEqual(current[path].count(actual_marker), 1)
-            dormant[path] = current[path].replace(actual_marker, marker(before), 1)
-            active[path] = current[path].replace(actual_marker, marker(after), 1)
+            dormant[path] = dormant[path].replace(actual_marker, marker(before), 1)
+            active[path] = active[path].replace(actual_marker, marker(after), 1)
 
         def normalized(documents):
             with mock.patch.object(
@@ -2550,6 +2576,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
         self.assertNotEqual(normalized(dormant), normalized(changed))
 
     def test_zero_finding_review_rejects_every_normalized_or_unchanged_policy_drift(self):
+        self.use_dormant_activation_documents()
         current = self.module._reviewed_closure_current()
         reviewed = json.loads(json.dumps(current))
         value = {
@@ -2658,6 +2685,7 @@ class S20PlusG986NP0Pid1OdinF1Tests(unittest.TestCase):
                     )
 
     def test_mechanical_activation_requires_allowlist_and_normalized_closure(self):
+        self.use_dormant_activation_documents()
         reviewed = self.module._reviewed_closure_current()
         zero_value = {"reviewed_closure": reviewed}
         zero_receipt = {"path": "zero", "size": 1, "sha256": "1" * 64}

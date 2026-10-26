@@ -686,49 +686,20 @@ private-output rules, hostile tests, independent policy review, live
 coordinator implementation, and a later mechanical activation remain required
 before any autonomous connected action exists.
 
-The first independent review returned `NO_GO`: the draft contradicted its own
-Odin exception, could not reuse the attended disconnect/reconnect exit,
-contained a caller-backend hook, mixed root node types without exact parsers,
-and allowed session budgets to reset. The rotated H0 model uses a separate
-empty-baseline/entry/arrival/payload-free-return choreography, permanently
-removes live dispatch from the policy owner, defers root actions, excludes
-file-byte extraction, and requires a fresh attended opening for one
-nonrenewable 24-hour campaign whose child-session counters are monotonic. It
-remains review-pending and inactive.
+Six independent reviews returned `NO_GO` before that policy closed, and their
+findings are the constraints the model now carries: the draft contradicted its
+own Odin exception and could not reuse the attended disconnect/reconnect exit; a
+caller-backend hook existed; session budgets could reset; the two-effect
+Download roundtrip was charged as one effect; a budget edge left an entry with
+no return slot, so the return effect is now reserved before entry; relationally
+forged counters could reset history; expiry recovery trusted an unbound phase
+string and counter debit was not atomic with both scope snapshots and the
+intent, so every recovery node must bind its fixed current guard,
+campaign/session/ordinal/source/endpoint/policy, actual predecessor bytes and
+both counter scopes in one atomic no-replace node; and the owner's recovery
+validator was caller-self-certified and was removed completely. The owner is now
+permanently render-only, defers all root actions, and grants no recovery action.
 
-The second independent review returned `NO_GO` because the two-effect Download
-roundtrip was charged as one effect, Magisk metadata survey input/time/parser
-closure remained incomplete, and the report still described a removed backend
-hook. The current rotation separates transaction and component-effect counters
-and removes every root profile from the action surface, records the exact
-closure required by a later root unit, and corrects the report. The permanently
-render-only owner remains review-pending and inactive.
-
-The third independent review reproduced a budget-edge strand: a Download entry
-at `effect_max-1` left no return slot, and the unresolved entry still admitted
-a normal reboot. The rotated model reserves the return effect before entry,
-converts that reservation at return without new capacity, and rejects every
-other control while the roundtrip is unresolved. Both child-session and
-campaign maximum-edge cuts are now hostile fixtures. A valid reservation
-survives time expiry only for bound arrival, payload-free return, and final
-health; it opens no new baseline, entry, or transaction. It remains inactive.
-
-The fourth review found that relationally forged counters could reset history
-and expiry recovery was undefined. Exact counter equations now reject forged
-or orphan state, while the policy reserves expiry authority only for the bound
-arrival/return/final-health sequence.
-
-The fifth review returned `NO_GO` because expiry recovery trusted an unbound
-phase string and counter debit was not atomic with both scope snapshots and the
-intent. The future live coordinator must bind every recovery node to its fixed
-current guard, campaign/session/ordinal/source/endpoint/policy, actual
-predecessor bytes, and both counter scopes in one atomic no-replace node.
-
-The sixth review then proved the policy owner's recovery validator was still
-caller-self-certified. It has been removed completely. The permanently
-render-only owner now grants no recovery action and records only the fixed-path
-canonical/current-guard/full-chain requirements that a separate live
-coordinator must implement and independently review.
 
 Fresh exact-byte independent review returned `PASS_GO` for this dormant policy
 H0 only. A mechanical status rotation records
@@ -851,19 +822,31 @@ contract and named reports rather than this current-state goal.
 
 Status: `P0_PID1_ODIN_F1_REVIEW_PENDING_NOT_ACTIVE`
 
-V2 remains consumed and its earlier result remains `NO_PROOF`. The byte-distinct
-V3 fixed the host cage-order defect, completed one proved boot-only candidate
-transfer, and reached the full 180-second ACM observation, but emitted no exact
-banner. This is again `NO_PROOF`, not a native PID1 disproof.
+V2 and V3 are both consumed `NO_PROOF`, which is not a native PID1 disproof: V3
+transferred one proved boot-only candidate and completed its full 180-second ACM
+observation without the exact banner. One attended physical Download entry then
+completed the fixed resident-Magisk rollback and exact rooted-Android health,
+terminal `NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY` at SHA-256
+`3e306e703a68017850b206221454c5d311fe7cc88daad62b6fb8f19b5d2f6193`, with
+candidate/rollback 1/1, both replays false, recovery-partition access and
+other-target commands zero, and the shared guard absent. The P0 owner is dormant
+and still bound to the consumed minimal candidate; any next PID1 candidate needs
+a new H0 design, review, activation, fresh prepare and approval.
 
-One attended physical Download entry then completed the fixed resident-Magisk
-boot rollback and exact rooted-Android final health. The terminal is
-`NO_PROOF_P0_RETURNED_RESIDENT_HEALTHY`, SHA-256
-`3e306e703a68017850b206221454c5d311fe7cc88daad62b6fb8f19b5d2f6193`.
-Candidate/rollback attempts are 1/1, both replays are false, recovery-partition
-access and other-target commands are zero, and the shared guard is absent.
-V3 is globally consumed and the P0 owner is dormant; any next PID1 candidate
-requires a new H0 design, review, activation, fresh prepare, and approval.
+## Current TWRP baseline
+
+Status: `PROVED_S20PLUS_G986N_TWRP_BASELINE_HEALTHY`
+
+Retained T2 is the default preparation/terminal environment for new native-init owners adopting the [baseline profile](docs/operations/S20PLUS_TWRP_BASELINE_V1.md). The September 8 connected qualification left the phone in TWRP with no partition-content read/write. September 23 H0 maintenance found the shared guard absent but did not refresh device health. Boot rollback proof remains separate; new F1 owners must bind their actual TWRP start/return route.
+Report: [TWRP baseline qualification](docs/reports/S20PLUS_G986N_TWRP_BASELINE_QUALIFICATION_2026-09-08.md).
+
+The shared TWRP F1 engine/runtime has `PASS_GO_H0` for recovery preparation, boot rollback without auto-reboot, physical TWRP return, abort and durable finalization. Revision 27 dependency/baseline bindings were refreshed on September 23 with 49 focused tests and independent review; current H0 checks pass. The standalone shared runtime remains unconfigured; P2 adopts it through its own reviewed profile below. Details are in the same report.
+
+## Current P1 PID1 exec-handoff witness state
+
+Status: `NO_PROOF_P1_PID1_WITNESS_RETURNED_RESIDENT_HEALTHY`
+
+P1 is consumed and closed, candidate/rollback 1/1 completed with final rooted Android health. Root/kmsg acquisition was not reached. Its one-run recovery exception is closed, with no candidate or rollback replay. [P1 recovery report](docs/reports/S20PLUS_G986N_P1_RUN_RECOVERY_2026-09-08.md). The September 23 [P2 RAM snapshot implementation and live result](docs/reports/S20PLUS_G986N_P2_RAM_SNAPSHOT_H0_2026-09-23.md) passed independent H0/activation review and 44 focused runtime/activation/integration tests, then ran under the exact attended approval. P2 is now consumed and closed as `NO_PROOF_NATIVE_PID1_RETURNED_TWRP_HEALTHY` at 2026-09-23 04:15:44 KST: candidate/rollback boot transfers 1/1 completed, physical Download and retained-T2 return completed, fresh TWRP health passed and shared guard released. The one acquisition returned a shell execution error instead of a snapshot frame despite the reader artifact being present and hash-correct before/after; command framing is the leading H0 diagnosis, with dynamic snapshot/PID1 proof still unknown. The automatic rollback Download command had an uncertain outcome and was never resent. Original raw evidence, failed preparation, activation records, consumed source provenance and journals remain private and unchanged; no replay or automatic recovery is claimed. Direct native USB remains the eventual resident direction.
 
 ## Current classic-fastboot state
 

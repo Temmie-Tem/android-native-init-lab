@@ -1868,6 +1868,17 @@ restore requires a separately reviewed fresh exact-stock authority. Retention
 does not grant TWRP UI, mount, format, install, backup, restore, terminal, or
 arbitrary ADB authority.
 
+## Retained-T2 baseline for prospective native-init experiments
+
+The [TWRP baseline profile](../S20PLUS_TWRP_BASELINE_V1.md) defines the default
+preparation/terminal environment for new boot-only native-init owners adopting
+its reviewed start/return predicates. It separates TWRP health from the mandatory
+fixed boot rollback transfer. Existing consumed P0/P1 runs retain their original
+criteria and cannot replay. The profile's independently qualified checker may
+combine one exact Android-to-recovery control with the existing fixed T2 collector
+under its own shared guard; successful machine observation closes that guard.
+It grants no partition write, new TWRP installation, generic root or F1 authority.
+
 ## TWRP boot-identity metadata D0
 
 Status: **BINDING - ATTENDED TWRP BOOT-IDENTITY D0 ACTIVE**
@@ -2172,6 +2183,7 @@ durably consumed before use. The observer has one bounded attempt and, after a
 reporting cut, at most one current read; absence, ambiguity, identity failure,
 or expiry publishes a durable miss and permits no further observation or
 transfer. A bound arrival permits only the fixed resident rollback.
+The separately operator-approved [P1 one-run recovery exception](../S20PLUS_P1_ONE_RUN_RECOVERY_EXCEPTION_2026-09-08.md) completed its sole rollback and is closed; the original miss remains unchanged.
 
 Terminal `PROVED_B0_RETURNED_RESIDENT_HEALTHY` requires completed candidate
 transfer attribution, `PROVED` B0 evidence on a distinct boot, completed
@@ -2857,7 +2869,26 @@ apply as a dwell, and the candidate must not be given one.
 
 Every branch remains informative, which is the property the three consumed runs
 lacked - but the information is now correctly attributed. An arrival says the
-device came back to Download. The banner says whose `/init` ran.
+device came back to Download, and nothing more.
+
+An earlier revision of this paragraph ended "The banner says whose `/init` ran."
+That is withdrawn: it contradicts the refutation recorded immediately above,
+which this section already accepts. The banner is a FIXED string, so it is
+characteristic of the candidate and not authenticated as coming from it. This
+candidate has no branch that says whose `/init` ran.
+
+One stale copy of that withdrawn claim remains outside this document and is
+recorded here rather than silently corrected. The candidate source's header
+comment still reads "Seeing Download proves PID1 executed". It is false and this
+section supersedes it. Correcting it is not a comment-only edit on this lane's
+machinery: the P0 owner pins `INIT_SOURCE_SIZE`/`INIT_SOURCE_SHA256` for that
+file and re-derives its own normalized self-identity from its bytes, so the edit
+moves the owner's activation-drift identity as well. Rebinding that identity to
+make a self-check pass is a scoped review change, not an incidental one, so the
+correction belongs to this lane's next reviewed revision and must land with it.
+The compiled init, boot image and AP pinned above are unaffected either way: a
+rebuild from the edited source was performed and reproduced all four digests
+byte for byte, so only the init-source digest would move.
 
 ### What is still required before any device contact
 
@@ -2868,8 +2899,11 @@ requires this candidate's declarations, including `reboot_syscall` true and
 elsewhere fails closed.
 
 The observation is replaced. The owner no longer opens a transport or reads an
-ACM banner. It takes a Download baseline, waits for Download-mode arrival within
-the bounded window, and treats that arrival as the proof that PID1 executed.
+ACM banner. It takes a Download baseline and waits for Download-mode arrival
+within the bounded window. It records that arrival as an observation and NOT as
+proof that PID1 executed - an earlier revision of this sentence said the
+opposite and is withdrawn, because the validator refuses the positive
+environment outright and no path in this lane returns `PROVED`.
 Both evidence nodes - `p0-download-arrival.json` and
 `p0-observer-terminal-inventory.json` - are bounded canonical JSON published
 atomically at mode 0400, re-read after publication, and rederived by the
@@ -2891,6 +2925,266 @@ the owner, the builder, the init source and their tests; then the owner's own
 activation records, a fresh connected prepare, its emitted exact approval, and
 operator attendance. Nothing in this section activates anything, and the
 consumed candidates grant it no standing.
+
+## S20+ P2 RAM snapshot attended F1
+
+Status: **DEFINED — LIVE CAPABILITY REQUIRES THE EXACT REVIEWED P2 ACTIVATION RECORD**
+
+This section activates the exact P2 capability only when its independently
+reviewed `activation-v2.json` and `P2_F1_ACTIVE` source transition validate
+together. It adopts ordinary attended F1 and the retained-T2 preparation and
+terminal predicates above. It imports no consumed P0/P1 activation record,
+approval or journal, and grants no unattended operation or candidate replay.
+The owner is `workspace/public/src/scripts/revalidation/s20plus_g986n_p2_ram_snapshot_f1.py`.
+
+A current direct operator request to prepare this P2 experiment, with actual
+attendance, authorizes one exact preparation: qualified retained-T2 health,
+an empty Download baseline, one journaled `adb reboot download`, bounded exact
+Download arrival and publication of the prepared binding. It sends no candidate
+payload. Preparation remains under its shared target guard and session lease.
+A proved host rejection before any control intent does not consume that single
+control budget. After H0 diagnosis/review, a fresh preparation under the same
+foreground request still requires fresh exact TWRP health and an absent guard;
+it preserves the failed observation and uses a new journal. An uncertain control
+never receives this treatment. The prior activation-v1 record is retained as
+historical provenance and cannot authorize the corrected runtime.
+If preparation is interrupted, the existing journal determines observation or
+physical TWRP return; the control action is never resent. A new candidate
+transfer requires the returned exact approval, valid for 900 seconds, binding
+one candidate attempt and its mandatory fixed boot rollback. Approval is not
+inferred from activation, preparation, H0 tests or the request to prepare.
+
+The candidate is the already built P2 AP at
+`workspace/private/outputs/s20plus_g986n/p2_ram_snapshot_v1/AP.tar.md5`,
+25,845,801 bytes, SHA-256
+`8a3e1d95d9b4d01c4637b3d20f89547f2042122a5cecceba81a8f5d0a7d5d650`.
+It contains exactly one regular `boot.img.lz4`, 25,838,065 bytes, SHA-256
+`a7d67772981307b2898e57a7249361cec5b6663087024ab78bd27d5c323dd10e`.
+The decoded 67,108,864-byte boot SHA-256 is
+`0e6198b0fc02e5c726ff6b7a5bfab82f83d49d85302dfd273a1f2e9918e3d629`.
+The fixed resident-Magisk rollback AP is 25,835,561 bytes, SHA-256
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`;
+its boot SHA-256 is
+`d67d0af219d40d29f9e4d34da873e7aa33577d56fab68e2beccfe707418f7efc`.
+No recovery-partition read, write or transfer is permitted by P2.
+
+The bounded RAM producer, fixed reader and same-boot collector are described in
+`docs/reports/S20PLUS_G986N_P2_RAM_SNAPSHOT_H0_2026-09-23.md` and the exact
+source closure. The producer publishes at most 2 MiB/8,192 raw kmsg records
+through its first-PID1 witness before restoring and executing the existing
+Magisk init with the original argv/envp. The snapshot is a uniquely named,
+non-executable RAM file under existing `overlay.d/sbin`, carried through the
+existing Magisk path. It adds no persistent-file fallback, modules, namespace,
+USB configuration, partition writer or runtime-selected command.
+
+Within the owning P2 run, this section expressly permits the fixed private raw
+captures declared by `s20plus_g986n_p2_snapshot_observer.py`: `p2-ready-00` through
+`p2-ready-59`, `p2-post` and `p2-rollback` identity captures, and `p2-snapshot`.
+Each uses its declared `.stdout`, `.stderr` and `.capture.json` filenames under
+`workspace/private/runs/s20plus-g986n-p2-ram-snapshot-f1/run-*` only. The existing
+shared F1 raw transfer, control and TWRP-health captures remain in that same
+private run. These exact bounded streams may contain raw serial/topology/boot
+identity; only hashes and non-private fixed properties enter structured results
+and tracked reports. This is a closed acquisition allowance, not generic root,
+filesystem or memory-dump access. Global inventories send no selected command
+to any foreign row.
+
+Candidate observation retains exact serial, topology, build, SELinux, root,
+reader artifact and same-boot checks. Android UI completion is diagnostic.
+Only target absence/offline state or absent reader permits bounded reobservation
+within 60 attempts/180 seconds. Failed root/path lookup, malformed identity or
+raw producer failure stops observation. The fixed reader itself has a five-second
+output budget. Kernel-syscall or early handoff hangs have no automatic-recovery
+claim; attendance and physical Download fallback remain required.
+
+Proof requires the reviewed producer and raw-derived contiguous prefix beginning
+at sequence zero, kernel init-dispatch before the first userspace witness, exact
+PID/proc/namespace/boot identity, proved candidate transfer and the original
+source/lease binding. A diagnostic or incomplete snapshot is NO_PROOF. This is
+controlled-experiment evidence, not hostile-root attestation. Saved observations
+are rederived from original raw files; partial evidence is never reacquired merely
+to repair a result. Build-only development files are historical provenance after
+consumption; current reader/codec/header/parser/runtime code remains validated.
+
+The owner adopts the shared global content claim, one-shot journal, process cage,
+fixed command fences and no-replay recovery. After candidate intent, the fixed
+boot rollback is mandatory even after proof. Qualified same-boot Android permits
+the existing one-shot Download entry; its identity check does not depend on the
+snapshot reader. Otherwise physical Download is used. Rollback uses the reviewed
+boot-only transfer without automatic reboot, followed by attended physical entry
+to retained T2. No second approval delays preauthorized rollback. Final closure
+requires both proved boot rollback and a fresh exact healthy TWRP boot; TWRP
+health cannot discharge an uncertain transfer. A pre-candidate abort restores
+qualified TWRP without a candidate or rollback payload.
+
+One P2-specific immutable mode-0400 activation record replaces the unrelated
+legacy P0/P1 activation-record layout. It binds the reviewed dormant and active
+owner hashes, the sole literal `P2_F1_ACTIVE = False` to `True` transition,
+normalized owner identity, execution-critical sources including the codec's C
+header and shared kmsg parser, shared engine/registry, selected authority,
+fixed candidate/rollback and finite prepared-approval rules. It creates no
+prepared run or approval. A source or authority mismatch rejects new use;
+consumed effects and recovery ownership are never reset by another record.
+
+## S20+ P1 PID1 exec-handoff witness F1 candidate
+
+Status: **CONSUMED - NO_PROOF - RESIDENT ROLLBACK AND FINAL HEALTH COMPLETE - NOT ACTIVE**
+
+This S20+-only successor requires the P1 activation records described below
+before device contact. The ordinary boot-only boundaries, attendance, exact prepared
+approval, mandatory resident rollback and final health requirements of the P0
+F1 section remain unchanged. No consumed candidate or journal is reopened.
+
+The owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_p1_pid1_witness_f1.py`.
+It exact-loads an isolated copy of the complete P0 runtime and applies a fixed
+P1 source configuration before that runtime builds its final dependency maps and
+leased entrypoints. It reuses the Process-v2 global consumed-candidate registry,
+pre-claim baseline, process-cage journals, command fences, source checks, physical
+Download fallback and recovery state machine. It does not substitute the bare
+B0 engine for those protections. Ordinary P0 and B0 module instances, artifacts,
+activation records and closed journals remain separate.
+
+The private P1 profile is installed. Its authoritative status above and the
+`P1_F1_ACTIVE` and kmsg `OBSERVER_ACTIVE` flags must agree with its records.
+Dormant entrypoints stop before contact. Activation requires P1-specific zero-finding, mechanical-activation and
+live-activation records bound to the new closure; a P0 approval supplies none of
+these. P1 keeps the baseline-only USB helper dormant and does not activate its
+ACM observation path. Recovery uses the owner gate, not a request for another
+candidate observation. The builder and candidate payload are not rollback or
+health prerequisites after consumption.
+
+### Candidate and handoff
+
+The builder is
+`workspace/public/src/scripts/revalidation/build_s20plus_g986n_p1_pid1_witness_h0.py`;
+the producer is `workspace/public/src/native-init/s20plus_p1_pid1_witness_init.c`.
+
+| Artifact | Size | SHA-256 |
+|---|---|---|
+| `s20plus_p1_pid1_witness_init` | 1,800 | `20c49e008a93f7ff0455384c54b2675c05d2d859a3b497f49dd153ce9edb7c3c` |
+| `boot.img` | 67,108,864 | `9e6ce6689d8f36693c83b9a7137bb6df39754b63699c634a8dc1cb71baa3a2cf` |
+| `boot.img.lz4` | 25,834,402 | `836c6a89b798d6f7f7509446e1bc176f85d5b571fda2b2f971242ae51805bea9` |
+| `AP.tar.md5` | 25,845,801 | `2d80698a6cbcf2690cc4ae9a9ee70934df0f671102645e60f040d525b184e70b` |
+
+These are the existing second-build artifacts; the H0 acquisition/runtime repair
+changes no candidate binary. The pinned AP contains only `boot.img.lz4`. Kernel,
+DTB and command line remain byte-identical to the resident base; header settings
+and geometry are preserved, with ramdisk size and image checksum regenerated.
+Ramdisk `init` is replaced by the witness and `init.magisk` contains the original
+Magisk init, mode 0750 and SHA-256
+`383670a7ba3a6a4b79e5f3467e1da4b66a5df66a9b356ab9f70916854dd6b468`.
+The builder verifies this exact two-entry delta and unchanged other entries.
+
+The witness gates on `getpid()==1`, mounts procfs, obtains its procfs PID,
+namespace and boot ID, and writes one bounded `/dev/kmsg` record before handoff.
+It then renames `init.magisk` over `/init` and execs `/init` with the original
+argv/envp, without fork or a new namespace. The pinned Magisk v30.7 init needs
+its own bytes at `/init` for its second-stage hijack and copying operations; a
+naive renamed-binary exec would not preserve that behavior. Failed rename never
+execs the witness again; failed exec parks. Evidence failures do not gate the
+rename/exec path, but this control-flow property is not a guarantee of boot
+success or automatic recovery from a hung experimental component.
+
+Only a kmsg node created by the witness is unlinked. Both procfs unmount methods
+can fail, leaving that mount visible to Magisk; the failure harness records this
+rather than claiming the inherited filesystem state is always identical. The
+fourteen runtime syscalls remain getpid, mkdirat, mount, readlinkat, openat, read,
+mknodat, write, close, unlinkat, umount2, renameat, execve and nanosleep.
+
+### Same-boot acquisition and evidence binding
+
+The dormant reader is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_p1_pid1_kmsg_observer.py`.
+After the inherited observer qualifies exact rooted Android, the reader repeats
+the existing exact serial, model/device/product/build, topology, healthy public
+properties and boot-ID checks before and after one fixed read. The boot must
+match that qualified candidate return and differ from the prepared source boot.
+Unrelated devices receive no commands and are not an acquisition identity.
+
+The only added root command is the fixed literal:
+
+```
+exec /system/bin/toybox timeout -s KILL 5 /system/bin/toybox head -n 65536 /dev/kmsg
+```
+
+It is dispatched through the inherited fixed ADB environment and raw-acquisition
+capability with the leased exact serial, a 15-second host deadline, an 8-MiB
+stdout bound and a 4096-byte stderr bound. The remote timeout bounds the reader
+when the host disappears; head caps lines, hence also records. The exact stock
+toybox applet/timeout behavior is checked offline, not inferred from GNU tools.
+No applet, executable, pathname, shell fragment or limit comes from the CLI.
+
+Both bounded original streams and the raw acquisition receipt are published by
+the existing raw owner before parsing. The fixed names are
+`p1-kmsg-capture.raw`, `p1-kmsg.stderr` and `p1-kmsg.capture.json`.
+`p1-kmsg-binding.json` binds pre/post identity and candidate digests;
+`p1-kmsg-attestation.json` describes the derived record-aligned prefix.
+Partial tails and malformed input remain in the original file. The consumer
+reopens that file, checks its own size/digest, and derives the named prefix from
+those bytes; a separate supplied prefix cannot stand in for the raw source.
+The retained publication helper also completes short writes and verifies actual
+published bytes. Its failed partial staging is not a successful capture.
+
+The fixed reader never reports host silence as a drain. Exit 137 from the remote
+timeout and a successful head exit are bounded-prefix outcomes. Host timeout,
+overflow, producer errors, stderr or an unexpected status yield failed
+acquisition. Capture or binding failure preserves available evidence and selects
+recovery-only NO_PROOF; no capture or candidate is resent to repair a report.
+
+### Positive result and limits
+
+The consumer is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_p1_pid1_witness_evidence.py`.
+Its v4 attestation and parser require exact target and candidate AP/boot digests,
+a usable raw-derived prefix beginning at sequence 0 with no holes, a kernel
+facility-0 `Run /init as init process` record before the witness, and exactly one
+complete, unescaped facility-1 witness that is the first nonzero-facility record.
+The witness must name the fixed candidate ID
+`6f3a1c7d0b45e29840d17ac6e5b93f21`, PID 1, procself 1,
+`pid:[4026531836]`, the independently bound candidate boot ID, and
+`PRE_EXEC_HANDOFF`. Duplicate JSON keys and malformed typed receipts refuse.
+
+These are controlled-experiment evidence conditions, not hostile-root
+attestation. The procfs fields travel as userspace text: their interpretation
+depends on the pinned producer and the exact candidate-transfer/boot binding.
+Kernel timestamps establish ordering, not authorship. Facility 0 cannot be
+requested through this kernel's `/dev/kmsg` write API, but being the first
+userspace log is not by itself a universal theorem that no other userspace
+process could have existed. The source/artifact execution path and declared
+implementation-error threat model supply the remaining operational assumptions.
+Every positive consumer result reports its assumptions. No live P1 proof exists.
+
+The owner rederives positive observations from the durable transfer result,
+prepared artifact closure, acquisition receipt, same-boot binding and raw file.
+Cached reader/consumer APIs are fenced as well as their source bytes. It keeps
+candidate evidence, Android return, mandatory rollback and final health separate.
+A qualified same-boot Android observation retains its verified serial for the
+existing rollback-to-Download path. An unexpected recovery-adb producer is not
+relabelled as a P1 witness; its probes remain private and physical recovery is
+required. An observation reporting cut is valid recovery-only evidence.
+
+The earlier init-prefix ordering predicate was refuted by an evicted prefix and
+a missing middle range, both of which incorrectly returned PROVED. Both remain
+regression fixtures. Sequence 0 is now required; FIFO eviction can remove it
+while retaining the later witness, so witness survival does not imply prefix
+survival. Real-device handoff and sufficient ring retention are still unproved.
+An absent or incomplete record is never a disproof of PID1 execution.
+
+### Review and next execution prerequisites
+
+The review closure includes the P1 producer/builder, v4 consumer, reader, profile,
+fixed P0 hook/read-dispatch extension, focused producer and integration tests,
+and higher-precedence contracts. It must cover actual engine closure readback,
+leased acquisition, no-replay, observation failure and reporting-cut recovery.
+Host tests replace device health, Odin and cgroup qualification with explicit
+fixtures; they do not prove physical recovery or candidate boot success.
+
+See `docs/reports/S20PLUS_G986N_P1_PID1_WITNESS_H0_2026-09-08.md` for H0
+validation. Before any new device action, the exact reviewed closure still needs
+mechanical activation, its P1 activation records, fresh attended preparation,
+and the emitted exact approval. No current P0 or other-target authority is
+transferred or expanded by this section.
 
 ## General machine-controlled D1 status
 

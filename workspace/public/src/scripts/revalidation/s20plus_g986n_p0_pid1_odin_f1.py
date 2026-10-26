@@ -32,7 +32,7 @@ from typing import Any, Sequence
 VERSION = "s20plus-g986n-p0-pid1-odin-f1-v1"
 PLAN_SCHEMA = "s20plus_g986n_p0_pid1_odin_f1_plan_v1"
 P0_F1_ACTIVE = False
-EXPECTED_REVIEWED_NORMALIZED_SHA256 = "0ad87f2053a9dc66b756532ae98be7c78ebac7d5d4d1d0fa2fe66097e2aabfe7"
+EXPECTED_REVIEWED_NORMALIZED_SHA256 = "b73e79cdd9aed96f11bf1c472331b074bb86accedd62ea07ca4fcfe14266c1fe"
 
 ROOT = Path(__file__).resolve().parents[5]
 SCRIPT = Path(__file__).resolve()
@@ -238,6 +238,7 @@ HEX64_RE = re.compile(r"[0-9a-f]{64}")
 REGISTRY_PATH = ROOT / (
     "workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py"
 )
+REGISTRY_MANIFEST_ID = "s20plus-g986n-p0-pid1-acm-v3"
 REGISTRY_SIZE = 54_571
 REGISTRY_SHA256 = "c87b7d81c343221742f3577735c09d9da5ffbff44d1ad1d1683b2d81061f0a8b"
 REGISTRY_ACTIVATION = (
@@ -662,6 +663,11 @@ def _deny_registry_initialization(*_args, **_kwargs):
     raise P0F1Error("P0 may not initialize or recreate the global registry")
 
 
+def _profile_read_command_allowed(command, capture_dir, name, kwargs) -> bool:
+    """P0 has no extra read. Only the fixed P1 configuration specializes this."""
+    return False
+
+
 def _create_capability_system() -> dict[str, Any]:
     """Create non-exported lease and mutation issuers.
 
@@ -1064,6 +1070,8 @@ def _create_capability_system() -> dict[str, Any]:
         serial_command = len(command) >= 4 and command[:2] == [str(engine.ADB), "-s"]
         if serial_command:
             require_target_serial(command[2])
+            if _profile_read_command_allowed(command, capture_dir, name, kwargs):
+                return
             root_tail = [
                 "shell",
                 "su",
@@ -2564,7 +2572,7 @@ def _registry_identity(run_id: str, binding_sha256: str) -> dict[str, Any]:
         "target": dict(engine.TARGET),
     }
     manifest = {
-        "manifest_id": "s20plus-g986n-p0-pid1-acm-v3",
+        "manifest_id": REGISTRY_MANIFEST_ID,
         "run_id": run_id,
         "allowed_member": "boot.img.lz4",
         "candidate_ap": {
@@ -5758,6 +5766,22 @@ def _make_execution_dependency_replacements() -> dict[str, tuple[Any, str, Any]]
     return replacements
 
 
+# A separately loaded P1 runtime reuses this entire lease/registry/cage shell.
+# Apply its fixed, source-bound profile before the final maps and entrypoint
+# closures capture functions. Ordinary P0 imports and CLI retain their defaults.
+if __name__ == "_s20plus_g986n_p1_pid1_runtime":
+    _configure = globals().pop("_p1_configure", None)
+    _p1_path = ROOT / "workspace/public/src/scripts/revalidation/s20plus_g986n_p1_pid1_witness_f1.py"
+    if (not callable(_configure)
+            or getattr(_configure, "__name__", None) != "_configure_runtime"
+            or Path(_configure.__code__.co_filename).resolve() != _p1_path
+            or Path(_configure.__globals__.get("__file__", "")).resolve() != _p1_path):
+        raise P0F1Error("P1 runtime requires its fixed owner configuration")
+    _configure(sys.modules[__name__])
+    del _configure, _p1_path
+elif "_p1_configure" in globals():
+    raise P0F1Error("P1 configuration cannot replace an ordinary P0 profile")
+
 _EXECUTION_DEPENDENCY_REPLACEMENTS = _make_execution_dependency_replacements()
 del _build_base_command_capability
 del _RAW_CAPABILITY_REPLACEMENTS
@@ -5970,6 +5994,30 @@ def _profile_function_replacements() -> dict[str, Any]:
     }
 
 
+PROFILE_INSTALLED = False
+
+
+def install_profile() -> bool:
+    """Install this profile onto its own private engine instance. Idempotent.
+
+    `engine` above is loaded by `_load_exact_module` into a module object owned
+    by this file, so installation mutates nothing another owner or a sibling
+    profile can see; a P1 profile loads its own engine instance the same way.
+    Installation is nevertheless explicit and idempotent rather than an
+    unconditional module-scope side effect, so a sibling that imports this
+    module to reuse `_load_exact_module` can see what importing costs and can
+    tell whether installation has already happened.
+
+    Returns True when this call performed the installation.
+    """
+    global PROFILE_INSTALLED
+    if PROFILE_INSTALLED:
+        return False
+    _install_profile()
+    PROFILE_INSTALLED = True
+    return True
+
+
 def _install_profile() -> None:
     for module, attribute, replacement in _EXECUTION_DEPENDENCY_REPLACEMENTS.values():
         setattr(module, attribute, replacement)
@@ -5989,7 +6037,7 @@ def _install_profile() -> None:
         setattr(engine, name, value)
 
 
-_install_profile()
+install_profile()
 
 
 def build_parser() -> argparse.ArgumentParser:

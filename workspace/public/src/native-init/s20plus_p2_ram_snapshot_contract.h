@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT
+/* One declaration shared by the two ARM64 programs and the host codec. */
+#ifndef S20PLUS_P2_RAM_SNAPSHOT_CONTRACT_H
+#define S20PLUS_P2_RAM_SNAPSHOT_CONTRACT_H
+#define P2_MAGIC "S20PLUS_P2_PID1_WITNESS_V1"
+#define P2_CANDIDATE_ID "8e274ce0b3f94167a5d829cf16b0e2a4"
+#define P2_STAGE "PRE_EXEC_HANDOFF"
+#define P2_SNAPSHOT_MAGIC "S20P2RAMKMSGv1"
+#define P2_READER_MAGIC "S20P2READERv1"
+#define P2_SNAPSHOT_NAME "s20plus_p2_ram_snapshot_v1.bin"
+#define P2_PARTIAL_NAME "s20plus_p2_ram_snapshot_v1.part"
+#define P2_READER_NAME "s20plus_p2_snapshot_reader"
+#define P2_SNAPSHOT_HEADER 128
+#define P2_READER_HEADER 160
+#define P2_MAX_CAPTURE_BYTES 2097152
+#define P2_MAX_RECORDS 8192
+#define P2_MAX_ELAPSED_NS 1000000000
+#define P2_MAX_PUBLISH_NS 1000000000
+#define P2_READER_ELAPSED_NS 5000000000
+#define P2_MAX_IO_CALLS 16384
+#define P2_STATUS_WITNESS 0
+#define P2_STATUS_SETUP 1
+#define P2_STATUS_EMIT 2
+#define P2_STATUS_IDLE 3
+#define P2_STATUS_OVERRUN 4
+#define P2_STATUS_READ 5
+#define P2_STATUS_BYTES 6
+#define P2_STATUS_RECORDS 7
+#define P2_STATUS_DEADLINE 8
+#define P2_STATUS_CLOCK 9
+#define P2_READ_OK 0
+#define P2_READ_PARTIAL 1
+#define P2_READ_ABSENT 2
+#define P2_READ_FILESYSTEM 3
+#define P2_READ_METADATA 4
+#define P2_READ_IO 5
+#define P2_READ_CHANGED 6
+#define P2_READ_COLLISION 7
+#define P2_READ_BOOT 8
+#endif
