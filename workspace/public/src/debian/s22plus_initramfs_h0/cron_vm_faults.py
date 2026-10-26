@@ -1,9 +1,11 @@
 """Declared ARM64 runtime failures; stop the VM only after actual failure evidence."""
 from concurrent.futures import ThreadPoolExecutor
 import os
+import ipaddress
 from pathlib import Path
 import re
 import subprocess
+import socket
 import time
 
 import autoboot_vm as automatic
@@ -11,19 +13,22 @@ import h0
 import s22plus_debian_cron_v1 as spec
 import s22plus_debian_cron_config_v1 as config_spec
 import s22plus_debian_package_v1 as package_spec
+import s22plus_debian_apt_v1 as apt_spec
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
 
 def run(out,build,helper,case,positive=None):
     package=case in package_spec.PACKAGE_FAULTS
-    require(case in spec.RUNTIME_FAULTS or case in config_spec.RUNTIME_FAULTS or package,'unselected runtime fault')
+    apt=case in apt_spec.APT_FAULTS
+    require(case in spec.RUNTIME_FAULTS or case in config_spec.RUNTIME_FAULTS or package or apt,'unselected runtime fault')
     selected=automatic.prepare(out,build,helper,'normal')
     config=automatic.build_api.profile.cron_config_selected(selected)
+    apt_selected=automatic.build_api.profile.apt_selected(selected)
     require(selected.get('transition_fault')==case and automatic.build_api.profile.cron_selected(selected),
         'runtime fault helper differs')
     fixture=automatic.vm.fixture;life=automatic.lifecycle;disk=out/'disk.img'
     extra={}
-    if config and case not in config_spec.FIRST_PHASE_FAULTS and not package:
+    if config and case not in config_spec.FIRST_PHASE_FAULTS and not package and not apt:
         require(positive is not None,'second-boot failure needs the actual first root')
         normal=read(positive/'result.json');first=read(verify(normal['first_root']));source=positive/'native-first.ext4'
         require(first['path']==str(source) and first['origin']=='ACTUAL_FIRST_KERNEL_REBOOT_EXIT' and
@@ -35,9 +40,17 @@ def run(out,build,helper,case,positive=None):
         extra=dict(positive=pin(positive/'result.json'),first_root=normal['first_root'],
             runtime_basis='ACTUAL_FIRST_KERNEL_REBOOT_ROOT')
     outside=life.outside_native(disk);before=fixture.fixture_tools.sparse_digest(disk)
-    link=life.access.inputs(selected['run_id'])['link']
+    plan=life.access.inputs(selected['run_id']);link=plan['link']
+    plan['candidate']=dict(namespace=selected['namespace'],version=selected['version'],run_id=selected['run_id'])
+    net='user,id=net,restrict=on'
+    if apt_selected:
+        with socket.socket() as reserve:reserve.bind(('127.0.0.1',0));port=reserve.getsockname()[1]
+        network=ipaddress.ip_interface(link['device_address']).network
+        if network.prefixlen>24:network=network.supernet(new_prefix=24)
+        net=f'user,id=net,restrict=off,net={network},host={link["host_address"].split("/")[0]},'
+        net+=f'dhcpstart={link["ssh_address"]},dns={network.network_address+254},hostfwd=tcp:127.0.0.1:{port}-{link["ssh_address"]}:22'
     command=[fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','8','-m','768',
-        '-netdev','user,id=net,restrict=on','-device','virtio-net-device,netdev=net,mac='+link['device_mac'],
+        '-netdev',net,'-device','virtio-net-device,netdev=net,mac='+link['device_mac'],
         '-display','none','-monitor','none','-serial',f'file:{out}/serial.log','-no-reboot',
         '-kernel',h0.regular(automatic.vm.KERNEL),'-initrd',out/'initramfs.cpio.gz',
         '-append',automatic.kernel_command_line(selected),'-drive',f'if=none,id=root,file={disk},format=raw',
@@ -48,7 +61,40 @@ def run(out,build,helper,case,positive=None):
         with (out/'qemu.log').open('xb') as log:
             process=subprocess.Popen(list(map(str,command)),stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,
                 env=dict(os.environ,LD_LIBRARY_PATH=str(fixture.QEMU/'usr/lib/x86_64-linux-gnu')))
-            while time.monotonic()-started<210:
+            if apt_selected and case!='apt-clock-missing':
+                import reboot_vm
+                from s22plus_debian_autoboot_access_v1 import singlecpu_health_sample
+                from s22plus_debian_apt_access_v1 import state
+                folder=out/'clock';folder.mkdir(mode=0o700)
+                publish(out/'operation.json',dict(scope='H0_VM_ONLY',device_actions=0,build=pin(build/'build.json')))
+                deadline=started+300
+                def current():require(process.poll() is None and time.monotonic()<deadline,'APT fault VM window expired')
+                def ssh(verb,label):
+                    current();return automatic.raw.acquire_command(automatic.ssh_command(plan,port,verb),folder,label,
+                        timeout=min(10,deadline-time.monotonic()),stdout_maximum=65536,stderr_maximum=16384)
+                first=None
+                for ordinal in range(1,61):
+                    handle=ssh('health',f'health-{ordinal:03d}')
+                    if handle.returncode==0:first=handle;break
+                    time.sleep(1)
+                require(first is not None,'APT fault initial SSH absent')
+                phase=1 if apt or case in config_spec.FIRST_PHASE_FAULTS else 2
+                if case=='apt-clock-wrong-boot':
+                    for ordinal in range(1,31):
+                        value=state(ssh('apt-time-status',f'ready-{ordinal:02d}'))
+                        if value=='READY':break
+                        require(value=='WAIT','wrong-boot fixture was already claimed');time.sleep(.2)
+                    require(value=='READY','wrong-boot fixture readiness absent')
+                    boot=singlecpu_health_sample(first,plan)['health']['boot_id_sha256'];sec,ns=divmod(time.time_ns(),1000000000)
+                    handle=ssh(f'apt-time {phase} {boot} {sec} {ns}','request');automatic.raw.require_success(handle)
+                    extra['clock_request']=pin(handle.receipt_path)
+                    extra['clock_first_health']=pin(first.receipt_path)
+                    extra['clock_ready']=pin(folder/f'ready-{ordinal:02d}.capture.json')
+                else:
+                    reboot_vm.apt_clock(out,folder,phase,first,plan,ssh,current,deadline)
+                    extra['clock']=reboot_vm.clock_artifacts(out,folder,first)
+            limit=305 if apt_selected else 210
+            while time.monotonic()-started<limit:
                 serial=(out/'serial.log').read_bytes() if (out/'serial.log').exists() else b''
                 require(len(serial)<=8*1024**2,'runtime fault serial exceeded bound')
                 if re.search(rb'DHVM_HOOK_PARK errno=\d+\r?\n',serial):parked=True;break
@@ -57,13 +103,20 @@ def run(out,build,helper,case,positive=None):
             require(parked,'cron failure did not reach its bounded observation')
             process.kill();process.wait()
         serial=(out/'serial.log').read_bytes()
-        (validate_package_serial if package else validate_config_serial if config else validate_serial)(serial,case)
+        (validate_apt_serial if apt else validate_package_serial if package else validate_config_serial if config else validate_serial)(serial,case)
         require(life.outside_native(disk)==outside,'runtime fault wrote outside native_data')
         if config and case=='config-create-partial':
             # Its marker follows the checked 31-byte write, file/parent fsync
             # and closes. After forced kernel exit, a mountless debugfs read
             # need not see the committed journal's new directory entry.
             extra.update(partial_creation_checked=True,post_stop_configuration_retention_proved=False)
+        elif apt:
+            # A forced kernel stop can leave the live, checked configuration's
+            # inode only in the committed journal. A mountless home-block dump
+            # is not a post-stop retention proof. The normal two-boot case
+            # separately qualifies retention; these cases qualify the selected
+            # failure after the actual native preconditions, without replay.
+            extra['post_stop_configuration_retention_proved']=False
         elif config and case!='config-unlink-sync':
             import reboot_vm_faults
             native=automatic.file_log_vm.extract_native(out);destination=out/'config-after.bin'
@@ -81,11 +134,70 @@ def run(out,build,helper,case,positive=None):
             physical_readiness=False,device_actions=0,workload_success=False,replay_authorized=False,**extra)
         if config:result['scope']='H0_ARM64_DECLARED_CRON_CONFIG_FAILURE'
         if package:result['scope']='H0_ARM64_DECLARED_PACKAGE_FAILURE'
+        if apt:result['scope']='H0_ARM64_DECLARED_APT_FAILURE'
         publish(out/'result.json',result);print('PASS '+case,flush=True);return result
     except Exception as error:
         publish(out/'failure.json',dict(error_type=type(error).__name__,message=str(error),device_actions=0));raise
     finally:
         if process is not None and process.poll() is None:process.kill();process.wait()
+
+
+def validate_apt_serial(serial,case):
+    require(case in apt_spec.APT_FAULTS,'unselected APT failure')
+    parks=re.findall(rb'DHVM_HOOK_PARK errno=(\d+)\r?\n',serial)
+    require(len(parks)==1 and int(parks[0])>0 and b'APT_RESULT phase=2' not in serial and
+        b'reboot: Restarting system' not in serial and b'reboot: Power down' not in serial,
+        'APT failure did not remain in one stopped boot')
+    if case in ('apt-clock-missing','apt-clock-wrong-boot'):
+        require(parks==[b'110' if case=='apt-clock-missing' else b'71'] and b'APT_CLOCK ' not in serial and
+            b'PACKAGE_COMMAND ' not in serial and b'APT_RESULT ' not in serial,'failed clock advanced into workload')
+        if case=='apt-clock-missing':
+            entered=re.findall(rb'APT_CLOCK_WAIT_MISSING begin_ms=(\d+) deadline_ms=(\d+)\r?\n',serial)
+            expired=re.findall(rb'APT_CLOCK_WAIT_MISSING expired_ms=(\d+)\r?\n',serial)
+            require(len(entered)==len(expired)==1 and int(entered[0][1])-int(entered[0][0])==5000 and
+                int(entered[0][1])<=int(expired[0])<300000,'missing request did not consume the selected wait deadline')
+        else:require(serial.count(b'APT_CLOCK_WAIT_REQUEST_REJECTED errno=71')==1,'wrong boot did not reach the fixed request rejection')
+        return True
+    commands=re.findall(rb'PACKAGE_COMMAND phase=1 step=(\d+) pid=(\d+) status=(\d+) bytes=(\d+) errno=(\d+)\r?\n',serial)
+    wanted=[1,6,10]+([] if case=='apt-metadata-changed' else [11])+(
+        [] if case in ('apt-metadata-changed','apt-download-changed') else [12])+(
+        [2] if case in ('apt-install-failed','apt-orphan-child') else [])
+    require([int(r[0]) for r in commands]==wanted and serial.count(b'APT_CLOCK phase=1 complete=1')==1,
+        'APT failure repeated or advanced its command sequence')
+    terminal=case not in ('apt-metadata-changed','apt-download-changed')
+    successful=commands[:-1] if terminal else commands
+    require(all(r[2]==r[4]==b'0' for r in successful),'APT fault prerequisites failed before the selected branch')
+    corruptions=re.findall(rb'APT_FAULT_CORRUPTED kind=(metadata|archive) bytes=1\r?\n',serial)
+    require(corruptions==([b'metadata'] if case=='apt-metadata-changed' else [b'archive'] if case=='apt-download-changed' else []),
+        'selected RAM corruption was not reached exactly once')
+    rows=re.findall(rb'APT_RESULT phase=1 intent=(\d+) complete=(\d+) errno=(\d+)\r?\n',serial)
+    intended=case in ('apt-install-failed','apt-orphan-child')
+    require(len(rows)==1 and rows[0][0]==(b'1' if intended else b'0') and rows[0][1]==b'0' and
+        rows[0][2]==parks[0] and int(rows[0][2])>0,'APT failed transaction completed or lost intent')
+    expected=b'110' if case=='apt-orphan-child' else b'10' if case=='apt-install-failed' else b'71'
+    require(parks==[expected],'selected APT rejection errno differs')
+    if terminal:
+        require(commands[-1][4]==expected and commands[-1][2]==(b'25600' if case=='apt-install-failed' else b'0'),
+            'selected APT command outcome differs')
+    orphans=re.findall(rb'APT_ORPHAN_OBSERVED direct_reaped=1 eof=1 group_alive=1 status=(\d+)\r?\n',serial)
+    require(orphans==([b'0'] if case=='apt-orphan-child' else []),'unsettled successful installer group was not observed')
+    outputs=re.findall(rb'APT_INSTALL_FAILURE_OUTPUT bytes=(\d+) hex=([0-9a-f]*)\r?\n',serial)
+    if case=='apt-install-failed':
+        require(len(outputs)==1,'fixed missing-version failure output is absent')
+        output=bytes.fromhex(outputs[0][1].decode())
+        require(len(output)==int(outputs[0][0]) and b"E: Version '0' for 'tree' was not found\n" in output,
+            'installer did not fail for the selected fixed missing version')
+    else:require(not outputs,'unselected install-failure output')
+    plans=re.findall(rb'APT_EXTRA_PLAN_OUTPUT bytes=(\d+) hex=([0-9a-f]*)\r?\n',serial)
+    if case=='apt-plan-extra-package':
+        require(len(plans)==1,'extra-install simulation output is absent')
+        output=bytes.fromhex(plans[0][1].decode())
+        require(len(output)==int(plans[0][0]) and b'0 upgraded, 2 newly installed, 0 to remove' in output and
+            all(len(re.findall(b'^'+kind+b' '+package+rb' \([^\n]+\)$',output,re.M))==1
+                for kind in (b'Inst',b'Conf') for package in (b'ed',b'tree')),
+            'extra-plan fault did not produce exactly the two selected installs')
+    else:require(not plans,'unselected extra-plan output')
+    return True
 
 
 def validate_package_serial(serial,case):

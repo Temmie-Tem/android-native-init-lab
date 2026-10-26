@@ -7,6 +7,7 @@ from pathlib import Path
 import socket
 import subprocess
 import time
+import types
 
 import autoboot as builder
 import autoboot_vm as automatic
@@ -16,7 +17,7 @@ import device_action_raw_capture_v1 as raw
 import s22plus_debian_autoboot_protocol_v1 as protocol
 import s22plus_debian_reboot_access_v1 as owner
 from s22plus_debian_autoboot_access_v1 import singlecpu_health_sample,singlecpu_health_pair
-from s22plus_native_records_v3 import pin,publish,read,require,verify
+from s22plus_native_records_v3 import clock,pin,publish,read,require,verify
 
 
 def snapshot(handle,key,selected,phase,command=None):
@@ -26,10 +27,26 @@ def snapshot(handle,key,selected,phase,command=None):
     return protocol.envelope(output,key=key,selected=selected,phase=phase)
 
 
+def apt_clock(out,folder,phase,first,plan,ssh,current,deadline):
+    import s22plus_debian_apt_access_v1 as access
+    basis=dict(deadline_ns=clock()+int((deadline-time.monotonic())*1e9),scope='H0_VM')
+    publish(folder/'window.json',dict(basis=basis,opened_ns=clock()))
+    client=types.SimpleNamespace(request=dict(operation='debian-autoboot',N=dict(namespace='p463')),
+        reboot_phase=phase,adapter=types.SimpleNamespace(directory=out),basis=lambda:basis,
+        ssh=lambda verb,unused,label,*args,**kwargs:ssh(verb,label))
+    access.handoff(client,folder,{},current,basis['deadline_ns'],singlecpu_health_sample(first,plan))
+    return client
+
+
+def clock_artifacts(out,folder,first):
+    return dict(result=pin(folder/'clock.json'),window=pin(folder/'window.json'),
+        initial_health=pin(first.receipt_path),operation=pin(out/'operation.json'))
+
+
 def run(out,build,helper):
     selected=automatic.prepare(out,build,helper,'normal');require('reboot' in selected,'VM requires two-boot selection')
     cron=builder.profile.cron_selected(selected)
-    config=cron in ('config','download','package')
+    config=cron in ('config','download','package','apt')
     disk=out/'disk.img';fixture=automatic.vm.fixture;life=automatic.lifecycle
     import reboot_vm_faults as faults
     faults.boundaries(out/'native.ext4',out)
@@ -44,7 +61,7 @@ def run(out,build,helper):
     with socket.socket() as reserve:reserve.bind(('127.0.0.1',0));port=reserve.getsockname()[1]
     link=plan['link'];network=ipaddress.ip_interface(link['device_address']).network
     if network.prefixlen>24:network=network.supernet(new_prefix=24)
-    net=f'user,id=net,restrict=on,net={network},host={link["host_address"].split("/")[0]},'
+    net=f'user,id=net,restrict={"off" if cron=="apt" else "on"},net={network},host={link["host_address"].split("/")[0]},'
     net+=f'dhcpstart={link["ssh_address"]},dns={network.network_address+254},hostfwd=tcp:127.0.0.1:{port}-{link["ssh_address"]}:22'
     command=[fixture.QEMU/'usr/bin/qemu-system-aarch64','-machine','virt','-cpu','cortex-a76','-smp','8','-m','1024',
         '-netdev',net,'-device','virtio-net-device,netdev=net,mac='+link['device_mac'],
@@ -59,6 +76,7 @@ def run(out,build,helper):
         command+=['-no-reboot']
         command[command.index('-serial')+1]=f'file:{out}/kernel-1.log'
     publish(out/'command.json',list(map(str,command)));process=None;boots=[];first_control=None
+    if cron=='apt':publish(out/'operation.json',dict(scope='H0_VM_ONLY',device_actions=0,build=pin(build/'build.json')))
     try:
         with (out/'qemu.log').open('xb') as log:
             process=subprocess.Popen(list(map(str,command)),stdin=subprocess.DEVNULL,stdout=log,stderr=subprocess.STDOUT,
@@ -80,6 +98,7 @@ def run(out,build,helper):
                     require(not handle.output_exceeded and handle.producer_error_type is None,'VM initial health producer failed')
                     time.sleep(2)
                 require(first is not None,'VM selected boot health absent')
+                if cron=='apt':clock_client=apt_clock(out,folder,phase,first,plan,ssh,current,deadline)
                 proof=values=None
                 for ordinal in range(1,121):
                     handle=ssh('evidence',f'evidence-{ordinal:03d}')
@@ -88,6 +107,9 @@ def run(out,build,helper):
                     require(not handle.output_exceeded and handle.producer_error_type is None,'VM evidence producer failed')
                     time.sleep(2)
                 require(proof is not None,'VM service evidence absent')
+                if cron=='apt':
+                    import s22plus_debian_apt_access_v1 as apt_access
+                    apt_access.rederive(clock_client,folder,proof)
                 while time.monotonic()-started<120.1:current();time.sleep(.2)
                 last=ssh('health','health');pair=singlecpu_health_pair(first,last,plan,proof['kernel_boot_identity_sha256'])
                 if phase==2:
@@ -95,7 +117,7 @@ def run(out,build,helper):
                         boots[0]['ssh_120_seconds']['last']['health']['boot_count']+1,'VM second boot history/count differs')
                 if config and phase==2:require(values[-2]==first_control[-1],'VM configuration snapshot changed across reboot')
                 elif cron and phase==2:require(values[-1]==first_control[-1],'VM cron output changed across reboot')
-                verb='reboot' if phase==1 else 'download' if cron in ('download','package') else 'shutdown'
+                verb='reboot' if phase==1 else 'download' if cron in ('download','package','apt') else 'shutdown'
                 requested=time.monotonic();control=ssh(verb,verb)
                 controlled,final=snapshot(control,key,selected,phase,verb)
                 require(controlled['runtime'][verb+'_intent'] and final[0]==values[0] and final[2:]==values[2:] and
@@ -107,6 +129,7 @@ def run(out,build,helper):
                 boots.append(dict(phase=phase,proof=proof,proof_capture=proof_capture,control=controlled,
                     control_capture=pin(control.receipt_path),ssh_120_seconds=pair,
                     files={name:pin(folder/(name+'.bin')) for name in ('early','runtime','transition')+extra}))
+                if cron=='apt':boots[-1]['clock']=clock_artifacts(out,folder,first)
                 if phase==1:
                     first_control=final;deadline=requested+360
                     if config:
@@ -130,7 +153,7 @@ def run(out,build,helper):
         serial=(out/'serial.log').read_bytes()
         require(process.returncode==0 and b'reboot: Power down' in serial and b'reboot: Restarting system' in serial,
             'actual VM reboot and final poweroff not observed')
-        if cron in ('download','package'):builder.profile.download_spec.validate_vm_return(serial)
+        if cron in ('download','package','apt'):builder.profile.download_spec.validate_vm_return(serial)
         require(life.outside_native(disk)==outside,'two-boot VM wrote outside native_data')
         native=file_log_vm.extract_native(out)
         with native.open('rb') as stream:final_block=stream.read(4096)

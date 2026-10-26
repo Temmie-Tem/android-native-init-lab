@@ -8,17 +8,18 @@ import s22plus_debian_cron_v1 as cron_spec
 import s22plus_debian_cron_config_v1 as cron_config_spec
 import s22plus_debian_download_v1 as download_spec
 import s22plus_debian_package_v1 as package_spec
+import s22plus_debian_apt_v1 as apt_spec
 from s22plus_debian_autoboot_access_v1 import Access as AutomaticAccess
 from s22plus_native_records_v3 import Journal,clock,pin,publish,read,require,verify
 
 
 def selected(request):
     image=request.get('N') or {}
-    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE,download_spec.NAMESPACE,package_spec.NAMESPACE)
+    return request.get('operation')=='debian-autoboot' and image.get('namespace') in (spec.NAMESPACE,cron_spec.NAMESPACE,cron_config_spec.NAMESPACE,download_spec.NAMESPACE,package_spec.NAMESPACE,apt_spec.NAMESPACE)
 
 
 def download_selected(request):
-    return selected(request) and request['N'].get('namespace') in (download_spec.NAMESPACE,package_spec.NAMESPACE)
+    return selected(request) and request['N'].get('namespace') in (download_spec.NAMESPACE,package_spec.NAMESPACE,apt_spec.NAMESPACE)
 
 
 def control_step(command):return 'debian-shutdown' if command=='download' else 'debian-'+command
@@ -127,6 +128,8 @@ class Access(AutomaticAccess):
         require(rows==self.network_expected(found),'reboot connection is not the original owned UUID/name/MAC/interface')
 
     def configure_link(self,folder,found,guard):
+        from s22plus_debian_apt_access_v1 import selected as apt_selected,configure_network
+        if apt_selected(self.request):return configure_network(self,folder,found,guard)
         if self.reboot_phase==1:return super().configure_link(folder,found,guard)
         first=self.adapter.folder('debian-health');original=read(first/'network-intent.json')
         previous=read(first/'endpoint.json')
@@ -144,6 +147,8 @@ class Access(AutomaticAccess):
         require(base.endpoint(self.plan['link'])==found,'second NCM changed during activation')
 
     def network_result(self,folder):
+        from s22plus_debian_apt_access_v1 import selected as apt_selected,network_result
+        if apt_selected(self.request):return network_result(self,folder)
         if self.reboot_phase==1:return super().network_result(folder)
         self.network_inspection(base.raw.load_handle(folder/'network-before.capture.json'),
             read(self.adapter.folder('debian-health')/'endpoint.json'))
@@ -213,7 +218,10 @@ class Access(AutomaticAccess):
         departed=base.target.wait_departure(snapshot,folder,deadline_ns=detail['deadline_ns'],guard=guard)
         publish(folder/'departure.json',departed)
         value=self.rederive_control(command);publish(folder/'result.json',value)
-        if command in ('shutdown','download'):base.cleanup(self.adapter,self.request)
+        # P463 sharing cleanup follows the owner completion/failure path. It
+        # must not consume the Download-to-A window before the A transfer.
+        from s22plus_debian_apt_access_v1 import selected as apt_selected
+        if command in ('shutdown','download') and not apt_selected(self.request):base.cleanup(self.adapter,self.request)
         return value
 
     def reboot(self,step,guard,before):return self.control('reboot',step,guard,before)

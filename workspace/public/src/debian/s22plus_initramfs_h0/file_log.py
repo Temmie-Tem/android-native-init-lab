@@ -93,7 +93,8 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
     if cron:
         h0.require(autoboot and reboot is not None,'cron requires automatic reboot selection')
         (out/'s22plus_debian_cron_seal_v1.h').write_bytes(automatic.cron_variant(cron).seal(run))
-    if cron=='package':(out/'s22plus_debian_package_seal_v1.h').write_bytes(automatic.package_spec.header())
+    if cron in ('package','apt'):(out/'s22plus_debian_package_seal_v1.h').write_bytes(automatic.cron_variant(cron).header())
+    if cron=='apt':(out/'s22plus_debian_apt_seal_v1.h').write_bytes(automatic.apt_spec.runtime_header(virt=virt))
     if reboot is not None:
         h0.require(autoboot and minimal,'reboot requires selected automatic minimal path')
         (out/'s22plus_debian_reboot_seal_v1.h').write_bytes(automatic.reboot_spec.seal(run,reboot['initial_mount_count']))
@@ -109,9 +110,10 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,fault=
         *(['-DS22_DEBIAN_AUTOBOOT'] if autoboot else []),
         *(['-DS22_DEBIAN_REBOOT'] if reboot is not None else []),
         *(['-DS22_DEBIAN_CRON'] if cron else []),
-        *(['-DS22_DEBIAN_CRON_CONFIG'] if cron in ('config','download','package') else []),
-        *(['-DS22_DEBIAN_DOWNLOAD'] if cron in ('download','package') else []),
-        *(['-DS22_DEBIAN_PACKAGE'] if cron=='package' else []),
+        *(['-DS22_DEBIAN_CRON_CONFIG'] if cron in ('config','download','package','apt') else []),
+        *(['-DS22_DEBIAN_DOWNLOAD'] if cron in ('download','package','apt') else []),
+        *(['-DS22_DEBIAN_PACKAGE'] if cron in ('package','apt') else []),
+        *(['-DS22_DEBIAN_APT'] if cron=='apt' else []),
         *(['-DS22_AUTOBOOT_SINGLECPU'] if single_cpu else []),
         *(['-DS22_AUTOBOOT_TRACE=1','-DS22_AUTOBOOT_HISTORY'] if transition else []),*extra,
         source,'-o',out/'file-log'],out/'writer-compile.log')

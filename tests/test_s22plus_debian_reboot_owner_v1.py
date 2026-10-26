@@ -109,6 +109,7 @@ class ControlTests(unittest.TestCase):
 class NetworkTests(unittest.TestCase):
     def fixture(self):
         current=reboot.Access.__new__(reboot.Access);current.reboot_phase=2
+        current.request=dict(operation='debian-autoboot',N=dict(namespace='p458'))
         current.plan=dict(candidate=dict(run_id='a'*32),network_uuid='owned-uuid',link=dict(host_mac='fixture-mac'))
         current.adapter=types.SimpleNamespace(folder=lambda name:Path('/fixture')/name)
         return current

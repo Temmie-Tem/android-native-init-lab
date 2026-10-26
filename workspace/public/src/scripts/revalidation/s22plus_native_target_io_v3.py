@@ -1,5 +1,6 @@
 """Fixed S22+ Android health and USB identity, without a Process-v2 owner."""
 from dataclasses import asdict
+import copy
 import os
 from pathlib import Path
 import re
@@ -31,6 +32,10 @@ PROPERTY_FIELDS = {'model','device','bootloader','incremental','boot_completed',
     'verified_boot_state','boot_id','kernel_release'}
 HEALTH_FIELDS = {'root','boot','vendor_boot','dtbo','recovery'}
 UUID = re.compile('[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}')
+
+
+class _RootHealthReadFailure(raw.RawCaptureError):
+    """Only a root-read decoder failure, never an owner/source-guard failure."""
 
 
 def fields(text, expected):
@@ -104,23 +109,97 @@ class Android:
             return raw.acquire_command([str(tool.path),*arguments],self.directory,name,
                 timeout=timeout,stdout_maximum=16384,stderr_maximum=16384,**options)
 
-    def health(self):
+    def health(self, *, reobserve_root_disappearance=False, deadline_ns=None):
+        """One full bracket, with an explicitly adopted return-health exception.
+
+        Only a completed same-serial ADB disappearance at the root read can
+        replace the bracket. No successful prefix is reused. Legacy callers
+        retain their single attempt and original capture paths.
+        """
+        if reobserve_root_disappearance:
+            require(deadline_ns is None or type(deadline_ns) is int and deadline_ns>0,
+                'health deadline is not a positive absolute time')
+            deadline_ns=min(clock()+260_000_000_000,
+                2**63-1 if deadline_ns is None else deadline_ns)
+        else:
+            require(deadline_ns is None,'health deadline requires the adopted return profile')
+        captures=[]
+        try:
+            result=self._health_attempt(captures,deadline_ns=deadline_ns)
+        except _RootHealthReadFailure:
+            if not reobserve_root_disappearance or len(captures)!=4:raise
+            failed=raw.load_handle(verify(captures[-1]))
+            require(failed.returncode==1 and not failed.timed_out and not failed.output_exceeded
+                and failed.producer_error_type is None
+                and raw.read_stdout(failed,maximum=16384)==b''
+                and raw.read_stderr(failed,maximum=16384)==
+                    ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'),
+                'failed health read is not the adopted ADB disappearance')
+            prefix=[raw.load_handle(verify(p)) for p in captures[:3]]
+            texts=[raw.decode_success_stdout(h,maximum=16384) for h in prefix]
+            require(all(not raw.read_stderr(h,maximum=16384) for h in prefix),
+                'abandoned health prefix returned diagnostics')
+            select_android(texts[0],self.target)
+            require(texts[1]==self.target['topology'],'abandoned health devpath differs')
+            expected=dict(model='SM-S906N',device='g0q',bootloader='S906NKSS7FYG8',
+                incremental='S906NKSS7FYG8',boot_completed='1',bootanim='stopped')
+            partial='\n'.join(k+'='+v for k,v in expected.items())
+            anchor=None
+            if texts[2].rstrip('\n')!=partial:
+                old=fields(texts[2],PROPERTY_FIELDS)
+                require(all(old[k]==v for k,v in expected.items()) and
+                    old['verified_boot_state']=='orange' and UUID.fullmatch(old['boot_id']),
+                    'abandoned health properties differ')
+                anchor=digest(old['boot_id'].encode())
+            self.guard()
+            require(clock()<deadline_ns,'health reobservation exhausted the original deadline')
+            # A shallow copy keeps the caller's command implementation and guards.
+            replacement=copy.copy(self)
+            replacement.directory=self.directory/'reobservation-1'
+            replacement.directory.mkdir(mode=0o700)
+            publish(replacement.directory/'intent.json',dict(
+                schema='s22plus-android-root-read-reobservation-v1',abandoned_captures=captures,
+                deadline_ns=deadline_ns,prior_boot_id_sha256=anchor))
+            replacement.wait_ready(deadline_ns=deadline_ns)
+            result=replacement._health_attempt([],deadline_ns=deadline_ns)
+            require(anchor is None or result['boot_id_sha256']==anchor,
+                'Android boot changed after the abandoned health bracket')
+        if deadline_ns is not None:
+            self.guard()
+            require(clock()<deadline_ns,'Android health projection exceeded the original deadline')
+        publish(self.directory/'health.json',result)
+        return result
+
+    def _health_attempt(self, captures, *, deadline_ns):
         serial=self.target['serial']
         properties=['-s',serial,'shell','sh -c '+shlex.quote(PROPERTIES)]
         health=['-s',serial,'shell','su -c '+shlex.quote(ROOT_HEALTH)]
         commands=[(['devices','-l'],10),(['-s',serial,'get-devpath'],10),(properties,20),(health,180),
             (['devices','-l'],10),(['-s',serial,'get-devpath'],10),(properties,20)]
-        captures=[]
         for index,(arguments,timeout) in enumerate(commands):
-            handle=self.command(arguments,f'{index:02d}-health',timeout=timeout)
+            def remaining():
+                self.guard()
+                left=(deadline_ns-clock())/1_000_000_000
+                require(left>=.1,'Android health exhausted the original deadline')
+                return min(timeout,left)
+            options={} if deadline_ns is None else dict(before_launch=remaining)
+            handle=self.command(arguments,f'{index:02d}-health',
+                timeout=timeout if deadline_ns is None else remaining(),**options)
             receipt=pin(handle.receipt_path); captures.append(receipt)
-            text=raw.decode_success_stdout(handle,maximum=16384)
+            if deadline_ns is not None:remaining()
+            try:text=raw.decode_success_stdout(handle,maximum=16384)
+            except raw.RawCaptureError as error:
+                if index==3 and deadline_ns is not None:
+                    require(raw.load_handle(handle.receipt_path)==handle,
+                        'root health capture handle differs from its immutable receipt')
+                    raw.read_stdout(handle,maximum=16384)
+                    raw.read_stderr(handle,maximum=16384)
+                    raise _RootHealthReadFailure(str(error)) from error
+                raise
             # Validate the selector before the first target-specific command.
             if index in (0,4): select_android(text,self.target)
             if index in (1,5): require(text==self.target['topology'],'Android devpath differs')
-        result=health_projection(captures,self.target,self.android)
-        publish(self.directory/'health.json',result)
-        return result
+        return health_projection(captures,self.target,self.android)
 
     def download(self, *, before_dispatch):
         handle=self.command(['-s',self.target['serial'],'reboot','download'],'download',timeout=15,

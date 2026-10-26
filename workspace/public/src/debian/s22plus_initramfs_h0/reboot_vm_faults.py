@@ -11,6 +11,7 @@ import s22plus_debian_reboot_v1 as spec
 import s22plus_debian_cron_v1 as cron_spec
 import s22plus_debian_cron_config_v1 as config_spec
 import s22plus_debian_package_v1 as package_spec
+import s22plus_debian_apt_v1 as apt_spec
 from s22plus_debian_reboot_qualification_v1 import rejection
 from s22plus_native_records_v3 import pin,publish,read,require,verify
 
@@ -58,7 +59,7 @@ def boundaries(native,out):
 
 
 def run(out,build,helper,positive,case,clean=None):
-    require(case in CASES+cron_spec.ROOT_CASES+config_spec.ROOT_CASES+package_spec.PACKAGE_ROOT_CASES+('clean-error-unmount','second-root-control'),'unselected reboot root fault')
+    require(case in CASES+cron_spec.ROOT_CASES+config_spec.ROOT_CASES+package_spec.PACKAGE_ROOT_CASES+apt_spec.APT_ROOT_CASES+('clean-error-unmount','second-root-control'),'unselected reboot root fault')
     selected=automatic.prepare(out,build,helper,'changed-receipt' if case=='changed-current-receipt' else 'normal')
     config=automatic.build_api.profile.cron_config_selected(selected)
     native=out/'native.ext4';fixture=automatic.vm.fixture
@@ -67,7 +68,7 @@ def run(out,build,helper,positive,case,clean=None):
         require(clean is not None,'retry needs the original counted error-unmount fixture')
         h0.run(['cp','--reflink=auto','--sparse=always',clean/'native-after.ext4',native],out/'copy-error.log')
         provenance='ORIGINAL_COUNTED_ERROR_UNMOUNT'
-    if case in SECOND or case in cron_spec.ROOT_CASES and case!='cron-existing-first' or case.startswith('config-second-') or case.startswith('package-second-'):
+    if case in SECOND or case in cron_spec.ROOT_CASES and case!='cron-existing-first' or case.startswith(('config-second-','package-second-','apt-second-')):
         source=positive/('native-first.ext4' if config and case!='third-start' else 'native-after.ext4')
         if config and case!='third-start':
             snap=read(positive/'first-root.json')
@@ -152,13 +153,14 @@ def run(out,build,helper,positive,case,clean=None):
             put(native,out,'config-mutated',path,body)
     if case in package_spec.PACKAGE_ROOT_CASES:
         require(automatic.build_api.profile.package_selected(selected),'unselected package root fault')
-        path='usr/bin/hello'
+        apt=automatic.build_api.profile.apt_selected(selected)
+        package='tree' if apt else 'hello';path='usr/bin/'+package
         if case=='package-first-existing':put(native,out,'package-existing',path,b'UNEXPECTED',0o100755)
         elif case in ('package-first-remnant','package-second-remnant'):
             put(native,out,'package-remnant',path+'.dpkg-tmp',b'UNEXPECTED',0o100755)
         elif case=='package-second-missing':debug(native,out,'package-missing',f'rm /{path}')
         elif case=='package-second-linked':
-            debug(native,out,'package-alias',f'ln /{path} /usr/bin/hello-unexpected-alias')
+            debug(native,out,'package-alias',f'ln /{path} /usr/bin/{package}-unexpected-alias')
             debug(native,out,'package-linked',f'set_inode_field /{path} links_count 2')
         elif case=='package-second-mode':debug(native,out,'package-mode',f'set_inode_field /{path} mode 0100600')
         elif case=='package-second-foreign':put(native,out,'package-foreign','etc/unexpected-package',b'UNEXPECTED')
@@ -171,16 +173,20 @@ def run(out,build,helper,positive,case,clean=None):
                 record=bytearray(original[at:at+128])
                 if int.from_bytes(record[12:16],'little') in (13,14):continue
                 struct.pack_into('<I',record,8,count);record[64:96]=prior
-                prior=evidence.tag(key,record[:96],autoboot=True,reboot=True,cron_config=True,download=True,package=True)
+                prior=evidence.tag(key,record[:96],autoboot=True,reboot=True,cron_config=True,download=True,package=True,apt=apt)
                 record[96:]=prior;body+=record;count+=1
             put(native,out,'package-proof',path,bytes(body),0o100600)
         else:
             if case in ('package-first-status','package-second-status'):path='var/lib/dpkg/status'
             elif case=='package-second-status-old':path='var/lib/dpkg/status-old'
-            elif case=='package-second-info':path='var/lib/dpkg/info/hello.list'
+            elif case=='package-second-info':path='var/lib/dpkg/info/'+package+'.list'
             target=out/'package-original.bin';debug(native,out,'package-read',f'dump /{path} {target}')
             body=target.read_bytes();require(body,'package fixture is empty')
-            put(native,out,'package-changed',path,body[:-1]+bytes([body[-1]^1]),0o100755 if path=='usr/bin/hello' else 0o100644)
+            put(native,out,'package-changed',path,body[:-1]+bytes([body[-1]^1]),0o100755 if path=='usr/bin/'+package else 0o100644)
+    if case in apt_spec.APT_ROOT_CASES:
+        require(automatic.build_api.profile.apt_selected(selected),'unselected retained package fault')
+        if case=='apt-first-retained-hello-changed':put(native,out,'retained-hello','usr/bin/hello',b'CHANGED',0o100755)
+        else:debug(native,out,'retained-hello-missing','rm /usr/bin/hello')
     (out/'disk.img').unlink()
     fixture.make_disk(native,out/'disk.img',read(verify(fixture.profile.filesystem.BINDING)))
     before=fixture.fixture_tools.sparse_digest(out/'disk.img');outside=automatic.lifecycle.outside_native(out/'disk.img')

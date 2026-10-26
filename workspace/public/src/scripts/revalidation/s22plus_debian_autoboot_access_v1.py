@@ -103,6 +103,10 @@ class Access(access.Access):
                 require(not handle.output_exceeded and handle.producer_error_type is None,'initial health producer failed')
                 time.sleep(min(3,max(0,(deadline-clock())/1_000_000_000)))
             require(first_health is not None,'initial single CPU SSH health budget exhausted')
+        from s22plus_debian_apt_access_v1 import selected as apt_selected,handoff as clock_handoff
+        if apt_selected(self.request):
+            require(first_health is not None,'APT clock handoff needs same-boot SSH identity')
+            clock_handoff(self,folder,found,current,deadline,singlecpu_health_sample(first_health,self.plan))
         for ordinal in range(1,181):
             current();handle=self.ssh('evidence',folder,f'evidence-{ordinal:03d}',found,current,deadline_ns=deadline)
             if handle.returncode==0:
@@ -160,4 +164,6 @@ class Access(access.Access):
             found['topology'] in (access.target.lane.SOURCE_TOPOLOGY,access.target.lane.CANDIDATE_TOPOLOGY),
             'automatic health timing or endpoint differs')
         self.network_result(folder)
+        from s22plus_debian_apt_access_v1 import selected as apt_selected,rederive as clock_rederive
+        if apt_selected(self.request):clock_rederive(self,folder,evidence['proof'])
         return value

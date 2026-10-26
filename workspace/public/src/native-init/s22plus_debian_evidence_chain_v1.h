@@ -1,7 +1,10 @@
 /* Shared authenticated wire reader used by live hooks and protected admission. */
 #ifndef S22PLUS_DEBIAN_EVIDENCE_CHAIN_V1_H
 #define S22PLUS_DEBIAN_EVIDENCE_CHAIN_V1_H
-#ifdef S22_DEBIAN_PACKAGE
+#ifdef S22_DEBIAN_APT
+#define DE_SELECTED_REVISION 11U
+#include "s22plus_debian_apt_seal_v1.h"
+#elif defined(S22_DEBIAN_PACKAGE)
 #define DE_SELECTED_REVISION 10U
 #elif defined(S22_DEBIAN_DOWNLOAD)
 #define DE_SELECTED_REVISION 9U
@@ -22,6 +25,9 @@
 #ifdef S22_DEBIAN_CRON_CONFIG
 #include "s22plus_debian_cron_seal_v1.h"
 #endif
+#ifdef S22_DEBIAN_PACKAGE
+#include "s22plus_debian_package_seal_v1.h"
+#endif
 struct de_chain {
     unsigned count,started,off,complete,released,stopped,progress,last_kind,last_phase,control;
     unsigned boundary[2],last_event[2],status[2];
@@ -29,6 +35,9 @@ struct de_chain {
     uint8_t tag[32];
 #ifdef S22_DEBIAN_PACKAGE
     unsigned package_intent,package_complete;
+#endif
+#ifdef S22_DEBIAN_APT
+    unsigned apt_clock,apt_acquired;
 #endif
 #ifdef S22_DEBIAN_CRON_CONFIG
     unsigned boot_phase,config_created,config_retired;
@@ -40,7 +49,9 @@ static uint64_t de_u64(const uint8_t *p) {
 }
 static void de_put64(uint8_t *p,uint64_t n) {for(unsigned i=0;i<8;++i)p[i]=(uint8_t)(n>>(8*i));}
 static void de_tag(uint8_t out[32],const uint8_t *p,size_t n) {
-#ifdef S22_DEBIAN_PACKAGE
+#ifdef S22_DEBIAN_APT
+    static const char domain[]="S22PLUS-FYG8-DEBIAN-APT-DURABLE-v1";
+#elif defined(S22_DEBIAN_PACKAGE)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-PACKAGE-DURABLE-v1";
 #elif defined(S22_DEBIAN_DOWNLOAD)
     static const char domain[]="S22PLUS-FYG8-DEBIAN-DOWNLOAD-DURABLE-v1";
@@ -113,6 +124,9 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
              a>(uint64_t)event*DH_SAMPLE_MS+10000U || a>elapsed || (ordinal>=3 && a<=s->progress_ms)) ||
            (ordinal==1 && (s->last_event[0]!=5 || s->status[0])) ||
            (ordinal==2 && (s->last_event[1]!=5 || s->status[1])))return EPROTO;
+#ifdef S22_DEBIAN_APT
+        if(ordinal>=2 && !s->apt_clock)return EPROTO;
+#endif
         s->progress++;s->progress_ms=a;
     } else if(kind==DE_BOUNDARY) {
         if(!s->started || s->complete || phase<1 || phase>2 || s->progress!=phase)return EPROTO;
@@ -136,6 +150,9 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
         s->complete=1;
 #ifdef S22_DEBIAN_CRON_CONFIG
     } else if(kind==11U) {
+#ifdef S22_DEBIAN_APT
+        if(!s->apt_clock)return EPROTO;
+#endif
         if(s->boot_phase!=1 || !s->started || s->complete || s->progress!=2 ||
            s->last_event[1]!=5 || s->status[1] || phase!=1 || event!=s->config_created+1 || event>2)return EPROTO;
         if(event==1) {
@@ -157,12 +174,27 @@ static int de_apply(struct de_chain *s,const uint8_t r[DE_RECORD]) {
            (s->boot_phase!=1 && s->boot_phase!=2) || phase!=s->boot_phase || event!=phase ||
            (phase==1 ? s->config_created!=2 || s->config_retired : s->config_created || !s->config_retired))return EPROTO;
         if(kind==13U) {
-            if(s->package_intent || s->package_complete || a!=52 || b!=54 || c)return EPROTO;
+            if(s->package_intent || s->package_complete || a!=PK_ADDED || b!=PK_ROWS || c)return EPROTO;
+#ifdef S22_DEBIAN_APT
+            if(!s->apt_clock || (phase==1 ? !s->apt_acquired || s->last_kind!=16U : s->apt_acquired))return EPROTO;
+#endif
             s->package_intent=1;
         } else {
-            if(!s->package_intent || s->package_complete || s->last_kind!=13U || a<=1 || a>INT_MAX || b || c!=54)return EPROTO;
+            if(!s->package_intent || s->package_complete || s->last_kind!=13U || a<=1 || a>INT_MAX || b || c!=PK_ROWS)return EPROTO;
             s->package_complete=1;
         }
+#endif
+#ifdef S22_DEBIAN_APT
+    } else if(kind==15U) {
+        if(!s->started || s->complete || s->apt_clock || s->progress!=2 || s->last_event[1]!=5 ||
+           s->status[1] || phase!=s->boot_phase || event!=1 || a<1577836800ULL || a>=4102444800ULL ||
+           b>=1000000000ULL || c>20000 || s->config_created || s->config_retired)return EPROTO;
+        s->apt_clock=1;
+    } else if(kind==16U) {
+        if(!s->started || s->complete || !s->apt_clock || s->apt_acquired || s->progress!=DH_SAMPLES+3 ||
+           s->boot_phase!=1 || phase!=1 || event!=1 || s->config_created!=2 || s->config_retired ||
+           s->package_intent || a!=ap_release_size || b!=ap_index_size || c!=ap_archive_size)return EPROTO;
+        s->apt_acquired=1;
 #endif
     } else if(kind==DE_RELEASE) {
 #ifdef S22_DEBIAN_AUTOBOOT

@@ -37,7 +37,7 @@ def seal(run):
         'static const char dh_evidence_name[]="'+value['path'].rsplit('/',1)[1]+'";\n').encode()
 
 
-def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False,package=False):
+def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False,package=False,apt=False):
     domain=b'S22PLUS-FYG8-DEBIAN-AUTO-DURABLE-v1' if autoboot else DOMAIN
     if reboot:
         from s22plus_debian_reboot_v1 import DURABLE_DOMAIN
@@ -51,11 +51,14 @@ def tag(key,body,*,autoboot=False,reboot=False,cron_config=False,download=False,
     if package:
         from s22plus_debian_package_v1 import DURABLE_DOMAIN
         require(download,'package durable domain needs Download selection');domain=DURABLE_DOMAIN
+    if apt:
+        from s22plus_debian_apt_v1 import DURABLE_DOMAIN
+        require(package,'APT durable domain needs package selection');domain=DURABLE_DOMAIN
     return hmac.new(key,domain+body,hashlib.sha256).digest()
 
 
 class Chain:
-    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False,package=False):
+    def __init__(self,first_tag,*,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False,package=False,apt=False):
         self.tag=first_tag;self.rows=[];self.started=False;self.off=False;self.complete=False
         self.released=False;self.stopped=False;self.progress=[];self.boundaries=[];self.elapsed=0
         self.autoboot=autoboot
@@ -68,6 +71,8 @@ class Chain:
         self.download=download
         require(type(package) is bool and (not package or download),
             'package chain selection differs')
+        require(type(apt) is bool and (not apt or package),'APT chain selection differs')
+        self.apt=apt;self.apt_clock=None;self.apt_acquired=None
         self.package=package;self.package_intent=None;self.package_complete=None
         self.cron_config=cron_config;self.config_created=[];self.config_retired=None
 
@@ -75,7 +80,7 @@ class Chain:
         require(len(raw)==RECORD and raw[:8]==b'S22DER1\0','durable record framing differs')
         seq,kind,elapsed,phase,event,a,b,c,flags,reserved=struct.unpack_from('<IIQIIQQQII',raw,8)
         require(seq==len(self.rows)<RECORDS and not reserved and flags==int(self.off) and not self.stopped and self.control is None and
-            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config,download=self.download,package=self.package)),
+            self.elapsed<=elapsed<300000 and raw[64:96]==self.tag and hmac.compare_digest(raw[96:],tag(key,raw[:96],autoboot=self.autoboot,reboot=self.reboot is not None,cron_config=self.cron_config,download=self.download,package=self.package,apt=self.apt)),
             'durable record sequence, deadline, state or authentication differs')
         row=dict(sequence=seq,kind=kind,name=NAMES[kind-1] if kind in range(1,9) else 'UNKNOWN',
             elapsed_ms=elapsed,phase=phase,event=event,a=a,b=b,c=c,report_disabled=bool(flags))
@@ -119,6 +124,7 @@ class Chain:
             if ordinal in (1,2):
                 prior=[r for r in self.boundaries if r['phase']==ordinal]
                 require(prior and prior[-1]['event']==5 and prior[-1]['b']==0,'local completion lacks successful child')
+            if self.apt and ordinal>=2:require(self.apt_clock is not None,'service sampling precedes clock handoff')
             self.progress.append(row)
             if self.single_cpu:
                 row['platform']=dict(online_cpus=[0],watchdog_driver_enabled=True,
@@ -150,6 +156,7 @@ class Chain:
                     'package lifecycle is incomplete')
             self.complete=True
         elif kind==11 and self.cron_config:
+            if self.apt:require(self.apt_clock is not None,'configuration precedes clock handoff')
             from s22plus_debian_cron_config_v1 import schedule
             require(self.reboot['phase']==1 and self.started and not self.complete and len(self.progress)==2 and
                 self.boundaries[-1]['phase']==2 and self.boundaries[-1]['event']==5 and self.boundaries[-1]['b']==0 and
@@ -169,15 +176,37 @@ class Chain:
                 ((len(self.config_created)==2 and self.config_retired is None) if phase==1 else
                  not self.config_created and self.config_retired is not None),
                 'package transaction ordering differs')
+            if self.apt:
+                from s22plus_debian_apt_v1 import package_declaration
+                declaration=package_declaration();added,rows=declaration['added_entries'],64
+            else:added,rows=52,54
             if kind==13:
-                require(self.package_intent is None and self.package_complete is None and (a,b,c)==(52,54,0),
+                if self.apt:require(self.apt_clock is not None and (self.apt_acquired is not None and self.rows[-1]['kind']==16 if phase==1 else self.apt_acquired is None),
+                    'APT installation precedes acquisition or repeats on second boot')
+                require(self.package_intent is None and self.package_complete is None and (a,b,c)==(added,rows,0),
                     'package transaction intent repeats or differs')
                 row['name']='PACKAGE_INTENT';self.package_intent=row
             else:
                 require(self.package_intent is not None and self.package_complete is None and
-                    self.rows[-1]['kind']==13 and 1<a<=2147483647 and b==0 and c==54,
+                    self.rows[-1]['kind']==13 and 1<a<=2147483647 and b==0 and c==rows,
                     'package transaction completion differs')
                 row['name']='PACKAGE_COMPLETE';self.package_complete=row
+        elif kind==15 and self.apt:
+            require(self.started and not self.complete and self.apt_clock is None and len(self.progress)==2 and
+                self.boundaries[-1]['phase']==2 and self.boundaries[-1]['event']==5 and self.boundaries[-1]['b']==0 and
+                phase==self.reboot['phase'] and event==1 and 1577836800<=a<4102444800 and
+                b<1000000000 and c<=20000 and not self.config_created and self.config_retired is None,
+                'clock handoff phase, numeric value or ordering differs')
+            row['name']='APT_CLOCK';self.apt_clock=row
+        elif kind==16 and self.apt:
+            from s22plus_debian_apt_v1 import package_declaration
+            repo=package_declaration()['repository']
+            require(self.started and not self.complete and self.apt_clock is not None and self.apt_acquired is None and
+                len(self.progress)==15 and phase==self.reboot['phase']==1 and event==1 and
+                len(self.config_created)==2 and self.config_retired is None and self.package_intent is None and
+                (a,b,c)==tuple(repo[k]['size'] for k in ('release','acquired_index','payload')),
+                'APT acquisition ordering or pinned sizes differ')
+            row['name']='APT_ACQUIRED';self.apt_acquired=row
         elif kind==RELEASE:
             require(not self.autoboot,'automatic record cannot claim host release')
             require(self.complete and not self.off and not self.released and (phase,event,a,b,c)==(0,0,9,0,0),
@@ -197,7 +226,7 @@ class Chain:
         self.tag=raw[96:];self.elapsed=elapsed;self.rows.append(row)
 
 
-def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False,package=False):
+def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=False,reboot=None,cron_config=False,download=False,package=False,apt=False):
     """Expected identity comes from the retained qualified image/authenticated run.
 
     A valid historical prefix can survive a later malformed/torn tail. It
@@ -215,10 +244,10 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         'durable file size or key differs')
     h=data[:HEADER]
     require(h[:8]==b'S22DE01\0' and struct.unpack_from('<II',h,8)==(1,HEADER) and
-        struct.unpack_from('<4I',h,112)==(10 if package else 9 if download else 8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
+        struct.unpack_from('<4I',h,112)==(11 if apt else 10 if package else 9 if download else 8 if cron_config else 7 if reboot is not None else 6 if single_cpu else 5 if autoboot else 4,RECORD,RECORDS,MAXIMUM) and
         (struct.unpack_from('<3I',h,200)==(reboot['phase'],reboot['initial_mount_count'],reboot['initial_mount_count']+2*reboot['phase'])
             and not any(h[212:224]) if reboot is not None else not any(h[200:224])) and
-        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config,download=download,package=package)),
+        hmac.compare_digest(h[224:],tag(key,h[:224],autoboot=autoboot,reboot=reboot is not None,cron_config=cron_config,download=download,package=package,apt=apt)),
         'durable header authentication or shape differs')
     origin,deadline=struct.unpack_from('<QQ',h,96);device=struct.unpack_from('<Q',h,192)[0]
     require(deadline>=300000 and deadline-origin==300000 and h[16:32].hex()==expected['run_id_hex'] and
@@ -227,7 +256,7 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
         device==os.makedev(expected['root_device']['major'],expected['root_device']['minor']),
         'durable identity does not join retained run/boot/init/root')
     require(not autoboot or (origin,deadline)==(0,300000),'automatic deadline was renewed')
-    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config,download=download,package=package);error=None;pos=HEADER
+    chain=Chain(h[224:],autoboot=autoboot,single_cpu=single_cpu,reboot=reboot,cron_config=cron_config,download=download,package=package,apt=apt);error=None;pos=HEADER
     while pos<len(data):
         try:chain.append(data[pos:pos+RECORD],key)
         except ValueError as failure:
@@ -260,6 +289,9 @@ def decode(data,key,expected,*,allow_prefix=False,autoboot=False,single_cpu=Fals
             phase=reboot['phase'],installation_proved=reboot['phase']==1 and chain.package_complete is not None,
             function_proved=chain.package_complete is not None,
             exact_post_state_proved=chain.package_complete is not None)
+    if apt:
+        result['apt']=dict(clock=chain.apt_clock,acquired=chain.apt_acquired,
+            package_manager_network_proved=chain.apt_acquired is not None and chain.package_complete is not None)
     if cron_config:
         result['configuration_created']=None
         if len(chain.config_created)==2:

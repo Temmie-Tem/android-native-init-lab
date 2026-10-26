@@ -122,6 +122,10 @@ permission to perform host-only work.
    files and exact post-state verification within those same native_data
    lifetimes. It retains the installed package, never repairs or retries a
    failed transaction, and adds no other-partition writer.
+   The separate [USB HTTPS APT specialization](S22PLUS_DEBIAN_APT_V1.md)
+   adds only its signed tree acquisition, one fixed APT transaction, sealed
+   cumulative hello/tree state and per-boot RAM-only clock handoff within
+   those same lifetimes; no package retry, repair or other-partition write.
    The separate [fixed native_data journal recovery exception](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits only one sealed internal JBD2 replay and exact journal/primary
    superblock finalization on entry 41. It adds no ordinary fsck repair,
@@ -223,6 +227,10 @@ permission to perform host-only work.
    separately permits its single fixed dpkg transaction and read-only
    second-boot function/retention checks. Exact sealed files, no replay,
    original deadlines and attended original-A recovery remain mandatory.
+   The [USB HTTPS APT specialization](S22PLUS_DEBIAN_APT_V1.md) separately
+   permits fixed RAM networking/resolver/clock setup and the exact temporary
+   host NetworkManager share, signed acquisition and one tree transaction.
+   It retains the same original deadlines, no replay and attended A recovery.
    The separately reviewed [fixed journal recovery V1](S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
    permits one partition-only RO clear, one pinned pathless strict JBD2 writer
    and RO restoration after conclusive child settlement, followed by the fixed
@@ -1396,6 +1404,25 @@ original A does not revert native_data, and failure never permits retry or
 repair. Current physical M=34, full qualification, independent review and a
 fresh finite attended grant remain required. The five P461 final producer
 expectations retain their provenance and are not post-Android retention proof.
+
+The separately reviewed [USB HTTPS APT specialization](S22PLUS_DEBIAN_APT_V1.md)
+adds only `post-autoboot-p462-apt-v1`, namespace `p463`, to the same attended
+two-boot/four-lifetime owner with fresh physical M=38. It permits the exact
+temporary host NetworkManager USB share and its managed DNS/DHCP/NAT/forwarding,
+guest RAM resolver/default route, and one authenticated CLOCK_REALTIME handoff
+per boot before cron; no RTC or persistent networking/time change is added.
+Unprivileged signed HTTPS acquisition and an exact one-package plan precede
+one root APT intent/transaction installing tree. RAM frontend state and disabled
+PTY retain child settlement. The sealed cumulative hello/tree state, unchanged
+other package paragraphs, fixed tree output and sync qualify completion.
+Second-boot admission requires the completed first chain and exact state;
+there is no second acquisition/install. Partial changes may remain and original
+A cannot undo them; no repair, retry, removal or extra writable lifetime is
+authorized. Host sharing cleanup follows A completion or stopped normal work,
+never consuming the automatic-return window. Only its final/recovery health
+allows one whole-bracket replacement for the exact target disappearance under
+the original deadline; no storage/control replay follows. Fresh finite scope,
+attendance, full qualification and independent review remain required.
 
 ## S22+ native-first installed-Debian handoff
 

@@ -99,6 +99,11 @@ static int pk_transients_absent(int root,dev_t device) {
     for(unsigned i=0;i<PK_ROWS;++i) {
         const struct pk_file *rule=pk_files+i;
         if(rule->existing)continue;
+        if(!strncmp(rule->path,"var/lib/dpkg/info/",18)) {
+            char path[PATH_MAX];int size=snprintf(path,sizeof(path),"%s-new",rule->path);
+            if(size<0 || (size_t)size>=sizeof(path))return EOVERFLOW;
+            int error=pk_absent(root,device,path);if(error)return error;
+        }
         for(unsigned j=0;j<sizeof(suffix)/sizeof(suffix[0]);++j) {
             char path[PATH_MAX];int size=snprintf(path,sizeof(path),"%s%s",rule->path,suffix[j]);
             if(size<0 || (size_t)size>=sizeof(path))return EOVERFLOW;
@@ -108,9 +113,11 @@ static int pk_transients_absent(int root,dev_t device) {
     return 0;
 }
 static int pk_archive(int parent,const char *path,const char *leaf,dev_t device) {
+#ifndef S22_DEBIAN_APT
     if(rb_phase!=2)return 0;
+#endif
     for(unsigned i=0;i<PK_ROWS;++i)if(pk_files[i].existing && !strcmp(path,pk_files[i].path)) {
-        int error=pk_file_at(parent,leaf,device,pk_files+i,true);
+        int error=pk_file_at(parent,leaf,device,pk_files+i,rb_phase==2);
         return error ? -error : 1;
     }
     return 0;

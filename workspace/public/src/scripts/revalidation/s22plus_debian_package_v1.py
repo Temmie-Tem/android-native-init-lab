@@ -55,8 +55,14 @@ def package_declaration():
 
 def header():
     package_declaration();data=read(FILES)
+    return effect_header(data,program_paths=('usr/bin/dpkg','usr/bin/dpkg-deb','usr/bin/dpkg-split',
+        'usr/local/lib/lab-offline/hello.deb'),function_path='usr/bin/hello',added=52,budget=30000)
+
+
+def effect_header(data,*,program_paths,function_path,added,budget,base_added=0):
+    """One encoder for the predeclared before/after package state."""
     lines=['#ifndef S22PLUS_DEBIAN_PACKAGE_SEAL_V1_H','#define S22PLUS_DEBIAN_PACKAGE_SEAL_V1_H',
-        '#define PK_ROWS 54U','#define PK_ADDED 52U','#define PK_BUDGET_MS 30000U',
+        f'#define PK_ROWS {len(data["rows"])}U',f'#define PK_ADDED {added}U',f'#define PK_BUDGET_MS {budget}U',
         'struct pk_file {const char *path; unsigned mode,existing; uint64_t size,before_size; uint8_t sha[32],before_sha[32];};',
         'static const struct pk_file pk_files[]={']
     def sha(value):return '{'+','.join(map(str,bytes.fromhex(value) if value else bytes(32)))+'}'
@@ -66,10 +72,13 @@ def header():
             sha(r['sha256'])+','+sha(r.get('before_sha256'))+'},')
     lines+=['};','struct pk_program {const char *path; uint64_t size; uint8_t sha[32];};',
         'static const struct pk_program pk_programs[]={']
-    for path in ('usr/bin/dpkg','usr/bin/dpkg-deb','usr/bin/dpkg-split','usr/local/lib/lab-offline/hello.deb'):
+    for path in program_paths:
         r=data['programs'][path];lines.append('{'+json.dumps('/'+path)+','+str(r['size'])+'ULL,'+sha(r['sha256'])+'},')
-    hello=next(r for r in data['rows'] if r['path']=='usr/bin/hello')
-    lines+=['};','static const struct pk_program pk_hello={"/usr/bin/hello",'+str(hello['size'])+'ULL,'+sha(hello['sha256'])+'};','#endif']
+    function=next(r for r in data['rows'] if r['path']==function_path)
+    lines+=['};','static const struct pk_program pk_hello={'+json.dumps('/'+function_path)+','+
+        str(function['size'])+'ULL,'+sha(function['sha256'])+'};']
+    if base_added:lines.append(f'#define PK_BASE_ADDED {base_added}U')
+    lines.append('#endif')
     return ('\n'.join(lines)+'\n').encode()
 
 

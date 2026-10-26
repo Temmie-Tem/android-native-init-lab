@@ -40,6 +40,14 @@ def terminal(adapter,request,*,recovered):
 
 
 class Coordinator(PhysicalCoordinator):
+    def execute(self,*,attended):
+        from s22plus_debian_apt_access_v1 import selected as apt_selected
+        try:return super().execute(attended=attended)
+        finally:
+            # Shared-network retirement cannot precede or delay automatic A.
+            if apt_selected(self.session.request) and any(row['event']=='step-complete' and
+                row['data']['step']=='install-android' for row in self.session.rows()):self.cleanup()
+
     def steps(self):
         from s22plus_native_session_v3 import operation_steps
         return operation_steps(self.session.request)
@@ -68,6 +76,8 @@ def reboot_terminal(adapter,request,*,recovered):
                 result.update(package_installation_proved=package['installation_proved'],
                     package_function_proved=package['function_proved'],
                     package_exact_reboot_retention_proved=package['exact_reboot_retention_proved'])
+                from s22plus_debian_apt_access_v1 import selected as apt_selected
+                if apt_selected(request):result['package_manager_network_proved']=package['package_manager_network_proved']
             if phase==1:result['status']='PASS_FIRST_BOOT_SSH'
             else:
                 selected.basis()

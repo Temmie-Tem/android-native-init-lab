@@ -23,6 +23,19 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
+P463 is **H0 ready; device execution pending current attendance**.
+[Preparation](docs/reports/S22PLUS_DEBIAN_APT_P463_PREPARE_2026-10-27.md)
+binds USB internet, one signed tree APT transaction, exact reboot retention,
+Android return and bounded final-health reobservation for the P462 ADB failure.
+All 71 production ARM64 cases, actual artifact/cold admission, independent
+capability review and the concrete unexecuted entry checks pass.
+The exact prepared task selects one operation within 3600 seconds,
+with attended original-A recovery and unchanged two-boot/four-lifetime limits.
+Physical D0 observed clean M=38; it does not prove all post-return root
+contents. Fresh live health and complete root admission remain required.
+No P463 grant, installation, N transfer or package effect has occurred on the
+phone. P462's consumed grant and prior attendance do not transfer.
+
 [P462 physical execution](docs/reports/S22PLUS_DEBIAN_PACKAGE_P462_RUN_2026-10-27.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
 ANDROID_CLOSED_HEALTHY**. One offline hello installation, function in both
@@ -41,22 +54,12 @@ the separate human approval. Its exact task is now consumed and closed.
 
 [P461 physical execution](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
-ANDROID_CLOSED_HEALTHY**. Both physical Debian boots prove PID1, services and
-SSH samples spanning 121030/121460 ms; boot count advances 8→9. The exact cron
-configuration survives the ordinary reboot, is consumed by packaged cron and
-is retired. Final authenticated Download, exact arrival and original-A dispatch
-join within 19.736 seconds of the final intent, inside its original 90-second
-window. N and A each transfer once, with no physical-return dispatch. One
-post-A ADB read fails; the original health-only continuation completes without
-another transfer. Final health completes at 605.528 seconds and closure at
-722.303 seconds. H0 closure rederives 629 raw captures and the unchanged 24-row
-journal; no F1 owner remains. Unattended/failure recovery and final post-return
-native_data consistency remain unproved. No consumed action can replay.
-
-[P461 preparation](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_PREPARE_2026-10-26.md)
-passed independent capability and entry review, 49 ARM64 cases, 64 focused
-tests, thirty physical-helper fixtures, boot-only packaging, cold image admission
-and nine approval negatives. Its exact prepared task is now consumed and closed.
+ANDROID_CLOSED_HEALTHY**. Both Debian boots, services, sampled SSH, cron
+retention/retirement and automatic Download/A are proved. One health-only
+continuation resolved post-A ADB absence without another transfer. The linked
+run report preserves timings and 629 raw captures. Its reviewed
+[preparation](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_PREPARE_2026-10-26.md)
+and exact task are closed; no action can replay.
 
 [P460 physical execution](docs/reports/S22PLUS_DEBIAN_CRON_CONFIG_P460_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_SSH / ANDROID_CLOSED_HEALTHY**.
@@ -717,14 +720,15 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P462 completes the selected bounded unit: one offline hello installation,
-function, ordinary reboot, exact package/database retention, automatic
-Download/A return and full Android closure. No further device experiment is
-selected or authorized by this goal. Future root admission must account for
-the sealed installed package state and use its own applicable current scope.
-The shared readiness fix tolerates exact transient target absence only within
-the original wait. P462's later main health read still required the existing
-health-only continuation; any broader handling is separate host work.
+Complete P463 through the concrete reviewed attended entry: exact USB sharing,
+signed tree acquisition and one APT transaction, one ordinary reboot, exact
+package/database retention and fixed function, automatic Download/A, final
+Android health and owned host-profile cleanup. Preserve the installed P462
+hello state and all consumed evidence. The bounded final-health fix replaces
+one failed bracket only; it never repeats storage reads or controls.
+H0 implementation, qualification and independent entry review are complete.
+The next step requires a fresh finite grant and current physical attendance.
+This goal itself grants no device authority.
 General package/configuration work, post-return filesystem consistency and
 failure recovery remain separate functional or proof boundaries.
 

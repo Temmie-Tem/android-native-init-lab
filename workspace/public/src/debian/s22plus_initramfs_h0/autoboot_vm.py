@@ -82,6 +82,7 @@ def prepare(out,build,helper,case):
     native=out/'native.ext4'
     h0.run(['cp','--reflink=auto','--sparse=always',vm.previous.BASE/'complete.ext4',native],out/'copy-root.log')
     lifecycle.prepare_root_fixture(native,out,'post-p410')
+    if cron=='apt':apt_prestate(native,out)
     for index,history in enumerate(build_api.profile.histories(transition,rcs,watchdog,phase,single_cpu,post_p447,script_channel,minimal,reboot,cron)):
         if case=='missing-second-history' and index==1:continue
         if case=='missing-runtime-history' and index==2:continue
@@ -127,8 +128,34 @@ def prepare(out,build,helper,case):
 
 
 def ssh_command(plan,port,command):
-    require(command in ('health','evidence','shutdown','reboot','download'),'unselected automatic VM SSH command')
+    from s22plus_debian_apt_access_v1 import command_allowed
+    request=dict(operation='debian-autoboot',N=dict(namespace=plan['candidate']['namespace']))
+    require(command in ('health','evidence','shutdown','reboot','download') or
+        any(command_allowed(request,p,command) for p in (1,2)),'unselected automatic VM SSH command')
     args=lifecycle.ssh_command(plan,port,'health');args[-1]=command;return args
+
+
+def apt_prestate(native,out):
+    """Materialize only the sealed P462 entries into the regular-file fixture."""
+    import hashlib
+    data=read(build_api.profile.apt_spec.FILES)
+    seed=h0.ROOT/'workspace/private/outputs/s22plus-debian-package-p462-h0-20261026-1/vm-suite-3/normal/native-after.ext4'
+    require(seed.is_file() and not seed.is_symlink(),'APT fixture needs the retained regular-file VM seed')
+    rows=[]
+    for i,row in enumerate(r for r in data['rows'] if r['existing']):
+        path=row['path']
+        if row['kind']=='d':vm.fixture.debug(native,out,f'apt-mkdir-{i}',f'mkdir /{path}')
+        else:
+            body=out/f'apt-prestate-{i}.bin';vm.fixture.debug(seed,out,f'apt-read-{i}',f'dump /{path} {body}')
+            require(body.is_file() and body.stat().st_size==row['before_size'] and
+                hashlib.sha256(body.read_bytes()).hexdigest()==row['before_sha256'],'APT fixture differs from sealed P462 state')
+            if path in ('var/lib/dpkg/status','var/lib/dpkg/status-old'):vm.fixture.debug(native,out,f'apt-remove-{i}',f'rm /{path}')
+            vm.fixture.debug(native,out,f'apt-write-{i}',f'write {body} /{path}')
+            rows.append(dict(path=path,source=pin(body)))
+        mode=row['mode']|(0o040000 if row['kind']=='d' else 0o100000)
+        vm.fixture.debug(native,out,f'apt-mode-{i}',f'set_inode_field /{path} mode 0{mode:o}')
+    publish(out/'apt-prestate.json',dict(declaration=pin(build_api.profile.apt_spec.FILES),files=rows,
+        scope='H0_SEALED_PACKAGE_BYTES_ONLY',device_actions=0))
 
 
 def kernel_command_line(selected):
@@ -139,6 +166,8 @@ def kernel_command_line(selected):
         fault='s22cf_fault='+str(build_api.profile.cron_config_spec.RUNTIME_FAULTS[selected['transition_fault']])+' '
     if build_api.profile.package_selected(selected) and selected.get('transition_fault') in build_api.profile.package_spec.PACKAGE_FAULTS:
         fault='s22pk_fault='+str(build_api.profile.package_spec.PACKAGE_FAULTS[selected['transition_fault']])+' '
+    if build_api.profile.cron_selected(selected)=='apt' and selected.get('transition_fault') in build_api.profile.apt_spec.APT_FAULTS:
+        fault='s22apt_fault='+str(build_api.profile.apt_spec.APT_FAULTS[selected['transition_fault']])+' '
     return fault+('maxcpus=1 ' if build_api.profile.singlecpu_selected(selected) else '')+(
         'cpuidle.off=1 ' if selected.get('idle_policy')=='cpuidle-off' else '')+vm.KERNEL_COMMAND_LINE
 

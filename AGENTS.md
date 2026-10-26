@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **61** (supersedes revision 60; 2026-10-26)
+Contract-Revision: **62** (supersedes revision 61; 2026-10-27)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`d3cb1fff568832cf996fa5880a1cec8b460dbca4142d6974ac2272f5bdbda2e5`.
+`e13b318106e59892f0dc1d8b5543a4f3a300d4194333b23a9cb0085ef2121088`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -124,7 +124,8 @@ Read an exception's complete conditions before considering it applicable.
    and [bounded cron workload specialization](docs/operations/S22PLUS_DEBIAN_CRON_V1.md)
    and [persistent cron configuration specialization](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
    and [Debian Download return specialization](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
-   and [one offline package specialization](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md).
+   and [one offline package specialization](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md)
+   and [USB HTTPS APT specialization](docs/operations/S22PLUS_DEBIAN_APT_V1.md).
    Normal Android API
    staging is limited to the separately defined package/shared-storage rules.
 3. No raw host `dd`, arbitrary fastboot, partition-table actions,
@@ -220,6 +221,11 @@ Read an exception's complete conditions before considering it applicable.
    adds only one sealed hello dpkg transaction and exact reboot-retention/
    function checks inside the same lifetimes. Partial state may remain;
    original-A return does not undo it, and no package repair or replay follows.
+   The separate [USB HTTPS APT specialization](docs/operations/S22PLUS_DEBIAN_APT_V1.md)
+   adds fixed temporary USB internet sharing, RAM clock/resolver setup, signed
+   acquisition and one sealed tree APT transaction inside the same lifetimes.
+   It retains exact cumulative package state, attended A return and no repair,
+   package replay, additional boot or other-partition write.
 4. Before flashing, require the present, readable, hash-verified exact rollback
    artifact and a demonstrated usable recovery path. The S20+ recovery-only
    exceptions retain their exact stock-digest and physical-return conditions.
@@ -293,6 +299,7 @@ details; this routing table neither changes their scope nor activates a lane.
 | S22+ Debian Download return | [Final SysV Download and original-A return](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md); same attended two-boot/four-lifetime workload, checked final root RO, five fixed stock modules and one Download restart, with exact arrival/original-A dispatch inside the original 90-second control window; physical fallback remains distinct from automatic-return proof. |
 | S22+ bounded Debian reboot | [Two admitted automatic boots](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md); sealed pre-build M, four exact writable lifetimes, one ordinary reboot, one final shutdown, two fixed observation windows inside one attended finite grant and physical original-A return; no repair or replay. |
 | S22+ one offline package | [Fixed hello installation and reboot retention](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md); one pinned dpkg transaction, 52 exact additions and two database replacements within the same two-boot/four-lifetime owner, fixed hello output in both boots and attended Download/A return; no apt, package retry, cleanup or repair. |
+| S22+ one USB HTTPS APT package | [Fixed tree acquisition and installation](docs/operations/S22PLUS_DEBIAN_APT_V1.md); temporary owned host sharing, per-boot RAM clock handoff, signed unprivileged acquisition and one APT transaction, exact cumulative hello/tree retention, attended Download/A return and bounded final-health reobservation; no repair, replay or extra lifetime. |
 | S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md); one reviewed strict writer, fresh attended grant, protected post-check and one original-A return, no repair replay or reinstall. |
 | X | Forbidden; remain H0. |
 

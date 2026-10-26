@@ -829,6 +829,23 @@ removal or parent cleanup is authorized. Existing Download/A and physical
 fallback remain attended. Fresh physical baseline M=34, full qualification,
 independent review and the existing finite attended grant remain mandatory.
 
+The common-incorporated [USB HTTPS APT specialization](../S22PLUS_DEBIAN_APT_V1.md)
+is adopted only for `post-autoboot-p462-apt-v1`, namespace `p463`, with fresh
+physical M=38 under that same finite attended two-boot/four-lifetime owner.
+It permits one exact temporary host NetworkManager USB share with managed
+DNS/DHCP/NAT/forwarding, guest RAM resolver/default route and one authenticated
+CLOCK_REALTIME handoff per boot before cron, without RTC or persistent settings.
+Signed unprivileged acquisition and a sealed single-package plan precede one
+root APT transaction installing tree. The measured cumulative hello/tree rows
+and both databases, empty audit/verify, exact tree output, settled children and
+sync are mandatory. The second boot only verifies; partial state is never
+learned, repaired or replayed. Original A cannot undo native_data changes.
+Sharing cleanup must not delay automatic A. Only P463 final/recovery health
+may replace one exact disappeared-target bracket within its original deadline,
+without GPT/statfs/control replay. Fresh independent review, full qualification,
+current binding, physical recovery and an explicit finite attended grant remain
+mandatory; old P462 approval and ended attendance do not transfer.
+
 ### Fixed native_data journal recovery V1
 
 The common-incorporated [journal recovery V1](../S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)

@@ -24,7 +24,7 @@ from s22plus_native_records_v3 import pin,read,verify
 def sources():
     return sorted(set(handoff.source_files())|set(file_log.admission.source_files())|
         {p for p in h0.HERE.iterdir() if p.is_file() and p.suffix in ('.py','.c','.h')}|
-        {Path(profile.__file__),Path(profile.phase_spec.__file__),Path(profile.minimal_spec.__file__),Path(profile.reboot_spec.__file__),Path(profile.cron_spec.__file__),Path(profile.cron_config_spec.__file__),Path(profile.download_spec.__file__),Path(profile.package_spec.__file__),profile.package_spec.FILES,Path(profile.download_spec.stock.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
+        {Path(profile.__file__),Path(profile.phase_spec.__file__),Path(profile.minimal_spec.__file__),Path(profile.reboot_spec.__file__),Path(profile.cron_spec.__file__),Path(profile.cron_config_spec.__file__),Path(profile.download_spec.__file__),Path(profile.package_spec.__file__),profile.package_spec.FILES,Path(profile.apt_spec.__file__),profile.apt_spec.FILES,Path(profile.download_spec.stock.__file__),h0.HERE/'autoboot-hook',h0.HERE/'fyg8-dev',
          handoff.base.NATIVE/'s22plus_autoboot_transition_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_singlecpu_v1.h',
          handoff.base.NATIVE/'s22plus_debian_reboot_common_v1.h',
@@ -36,6 +36,8 @@ def sources():
          handoff.base.NATIVE/'s22plus_debian_download_return_v1.inc.c',
          handoff.base.NATIVE/'s22plus_debian_package_files_v1.h',
          handoff.base.NATIVE/'s22plus_debian_package_runtime_v1.inc.c',
+         handoff.base.NATIVE/'s22plus_debian_apt_runtime_v1.inc.c',
+         handoff.base.NATIVE/'s22plus_debian_apt_clock_v1.inc.c',
          handoff.base.NATIVE/'s22plus_autoboot_transition_stages_v1.def',
          handoff.base.NATIVE/'s22plus_autoboot_phase_v1.h',
          handoff.base.NATIVE/'s22plus_autoboot_phase_parse_v1.h',
@@ -45,6 +47,7 @@ def sources():
          *(profile.ROOT/'workspace/public/src/scripts/revalidation'/name for name in (
              's22plus_debian_autoboot_access_v1.py','s22plus_debian_autoboot_protocol_v1.py',
              's22plus_debian_reboot_access_v1.py','s22plus_debian_reboot_baseline_v1.py',
+             's22plus_debian_apt_access_v1.py',
              's22plus_debian_reboot_qualification_v1.py',
              's22plus_debian_autoboot_qualification_v1.py','s22plus_debian_autoboot_retrieval_v1.py')),
          profile.ROOT/'workspace/public/src/debian/s22plus_v1/device/lab-usb-autoboot',
@@ -84,14 +87,15 @@ def compile_unit(out,name,source,headers,virt,transition=False,transition_fault=
     if minimal:flags+=['-DS22_AUTOBOOT_MINIMAL']
     if reboot is not None:flags+=['-DS22_DEBIAN_REBOOT']
     if cron:flags+=['-DS22_DEBIAN_CRON']
-    if cron in ('config','download','package'):flags+=['-DS22_DEBIAN_CRON_CONFIG']
-    if cron in ('download','package'):flags+=['-DS22_DEBIAN_DOWNLOAD']
-    if cron=='package':flags+=['-DS22_DEBIAN_PACKAGE']
+    if cron in ('config','download','package','apt'):flags+=['-DS22_DEBIAN_CRON_CONFIG']
+    if cron in ('download','package','apt'):flags+=['-DS22_DEBIAN_DOWNLOAD']
+    if cron in ('package','apt'):flags+=['-DS22_DEBIAN_PACKAGE']
+    if cron=='apt':flags+=['-DS22_DEBIAN_APT']
     if single_cpu:flags+=['-DS22_AUTOBOOT_SINGLECPU']
     if virt:flags+=['-DS22_ROOT_INSPECT_VIRT_TEST','-DFYG8_VM_TEST','-DEARLY_VM_TEST']
     if transition_fault in profile.cron_variant(cron).RUNTIME_FAULTS:
         h0.require(virt and cron,'cron faults require the selected VM')
-        if cron not in ('config','download','package'):flags+=['-DCR_VM_FAULT='+str(profile.cron_variant(cron).RUNTIME_FAULTS[transition_fault])]
+        if cron not in ('config','download','package','apt'):flags+=['-DCR_VM_FAULT='+str(profile.cron_variant(cron).RUNTIME_FAULTS[transition_fault])]
     elif transition_fault:
         import autoboot_transition_faults
         source,_=autoboot_transition_faults.source(out,source,transition_fault,fyg8.ext4.NATIVE)
@@ -139,9 +143,10 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
     if script_channel:(destination/'s22plus_autoboot_script_seal_v1.h').write_bytes(profile.script_spec(minimal).script_header())
     installed_init,assets=profile.payloads(run,virt=virt,single_cpu=single_cpu,minimal=minimal,reboot=reboot is not None,cron=cron)
     for name,data in assets.items():(destination/name).write_bytes(data)
-    if cron in ('download','package'):(destination/'s22plus_debian_download_seal_v1.h').write_bytes(profile.download_spec.return_header())
+    if cron in ('download','package','apt'):(destination/'s22plus_debian_download_seal_v1.h').write_bytes(profile.download_spec.return_header())
+    if cron=='apt':(destination/'s22plus_debian_apt_seal_v1.h').write_bytes(profile.apt_spec.runtime_header(virt=virt))
     hook=compile_unit(destination,'hook',base.NATIVE/'s22plus_debian_handoff_hook_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
-    handoff.payload_header(destination,hook,virt,minimal=minimal,download=cron in ('download','package'))
+    handoff.payload_header(destination,hook,virt,minimal=minimal,download=cron in ('download','package','apt'))
     witness=compile_unit(destination,'witness',base.NATIVE/'s22plus_switch_root_witness_v1.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
     (destination/'s22plus_switch_root_payload_v1.h').write_bytes(base.payload_header(witness))
     entry=compile_unit(destination,'entry',h0.HERE/'autoboot-init.c',prefix,virt,transition,transition_fault,rcs,watchdog,phase,single_cpu,script_channel,minimal,reboot,cron)
@@ -151,7 +156,7 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         key=pin(prefix/'key'),startup_script=pin(out/'fyg8-dev'),modules=first['modules'],measured=first['measured'],history=first['history'],
         helper=pin(prefix/'fyg8-prepare'),writer=pin(prefix/'file-log'),entry=entry,hook=hook,witness=witness,
         busybox=base.busybox(),checker=pin(prefix/'s22-fs-e2fsck'),table=pin(prefix/'table.bin'),
-        admission=first['admission'],assets=dict(handoff.asset_rows(destination,hook,virt,minimal=minimal,download=cron in ('download','package'))),
+        admission=first['admission'],assets=dict(handoff.asset_rows(destination,hook,virt,minimal=minimal,download=cron in ('download','package','apt'))),
         installed_init=dict(size=len(installed_init),sha256=fyg8.digest(installed_init)),
         deadline_ms=300000,observer_revision=6 if single_cpu else 5,trace_maximum=262144,device_actions=0,active=False,
         source_inputs=saved,headers={str(p.relative_to(out)):pin(p) for p in
@@ -167,8 +172,8 @@ def prepare(out,inputs,packages,*,run=None,key=None,virt=False,fresh=True,transi
         result['reboot']=profile.reboot_spec.declaration(run,reboot['initial_mount_count'])
         result['reboot_baseline']=reboot
     if cron:result['cron']=profile.cron_variant(cron).declaration(run)
-    if cron=='package':result['package']=profile.package_spec.package_declaration()
-    if cron in ('download','package'):result['download_return']=profile.download_spec.return_declaration()
+    if cron in ('package','apt'):result['package']=profile.cron_variant(cron).package_declaration()
+    if cron in ('download','package','apt'):result['download_return']=profile.download_spec.return_declaration()
     if transition_fault:result.update(transition_fault=transition_fault,transition_fault_sources=
         first['transition_fault_sources']+[pin(p) for p in sorted(destination.glob('*-transition-fault/*'))])
     for row in saved:h0.require(h0.sha(h0.ROOT/row['path'])==row['sha256'],'automatic source changed')
@@ -288,6 +293,7 @@ if __name__=='__main__':
     cron_choice=parser.add_mutually_exclusive_group()
     cron_choice.add_argument('--cron',action='store_true',help='P459: one packaged-cron workload and exact retained output')
     cron_choice.add_argument('--cron-config',action='store_true',help='P460: persistent configuration consumed and retired after reboot')
+    cron_choice.add_argument('--apt-pilot',action='store_true',help='P463: one signed USB HTTPS APT tree install')
     cron_choice.add_argument('--package-pilot',action='store_true',help='P462: one offline hello install and reboot retention')
     cron_choice.add_argument('--download-return',action='store_true',help='P461: same workload, final SysV shutdown into Download')
     parser.add_argument('--reboot-baseline',type=Path,help='P458: exact fixed D0 or explicitly H0 synthetic baseline receipt')
@@ -302,9 +308,9 @@ if __name__=='__main__':
     if args.reboot_baseline:
         h0.require(args.minimal,'--reboot-baseline requires --minimal')
         options['reboot']=baseline.binding(pin(h0.private(args.reboot_baseline)))
-    if args.cron or args.cron_config or args.download_return or args.package_pilot:
+    if args.cron or args.cron_config or args.download_return or args.package_pilot or args.apt_pilot:
         h0.require(args.reboot_baseline is not None,'--cron requires a fixed reboot baseline')
-        options['cron']='package' if args.package_pilot else 'download' if args.download_return else 'config' if args.cron_config else True
+        options['cron']='apt' if args.apt_pilot else 'package' if args.package_pilot else 'download' if args.download_return else 'config' if args.cron_config else True
     if args.action=='inside':inside(h0.private(args.output))
     elif args.action=='prepare':prepare(args.output,args.inputs,args.packages,virt=args.virt,**options)
     else:build(args.output,args.inputs,args.packages,**options)

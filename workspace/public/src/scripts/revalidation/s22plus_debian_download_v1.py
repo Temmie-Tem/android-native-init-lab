@@ -31,7 +31,8 @@ ASSET_NAMES=('rc-return',*(('return-'+name) for name,_,_,_ in stock.MODULES))
 
 def ramdisk_additions(selected):
     from s22plus_debian_package_v1 import NAMESPACE as package_namespace, VERSION as package_version
-    versions={NAMESPACE:VERSION,package_namespace:package_version}
+    from s22plus_debian_apt_v1 import NAMESPACE as apt_namespace, VERSION as apt_version
+    versions={NAMESPACE:VERSION,package_namespace:package_version,apt_namespace:apt_version}
     if selected['namespace'] not in versions:return {}
     require(selected['version']==versions[selected['namespace']] and selected['download_return']==return_declaration(),
         'unselected Download RAM additions')

@@ -162,7 +162,11 @@ def observe(adapter,step,request,*,guard):
     folder=base/('attempt-'+uuid.uuid4().hex);folder.mkdir(mode=0o700)
     before=adapter.android(request,folder/'before',guard)
     before.wait_ready(deadline_ns=clock()+180_000_000_000)
-    try:before.health()
+    from s22plus_debian_apt_access_v1 import selected as apt_selected
+    try:
+        if apt_selected(request) and step.name in ('android-final','recovery-health'):
+            before.health(reobserve_root_disappearance=True)
+        else:before.health()
     except raw.RawCaptureError as error:
         # Only the fresh 32 GiB operation adopts this prospective setup state.
         # The original P397 failed read/stop and its separate completion remain unchanged.

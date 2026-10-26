@@ -13,10 +13,16 @@ def normal_steps():
 
 
 def validate_task(task,*,recovery):
-    require(set(task['debian_access'])=={'link','client_key','known_hosts','nmcli','ssh','root_run_id','network_uuid'} and
+    from s22plus_debian_apt_v1 import NAMESPACE,VERSION
+    apt=(task['N'].get('namespace'),task['N'].get('version'),task['N'].get('profile'),task.get('operations'))==(
+        NAMESPACE,VERSION,'debian-autoboot-v1',['debian-autoboot'])
+    keys={'link','client_key','known_hosts','nmcli','ssh','root_run_id','network_uuid'}|({'ip'} if apt else set())
+    require(set(task['debian_access'])==keys and
         task['seconds']==3600,
         'Debian access scope or original window differs')
-    if not recovery:require(task['debian_access']==access.inputs(task['N']['run_id_hex']),'Debian access provenance differs')
+    if not recovery:
+        expected=access.inputs(task['N']['run_id_hex'],namespace=NAMESPACE) if apt else access.inputs(task['N']['run_id_hex'])
+        require(task['debian_access']==expected,'Debian access provenance differs')
 
 
 def intents(adapter,name):

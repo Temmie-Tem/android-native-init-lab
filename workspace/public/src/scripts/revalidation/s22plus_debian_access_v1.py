@@ -14,7 +14,7 @@ import s22plus_debian_usb_observation_v1 as usb
 from s22plus_native_records_v3 import clock,digest,pin,publish,read,require,verify
 
 
-def inputs(run):
+def inputs(run,*,namespace=None):
     from s22plus_native_root_inspect_profile_v1 import prior_inputs
     artifact,_,previous=prior_inputs()
     value={name:previous[name] for name in ('link','client_key','known_hosts')}
@@ -24,6 +24,7 @@ def inputs(run):
     # identity. A later change to either executable rejects the immutable task.
     value['ssh']=pin(Path('/usr/bin/ssh').resolve(strict=True),maximum=32*1024*1024)
     value['nmcli']=pin(Path('/usr/bin/nmcli').resolve(strict=True),maximum=32*1024*1024)
+    if namespace=='p463':value['ip']=pin(Path('/usr/sbin/ip').resolve(strict=True),maximum=32*1024*1024)
     return dict(value,root_run_id=artifact['run_id'],
         network_uuid=str(uuid.uuid5(uuid.UUID(hex=run),'s22-debian-handoff-v1')))
 
@@ -94,12 +95,14 @@ class Access:
         raw.require_success(handle);return pin(handle.receipt_path)
 
     def ssh(self,command,folder,label,found,guard,*,before=None,deadline_ns=None):
+        from s22plus_debian_apt_access_v1 import command_allowed
         reboot=getattr(self,'reboot_phase',None) is not None
         download=reboot and self.final_command()=='download'
         require(command=='health' or command=='shutdown' and not download or
             command=='evidence' and self.request['operation']=='debian-autoboot' or
             command=='reboot' and reboot and self.reboot_phase==1 or
-            command=='download' and download and self.reboot_phase==2,'SSH command outside fixed scope')
+            command=='download' and download and self.reboot_phase==2 or
+            command_allowed(self.request,getattr(self,'reboot_phase',None),command),'SSH command outside fixed scope')
         guard();require(endpoint(self.plan['link'])==found,'SSH endpoint changed')
         for name in ('ssh','client_key','known_hosts'):verify(self.plan[name],maximum=32*1024*1024)
         args=[self.plan['ssh']['path'],'-F','/dev/null','-i',self.plan['client_key']['path'],
@@ -187,6 +190,8 @@ class Access:
 
     def cleanup(self):
         """Only our recorded UUID/name/MAC/interface; host failure never gates A."""
+        from s22plus_debian_apt_access_v1 import selected as apt_selected,cleanup_network
+        if apt_selected(self.request):return cleanup_network(self)
         folder=self.cleanup_folder();intent=folder/'network-intent.json'
         if not intent.exists():return dict(status='NOT_CREATED')
         output=folder/('cleanup-'+uuid.uuid4().hex);output.mkdir(mode=0o700)

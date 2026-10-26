@@ -124,6 +124,9 @@ static int rb_root_extras(int root,dev_t device,unsigned *extra) {
 #endif
  #ifdef S22_DEBIAN_PACKAGE
     if((error=pk_check_files(root,device,rb_phase==2)))return error;
+#ifdef S22_DEBIAN_APT
+    *extra+=PK_BASE_ADDED;
+#endif
     if(rb_phase==2)*extra+=PK_ADDED;
  #endif
     for(unsigned p=rb_phase;p<=2;++p)for(unsigned kind=0;kind<2;++kind) {

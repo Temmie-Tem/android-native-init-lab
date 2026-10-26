@@ -1,5 +1,6 @@
 """Fixed exact-target health brackets and production transfer classification."""
 from pathlib import Path
+from dataclasses import replace
 import sys
 import tempfile
 import unittest
@@ -107,6 +108,110 @@ class TargetTests(unittest.TestCase):
         self.assertEqual(calls[0],['devices','-l'])
         self.assertEqual(calls[-1],['-s','FIXTURE123','shell','getprop sys.boot_completed'])
         self.assertFalse(any('su' in part for command in calls for part in command))
+
+    def return_client(self, *, partial=True, diagnostics=None, root_rc=1, second_failure=False,
+                      changed_boot=False):
+        """Sanitized P462 shape: partial rc0 properties, then completed missing device."""
+        prop='\n'.join(k+'='+v for k,v in self.properties.items())
+        root='\n'.join(k+'='+v for k,v in dict(root='uid=0(root) gid=0(root)',
+            **self.android['partition_sha256']).items())
+        missing=b"adb: device 'FIXTURE123' not found\n"
+        prefix=[dict(stdout=self.inventory.encode()),dict(stdout=self.binding['topology'].encode()),
+            dict(stdout=('\n'.join(prop.splitlines()[:6]) if partial else prop).encode()),
+            dict(stdout=b'',stderr=missing if diagnostics is None else diagnostics,returncode=root_rc)]
+        newprop=prop.replace(self.properties['boot_id'],'87654321-1234-1234-1234-123456789abc') if changed_boot else prop
+        texts=[self.inventory.replace('transport_id:1','transport_id:2'),self.binding['topology'],
+            newprop,root,self.inventory.replace('transport_id:1','transport_id:2'),self.binding['topology'],newprop]
+        replacement=[dict(stdout=t.encode()) for t in texts]
+        if second_failure:replacement[3]=dict(stdout=b'',stderr=missing,returncode=1)
+        values=iter(prefix+[dict(stdout=self.inventory.encode()),dict(stdout=b'1')]+replacement)
+        calls=[]
+        class Client(target.Android):
+            def command(self, arguments, name, *, timeout, before_launch=None):
+                if before_launch:before_launch()
+                calls.append((self.directory,name,arguments,timeout))
+                return target.raw.publish_captured_bytes(self.directory,name,**next(values))
+        client=Client(dict(path='/fixture'),self.binding,self.android,self.directory,guard=lambda:None)
+        return client,calls
+
+    def test_return_disappearance_replaces_whole_bracket_and_keeps_failure(self):
+        client,calls=self.return_client()
+        result=client.health(reobserve_root_disappearance=True)
+        self.assertEqual(len(calls),13)
+        failed=target.raw.load_handle(self.directory/'03-health.capture.json')
+        self.assertEqual(failed.returncode,1)
+        self.assertTrue(all(Path(c['path']).parent==self.directory/'reobservation-1' for c in result['captures']))
+        self.assertEqual(target.health_projection(result['captures'],self.binding,self.android),result)
+        self.assertTrue((self.directory/'health.json').is_file())
+        self.assertEqual(client.directory,self.directory)
+
+    def test_legacy_health_and_nonmatching_diagnostic_do_not_reobserve(self):
+        for index,kwargs in enumerate(({},dict(diagnostics=b'permission denied\n'),
+                dict(diagnostics=b"adb: device 'OTHER' not found\n"),dict(root_rc=127))):
+            with self.subTest(kwargs=kwargs):
+                self.directory=self.directory/str(index);self.directory.mkdir()
+                client,calls=self.return_client(**kwargs)
+                with self.assertRaises((ValueError,target.raw.RawCaptureError)):
+                    client.health(reobserve_root_disappearance=bool(index))
+                self.assertEqual(len(calls),4)
+                self.assertFalse((self.directory/'health.json').exists())
+
+    def test_replacement_has_no_third_attempt_and_keeps_complete_boot_anchor(self):
+        for index,kwargs in enumerate((dict(second_failure=True),dict(partial=False,changed_boot=True))):
+            with self.subTest(kwargs=kwargs):
+                self.directory=self.directory/str(index);self.directory.mkdir()
+                client,calls=self.return_client(**kwargs)
+                with self.assertRaises((ValueError,target.raw.RawCaptureError)):
+                    client.health(reobserve_root_disappearance=True)
+                self.assertLessEqual(len(calls),13)
+                self.assertFalse((self.directory/'health.json').exists())
+
+    def test_reobservation_does_not_renew_deadline_after_guard_or_late_result(self):
+        client,calls=self.return_client()
+        with mock.patch.object(target,'clock',return_value=100),self.assertRaisesRegex(ValueError,'deadline'):
+            client.health(reobserve_root_disappearance=True,deadline_ns=99)
+        self.assertEqual(calls,[])
+        now=[1_000_000_000]
+        def guard():now[0]+=1_000_000_000
+        client.guard=guard
+        with mock.patch.object(target,'clock',side_effect=lambda:now[0]),self.assertRaisesRegex(ValueError,'deadline'):
+            client.health(reobserve_root_disappearance=True,deadline_ns=5_000_000_000)
+        self.assertLessEqual(len(calls),2)
+        self.assertFalse((self.directory/'health.json').exists())
+
+    def test_zero_deadline_and_late_final_projection_do_not_publish_health(self):
+        client,calls=self.return_client()
+        with self.assertRaisesRegex(ValueError,'deadline'):
+            client.health(reobserve_root_disappearance=True,deadline_ns=0)
+        self.assertEqual(calls,[])
+        now=[1_000_000_000];original=target.health_projection
+        def late(*args):
+            result=original(*args);now[0]=300_000_000_000;return result
+        with mock.patch.object(target,'clock',side_effect=lambda:now[0]), \
+                mock.patch.object(target,'health_projection',side_effect=late), \
+                self.assertRaisesRegex(ValueError,'deadline'):
+            client.health(reobserve_root_disappearance=True)
+        self.assertFalse((self.directory/'health.json').exists())
+
+    def test_owner_guard_failure_after_fourth_capture_cannot_trigger_reobservation(self):
+        client,calls=self.return_client()
+        def guard():
+            if len(calls)==4:raise target.raw.RawCaptureError('owner source check stopped')
+        client.guard=guard
+        with self.assertRaisesRegex(target.raw.RawCaptureError,'owner source check stopped'):
+            client.health(reobserve_root_disappearance=True)
+        self.assertEqual(len(calls),4)
+        self.assertFalse((self.directory/'reobservation-1').exists())
+
+    def test_root_capture_handle_mismatch_cannot_become_a_disappearance(self):
+        client,calls=self.return_client();original=type(client).command
+        def forged(instance,*args,**kwargs):
+            handle=original(instance,*args,**kwargs)
+            return replace(handle,returncode=0) if len(calls)==4 else handle
+        with mock.patch.object(type(client),'command',new=forged),self.assertRaisesRegex(ValueError,'handle differs'):
+            client.health(reobserve_root_disappearance=True)
+        self.assertEqual(len(calls),4)
+        self.assertFalse((self.directory/'reobservation-1').exists())
 
 
 if __name__=='__main__': unittest.main()

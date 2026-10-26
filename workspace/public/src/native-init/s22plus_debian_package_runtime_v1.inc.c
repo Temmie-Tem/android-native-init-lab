@@ -1,6 +1,11 @@
 /* One fixed dpkg transaction in the existing installed-root lifetime.
  * Failed/uncertain writes are retained, never retried, repaired or removed. */
 #include "s22plus_debian_package_files_v1.h"
+#ifdef S22_DEBIAN_APT
+#include <grp.h>
+#include <sys/prctl.h>
+#include <sys/resource.h>
+#endif
 static bool pk_fault(unsigned wanted) {
 #ifdef S22_ROOT_INSPECT_VIRT_TEST
     char text[4096],expected[40];
@@ -61,9 +66,24 @@ static int pk_command(unsigned step,const struct pk_program *program,char *const
             pid_t orphan=fork();if(orphan<0)_exit(125);
             if(!orphan){(void)syscall(SYS_close_range,0U,UINT_MAX,0U);for(;;)pause();}
         }
+#ifdef S22_DEBIAN_APT
+        if(step==2 && ap_fault(7)) {
+            pid_t orphan=fork();if(orphan<0)_exit(125);
+            if(!orphan){(void)syscall(SYS_close_range,0U,UINT_MAX,0U);for(;;)pause();}
+        }
+#endif
 #endif
         umask(022);
+#ifdef S22_DEBIAN_APT
+        struct rlimit limit={32U*1024U*1024U,32U*1024U*1024U};
+        if(setrlimit(RLIMIT_FSIZE,&limit) || chdir(step==11 ? "/run/s22-apt/cache/archives" : "/"))_exit(125);
+        if((step==10 || step==11) && (setgroups(0,NULL) || setresgid(65534,65534,65534) ||
+            setresuid(42,42,42) || prctl(PR_SET_NO_NEW_PRIVS,1,0,0,0)))_exit(125);
+        char *env[]={"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LC_ALL=C","LANG=C","TZ=UTC","HOME=/nonexistent",
+            "APT_CONFIG=/run/s22-apt/apt.conf","TMPDIR=/run/s22-apt/tmp",NULL};
+#else
         char *env[]={"PATH=/usr/sbin:/usr/bin:/sbin:/bin","LC_ALL=C","LANG=C","TZ=UTC","HOME=/root",NULL};
+#endif
         execve(program->path,argv,env);_exit(126);
     }
     if(child<0)error=fs1_error();
@@ -71,6 +91,9 @@ static int pk_command(unsigned step,const struct pk_program *program,char *const
     if(!error && setpgid(child,child) && !(errno==EACCES && getpgid(child)==child))error=fs1_error();
     uint8_t output[65536];size_t used=0;bool reaped=false,eof=false;int status=0;
     bool group_gone=false;
+#if defined(S22_DEBIAN_APT) && defined(S22_ROOT_INSPECT_VIRT_TEST)
+    bool apt_orphan_observed=false;
+#endif
     while(!error && (!reaped || !eof || !group_gone)) {
         if(de_time() || sw_now()>=deadline){error=ETIMEDOUT;break;}
         uint8_t bytes[4096];ssize_t got=read(pipefd[0],bytes,sizeof(bytes));
@@ -90,6 +113,12 @@ static int pk_command(unsigned step,const struct pk_program *program,char *const
                 if(errno==ESRCH)group_gone=true;
                 else {error=fs1_error();break;}
             }
+#if defined(S22_DEBIAN_APT) && defined(S22_ROOT_INSPECT_VIRT_TEST)
+            else if(step==2 && ap_fault(7) && !apt_orphan_observed) {
+                apt_orphan_observed=true;
+                dprintf(2,"APT_ORPHAN_OBSERVED direct_reaped=1 eof=1 group_alive=1 status=%d\n",status);
+            }
+#endif
         }
         if(!reaped || !eof || !group_gone) {
             struct timespec delay={0,10000000};
@@ -103,11 +132,26 @@ static int pk_command(unsigned step,const struct pk_program *program,char *const
     if(!error && (!WIFEXITED(status) || WEXITSTATUS(status)))error=ECHILD;
     if(!error && expected && (used!=strlen(expected) || memcmp(output,expected,used)))error=EPROTO;
     if(!error && (de_time() || sw_now()>=deadline))error=ETIMEDOUT;
+#if defined(S22_DEBIAN_APT) && defined(S22_ROOT_INSPECT_VIRT_TEST)
+    if(step==2 && ap_fault(6)) {
+        dprintf(2,"APT_INSTALL_FAILURE_OUTPUT bytes=%zu hex=",used);
+        for(size_t i=0;i<used;++i)dprintf(2,"%02x",output[i]);
+        dprintf(2,"\n");
+    }
+    if(step==12 && ap_fault(5)) {
+        dprintf(2,"APT_EXTRA_PLAN_OUTPUT bytes=%zu hex=",used);
+        for(size_t i=0;i<used;++i)dprintf(2,"%02x",output[i]);
+        dprintf(2,"\n");
+    }
+#endif
     dprintf(2,"PACKAGE_COMMAND phase=%u step=%u pid=%ld status=%d bytes=%zu errno=%d\n",
         rb_phase,step,(long)child,status,used,error);
     if(!error)*identity=child;
     return error;
 }
+#ifdef S22_DEBIAN_APT
+#include "s22plus_debian_apt_runtime_v1.inc.c"
+#else
 static int pk_complete(struct dh_state *state) {
     if(!rb_valid_phase(rb_phase) || de.package_intent || de.package_complete)return EPROTO;
     uint64_t deadline=sw_now()+PK_BUDGET_MS;if(deadline>sw.deadline_ms)deadline=sw.deadline_ms;
@@ -172,3 +216,4 @@ static int pk_complete(struct dh_state *state) {
         rb_phase,de.package_intent,de.package_complete,error);
     return error;
 }
+#endif

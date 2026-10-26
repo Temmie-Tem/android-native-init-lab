@@ -201,6 +201,14 @@ int main(int argc,char **argv) {
 #endif
 #ifdef S22_DEBIAN_REBOOT
     if((error=rb_current_early()))return 110;
+#ifdef S22_DEBIAN_APT
+    if((argc==6 && !strcmp(argv[1],"apt-time")) || (argc==2 && !strcmp(argv[1],"apt-time-status"))) {
+        at_disable();
+        if((error=dh_load(&state)) || memcmp(rb_early_nonce,sw.nonce,32) ||
+           (error=dh_actual_init(&state)))return 118;
+        return argc==2 ? ap_clock_status() : ap_clock_request(argc,argv,&state);
+    }
+#endif
 #ifdef S22_DEBIAN_CRON
     if(argc==2 && !strcmp(argv[1],"cron-job")) {
         at_disable();

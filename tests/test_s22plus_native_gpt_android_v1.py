@@ -167,6 +167,35 @@ class AndroidTests(unittest.TestCase):
         calls=[json.loads(line) for line in self.argvlog.read_text().splitlines()]
         self.assertEqual(calls.count(self.metadata_args),1)
 
+    def test_p463_return_reobserves_before_health_without_repeating_gpt_reads(self):
+        self.request['operation']='debian-autoboot';self.request['N']['namespace']='p463'
+        original=adapter.target.Android.command
+        def disappear(client,args,name,**kwargs):
+            if client.directory.name=='before' and name=='03-health':
+                if kwargs.get('before_launch'):kwargs['before_launch']()
+                return android.raw.publish_captured_bytes(client.directory,name,stdout=b'',
+                    stderr=b"adb: device 'FIXTURE123' not found\n",returncode=1)
+            return original(client,args,name,**kwargs)
+        with mock.patch.object(protected,'android_basis',return_value=self.basis), \
+                mock.patch.object(adapter.target.Android,'command',new=disappear):
+            step,value=self.run_health('android-final')
+            self.assertEqual(value,android.rederive(self.client,step,self.request))
+        initial=records.read(records.verify(value['initial_health']))
+        self.assertTrue(all(Path(c['path']).parent.name=='reobservation-1' for c in initial['captures']))
+        calls=[json.loads(line) for line in self.argvlog.read_text().splitlines()]
+        self.assertEqual(calls.count(self.metadata_args),1)
+        self.assertEqual(calls.count(self.stat_args),1)
+
+    def test_p463_initial_and_after_health_do_not_adopt_return_exception(self):
+        self.request['operation']='debian-autoboot';self.request['N']['namespace']='p463'
+        original=adapter.target.Android.health;calls=[]
+        def inspect(client,**kwargs):
+            calls.append((client.directory.name,kwargs));return original(client,**kwargs)
+        with mock.patch.object(protected,'android_basis',return_value=self.basis), \
+                mock.patch.object(adapter.target.Android,'health',new=inspect):
+            self.run_health('android-initial')
+        self.assertEqual(calls,[('before',{}),('after',{})])
+
     def test_published_health_can_be_reconstructed_after_aggregate_cut(self):
         original=android.publish
         def fail(path,value):

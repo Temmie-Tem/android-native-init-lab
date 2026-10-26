@@ -1,13 +1,14 @@
 """Strict raw rederivation of the selected two-boot production VM corpus."""
 from pathlib import Path
 import re
+import types
 import device_action_raw_capture_v1 as raw
 import s22plus_debian_reboot_v1 as spec
 import s22plus_debian_reboot_baseline_v1 as baseline
 import s22plus_debian_reboot_access_v1 as owner
 import s22plus_debian_autoboot_protocol_v1 as protocol
 import s22plus_debian_autoboot_access_v1 as access
-from s22plus_native_records_v3 import read,require,verify
+from s22plus_native_records_v3 import pin,read,require,verify
 
 
 def rejection(serial,case):
@@ -23,11 +24,33 @@ def rejection(serial,case):
     return True
 
 
+def vm_clock(value,build,plan,phase,folder,proof=None):
+    """Consume the actual H0 SSH request/status and its original window."""
+    import s22plus_debian_apt_access_v1 as apt_access
+    require(set(value)=={'result','window','initial_health','operation'},'VM clock artifact shape differs')
+    require(verify(value['result']).parent==folder and verify(value['initial_health']).parent==folder,
+        'VM clock evidence belongs to another case or boot folder')
+    require(value['result']==pin(folder/'clock.json') and value['window']==pin(folder/'window.json') and
+        value['operation']==pin(folder.parent/'operation.json'),'VM clock locations differ')
+    operation=read(verify(value['operation']));window=read(verify(value['window']))
+    require(operation==dict(scope='H0_VM_ONLY',device_actions=0,build=build) and window['basis']['scope']=='H0_VM',
+        'VM clock operation or window scope differs')
+    first=raw.load_handle(verify(value['initial_health']));sample=access.singlecpu_health_sample(first,plan)
+    require(raw.read_stdout(first,maximum=65536).count(f'S22_REBOOT_PHASE {phase}\n'.encode())==1,'VM clock initial phase differs')
+    client=types.SimpleNamespace(adapter=types.SimpleNamespace(directory=folder.parent),reboot_phase=phase,
+        basis=lambda:window['basis'])
+    result=apt_access.rederive_request(client,folder,sample['health']['boot_id_sha256'])
+    if proof is not None:
+        require(sample['health']['boot_id_sha256']==proof['kernel_boot_identity_sha256'],'VM clock runtime boot differs')
+        require(result==apt_access.rederive(client,folder,proof),'VM clock runtime event differs')
+    return result
+
+
 def vm_results(tested,built,key):
     from s22plus_debian_autoboot_qualification_v1 import producer
     from s22plus_debian_autoboot_profile_v1 import cron_selected,cron_variant
     cron=cron_selected(built)
-    cron_spec=cron_variant(cron);config=cron in ('config','download','package')
+    cron_spec=cron_variant(cron);config=cron in ('config','download','package','apt')
     require(tested['schema']=='s22plus-debian-reboot-vm-v1' and tested['status']=='PASS' and
         tested['device_actions']==0 and tested['source_inputs']==built['source_inputs'] and
         tuple(row['case'] for row in tested['cases'])==('two-boot-normal','clean-error-unmount','second-root-control',*spec.ROOT_CASES,
@@ -54,9 +77,42 @@ def vm_results(tested,built,key):
             verify(receipt)
         serial=verify(row['serial'],maximum=8*1024**2).read_bytes()
         if cron and row['case'] in cron_spec.RUNTIME_FAULTS:
-            from cron_vm_faults import validate_serial,validate_config_serial,validate_package_serial
+            from cron_vm_faults import validate_serial,validate_config_serial,validate_package_serial,validate_apt_serial
             from s22plus_debian_package_v1 import PACKAGE_FAULTS
+            from s22plus_debian_apt_v1 import APT_FAULTS
             package=cron=='package' and row['case'] in PACKAGE_FAULTS
+            apt=cron=='apt' and row['case'] in APT_FAULTS
+            if cron=='apt':
+                plan=access.access.inputs(built['run_id']);plan['candidate']=dict(namespace=built['namespace'],
+                    version=built['version'],run_id=built['run_id'])
+                if row['case'] not in ('apt-clock-missing','apt-clock-wrong-boot'):
+                    phase=1 if row['case'] in cron_spec.FIRST_PHASE_FAULTS else 2
+                    case_directory=verify(row['setup']).parent
+                    require(verify(row['serial']).parent==case_directory,'VM clock serial owner differs')
+                    vm_clock(row['clock'],row['build'],plan,phase,case_directory/'clock')
+                elif row['case']=='apt-clock-wrong-boot':
+                    from s22plus_debian_apt_access_v1 import state
+                    folder=verify(row['setup']).parent/'clock'
+                    require(verify(row['serial']).parent==folder.parent and
+                        all(verify(row[name]).parent==folder for name in ('clock_first_health','clock_ready','clock_request')),
+                        'wrong-boot clock artifacts belong to another VM case')
+                    first=raw.load_handle(verify(row['clock_first_health']));access.singlecpu_health_sample(first,plan)
+                    require(raw.read_stdout(first,maximum=65536).count(b'S22_REBOOT_PHASE 1\n')==1 and
+                        state(raw.load_handle(verify(row['clock_ready'])))=='READY','wrong-boot fixture readiness differs')
+                    request=raw.load_handle(verify(row['clock_request']));raw.require_success(request)
+                    require(raw.read_stdout(request,maximum=4096)==b'S22_APT_CLOCK_REQUESTED\n' and
+                        not raw.read_stderr(request,maximum=16384),'wrong-boot fixture request was not published')
+            if apt:
+                require(row['scope']=='H0_ARM64_DECLARED_APT_FAILURE' and
+                    row['kernel_stopped_by_h0_driver'] is True and row['workload_success'] is False and
+                    row['replay_authorized'] is False and row['returncode']==-9 and
+                    helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<310,
+                    'APT failure was promoted or changed its substitution')
+                verify(row['command']);validate_apt_serial(serial,row['case'])
+                require(row['post_stop_configuration_retention_proved'] is False and
+                    'configuration_after' not in row,
+                    'stopped APT fault was promoted to post-stop configuration retention')
+                continue
             if package:
                 require(row['scope']=='H0_ARM64_DECLARED_PACKAGE_FAILURE' and
                     row['kernel_stopped_by_h0_driver'] is True and row['workload_success'] is False and
@@ -69,7 +125,7 @@ def vm_results(tested,built,key):
                 continue
             require(row['scope']==('H0_ARM64_DECLARED_CRON_CONFIG_FAILURE' if config else 'H0_ARM64_DECLARED_CRON_FAILURE') and row['kernel_stopped_by_h0_driver'] is True and
                 row['workload_success'] is False and row['replay_authorized'] is False and row['returncode']==-9 and
-                helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<215,
+                helper.get('transition_fault')==row['case'] and 0<row['elapsed_seconds']<(310 if cron=='apt' else 215),
                 'runtime failure was promoted to success or changed its substitution')
             verify(row['command']);(validate_config_serial if config else validate_serial)(serial,row['case'])
             if config:
@@ -118,7 +174,7 @@ def vm_results(tested,built,key):
         require(row['scope']=='PRODUCTION_RUNTIME_ARM64_WITH_HARDWARE_SUBSTITUTIONS' and
             row['physical_boot_proved'] is False and b'reboot: Restarting system' in serial and
             b'reboot: Power down' in serial and len(row['boots'])==2,'two actual VM boots absent')
-        if cron in ('download','package'):__import__('s22plus_debian_download_v1').validate_vm_return(serial)
+        if cron in ('download','package','apt'):__import__('s22plus_debian_download_v1').validate_vm_return(serial)
         for name in ('initial','final'):
             require(baseline.block_projection(verify(row[name+'_block']).read_bytes())==row[name+'_superblock'],
                 'VM superblock does not rederive')
@@ -155,6 +211,10 @@ def vm_results(tested,built,key):
             require(not raw.read_stderr(handle,maximum=16384),'VM evidence has diagnostics')
             proof,parts=protocol.envelope(raw.read_stdout(handle,maximum=protocol.MAXIMUM),key=key,selected=helper,phase=phase)
             require(proof==boot['proof'],'VM service evidence does not rederive')
+            if cron=='apt':
+                folder=verify(row['setup']).parent/f'boot-{phase}'
+                require(verify(row['serial']).parent==folder.parent,'positive clock serial owner differs')
+                vm_clock(boot['clock'],row['build'],plan,phase,folder,proof)
             pair=boot['ssh_120_seconds']
             observed=access.singlecpu_health_pair(raw.load_handle(verify(pair['first']['health']['capture'])),
                 raw.load_handle(verify(pair['last']['health']['capture'])),plan,proof['kernel_boot_identity_sha256'])
@@ -164,7 +224,7 @@ def vm_results(tested,built,key):
                 capture=raw.load_handle(verify(sample['health']['capture']))
                 require(raw.read_stdout(capture,maximum=65536).count(f'S22_REBOOT_PHASE {phase}\n'.encode())==1,
                     'VM SSH health phase differs')
-            verb='reboot' if phase==1 else 'download' if cron in ('download','package') else 'shutdown'
+            verb='reboot' if phase==1 else 'download' if cron in ('download','package','apt') else 'shutdown'
             handle=raw.load_handle(verify(boot['control_capture']))
             controlled,final=protocol.envelope(owner.capture_body(handle,'127.0.0.1',verb),key=key,selected=helper,phase=phase)
             require(controlled==boot['control'] and controlled['runtime'][verb+'_intent'] and

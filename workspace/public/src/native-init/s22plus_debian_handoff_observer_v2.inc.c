@@ -210,6 +210,9 @@ static int dh_service_probe(const char *pidfile,const char *executable,uint64_t 
 static int dh_service(const char *pidfile,const char *executable,uint64_t size,const uint8_t sha[32],pid_t *identity) {
     return dh_service_probe(pidfile,executable,size,sha,identity,NULL);
 }
+#ifdef S22_DEBIAN_APT
+#include "s22plus_debian_apt_clock_v1.inc.c"
+#endif
 #ifdef S22_DEBIAN_CRON
 #include "s22plus_debian_cron_runtime_v1.inc.c"
 #endif
@@ -253,6 +256,9 @@ static __attribute__((noreturn)) void dh_later(struct dh_state *state,const char
     dh_wait_script(state,2,"/etc/init.d/rc","2");
     if((error=dh_actual_init(state)))dh_hook_fail(error);
     dh_claim("runlevel-complete","runlevel-started");
+#ifdef S22_DEBIAN_APT
+    if((error=ap_clock_wait(state)))dh_hook_fail(error);
+#endif
 #ifdef S22_DEBIAN_CRON
     if((error=cr_lifecycle(state)))dh_hook_fail(error);
 #endif
