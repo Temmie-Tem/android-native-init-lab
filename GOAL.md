@@ -23,18 +23,18 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-P463 is **H0 ready; device execution pending current attendance**.
-[Preparation](docs/reports/S22PLUS_DEBIAN_APT_P463_PREPARE_2026-10-27.md)
-binds USB internet, one signed tree APT transaction, exact reboot retention,
-Android return and bounded final-health reobservation for the P462 ADB failure.
-All 71 production ARM64 cases, actual artifact/cold admission, independent
-capability review and the concrete unexecuted entry checks pass.
-The exact prepared task selects one operation within 3600 seconds,
-with attended original-A recovery and unchanged two-boot/four-lifetime limits.
-Physical D0 observed clean M=38; it does not prove all post-return root
-contents. Fresh live health and complete root admission remain required.
-No P463 grant, installation, N transfer or package effect has occurred on the
-phone. P462's consumed grant and prior attendance do not transfer.
+P463 is consumed: **NO_PROOF / ANDROID_CLOSED_HEALTHY**.
+[Physical execution](docs/reports/S22PLUS_DEBIAN_APT_P463_RUN_2026-10-27.md)
+completed one N transfer, then stopped on ASCII decoding of a valid UTF-8
+host profile label before sharing intent, SSH health or clock dispatch.
+One attended physical Download/original-A recovery completed healthy; the
+bounded ADB whole-bracket reobservation actually handled a repeated root-read
+disappearance without another transfer. Fixed post-closure D0 observes M=40
+and the journal needs-recovery bit, with valid checksum and healthy Android.
+Current package and run-file contents remain unobserved; APT/reboot proof is
+absent. The narrow host label correction passes focused and independent H0
+checks. Consumed source/approval pins remain unchanged and cannot replay.
+A new writable experiment requires separately qualified current-root recovery.
 
 [P462 physical execution](docs/reports/S22PLUS_DEBIAN_PACKAGE_P462_RUN_2026-10-27.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
@@ -720,17 +720,15 @@ assumed.
 
 ## Next bounded unit and milestones
 
-Complete P463 through the concrete reviewed attended entry: exact USB sharing,
-signed tree acquisition and one APT transaction, one ordinary reboot, exact
-package/database retention and fixed function, automatic Download/A, final
-Android health and owned host-profile cleanup. Preserve the installed P462
-hello state and all consumed evidence. The bounded final-health fix replaces
-one failed bracket only; it never repeats storage reads or controls.
-H0 implementation, qualification and independent entry review are complete.
-The next step requires a fresh finite grant and current physical attendance.
-This goal itself grants no device authority.
-General package/configuration work, post-return filesystem consistency and
-failure recovery remain separate functional or proof boundaries.
+Keep P463 closed. Prepare a separately reviewed successor only after resolving
+the M=40 journal-recovery requirement and obtaining current protected-root
+evidence. Preserve the P462 hello state and all P463 consumed evidence; never
+learn unknown package state or infer cleanup/repair authority from Android health.
+The host UTF-8 correction is H0 only and keeps ownership/subnet checks intact.
+Any new F1 or journal action requires its own qualified artifact, current
+source-bound review and explicit finite attended grant. This goal grants none.
+General package/configuration work and complete filesystem health remain
+separate functional or proof boundaries.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the

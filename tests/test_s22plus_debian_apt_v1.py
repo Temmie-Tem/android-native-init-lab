@@ -135,9 +135,14 @@ class SharedNetwork(unittest.TestCase):
             adapter=types.SimpleNamespace(folder=lambda name:self.directory/name),
             cleanup_folder=lambda:self.folder,cleanup_interfaces=lambda value:[self.found['interface']])
         self.calls=[];self.exists=False;self.active=False;self.foreign=False;self.bad_owner=False;self.changed_dns=False
+        self.foreign_profiles=[]
         def host(args,folder,label):
             self.calls.append((label,args));output=b''
-            if label=='network-inventory':output=((self.client.plan['network_uuid']+':802-3-ethernet\n') if self.exists else '').encode()
+            if label=='network-inventory':
+                identities=([self.client.plan['network_uuid']] if self.exists else [])+[p[0] for p in self.foreign_profiles]
+                output=''.join(identity+':802-3-ethernet\n' for identity in identities).encode()
+            elif label.startswith('network-foreign-'):
+                output=next(body for identity,body in self.foreign_profiles if identity==args[-1])
             elif label in ('network-before','network-pre-up','network-after','before'):
                 rows=access.network_rows(self.client,self.found['interface'])
                 if self.bad_owner:rows[5]='manual'
@@ -178,6 +183,50 @@ class SharedNetwork(unittest.TestCase):
     def test_foreign_owner_fails_before_creation(self):
         self.foreign=True
         with self.assertRaises(ValueError):self.configure()
+        self.assertFalse(self.exists);self.assertFalse((self.folder/'network-intent.json').exists())
+
+    def test_utf8_foreign_labels_preserve_other_profiles_and_allow_owned_share(self):
+        for index,label in enumerate(('유선 연결 1','Café USB','유선:연결','앞\u2028뒤'),2):
+            identity=f'{index:08x}-1111-4111-8111-111111111111'
+            self.foreign_profiles.append((identity,(label+'\nfixture-other\n\n\n').encode()))
+        self.configure();access.network_result(self.client,self.folder)
+        self.assertTrue(self.exists);self.assertTrue(self.active)
+        self.assertEqual(sum(label.startswith('network-foreign-') for label,_ in self.calls),4)
+        for label,args in self.calls:
+            if label in ('network-create','network-up'):
+                self.assertIn(self.client.plan['network_uuid'],args)
+                self.assertFalse(any(identity in args for identity,_ in self.foreign_profiles))
+
+    def test_utf8_label_does_not_relax_shape_ownership_or_subnet_checks(self):
+        def body(label='유선 연결 1'.encode(),interface=b'fixture-other',mac=b'',address=b''):
+            return b'\n'.join((label,interface,mac,address))+b'\n'
+        cases={
+            'invalid-label-encoding':body(label=b'\xff'),
+            'non-ascii-interface':body(interface='외부'.encode()),
+            'non-ascii-mac':body(mac='주소'.encode()),
+            'non-ascii-address':body(address='주소'.encode()),
+            'missing-field':b'foreign\nfixture-other\n\n',
+            'extra-field':body()+b'extra\n',
+            'owned-name':body(label=access.network_rows(self.client,self.found['interface'])[0].encode()),
+            'owned-interface':body(interface=self.found['interface'].encode()),
+            'owned-mac':body(mac=self.client.plan['link']['host_mac'].encode()),
+            'overlapping-subnet':body(address=self.client.plan['link']['host_address'].encode()),
+            'malformed-address':body(address=b'not-an-address'),
+        }
+        for name,output in cases.items():
+            with self.subTest(name=name):
+                self.folder=self.directory/name;self.folder.mkdir();publish(self.folder/'endpoint.json',self.found)
+                self.calls.clear();self.foreign_profiles=[('22222222-1111-4111-8111-111111111111',output)]
+                with self.assertRaises(ValueError):self.configure()
+                self.assertFalse(self.exists);self.assertFalse(self.active)
+                self.assertFalse((self.folder/'network-intent.json').exists())
+                self.assertFalse(any(label in ('network-create','network-up') for label,_ in self.calls))
+
+    def test_utf8_foreign_label_still_checks_selected_device_owner(self):
+        self.foreign_profiles=[('22222222-1111-4111-8111-111111111111','유선 연결 1\nfixture-other\n\n\n'.encode())]
+        self.foreign=True
+        with self.assertRaises(ValueError):self.configure()
+        self.assertIn('network-device-before',[label for label,_ in self.calls])
         self.assertFalse(self.exists);self.assertFalse((self.folder/'network-intent.json').exists())
 
     def test_host_resolver_change_is_rejected_and_cleanup_checks_all_fields(self):

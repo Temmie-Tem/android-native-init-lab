@@ -198,8 +198,10 @@ def configure_network(client,folder,found,guard):
         if identity==connection or kind!='802-3-ethernet':continue
         receipt=client.host(['--escape','no','-g','connection.id,connection.interface-name,802-3-ethernet.mac-address,ipv4.addresses',
             'connection','show','uuid',identity],folder,f'network-foreign-{ordinal:03d}')
-        values=raw.read_stdout(raw.load_handle(verify(receipt)),maximum=16384).decode('ascii').splitlines()
-        require(len(values)==4,'foreign Ethernet ownership is incomplete')
+        lines=raw.read_stdout(raw.load_handle(verify(receipt)),maximum=16384).splitlines()
+        require(len(lines)==4,'foreign Ethernet ownership is incomplete')
+        # connection.id is a UTF-8 label; ownership and address fields remain ASCII.
+        values=[lines[0].decode('utf-8'),*(line.decode('ascii') for line in lines[1:])]
         require(values[0]!=network_rows(client,interface)[0] and values[1]!=interface and
             values[2].lower()!=client.plan['link']['host_mac'],'another profile matches the selected USB endpoint')
         for address in filter(None,values[3].split(',')):
