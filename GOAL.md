@@ -23,14 +23,21 @@ A90 and S20+ remain isolated.
 
 ## Current synthesis and functional priority
 
-[P462 preparation](docs/reports/S22PLUS_DEBIAN_PACKAGE_P462_PREPARE_2026-10-26.md)
-is **PASS_READY_H0_AND_UNEXECUTED_ENTRY / independent PASS_GO**. One fixed
-offline hello installation, functional execution and exact ordinary-reboot
-retention pass all 69 ARM64 cases. The final boot-only image, cold admission,
-160 host/182 runtime source bindings, both phase constructors and nine approval
-negatives pass. Task `9065a476db83c9d3e786165ecf3b81cf24d187951cf3f228b5966e4643f595b3`
-has no grant or dispatch; current attendance and a fresh finite grant remain
-required. Physical package installation and retention are still unproved.
+[P462 physical execution](docs/reports/S22PLUS_DEBIAN_PACKAGE_P462_RUN_2026-10-27.md)
+is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
+ANDROID_CLOSED_HEALTHY**. One offline hello installation, function in both
+boots and exact package/database retention across the ordinary reboot are
+proved; no second installation occurs. Boot count advances 10→11, SSH samples
+span 120920/121640 ms, and the admitted writable lifetimes advance M=34→38.
+Automatic Download/A joins within 17.541 seconds; N and A each transfer once.
+A later Android health read fails after readiness; one health-only continuation
+closes healthy at 629.146 seconds without another control or transfer.
+H0 closure rederives 682 raw captures and the unchanged 24-row journal, closes
+at 774.845 seconds and leaves no F1 owner. General apt/network package work,
+unattended/failure recovery and post-return native_data consistency remain unproved.
+[Preparation](docs/reports/S22PLUS_DEBIAN_PACKAGE_P462_PREPARE_2026-10-26.md)
+passed all 69 ARM64 cases, independent review and concrete entry checks before
+the separate human approval. Its exact task is now consumed and closed.
 
 [P461 physical execution](docs/reports/S22PLUS_DEBIAN_DOWNLOAD_P461_RUN_2026-10-26.md)
 is consumed with **PASS_TWO_DEBIAN_BOOTS_AUTOMATIC_DOWNLOAD_A_RETURN /
@@ -710,19 +717,16 @@ assumed.
 
 ## Next bounded unit and milestones
 
-P461 is consumed and closed healthy with two physical Debian boots, exact
-configuration persistence/consumption/retirement and automatic Download/A
-return. P462 is the selected next unit: one offline hello installation,
-functional execution, ordinary reboot and exact package/database retention,
-then the same automatic return and full Android closure. Preparation uses
-current clean physical baseline M=34; the package's successful file effects
-were reproduced twice using actual ARM64 dpkg. Sealed admission, all 69 ARM64
-cases, independent capability/entry checks and the concrete task are qualified.
-Execute that task once only after its fresh finite attended grant. No physical
-package experiment has run.
-The shared ADB readiness fix tolerates only exact transient target absence
-within the original wait; it does not replay control or transfer. Physical
-post-return native_data consistency and failure recovery remain separate facts.
+P462 completes the selected bounded unit: one offline hello installation,
+function, ordinary reboot, exact package/database retention, automatic
+Download/A return and full Android closure. No further device experiment is
+selected or authorized by this goal. Future root admission must account for
+the sealed installed package state and use its own applicable current scope.
+The shared readiness fix tolerates exact transient target absence only within
+the original wait. P462's later main health read still required the existing
+health-only continuation; any broader handling is separate host work.
+General package/configuration work, post-return filesystem consistency and
+failure recovery remain separate functional or proof boundaries.
 
 Keep Debian shell as initial owner and use fixed temporary preparation helpers.
 Reuse root-transition, installed-init and same-first-gadget work, with the

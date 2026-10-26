@@ -2,8 +2,12 @@
 
 State: **PASS_READY_H0_AND_UNEXECUTED_ENTRY**, with independent capability
 **PASS_GO**. This report covers H0 implementation and concrete preparation
-for S22+ FYG8 only. No P462 task grant or image transfer has occurred.
+for S22+ FYG8 only. No P462 grant or image transfer had occurred at that boundary.
 A90, S20+ and their existing changes remain untouched.
+
+The separately approved [P462 physical run](S22PLUS_DEBIAN_PACKAGE_P462_RUN_2026-10-27.md)
+subsequently proved installation, reboot retention, function and automatic
+Download/A return with healthy closure. This task is now consumed.
 
 ## Bounded capability
 
@@ -103,8 +107,9 @@ The intended operation remains one attended `debian-autoboot` operation within
 3600 seconds: one N transfer, two Debian boots, one ordinary reboot, one final
 Download request and one original-A return with Android health. The exact task
 is `9065a476db83c9d3e786165ecf3b81cf24d187951cf3f228b5966e4643f595b3`.
-Its source snapshots, capability bindings and entry checks pass. The remaining
-execution prerequisite is the fresh finite attended grant and current physical
-Download recovery availability. No operator approval record, grant or entry
-attempt exists at this preparation boundary. H0 success is not physical package
-persistence or automatic recovery from an unresponsive experimental component.
+Its source snapshots, capability bindings and entry checks passed before the
+fresh finite attended grant and current physical Download recovery confirmation.
+No operator approval record, grant or entry attempt existed at that preparation
+boundary. The separate run report records later approval, execution and closure.
+H0 success alone is not physical package persistence or automatic recovery from
+an unresponsive experimental component.
