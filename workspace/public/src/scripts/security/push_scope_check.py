@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Report which commits in a push range touch review-triggering paths.
 
-`AGENTS.md` "Review Rules" requires one independent review when a common or
-target contract, an F1 runner, a schema, transfer/archive/recovery machinery, a
-boundary, or a hazard changes. Routine work — verifiers, packagers, decoders,
-static checkers, auditors, documentation — does not trigger it.
+Path matches identify possible review scope. Apply `AGENTS.md` "Review Rules"
+to the actual change, including its narrow documentation exemptions. A path
+match is not a review decision; absence of a match does not exempt changed
+authority, evidence acceptance or other review-requiring semantics.
 
 This also counts commits with an empty body. A body-less commit is not itself
 an `AGENTS.md` violation — the required prose report can live under
@@ -26,8 +26,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Each pattern maps to a clause of the AGENTS.md review-trigger list. Keep the
-# reason text: it is what makes a hit actionable rather than noise.
+# These patterns locate possible scope, not semantic changes or exemptions.
+# Keep the reason text so the actual change can be checked against AGENTS.md.
 TRIGGERS: tuple[tuple[str, str], ...] = (
     ("AGENTS.md", "the binding safety contract itself"),
     ("docs/operations/DEVICE_ACTION_", "the common device-action contract"),
@@ -115,8 +115,8 @@ def main(argv: list[str]) -> int:
 
     if hits:
         print()
-        print(f"REVIEW TRIGGER — {len(hits)} path(s) require one independent review")
-        print("(AGENTS.md, Review Rules)")
+        print(f"REVIEW SCOPE — {len(hits)} path(s) may require independent review")
+        print("(apply AGENTS.md Review Rules to the change; path matches alone do not decide)")
         for path, reason in sorted(hits):
             print(f"  {path}")
             print(f"      {reason}")
@@ -135,7 +135,7 @@ def main(argv: list[str]) -> int:
             print(f"  {line}")
 
     if not hits and not empty_bodies:
-        print("no review-triggering paths and no empty-body commits in this range")
+        print("no review-scope path matches and no empty-body commits in this range")
 
     print()
     print("Reporting only; this does not block the push.")

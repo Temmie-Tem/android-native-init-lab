@@ -538,7 +538,9 @@ class DeviceActionProcessV2DocsTest(unittest.TestCase):
         self.assertIn("exactly one regular `boot.img.lz4` member", combined)
 
     def test_rollback_recovery_is_separate_and_cannot_retry_candidate(self):
-        self.assertIn("candidate replay is forbidden", normalized(self.agents))
+        common = normalized(self.agents)
+        self.assertIn("Never replay an uncertain write, transfer, reboot or CONTROL.", common)
+        self.assertIn("historical consumed records stay consumed.", common)
         self.assertIn("Continue only a target-contract-defined recovery branch", normalized(self.process))
         self.assertIn("never replay an uncertain transfer", normalized(self.process))
         self.assertIn("A session grants no additional rollback attempts", normalized(self.process))

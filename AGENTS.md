@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **63** (supersedes revision 62; 2026-10-28)
+Contract-Revision: **64** (supersedes revision 63; 2026-10-28)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -40,6 +40,91 @@ pin, so existing runners that bind AGENTS.md also bind their declared identity.
 This refactor does not repin existing approvals, source closures, manifests,
 activation records, or journals. Current runner checks and device-session stops
 remain binding; change those mechanisms only through their scoped review.
+
+## Permanent Device Safety Boundaries
+
+These numbered summaries preserve the boundary references used by existing
+contracts. Their complete wording and closed exceptions remain binding in
+[Permanent Device Safety Boundaries](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#permanent-device-safety-boundaries).
+Read an exception's complete conditions before considering it applicable.
+
+1. Use only an explicitly identified operator-owned device. Device effects are
+   attended unless the common contract expressly delegates an exception and
+   the exact target has activated it. Normal control, safe stopping, automatic
+   recovery and physical attendance are separate requirements.
+2. Ordinary partition payloads are **boot only**. Recovery, vendor_boot, DTBO,
+   vbmeta/vbmeta_system, BL/CP/CSC, super, userdata, persist, EFS/sec_efs, RPMB,
+   keymaster, modem, bootloader and other partitions remain forbidden outside
+   the exact retained S20+ T0/T1/T2 recovery exceptions and the separately
+   reviewed S22+ boundary-2 exceptions expressly incorporated in the pinned
+   common details. Their individual policies remain linked in the routing
+   table below; that index creates no additional exception.
+   Normal Android API staging is limited to the separately defined
+   package/shared-storage rules.
+3. No raw host `dd`, arbitrary fastboot, partition-table actions,
+   qdl/Sahara/Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format,
+   or unreviewed panic/RDX. Only the exact S20+ fastboot exceptions and A90
+   fixed 256-byte misc-BCB hook, and the exact S22+ G2/native ext4/Debian exceptions in the details
+   can specialize these bans.
+   The fixed S22+ native and Android storage censuses may read their declared
+   GPT metadata only; they grant no partition-table mutation or formatting.
+   The exact S22+ UFS F1 profile also permits its fixed driver initialization
+   and ordinary kernel discovery, without a host partition-data writer.
+   The exact S22+ inspection, userspace, preflight, witness, Debian and
+   journal-recovery profiles are linked in the routing table below. Their
+   complete closed effects, admission, attendance, budgets, evidence and
+   recovery conditions remain in the incorporated details and named policies;
+   the routing links add no permission or cross-profile substitution.
+4. Before flashing, require the present, readable, hash-verified exact rollback
+   artifact and a demonstrated usable recovery path. The S20+ recovery-only
+   exceptions retain their exact stock-digest and physical-return conditions.
+5. Never flash a new experiment over an unhealthy or unverified device.
+   Recover first, verify health, and stop that experiment.
+6. Target ambiguity, unexpected archive members, forbidden partition signals,
+   changed artifacts, missing rollback, inconsistent journals, or lost physical
+   recovery immediately stop new device effects.
+7. An unexplained failure stops actions whose execution or required health is
+   uncertain. Preauthorized recovery follows durable journal state; an
+   uncertain write, transfer or control never replays. Reviewed target profiles
+   may permit bounded read-only reobservation and new prospective experiments
+   after proved closure/health. Old consumed actions and narrower legacy modes
+   retain their existing meaning.
+
+The operator-approved [one-run S20+ P1 recovery exception](docs/operations/S20PLUS_P1_ONE_RUN_RECOVERY_EXCEPTION_2026-09-08.md) specialized boundary 7 and the consumed physical-observation stop for only its named run. Its first rollback and final health completed; the exception is now closed and grants no further device effect.
+
+## Permanent Repository and Evidence Boundaries
+
+Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
+logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
+slides, or tunnel URLs. Keep private inputs and run evidence under
+`workspace/private/`.
+
+Changing a permanent device, repository, or evidence boundary is a separate
+policy change and requires an independent safety review. A target contract
+refactor must prove that these boundaries remain semantically unchanged.
+
+## Stop and Escalate
+
+Stop new device effects when target, effect occurrence, health, authority or
+recovery is uncertain, a boundary would need to bend, or the action is not
+represented by the selected tier and target contract. Preserve the journal;
+continue only allowed observation, H0 diagnosis and preauthorized recovery.
+Scope the stop to the affected effects. A reviewed read-only retry must not be
+blocked merely because its previous read failed; it also must not retire a
+pending write/control/recovery owner. Fresh observation is not retroactive proof
+of the old action. A new scoped experiment still requires current health and
+the previous operation's validated closure.
+An expected negative or unproved research result is not itself a safety fault;
+any next experiment still requires a closed run, exact health and its own
+current authority. Unexplained device-session failures retain boundary 7.
+
+H0 build, parser and test failures may be repaired and rechecked within the
+same authorized task without a new approval or a fixed failure-count stop.
+Stop an approach when it repeats without new evidence, exhausts its resource
+budget, or needs a scope change. This replaces blanket first-failure and
+one-repair H0 rules; it never permits replay of a device effect, editing a
+consumed journal, relaxing a safety assertion to obtain PASS, or ignoring an
+explicitly narrower operator instruction.
 
 ## Default Research Autonomy
 
@@ -84,7 +169,24 @@ turn a possible rollback into an authorized and demonstrated recovery route.
 
 ## Review Rules
 
-- One independent review is required when a common/target contract, F1 runner, schema, transfer/archive/recovery machinery, boundary, or hazard changes.
+- One independent review is required for a coherent change to normative common/target
+  rules, authority or precedence, permanent boundaries or exceptions,
+  target/control/recovery/health or evidence-acceptance semantics, schemas,
+  reachable execution-critical F1/transfer/archive/recovery/hazard machinery,
+  incorporated pins or reference targets, runner-bound literals, or gate
+  creation/retirement.
+- For otherwise review-triggering documents, only these edits are exempt:
+  whitespace/presentation-only formatting; non-normative typo fixes; link
+  syntax repair resolving to the identical document, anchor and authority
+  scope; and byte-identical paragraph relocation within the same document
+  under the same governing heading and conditions. Record the relevant
+  diff/link/content checks in the existing change description.
+- Deleting, summarizing or deduplicating normative text, moving it between
+  documents or precedence layers, or changing conditions, numbers, identifiers,
+  registry state, modal words, pins or machine-parsed strings is not exempt.
+  An author's assertion of unchanged meaning is not enough; if classification
+  is uncertain, review the affected change. Existing machine hash and runner
+  checks remain binding; this exemption never repins an earlier approval.
 - Review changed execution-critical closure and higher-precedence interactions;
   ignore unreachable legacy helpers.
 - An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
@@ -146,7 +248,7 @@ turn a possible rollback into an authorized and demonstrated recovery route.
   artifact provenance separate from checker provenance. A result label alone
   is not reusable evidence.
   Documentation-only changes need content/link/diff checks, not image builds;
-  a contract's semantic change still needs review. Unrelated census counts and
+  apply Review Rules to contract edits. Unrelated census counts and
   other-target changes should not be execution identity. Remove accidental
   bindings through reviewed code changes, never by bypassing current checks.
 - Keep prepare, activation, consumption, recovery and terminal prerequisites
@@ -173,171 +275,13 @@ Targets, profiles, rollback identities, transports, approvals, and health
 evidence never transfer between rows. Without an exact matching contract,
 remain H0. For A90, read this file, its target contract, then GOAL_A90.md.
 
-## Permanent Device Safety Boundaries
-
-These numbered summaries preserve the boundary references used by existing
-contracts. Their complete wording and closed exceptions remain binding in
-[Permanent Device Safety Boundaries](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#permanent-device-safety-boundaries).
-Read an exception's complete conditions before considering it applicable.
-
-1. Use only an explicitly identified operator-owned device. Device effects are
-   attended unless the common contract expressly delegates an exception and
-   the exact target has activated it. Normal control, safe stopping, automatic
-   recovery and physical attendance are separate requirements.
-2. Ordinary partition payloads are **boot only**. Recovery, vendor_boot, DTBO,
-   vbmeta/vbmeta_system, BL/CP/CSC, super, userdata, persist, EFS/sec_efs, RPMB,
-   keymaster, modem, bootloader and other partitions remain forbidden outside
-   the exact retained S20+ T0/T1/T2 recovery exceptions and the exact S22+
-   [G2 GPT reservation/reset exception](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md)
-   and [native ext4 exception](docs/operations/S22PLUS_NATIVE_EXT4_V1.md), and
-   the separately reviewed [Debian first-boot exception](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
-   and [installed-Debian boot exception](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md),
-   and the separate [native-first Debian handoff exception](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md)
-   and [Debian progress/same-gadget successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md),
-   and the separate [fixed native_data journal recovery exception](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
-   and [Debian early file pilot exception](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md)
-   and [Debian storage-first file exception](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md)
-   and [Debian-owned integrated boot exception](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md)
-   and [automatic Debian boot exception](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md)
-   and its separately reviewed [bounded ordinary-reboot specialization](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md)
-   and [bounded cron workload specialization](docs/operations/S22PLUS_DEBIAN_CRON_V1.md)
-   and [persistent cron configuration specialization](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
-   and [Debian Download return specialization](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
-   and [one offline package specialization](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md)
-   and [USB HTTPS APT specialization](docs/operations/S22PLUS_DEBIAN_APT_V1.md).
-   Normal Android API
-   staging is limited to the separately defined package/shared-storage rules.
-3. No raw host `dd`, arbitrary fastboot, partition-table actions,
-   qdl/Sahara/Firehose, RAM dump, EUD/UART writes, fuse/QFPROM actions, format,
-   or unreviewed panic/RDX. Only the exact S20+ fastboot exceptions and A90
-   fixed 256-byte misc-BCB hook, and the exact S22+ G2/native ext4/Debian exceptions in the details
-   can specialize these bans.
-   The fixed S22+ native and Android storage censuses may read their declared
-   GPT metadata only; they grant no partition-table mutation or formatting.
-   The exact S22+ UFS F1 profile also permits its fixed driver initialization
-   and ordinary kernel discovery, without a host partition-data writer.
-   The exact [native root inspection profile](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md)
-   adds only partition-level RAM read-only protection and protected native_data
-   reads/mounts; it grants no filesystem data write, repair or code execution.
-   The separate [mountless root evidence profile](docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md)
-   adds only fixed bounded private historical-file reads from clean or dirty
-   native_data under partition RO, with no mount, journal replay or data write.
-   The separate [fixed Debian userspace probe](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md)
-   adds only its verified unprivileged child workload under the same partition
-   protection, with no filesystem data write or PID 1 handoff.
-   The separate [bootstrap preflight](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md)
-   adds only fixed protected preparation and unprivileged loader checks before
-   a sealed-result native observer, with no filesystem write or Debian handoff.
-   The separate [Debian-owned early boot](docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md)
-   adds only the retained fixed platform/UFS initialization, protected GPT/
-   superblock observation and one fixed ACM evidence child under Debian shell
-   PID1, with attended physical original-A return and no filesystem data write.
-   Its separate [USB-first sibling](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md)
-   permits fixed platform/ACM evidence with checked RAM logs, or its stock
-   retained-RAM variant with bounded post-return log retrieval, with no
-   UFS/storage access or data write.
-   The separate [Debian logger-only stage probe](docs/operations/S22PLUS_DEBIAN_STAGE_PROBE_V1.md)
-   narrows stock retained-RAM observation to one logger module and measured
-   early parent/stage records, with no USB/platform/UFS/storage work, direct
-   RAM mapping or block-backed data write; original-A return remains attended and physical.
-   The separate [native log calibration](docs/operations/S22PLUS_NATIVE_LOG_CALIBRATION_V1.md)
-   adds one fixed root-child stock logger and bounded current/returned retained
-   evidence on the retained native carrier, with only RAM node/marker writes,
-   no partition command or filesystem data write, and physical original-A return.
-   The separate [Debian early file pilot](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md)
-   permits fixed bounded native_data file/directory writes after fresh clean
-   protected admission, checked synchronization and unmount, with no USB
-   prerequisite, installed init, replay, repair or other-partition write.
-   The separately reviewed [storage-first file sibling](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md)
-   moves fixed UFS preparation and checked run-file records before the last six
-   platform clients, retaining clean admission, bounded writes and physical return.
-   The separate [streamed preparation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md)
-   runs its fixed protected checker/loader work after native authentication,
-   with bounded stage records, no filesystem write and no Debian handoff.
-   The separate [readonly root-transition witness](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md)
-   permits one fixed actual-PID-1 transition to a RAM-only static witness under
-   the protected native_data root, with no filesystem data write or installed
-   Debian init execution and one original-A return.
-   The separate [native-first Debian handoff](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md)
-   permits one protected exact-root admission followed by partition-only RAM
-   RO clear, normal native_data RW mount, installed init/basic SSH and fixed
-   shutdown, with attended physical original-A return. It adds no repair,
-   installation, other-partition write or replay.
-   Its separately reviewed [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md)
-   permits only its finite post-P410 mutable-data admission, sequential
-   Debian-owned progress observation and reuse of the original USB gadget.
-   Clean ext4, exact immutable-root checks and the same no-repair/write
-   boundaries remain required.
-   The separate [Debian-owned integrated boot](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md)
-   permits measured initial Debian PID1 and fixed preparation, one authenticated
-   compound start, complete protected root admission and one installed-init
-   lifetime with bounded service/local evidence, same-boot SSH and fixed
-   shutdown. It retains physical original-A return and no repair or replay.
-   The separate [automatic Debian boot](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md)
-   permits its transfer-owned fixed preparation, two sequential protected-root
-   admissions and bounded early-file/installed-root lifetimes, local services
-   and one first-gadget NCM attempt, with physical original-A return and no
-   repair, replay or other-partition write.
-   The separate [fixed journal recovery](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md)
-   permits one sealed native_data-only JBD2 replay and exact finalization, then
-   restored partition RO and complete protected root admission. It adds no
-   general fsck repair, formatter, GPT mutation, reinstall or Debian execution.
-   The separately reviewed [bounded Debian reboot](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md)
-   specializes only automatic boot with two admitted boots, four fixed
-   writable lifetimes, sealed ext4 mount count, one ordinary reboot and one
-   shutdown under the same attended owner and original-A recovery. Its named
-   pre-build D0 reads only the fixed native_data superblock block.
-   The separately reviewed [persistent cron configuration](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md)
-   permits only its exact boot-1 cron.d creation, boot-2 report and successful-
-   path unlink under the same owner. Failure cleanup is RAM only; no package
-   installation, general configuration mutation, repair or replay is added.
-   The separately reviewed [Debian Download return](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md)
-   replaces only the final power-off with checked root-RO SysV cleanup, five
-   fixed stock modules and one literal Download restart. Exact arrival and
-   original-A dispatch use the original final-intent deadline; physical
-   recovery remains attended, with no alternate control or replay.
-   The separately reviewed [one offline package](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md)
-   adds only one sealed hello dpkg transaction and exact reboot-retention/
-   function checks inside the same lifetimes. Partial state may remain;
-   original-A return does not undo it, and no package repair or replay follows.
-   The separate [USB HTTPS APT specialization](docs/operations/S22PLUS_DEBIAN_APT_V1.md)
-   adds fixed temporary USB internet sharing, RAM clock/resolver setup, signed
-   acquisition and one sealed tree APT transaction inside the same lifetimes.
-   It retains exact cumulative package state, attended A return and no repair,
-   package replay, additional boot or other-partition write.
-4. Before flashing, require the present, readable, hash-verified exact rollback
-   artifact and a demonstrated usable recovery path. The S20+ recovery-only
-   exceptions retain their exact stock-digest and physical-return conditions.
-5. Never flash a new experiment over an unhealthy or unverified device.
-   Recover first, verify health, and stop that experiment.
-6. Target ambiguity, unexpected archive members, forbidden partition signals,
-   changed artifacts, missing rollback, inconsistent journals, or lost physical
-   recovery immediately stop new device effects.
-7. An unexplained failure stops actions whose execution or required health is
-   uncertain. Preauthorized recovery follows durable journal state; an
-   uncertain write, transfer or control never replays. Reviewed target profiles
-   may permit bounded read-only reobservation and new prospective experiments
-   after proved closure/health. Old consumed actions and narrower legacy modes
-   retain their existing meaning.
-
-The operator-approved [one-run S20+ P1 recovery exception](docs/operations/S20PLUS_P1_ONE_RUN_RECOVERY_EXCEPTION_2026-09-08.md) specialized boundary 7 and the consumed physical-observation stop for only its named run. Its first rollback and final health completed; the exception is now closed and grants no further device effect.
-
-## Permanent Repository and Evidence Boundaries
-
-Do not commit firmware, boot images, ramdisks, compiled payloads, raw device
-logs, credentials, device serials, PARTUUIDs, MAC/BSSID/IP values, KASLR
-slides, or tunnel URLs. Keep private inputs and run evidence under
-`workspace/private/`.
-
-Changing a permanent device, repository, or evidence boundary is a separate
-policy change and requires an independent safety review. A target contract
-refactor must prove that these boundaries remain semantically unchanged.
-
 ## Proportional Device Actions
 
 Use the selected target and [risk tiers](docs/operations/DEVICE_ACTION_RISK_TIERS.md).
 The complete tier definitions and exact delegations are in the incorporated
 details; this routing table neither changes their scope nor activates a lane.
+For every named profile, read its complete conditions in those details and the
+linked policy; an abbreviated routing cell does not remove a limit or grant.
 
 | Work | Required detail when applicable |
 | --- | --- |
@@ -351,35 +295,35 @@ details; this routing table neither changes their scope nor activates a lane.
 | Bounded attended F1 session | [Bounded Attended F1 Sessions](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#bounded-attended-f1-sessions); reviewed target/runner activation and a finite explicit grant; physical attendance remains required. |
 | Conditional unattended F1 | [Conditional Autonomous F1](docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md#conditional-autonomous-f1); actual failure-specific automatic recovery is required. |
 | Task-scoped S22+ research | [Proportional research V1](docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md); one finite scope grant, spontaneous machine-bound candidates, bounded reobservation, prospective closed-health repeats and explicit attended/deferred recovery. |
-| S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md); one native-origin N/E/N experiment, finite exact grant, failure stop with later attended A recovery and unknown device activity. |
+| S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md) |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
-| S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md); independently reviewed fixed native writer and stock reset, one finite attended grant, journal-bound original-layout recovery. |
-| S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md); independently reviewed fixed initializer/reader, one attended finite grant, unchanged Android32 return and no replay. |
-| S22+ Debian first boot | [Exact native_data installation and PID 1 handoff](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md); one reviewed embedded archive, one attended finite grant, one ordinary reboot, physical original-A return and no reinstall. |
-| S22+ installed Debian boot | [Exact completed-root PID 1 and P399 return](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md); one fresh archive-free boot, one attended finite grant, restricted shutdown, P399 normal return or physical original-A recovery, no reinstall. |
-| S22+ native root inspection | [Fixed protected read-only inspection](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md); one fresh native boot, partition-only RAM RO control, bounded native_data observation, one original-A return, no installation or chroot. |
-| S22+ mountless root evidence | [Fixed historical-file reader](docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md); one fresh native boot, partition RO, fixed bounded private reads without mount/replay, one original-A return, no filesystem write or installed execution. |
-| S22+ fixed Debian userspace probe | [Protected-root child execution](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md); one fresh native boot, exact root closure, one fixed unprivileged workload, one original-A return, no installation or PID 1 handoff. |
-| S22+ installed-bootstrap preflight | [Protected pre-handoff measurement](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md); one automatic preparation consumed by its fresh N transfer, sealed current-boot result, one original-A return, no filesystem write or Debian handoff. |
-| S22+ Debian-owned early boot | [Fixed initial-PID1 preparation and evidence](docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md); one attended fresh boot, fixed 73+8 modules, protected metadata and one ACM result, physical original-A return, no root mount, write or installed init. |
-| S22+ Debian USB-first | [Platform/USB and stage evidence](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md); 73 modules, fixed ACM and checked RAM evidence, or the declared stock-logger/retained-log variant, one attended original-A return, no UFS/block access or installed init. |
-| S22+ Debian logger-only stages | [Early retained-stage probe](docs/operations/S22PLUS_DEBIAN_STAGE_PROBE_V1.md); one stock logger, measured parent and bounded records, fixed host window, attended original-A return and post-return retrieval; no platform/USB/UFS/storage work. |
-| S22+ native log calibration | [Live/backend/returned marker join](docs/operations/S22PLUS_NATIVE_LOG_CALIBRATION_V1.md); one fixed stock-logger child on retained native UFS/drain, bounded RAM markers/current backend, physical original A and post-closure D0; no storage command or data write. |
-| S22+ Debian early file pilot | [USB-independent fixed file evidence](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md); fresh clean admission, one bounded exclusive native_data file and fixed parent, checked sync/unmount/RO, one attended original-A return; later retrieval is a separate owner. |
-| S22+ Debian storage-first file evidence | [Checked records before clients](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md); logger/prefix68+UFS8, clean protected admission, one bounded run file with synchronized records before six fixed clients, physical original-A return and separate retrieval. |
-| S22+ streamed protected preparation | [Native-first stage observation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md); one fixed protected checker/loader command after native health, diagnostic-only partial evidence, one original-A return, no filesystem write or Debian handoff. |
-| S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md); one native-first fixed terminal operation, worker settlement, protected root and RAM witness, one original-A return, no installed init or writable lifetime. |
-| S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md); one attended finite operation, protected admission then native_data RW/init, authenticated PID1 and same-boot SSH, fixed shutdown and physical original-A return, no reinstall or replay. |
-| S22+ Debian progress and same-gadget handoff | [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md); one fresh attended operation, clean protected current-root admission, finite Debian service observation before same-g1 NCM/SSH, fixed shutdown and physical original-A return; no repair or replay. |
-| S22+ Debian-owned integrated boot | [Initial PID1 through installed services](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md); one fresh attended compound operation, protected current root, bounded services/local records, same-gadget SSH and physical original-A return; no repair or replay. |
-| S22+ automatic Debian boot | [Transfer-owned startup](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md); one fresh attended N, two admitted bounded filesystem lifetimes, absolute device deadline, local service proof and one NCM attempt, fixed SSH shutdown and physical original-A return; no repair or replay. |
-| S22+ bounded cron workload | [Packaged cron and reboot persistence](docs/operations/S22PLUS_DEBIAN_CRON_V1.md); same two-boot/four-lifetime owner, fixed cron lifecycle and RAM schedule, one exclusive report with exact second-boot retention, physical original-A return; no package install, persistent-config change or repair. |
-| S22+ persistent cron configuration | [Exact cross-boot consumption and retirement](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md); one boot-1 cron.d file, one boot-2 report and one successful-path unlink inside the same attended two-boot owner; failure revokes RAM only, with physical original-A return and no package install, repair or replay. |
-| S22+ Debian Download return | [Final SysV Download and original-A return](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md); same attended two-boot/four-lifetime workload, checked final root RO, five fixed stock modules and one Download restart, with exact arrival/original-A dispatch inside the original 90-second control window; physical fallback remains distinct from automatic-return proof. |
-| S22+ bounded Debian reboot | [Two admitted automatic boots](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md); sealed pre-build M, four exact writable lifetimes, one ordinary reboot, one final shutdown, two fixed observation windows inside one attended finite grant and physical original-A return; no repair or replay. |
-| S22+ one offline package | [Fixed hello installation and reboot retention](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md); one pinned dpkg transaction, 52 exact additions and two database replacements within the same two-boot/four-lifetime owner, fixed hello output in both boots and attended Download/A return; no apt, package retry, cleanup or repair. |
-| S22+ one USB HTTPS APT package | [Fixed tree acquisition and installation](docs/operations/S22PLUS_DEBIAN_APT_V1.md); temporary owned host sharing, per-boot RAM clock handoff, signed unprivileged acquisition and one APT transaction, exact cumulative hello/tree retention, attended Download/A return and bounded final-health reobservation; no repair, replay or extra lifetime. |
-| S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md); one reviewed strict writer, fresh attended grant, protected post-check and one original-A return, no repair replay or reinstall. |
+| S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md) |
+| S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md) |
+| S22+ Debian first boot | [Exact native_data installation and PID 1 handoff](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md) |
+| S22+ installed Debian boot | [Exact completed-root PID 1 and P399 return](docs/operations/S22PLUS_DEBIAN_INSTALLED_BOOT_V1.md) |
+| S22+ native root inspection | [Fixed protected read-only inspection](docs/operations/S22PLUS_NATIVE_ROOT_INSPECT_V1.md) |
+| S22+ mountless root evidence | [Fixed historical-file reader](docs/operations/S22PLUS_NATIVE_ROOT_EVIDENCE_V1.md) |
+| S22+ fixed Debian userspace probe | [Protected-root child execution](docs/operations/S22PLUS_NATIVE_USERSPACE_PROBE_V1.md) |
+| S22+ installed-bootstrap preflight | [Protected pre-handoff measurement](docs/operations/S22PLUS_NATIVE_PREFLIGHT_V1.md) |
+| S22+ Debian-owned early boot | [Fixed initial-PID1 preparation and evidence](docs/operations/S22PLUS_DEBIAN_EARLY_BOOT_V1.md) |
+| S22+ Debian USB-first | [Platform/USB and stage evidence](docs/operations/S22PLUS_DEBIAN_USB_FIRST_V1.md) |
+| S22+ Debian logger-only stages | [Early retained-stage probe](docs/operations/S22PLUS_DEBIAN_STAGE_PROBE_V1.md) |
+| S22+ native log calibration | [Live/backend/returned marker join](docs/operations/S22PLUS_NATIVE_LOG_CALIBRATION_V1.md) |
+| S22+ Debian early file pilot | [USB-independent fixed file evidence](docs/operations/S22PLUS_DEBIAN_FILE_PILOT_V1.md) |
+| S22+ Debian storage-first file evidence | [Checked records before clients](docs/operations/S22PLUS_DEBIAN_FILE_FIRST_V1.md) |
+| S22+ streamed protected preparation | [Native-first stage observation](docs/operations/S22PLUS_NATIVE_STAGED_PREFLIGHT_V1.md) |
+| S22+ readonly root-transition witness | [Actual PID-1 transition and post-exec proof](docs/operations/S22PLUS_SWITCH_ROOT_WITNESS_V1.md) |
+| S22+ native-first Debian handoff | [Installed PID1 and basic access](docs/operations/S22PLUS_DEBIAN_HANDOFF_V1.md) |
+| S22+ Debian progress and same-gadget handoff | [V2 successor](docs/operations/S22PLUS_DEBIAN_HANDOFF_V2.md) |
+| S22+ Debian-owned integrated boot | [Initial PID1 through installed services](docs/operations/S22PLUS_DEBIAN_INTEGRATED_V1.md) |
+| S22+ automatic Debian boot | [Transfer-owned startup](docs/operations/S22PLUS_DEBIAN_AUTOBOOT_V1.md) |
+| S22+ bounded cron workload | [Packaged cron and reboot persistence](docs/operations/S22PLUS_DEBIAN_CRON_V1.md) |
+| S22+ persistent cron configuration | [Exact cross-boot consumption and retirement](docs/operations/S22PLUS_DEBIAN_CRON_CONFIG_V1.md) |
+| S22+ Debian Download return | [Final SysV Download and original-A return](docs/operations/S22PLUS_DEBIAN_DOWNLOAD_RETURN_V1.md) |
+| S22+ bounded Debian reboot | [Two admitted automatic boots](docs/operations/S22PLUS_DEBIAN_REBOOT_V1.md) |
+| S22+ one offline package | [Fixed hello installation and reboot retention](docs/operations/S22PLUS_DEBIAN_PACKAGE_V1.md) |
+| S22+ one USB HTTPS APT package | [Fixed tree acquisition and installation](docs/operations/S22PLUS_DEBIAN_APT_V1.md) |
+| S22+ fixed journal recovery | [Exact native_data replay](docs/operations/S22PLUS_NATIVE_JOURNAL_RECOVERY_V1.md) |
 | X | Forbidden; remain H0. |
 
 Do not split a higher-risk action into lower-tier commands. A device-connected
@@ -406,26 +350,3 @@ are scoped to the current action and reusable while their inputs are unchanged.
   Record the source version and evidence location in the existing close record
   so later audit does not depend on the moving working tree. Routine narrative
   may be a concise commit body; do not duplicate it across per-run documents.
-
-## Stop and Escalate
-
-Stop new device effects when target, effect occurrence, health, authority or
-recovery is uncertain, a boundary would need to bend, or the action is not
-represented by the selected tier and target contract. Preserve the journal;
-continue only allowed observation, H0 diagnosis and preauthorized recovery.
-Scope the stop to the affected effects. A reviewed read-only retry must not be
-blocked merely because its previous read failed; it also must not retire a
-pending write/control/recovery owner. Fresh observation is not retroactive proof
-of the old action. A new scoped experiment still requires current health and
-the previous operation's validated closure.
-An expected negative or unproved research result is not itself a safety fault;
-any next experiment still requires a closed run, exact health and its own
-current authority. Unexplained device-session failures retain boundary 7.
-
-H0 build, parser and test failures may be repaired and rechecked within the
-same authorized task without a new approval or a fixed failure-count stop.
-Stop an approach when it repeats without new evidence, exhausts its resource
-budget, or needs a scope change. This replaces blanket first-failure and
-one-repair H0 rules; it never permits replay of a device effect, editing a
-consumed journal, relaxing a safety assertion to obtain PASS, or ignoring an
-explicitly narrower operator instruction.

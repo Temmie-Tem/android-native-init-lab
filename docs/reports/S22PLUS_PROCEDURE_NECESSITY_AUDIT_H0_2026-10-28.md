@@ -288,3 +288,65 @@ ARTIFACT — 같은 kernel/initramfs/init 해시 결합 확인. RETURN — 기�
 미종료·수집 중 입력 변경의 receipt 부재와 완전한 수집 뒤 parser 실패의 증거
 보존을 네 가지 추가 반례로 확인했다. 이 검토는 H0 기능에 한정되며 device
 capability activation이나 실행 승인을 발행하지 않는다.
+
+## 토론 후 적용: AGENTS revision 64
+
+Opus와 Argon 각각 두 차례의 자문에서 다음 순서를 채택했다: AGENTS 분량 축소와
+리뷰 조건 정리를 하나의 작업으로 완료하고, 패키징 단일화는 다음에 실제로
+필요한 포장 작업에서 비용을 확인한 뒤 판단한다. 별도 벤치마크, 범용 캐시,
+변경 분류 엔진이나 반복 모델 검토 절차는 추가하지 않았다. 자문 원문과 사용량은
+`workspace/private/outputs/s22plus-next-reduction-discussion-20261028-1/`에 있다.
+
+Revision 64는 **38,752 → 27,079 UTF-8 바이트**로 축소했다. 28,000바이트는
+이번 작업의 여유 목표이며 보편적인 제품 한도가 아니다. 이 대화에서 직접
+확인된 절단은 revision 62의 32,768바이트 사본이다. revision 63의 끝부분 누락은
+같은 한도가 적용될 때의 추론으로 구분한다. 기존 문서 시험의 32 KiB 검사도
+재사용했으며 새 상설 검사는 만들지 않았다.
+
+- Authority, 영구 경계, Stop and Escalate를 앞에 배치했다. Stop 절은 byte
+  offset 37,347에서 6,641로 이동하고 8,045에서 끝난다.
+- 경계 2의 중복 정책 링크 열거와 경계 3의 개별 S22+ 프로필 설명, 작업 표의
+  반복 요약을 줄였다. 원래 링크 대상 **45개 전부**, 프로필별 행 이름과 정책
+  연결은 유지한다. 셀의 축약은 조건 제거가 아니며 완전한 세부 조건을 읽어야
+  한다는 점을 명시했다.
+- 공통 details는 기존 SHA-256
+  `e13b318106e59892f0dc1d8b5543a4f3a300d4194333b23a9cb0085ef2121088`로
+  그대로다. Authority, 저장소/증거 경계, Stop, 자율성, 대상 registry와 보고 절은
+  내용이 동일하다. 경계 1 및 4–7도 원문 그대로다.
+- 리뷰 면제는 표현만 바뀌는 서식, 비규범적 오타, 같은 문서·앵커·권한 범위로
+  연결되는 링크 문법 교정, 같은 문서·동일 지배 조건 아래 원문 그대로의 문단
+  이동으로 한정했다. 규범 삭제·요약·중복 제거, 문서 간 이동, 조건·pin·상태·기계
+  문자열 변경은 면제가 아니다. 실제 효과·복구·증거 수용 의미와 실행 핵심 코드의
+  변경은 계속 리뷰 대상이다. 저자의 동일 의미 주장만으로 면제하지 않는다.
+- `push_scope_check.py`는 경로 일치만으로 리뷰 필수라고 단정하던 안내를
+  “리뷰 범위일 수 있으므로 실제 변경을 판단”하는 안내로 고쳤다. 탐색 패턴,
+  exit code, 정보 제공 역할과 push 동작은 그대로다. 경로 미일치 역시 면제를
+  입증하지 않는다.
+
+중복 설명의 대응은 공통 details의 Permanent Device Safety Boundaries 및
+각 명명된 S22+ 절에서 확인했다. 읽기 전용 inspection/evidence/probe/preflight,
+초기 Debian/USB/logger/file, root transition/handoff, integrated/autoboot와
+reboot/cron/package/APT 특례, G2/ext4/install 및 journal recovery의 분리된
+조건을 유지한다. 제거 전 원문과 정책별 대응 위치는 private
+`removed-boundary2-index.txt`, `removed-boundary3-summaries.txt`,
+`removed-summary-map.json`에 있다. 링크 존재 검사만을 의미 동등성 증거로
+사용하지 않는다.
+
+현재 V3는 details digest가 root에 포함되는지 확인하고, research scope는 다른
+대상 registry 행과 종료된 S20+ 일회 복구 기록 문단을 제외한 공통 root 내용을
+별도 해시로 결합한다. 이번 변경은
+그 selected-authority 해시를 **변경한다**. 기존 리뷰/activation/grant를 자동
+갱신하거나 repin하지 않았으며, 현행 러너의 정확한 해시 검사를 우회하지 않는다.
+과거 폐기된 root 임시 예외를 찾는 helper는 이번 변경으로 재활성화하지 않는다.
+패키징, VM, 기기 명령과 다른 대상의 계약·상태 파일은 수정하지 않았다.
+
+구현·검증 및 독립 리뷰 근거:
+`workspace/private/outputs/agents-rev64-reduction-h0-20261028-1/`.
+
+관련 기존 시험은 문서 계약 9개, selected-authority/cache 2개, push 안내 6개를
+선택했다. 처음 16개가 통과하고 replay 시험 하나는 revision 63에도 없는 옛
+문구 `candidate replay is forbidden`을 요구해 실패했다. 원래 계약에서도
+부재함을 확인한 뒤 그 단언만 현재 details의 두 기존 조항, 불확실한 효과의
+재실행 금지와 소비된 기록의 소비 상태 유지로 교정했고 해당 시험이 통과했다.
+정책을 시험에 맞춰 완화하지 않았다. 나머지 16개 성공은 재사용했다.
+Python 문법, 링크·해시·섹션 보존, 새 push 안내의 비차단 동작도 확인했다.
