@@ -3,11 +3,14 @@
 These host tools build and inspect a proposed g0q RAM-only carrier. They have
 no device transport, flashing command, physical approval or host interface
 configuration entry point. `vm.py` starts a local QEMU guest and loopback
-forwarding. Physical use remains blocked on the initial ABL load/copy binding
-and the selected target contract's review and attended entry requirements.
+forwarding. The loader now checks its actual source placement at entry; safe
+copies and rejection cases are qualified in H0. Physical use still needs the
+mainline execution/recovery owner and the target's review/attended requirements.
 
 The [build report](../../../../../docs/reports/S22PLUS_MAINLINE_RAM_CANARY_H0_2026-10-27.md)
 records the first artifacts, corrected bugs, tests and remaining uncertainty.
+The [entry successor](../../../../../docs/reports/S22PLUS_MAINLINE_LOADER_ENTRY_H0_2026-10-28.md)
+records the loader repair, actual instruction tests and boot-v4 packaging.
 
 ## Inputs and outputs
 
@@ -41,15 +44,35 @@ network data, keys and logs belong under `workspace/private/`.
    host. `--vm` creates a distinct test artifact that physical packaging rejects.
 4. Run `build_loader.py --base <base> --prepared <preparation> --init <production-initramfs>
    --output <fresh-private-loader>`. The published patch is applied without
-   fuzz, input records are joined, ELF member bytes and placement can be
-   inspected, and the result explicitly retains the unresolved initial source
-   binding. `--reuse` only completes qualification of an existing successful
+   fuzz, followed by `uniloader-g0q-entry.patch`. Input records, ELF/raw sections,
+   file-backed copy length, complete runtime header, embedded members and fixed
+   destination extents are checked. A private retained-RAM table bounds reads
+   of the already-loaded image; reservations independently constrain destination
+   writes. `--reuse` only completes qualification of an existing successful
    build whose result has not yet been published. `--kernel-label` selects a
    non-default kernel build record.
 5. `vm.py --prepared <preparation> --init <VM-initramfs> --output <fresh-private-run>`
    exercises the actual kernel/PID1 observer; `--bad-key` checks rejection.
    The VM uses its separately sealed Ethernet endpoint. It does not exercise
    the physical USB PHY, Download entry or original-A return.
+6. `qualify_loader.py --loader <loader> --output <fresh-private-qualification>`
+   executes the actual linked blob in Unicorn 2.1.4 (with pyelftools). It checks
+   placement/overflow/rejection, complete loader-to-kernel copies and FDT,
+   stack bounds, natural alignment and memcpy/memmove edge cases. Install these
+   dependencies in a private directory and use its `PYTHONPATH` if needed.
+   Its EL/SCTLR injected guard tests are explicitly labelled; Unicorn's caches
+   and CPU state are not physical entry evidence.
+7. `loader_entry_vm.py --loader <loader> --gdb <gdb-multiarch>
+   --output <fresh-private-entry-test>` uses the retained local QEMU distribution
+   and loopback GDB connection. Actual reset EL1/EL2 enter the relocated body;
+   actual EL3 rejects. It does not modify registers to obtain the expected EL.
+8. `package_loader.py --loader <loader> --qualification <qualification>
+   --entry-vm <entry-test> --output <fresh-private-package>` reuses the existing
+   boot-only packager. Two independent repacks replace the outer kernel with
+   uniLoader in the pinned original-A boot-v4 envelope. The outer ramdisk,
+   signature and AVB bytes remain retained; uniLoader supplies its own DTB and
+   initrd. Retained signatures do not authenticate the changed payload. The
+   result is H0 only and is never registered, armed or transferred by this tool.
 
 ## Evidence protocol and tests
 

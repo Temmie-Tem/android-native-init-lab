@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
-"""Build the published loader patch with explicit g0q placement deltas.
-
-The result remains H0: initial ABL source/stub overlap has not been admitted.
-"""
+"""Build and statically qualify the g0q loader; never authorize device entry."""
 import argparse
 import json
 import os
@@ -11,13 +8,26 @@ import re
 import shutil
 import struct
 import subprocess
+from elftools.elf.elffile import ELFFile
 
-from prepare import HERE, ROOT, digest, require, run, config_values, uncovered, audit_candidate
+from prepare import HERE, ROOT, digest, require, run, config_values, uncovered, merged, audit_candidate
 
 TEXT=0xa8000000
 PAYLOAD=0x80ba00000
 DTB=0xb6000000
 INITRD=0xb6915000
+
+
+def source_ranges(prepared):
+    # Reservations constrain new destination writes, not this already-loaded image read.
+    result=merged(prepared['memory_banks'])
+    require(result and all(0 <= a < b <= 2**48 for a,b in result),'source RAM geometry')
+    return result
+
+
+def range_include(ranges):
+    return '/* Private retained g0q source RAM; generated, never commit. */\n'+''.join(
+        f'\t.quad {a:#x}, {b:#x}\n' for a,b in ranges)
 
 
 def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
@@ -30,10 +40,12 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     require(not subprocess.check_output(['git','-C',upstream,'status','--porcelain']),'loader upstream dirty')
     patch=base/'r0q-port/kernel/uniloader-patches/0001-dtb-relocate.patch'
     require(digest(patch)==lock['files']['r0q-port/kernel/uniloader-patches/0001-dtb-relocate.patch'],'loader patch changed')
+    local_patch=HERE/'uniloader-g0q-entry.patch'
     ir=json.loads((init/'result.json').read_text());require(ir['vm'] is False,'VM image forbidden in carrier')
     require(bool(kernel_label) and all(c.isalnum() or c=='-' for c in kernel_label),'kernel label')
     kr=json.loads((prepared/(kernel_label+'-result.json')).read_text())
     prep=json.loads((prepared/'prepared.json').read_text())
+    ranges=source_ranges(prep)
     require(kr['command']['prepared_sha256']==digest(prepared/'prepared.json'),'kernel preparation differs')
     require(kr['config_sha256']==prep['config_sha256']==digest(Path(prep['kernel_build'])/'.config'),
             'kernel/config preparation differs')
@@ -53,7 +65,11 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     if not reuse:
         shutil.copytree(upstream,source)
         run(['patch','--batch','--fuzz=0','-p1','-i',patch],output/'patch.log',cwd=source)
+        run(['patch','--batch','--fuzz=0','-p1','-i',local_patch],output/'entry-patch.log',cwd=source)
+        (source/'arch/aarch64/g0q-source-ram.inc').write_text(range_include(ranges))
     require('fuzz' not in (output/'patch.log').read_text().lower(),'fuzzy patch application')
+    require('fuzz' not in (output/'entry-patch.log').read_text().lower(),'fuzzy entry patch')
+    require((source/'arch/aarch64/g0q-source-ram.inc').read_text()==range_include(ranges),'source RAM table changed')
     config=(upstream/'configs/r0q_defconfig').read_text()
     config=re.sub(r'^CONFIG_TEXT_BASE=.*$',f'CONFIG_TEXT_BASE={TEXT:#x}',config,flags=re.M)
     config=re.sub(r'^CONFIG_PAYLOAD_ENTRY=.*$',f'CONFIG_PAYLOAD_ENTRY={PAYLOAD:#x}',config,flags=re.M)
@@ -68,13 +84,17 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
           'BUILD_DATE=1970-01-01 00:00:00','GIT_VERSION_TAG='+head]
     if not reuse:
         (output/'command.json').write_text(json.dumps({'make':make,'patch_sha256':digest(patch),
+                                                     'entry_patch_sha256':digest(local_patch),
                                                      'config':config},indent=2)+'\n')
         run(make+['r0q_defconfig'],output/'config.log',cwd=source,env=env)
+    command=json.loads((output/'command.json').read_text())
+    require(command['entry_patch_sha256']==digest(local_patch),'entry patch receipt differs')
     effective=config_values((source/'.config').read_text())
     for key,value in {'CONFIG_TEXT_BASE':hex(TEXT),'CONFIG_PAYLOAD_ENTRY':hex(PAYLOAD),
                       'CONFIG_RAMDISK_ENTRY':hex(INITRD),'CONFIG_DTB_ENTRY':hex(DTB),
                       'CONFIG_DTB_RELOCATE':'y','CONFIG_SIMPLE_FB':'n','CONFIG_LIBFDT':'y',
-                      'CONFIG_POSITION_INDEPENDENT':'y','CONFIG_LINUX_KRNL_HEADER_IMG':'y'}.items():
+                      'CONFIG_POSITION_INDEPENDENT':'y','CONFIG_LINUX_KRNL_HEADER_IMG':'y',
+                      'CONFIG_FDT_BUF_ADDR':'0x0'}.items():
         actual=effective.get(key,'n')
         require(int(actual,16)==int(value,16) if value.startswith('0x') else actual==value,'loader config '+key)
     if not reuse:run(make+['-j4'],output/'build.log',cwd=source,env=env)
@@ -85,11 +105,16 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     (output/'symbols.txt').write_text(symbol_text)
     symbols={m[3]:int(m[1],16) for line in symbol_text.splitlines()
              if (m:=re.fullmatch(r'([0-9a-fA-F]+)\s+(\w)\s+(\S+)',line))}
-    required=['_start','_reloc_start','_reloc_end','_stack_end','kernel_size','ramdisk_size','dtb']
+    required=['_head','_start','_stub_end','_file_end','_copy_size','_reloc_start','_reloc_end',
+              '_stack_end','__bss_start','__bss_end','fdt_buf','kernel','kernel_size',
+              'ramdisk','ramdisk_size','dtb','_g0q_source_ram','_g0q_source_ram_end',
+              '_reloc_entry','_reloc_rejected','load_kernel_and_jump']
     require(all(k in symbols for k in required),'missing linker geometry')
-    reloc_size=symbols['_reloc_end']-symbols['_reloc_start']
-    stage_end=max(symbols['_stack_end'],symbols['_start']+reloc_size)
-    require(symbols['_reloc_start']==TEXT and symbols['_start']>=TEXT and
+    reloc_size=symbols['_file_end']-symbols['_stub_end']
+    stage_end=symbols['_stack_end']
+    require(symbols['_head']==symbols['_reloc_start']==TEXT and
+            symbols['_start']==symbols['_stub_end']>TEXT and reloc_size==symbols['_copy_size']>0 and
+            reloc_size%16==0 and symbols['_file_end']-TEXT==blob.stat().st_size and
             symbols['kernel_size']==Path(kr['image']).stat().st_size,'embedded kernel geometry')
     require(symbols['ramdisk_size']==ir['initramfs']['size'],'embedded initrd size')
     require(symbols['dtb']%8==0 and DTB%8==0 and
@@ -98,7 +123,26 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     require(len(header)==64 and header[56:60]==b'ARM\x64','loader ARM64 Image header')
     offset,declared_size,flags=struct.unpack_from('<QQQ',header,8)
     require(offset==0 and declared_size>=blob.stat().st_size and
-            declared_size==symbols['_stack_end']-symbols['_start'], 'loader Image header geometry')
+            declared_size==symbols['_stack_end']-symbols['_head'], 'loader Image header geometry')
+    raw=blob.read_bytes()
+    with elf.open('rb') as stream:
+        parsed=ELFFile(stream)
+        for section in parsed.iter_sections():
+            if section['sh_flags'] & 2 and section['sh_size'] and section['sh_type']!='SHT_NOBITS':
+                a,b=section['sh_addr'],section['sh_addr']+section['sh_size']
+                require(TEXT<=a<b<=symbols['_file_end'],'file-backed section outside copy: '+section.name)
+                require(raw[a-TEXT:b-TEXT]==section.data(),'ELF/raw section mismatch: '+section.name)
+    table=b''.join(struct.pack('<QQ',a,b) for a,b in ranges)
+    require(raw[symbols['_g0q_source_ram']-TEXT:symbols['_g0q_source_ram_end']-TEXT]==table,
+            'linked source RAM table differs')
+    fdt_buffer=(symbols['fdt_buf'],symbols['fdt_buf']+int(effective['CONFIG_FDT_BUF_SIZE']))
+    require(symbols['_file_end']<=symbols['__bss_start']<=fdt_buffer[0]<fdt_buffer[1]<=
+            symbols['__bss_end']<=stage_end,'FDT buffer outside qualified loader BSS')
+    c_commands=[p.read_text() for p in source.rglob('*.o.cmd')
+                if 'aarch64-linux-gnu-gcc' in p.read_text() and '-D__ASSEMBLY__' not in p.read_text()]
+    require(c_commands and all(all(flag in cmd for flag in
+            ['-mstrict-align','-mgeneral-regs-only','-fno-builtin']) for cmd in c_commands),
+            'C compiler alignment/register/builtin flags missing')
     payload_end=PAYLOAD+kr['runtime_size'];dtb_end=DTB+int(effective['CONFIG_FDT_BUF_SIZE'])
     extents={'loader-runtime-and-copy':(TEXT,stage_end),'kernel-runtime':(PAYLOAD,payload_end),
              'rewritten-dtb':(DTB,dtb_end),'initramfs':(INITRD,INITRD+ir['initramfs']['size'])}
@@ -112,15 +156,18 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     run(['file',elf,blob],output/'file.log')
     run(['aarch64-linux-gnu-readelf','-h','-l','-r',elf],output/'elf.log')
     run(['aarch64-linux-gnu-objdump','-d',elf],output/'disassembly.txt')
-    result={'status':'H0_LOADER_BUILT_INITIAL_ABL_SOURCE_UNBOUND','loader':{'path':str(blob),'sha256':digest(blob),'size':blob.stat().st_size},
+    result={'status':'H0_LOADER_BUILT_RUNTIME_PLACEMENT_GUARDED','loader':{'path':str(blob),'sha256':digest(blob),'size':blob.stat().st_size},
             'elf':{'path':str(elf),'sha256':digest(elf)},'extents':extents,
             'relocation_copy_bytes':reloc_size,'runtime_symbols':{k:symbols[k] for k in required},
             'configuration':effective,'source_commit':head,'patch_sha256':digest(patch),
+            'entry_patch_sha256':digest(local_patch),'source_ram_ranges':ranges,'fdt_buffer':fdt_buffer,
+            'strict_alignment_c_commands':len(c_commands),
             'loader_image_header':{'text_offset':offset,'image_size':declared_size,'flags':flags,
-                                   'copy_bytes_beyond_header_size':reloc_size-declared_size},
+                                   'file_size':len(raw),'copy_start_offset':symbols['_stub_end']-TEXT},
             'candidate_dt_audit':dt_audit,
             'kernel':kr,'initramfs_manifest':str(init/'result.json'),
-            'initial_abl_source_and_stub_overlap':'UNRESOLVED_NOT_DEVICE_ADMISSIBLE',
+            'initial_abl_source_and_stub_overlap':'RUNTIME_GUARD_REJECTS_LIVE_STUB_OVERWRITE',
+            'physical_entry':'NOT_ADMITTED_H0_ONLY',
             'device_actions':0}
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'loader_bytes':blob.stat().st_size,'fixed_reservation_overlap':False}))

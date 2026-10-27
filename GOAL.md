@@ -37,13 +37,21 @@ identities, goals, artifacts and authority remain separate.
 - **First mainline H0 build is available.** Linux 7.2.11, a generated g0q DTB,
   static RAM PID1/initramfs and uniLoader were built. The actual kernel/PID1
   passed authenticated VM observation, and the production NCM setup passed
-  a dummy-UDC test. These are not physical g0q evidence. Loader initial-source/
-  stub overlap remains unresolved before physical entry; no AP, activation or
-  candidate owner was published. [Build and review](docs/reports/S22PLUS_MAINLINE_RAM_CANARY_H0_2026-10-27.md).
+  a dummy-UDC test. These are not physical g0q evidence.
+  [First build](docs/reports/S22PLUS_MAINLINE_RAM_CANARY_H0_2026-10-27.md).
+- **Loader entry and boot packaging are now H0-qualified.** The 2026-10-28
+  successor fixes file-copy/header geometry, admits safe runtime source
+  placements and rejects a live-stub collision before stores. The actual
+  linked loader passed 20 instruction-level cases, 1,051 direct copy cases
+  and separate actual-EL QEMU entry tests. Two boot-v4/AP packages are identical.
+  A new mainline execution/recovery owner, its review and attended preparation
+  remain necessary; no registration, activation, grant or device action occurred.
+  [Entry and packaging report](docs/reports/S22PLUS_MAINLINE_LOADER_ENTRY_H0_2026-10-28.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
-  Loader/kernel/DTB/initramfs placement and every required reservation still
-  need exact g0q admission. Bypassing ABL's DT pipeline does not remove Gunyah.
+  Static loader/kernel/DTB/initramfs placement and retained reservation checks
+  are qualified above; physical g0q admission remains unproved. Bypassing
+  ABL's DT pipeline does not remove Gunyah.
 - **P462 vendor-kernel proof remains valid within its original scope:** two
   Debian boots, one offline hello installation, function and exact retention
   across reboot, pinned SSH and automatic Download/original-A return.
