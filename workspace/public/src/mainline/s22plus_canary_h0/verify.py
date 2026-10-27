@@ -8,7 +8,10 @@ import struct
 import tempfile
 import uuid
 
-from prepare import nodes, memreserve, require, digest
+if __package__:
+    from .prepare import nodes, memreserve, require, digest
+else:
+    from prepare import nodes, memreserve, require, digest
 
 DOMAIN=b'G0Q-MAINLINE-RAM-CANARY-v1'
 REQUEST=72
@@ -27,9 +30,22 @@ def request(key, identity, nonce):
 
 
 def verify(raw_path, manifest, nonce, *, vm=False):
-    require(manifest['vm'] is vm,'VM/physical artifact mismatch')
     path=Path(raw_path);require(path.stat().st_size<=RESPONSE+FDT_LIMIT,'response limit')
-    raw=path.read_bytes();require(len(raw)>=RESPONSE,'truncated response')
+    return _verify(path.read_bytes(),manifest,nonce,vm=vm,directory=path.parent)
+
+
+def verify_capture(handle,manifest,nonce):
+    """Physical observation entry accepts only a sealed raw-capture handle."""
+    import device_action_raw_capture_v1 as capture
+    require(isinstance(handle,capture.RawCaptureHandle),'physical parser requires an immutable capture handle')
+    capture.require_success(handle)
+    raw=capture.read_stdout(handle,maximum=RESPONSE+FDT_LIMIT)
+    return _verify(raw,manifest,nonce,vm=False,directory=handle.receipt_path.parent)
+
+
+def _verify(raw,manifest,nonce,*,vm,directory):
+    require(manifest['vm'] is vm,'VM/physical artifact mismatch')
+    require(RESPONSE<=len(raw)<=RESPONSE+FDT_LIMIT,'truncated or excessive response')
     body,auth,fdt=raw[:256],raw[256:288],raw[288:]
     key=Path(manifest['key_path']).read_bytes();identity=bytes.fromhex(manifest['candidate_id'])
     require(len(key)==len(identity)==len(nonce)==32,'response binding length')
@@ -46,7 +62,7 @@ def verify(raw_path, manifest, nonce, *, vm=False):
     require(any(body[72:88]),'empty boot identity')
     # libfdt rewrites /chosen and expands the live blob. Compare all semantic
     # properties, not input-file hash vs rewritten-file hash.
-    with tempfile.TemporaryDirectory(prefix='g0q-fdt-',dir=path.parent) as temporary:
+    with tempfile.TemporaryDirectory(prefix='g0q-fdt-',dir=directory) as temporary:
         measured=Path(temporary)/'live.dtb';measured.write_bytes(fdt);tree=nodes(measured)
         reservations=memreserve(measured)
     if vm:

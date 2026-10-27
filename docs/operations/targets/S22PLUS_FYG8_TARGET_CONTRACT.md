@@ -24,6 +24,22 @@ current runner. Attended F1 remains the default; the separate deferred-physical
 native-baseline mode below accepts later physical recovery without asserting
 automatic-recovery qualification.
 
+### Mainline RAM/USB first boot V1
+
+The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary
+attended boot-only F1 operation through the existing V3 Session and its exact
+mainline adapter. Its source-bound independent PASS_GO, qualified exact
+candidate, original Android rollback/recovery, fresh rooted Android health,
+finite returned operator grant and actual physical attendance are required.
+The scope is RAM PID1 and authenticated USB2 evidence followed by physical
+Download and original-A return/health. It grants no native baseline admission,
+Linux storage access, installed-root execution or automatic recovery claim.
+Preparation and this adoption text alone perform no device action.
+Its named preapproval `ready` D0 entry is bound to the current foreground
+S22+ research task without physical attendance or a per-read request. It reads
+only fixed identity/root/partition-digest health and host/lane evidence, refuses
+an unresolved F1 owner, and grants no control, payload or run authority.
+
 Bounded attended F1 sessions: **REVIEW_GATED_CAPABILITY** under
 [the exact S22+ session policy](S22PLUS_FYG8_ATTENDED_F1_SESSION_V1.md).
 Its source-bound independent PASS_GO activation receipt and one explicit finite

@@ -130,3 +130,15 @@ capture or changed evidence is rejected without starting a VM automatically.
 Older runs and wrong-key rejection runs remain usable within their original
 scope but are not accepted by this positive-capture recheck path. Physical
 entry, USB/loader qualification and device authority are separate.
+
+## Attended physical owner
+
+The separate `s22plus_mainline_task_v1.py` and `s22plus_mainline_session_v1.py`
+adapters connect this unchanged runtime to the existing V3 boot-only owner.
+`prepare` is H0, `ready` is fixed preapproval D0, and `grant` requires the
+returned finite approval and actual attendance statement. The shared task CLI
+selects `execute mainline-ram`; its existing `continue`, `recover` and
+`repair-close` entries preserve the original journal and no-replay rules.
+Use the exact [mainline policy](../../../../../docs/operations/S22PLUS_MAINLINE_RAM_V1.md)
+and current source-bound review before any connected action. The build tools
+here still never open a live device session.

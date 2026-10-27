@@ -44,9 +44,19 @@ identities, goals, artifacts and authority remain separate.
   placements and rejects a live-stub collision before stores. The actual
   linked loader passed 20 instruction-level cases, 1,051 direct copy cases
   and separate actual-EL QEMU entry tests. Two boot-v4/AP packages are identical.
-  A new mainline execution/recovery owner, its review and attended preparation
-  remain necessary; no registration, activation, grant or device action occurred.
+  That unit performed no registration, activation, grant or device action.
   [Entry and packaging report](docs/reports/S22PLUS_MAINLINE_LOADER_ENTRY_H0_2026-10-28.md).
+- **Mainline execution/observation/return integration is implemented.** The
+  existing V3 owner now has one RAM/USB operation with original-A return,
+  raw-first single-request observation and fixed preapproval health. The
+  retained runtime/package is reused; 61 host tests and actual host network
+  readiness and independent source-bound review passed. Current preapproval
+  device readiness remains separate from the finite attended run grant. No mainline transfer
+  or physical boot/USB proof has occurred.
+  The concrete H0 task is prepared; preapproval readiness stopped at the host
+  privilege check (`NoNewPrivs=1`) before an ADB target command. It needs the
+  named read-only check from the ordinary terminal before run approval.
+  [Integration report](docs/reports/S22PLUS_MAINLINE_LIVE_INTEGRATION_H0_2026-10-28.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks

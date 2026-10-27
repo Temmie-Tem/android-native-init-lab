@@ -39,6 +39,7 @@ TRANSFER_SOURCE=pin(Path(__file__).resolve())
 
 
 def before_window_transfer(image,grant,now):
+    if image['profile']=='mainline-ram-v1':return
     if image['profile']==autoboot.PROFILE:
         from s22plus_debian_file_profile_v1 import before_transfer
         from s22plus_debian_reboot_access_v1 import selected as reboot_selected
@@ -57,6 +58,9 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
+    if image.get('profile')=='mainline-ram-v1':
+        from s22plus_mainline_profile_v1 import image_binding
+        return image_binding(image,artifact_bytes=artifact_bytes)
     if image.get('profile') in (*early.PROFILES,integrated.PROFILE,autoboot.PROFILE):
         selected=autoboot if image['profile']==autoboot.PROFILE else integrated if image['profile']==integrated.PROFILE else early
         if image['profile'] in early.CHECKED_FILE_PROFILES:
@@ -258,6 +262,9 @@ class Adapter:
         return read(verify(request['task']))
 
     def check(self, request, *, recovery=False):
+        if request.get('operation')=='mainline-ram' or request.get('N',{}).get('profile')=='mainline-ram-v1':
+            from s22plus_mainline_task_v1 import validate_operation
+            return validate_operation(self,request,recovery=recovery)
         from s22plus_native_task_v3 import validate_task, validate_grant
         task=self.configuration(request)
         android_completed=self.android_transfer_completed(request)
@@ -313,6 +320,12 @@ class Adapter:
 
     def prepare(self, operation, grant, *, reentry=False, hud=False):
         task=read(verify(grant['task']))
+        if operation=='mainline-ram':
+            from s22plus_mainline_task_v1 import validate_task
+            validate_task(self.root,task,live=True)
+            require(not reentry and not hud,'mainline has no optional native observations')
+            return dict(task=grant['task'],N=task['N'],E=None,A=task['A'],admission=None,
+                        prior_terminal=None,usb_reconnect=False)
         require(operation in task['operations'],'operation is outside the task scope')
         require(not reentry or task['reentry'],'E reentry was not selected by the task')
         require(not hud or task['hud'],'optional HUD was not selected by the task')
@@ -351,6 +364,9 @@ class Adapter:
         return value
 
     def preflight(self, request, *, guard):
+        if request.get('operation')=='mainline-ram':
+            from s22plus_mainline_task_v1 import preflight
+            return preflight(self,request,guard)
         guard(); task=self.configuration(request)
         before_window_transfer(request['N'],read(verify(request['grant'])),clock())
         for image in (request['N'],request['E'],request.get('S')):
@@ -483,9 +499,9 @@ class Adapter:
             raise
 
     def _transfer(self, step, request, *, guard, before_launch, folder, mark):
-        if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
+        if request.get('operation')!='mainline-ram' and request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
             inspection_session.android_basis(self, request)
-        if request['N'].get('profile') in fs.PROFILES and step.role=='A':
+        if request.get('operation')!='mainline-ram' and request['N'].get('profile') in fs.PROFILES and step.role=='A':
             from s22plus_native_ext4_session_v1 import android_basis as filesystem_android_basis
             filesystem_android_basis(self,request)
         if request.get('operation')=='gpt-reserve' and step.role=='A':
@@ -498,6 +514,9 @@ class Adapter:
         mark('arrival-binding')
         if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
+        elif request['operation']=='mainline-ram':
+            from s22plus_mainline_session_v1 import arrival_deadline
+            arrival_deadline=arrival_deadline(self,step,request)
         elif request['operation']==calibration.OPERATION and step.name=='install-android':
             from s22plus_native_log_session_v1 import return_request
             ready=return_request(self,request)
@@ -550,9 +569,9 @@ class Adapter:
                 guard()
                 mark('prelaunch-binding')
                 if step.role=='N':before_window_transfer(request['N'],read(verify(request['grant'])),clock())
-                if request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
+                if request.get('operation')!='mainline-ram' and request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
                     inspection_session.android_basis(self, request)
-                if request['N'].get('profile') in fs.PROFILES and step.role=='A':filesystem_android_basis(self,request)
+                if request.get('operation')!='mainline-ram' and request['N'].get('profile') in fs.PROFILES and step.role=='A':filesystem_android_basis(self,request)
                 if request.get('operation')=='gpt-reserve' and step.role=='A':android_basis(self,request)
                 self.native_host(request).holders()
                 target.lane.revalidate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
@@ -734,7 +753,7 @@ class Adapter:
         raise TimeoutError('selected USB reconnect did not complete')
 
     def android_health(self, step, request, *, guard):
-        if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:
+        if request.get('operation')!='mainline-ram' and (request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES):
             from s22plus_native_gpt_android_v1 import observe
             return observe(self,step,request,guard=guard)
         # A later attended recovery may take a fresh D0 health attempt. Every
@@ -752,6 +771,10 @@ class Adapter:
         return value
 
     def recover_step_result(self, step, request):
+        if step.action=='mainline-evidence':
+            require(request['operation']=='mainline-ram' and step.name=='mainline-evidence','unselected mainline result')
+            from s22plus_mainline_access_v1 import rederive
+            return rederive(self,request)
         if step.action=='integrated-start':
             require(request['operation']==integrated.OPERATION and step.name==integrated.SELECTION,'unselected integrated result')
             from s22plus_debian_integrated_observation_v1 import rederive
@@ -785,7 +808,7 @@ class Adapter:
             if step.ending in ('download','handoff'): value['departure']=pin(self.folder(step.name)/'departure.json')
             return value
         if step.action=='health':
-            if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:
+            if request.get('operation')!='mainline-ram' and (request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES):
                 from s22plus_native_gpt_android_v1 import rederive
                 return rederive(self,step,request)
             base=self.folder(step.name); path=base/'result.json'
@@ -805,7 +828,7 @@ class Adapter:
     def final_protocol_completed(self, step, request):
         folder=self.folder(step.name)
         if step.action=='health':
-            if request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES:
+            if request.get('operation')!='mainline-ram' and (request.get('operation') in ('gpt-reserve',*inspection_session.OPERATIONS) or request['N'].get('profile') in fs.PROFILES):
                 from s22plus_native_gpt_android_v1 import final_protocol_completed
                 return final_protocol_completed(self,step,request)
             return (folder/'result.json').exists() or any(folder.glob('attempt-*/health.json'))
@@ -827,7 +850,10 @@ class Adapter:
 
     def validate_result(self, step, value, request):
         require(value==self.recover_step_result(step,request),'step result differs from original raw evidence')
-        if request.get('operation') in inspection_session.OPERATIONS:
+        if request.get('operation')=='mainline-ram':
+            from s22plus_mainline_session_v1 import validate_result
+            validate_result(self,step,value,request)
+        if request.get('operation')!='mainline-ram' and request.get('operation') in inspection_session.OPERATIONS:
             inspection_session.validate_result(self, step, value, request)
         if step.action=='observe' and request[step.role].get('profile') in fs.PROFILES:
             from s22plus_native_ext4_session_v1 import validate_result
@@ -909,6 +935,10 @@ class Adapter:
             host_configuration='VERIFIED_INSTALLED_EXTERNAL_CONFIGURATION')
         if request['operation']=='storage-census':
             result['storage_census_status']=values[-1]['proof']['storage_census']['status'] if healthy_native else 'NOT_COMPLETED'
+        if request.get('operation')=='mainline-ram':
+            from s22plus_mainline_session_v1 import terminal
+            result['mainline']=terminal(self,request,recovered=recovered)
+            return result
         if request['operation']=='native-ext4':
             from s22plus_native_ext4_session_v1 import terminal
             result['filesystem']=terminal(self,request,recovered=recovered)
