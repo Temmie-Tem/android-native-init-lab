@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Boot the actual kernel and VM-marked PID1; use loopback QEMU networking."""
 import argparse
-import hashlib
 import ipaddress
 import json
 import os
@@ -13,6 +12,7 @@ import time
 
 from prepare import ROOT, digest, require
 from verify import request, verify, RESPONSE, FDT_LIMIT
+from vm_evidence import inputs, snapshot, capture, recheck
 
 
 def persist(path,data):
@@ -30,12 +30,12 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
     prepared,init,output=prepared.resolve(),init.resolve(),output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'),'private VM output')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
-    manifest=json.loads((init/'result.json').read_text());require(manifest['vm'] is True,'VM-only input')
-    require(bool(kernel_label) and all(c.isalnum() or c=='-' for c in kernel_label),'kernel label')
+    binding=inputs(prepared,init,kernel_label)
+    source=snapshot(output)
+    manifest=json.loads((init/'result.json').read_text())
     kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
-    kernel=Path(kernel_record['image']);require(digest(kernel)==kernel_record['sha256'],'kernel changed')
+    kernel=Path(kernel_record['image'])
     ramdisk=Path(manifest['initramfs']['path'])
-    require(digest(ramdisk)==manifest['initramfs']['sha256'],'VM initramfs changed')
     qroot=ROOT/'workspace/private/tools/qemu-arm64-10.2.1/root'
     qemu=qroot/'usr/bin/qemu-system-aarch64'
     with socket.socket() as listener:listener.bind(('127.0.0.1',0));port=listener.getsockname()[1]
@@ -51,7 +51,11 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
     (output/'command.json').write_text(json.dumps({'command':command,'qemu_sha256':digest(qemu)},indent=2)+'\n')
     env=dict(os.environ,LD_LIBRARY_PATH=str(qroot/'usr/lib/x86_64-linux-gnu'))
     started=time.monotonic();raw=bytearray();nonce=secrets.token_bytes(32)
-    (output/'nonce.bin').write_bytes(nonce)
+    persist(output/'nonce.bin',nonce)
+    key=Path(manifest['key_path']).read_bytes()
+    if bad_key:key=bytes([key[0]^1])+key[1:]
+    query=request(key,bytes.fromhex(manifest['candidate_id']),nonce)
+    persist(output/'request.raw',query)
     with stderr.open('xb') as err:
         proc=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=err)
         try:
@@ -63,11 +67,9 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
                 if b'G0Q_RAM_OBSERVER_READY\n' in text:break
                 time.sleep(.1)
             else:raise ValueError('VM observer did not become ready')
-            key=Path(manifest['key_path']).read_bytes()
-            if bad_key:key=bytes([key[0]^1])+key[1:]
             with socket.create_connection(('127.0.0.1',port),timeout=5) as client:
                 client.settimeout(10)
-                client.sendall(request(key,bytes.fromhex(manifest['candidate_id']),nonce))
+                client.sendall(query)
                 while len(raw)<=RESPONSE+FDT_LIMIT:
                     chunk=client.recv(min(65536,RESPONSE+FDT_LIMIT+1-len(raw)))
                     if not chunk:break
@@ -78,18 +80,21 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
                 until=time.monotonic()+2
                 while time.monotonic()<until and b'G0Q_RAM_PARK error=13' not in serial.read_bytes():time.sleep(.05)
                 require(b'G0Q_RAM_PARK error=13' in serial.read_bytes(),'wrong-key failure path absent')
-                result={'status':'PASS_H0_VM_UNAUTHENTICATED_REQUEST_REJECTED'}
-            else:
-                result=verify(output/'response.raw',manifest,nonce,vm=True)
-            result.update(elapsed_seconds=round(time.monotonic()-started,3),
-                          kernel_sha256=kernel_record['sha256'],device_actions=0)
-            (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
-            print(json.dumps({'status':result['status'],'elapsed_seconds':result['elapsed_seconds']}))
         finally:
             if not (output/'response.raw').exists():persist(output/'response.raw',bytes(raw))
             proc.terminate()
             try:proc.wait(timeout=5)
             except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
+    require(inputs(prepared,init,kernel_label)==binding,'VM input changed during acquisition')
+    capture(output,binding,source,bad_key=bad_key,elapsed=round(time.monotonic()-started,3),returncode=proc.returncode)
+    if bad_key:
+        result={'status':'PASS_H0_VM_UNAUTHENTICATED_REQUEST_REJECTED'}
+    else:
+        result=verify(output/'response.raw',manifest,nonce,vm=True)
+    result.update(elapsed_seconds=round(time.monotonic()-started,3),
+                  kernel_sha256=kernel_record['sha256'],device_actions=0)
+    (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+    print(json.dumps({'status':result['status'],'elapsed_seconds':result['elapsed_seconds']}))
 
 
 if __name__=='__main__':
@@ -97,4 +102,9 @@ if __name__=='__main__':
     p.add_argument('--prepared',type=Path,required=True);p.add_argument('--init',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True);p.add_argument('--bad-key',action='store_true')
     p.add_argument('--kernel-label',default='kernel-1')
-    a=p.parse_args();test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label)
+    p.add_argument('--recheck-run',type=Path,help='revalidate a complete positive capture without starting QEMU')
+    a=p.parse_args()
+    if a.recheck_run:
+        require(not a.bad_key,'recheck supports positive captures only')
+        recheck(a.prepared,a.init,a.recheck_run,a.output,kernel_label=a.kernel_label)
+    else:test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label)

@@ -79,3 +79,31 @@ Only that H0 harness loads `dummy_hcd`; production archives contain no module.
 The FDT fixture links the actual compiled uniLoader handler/library objects,
 using its effective buffer size and linked ramdisk size. Exact commands, raw
 outputs and source snapshots are retained with the private build.
+
+## Reusing a VM capture
+
+A positive `vm.py` run now saves `capture.json`, the exact request/response,
+input hashes and the acquisition source snapshot before interpreting the response.
+The receipt is published only after full reception and QEMU settlement. A checker
+failure can therefore be corrected against the same completed capture:
+
+```sh
+python3 workspace/public/src/mainline/s22plus_canary_h0/vm.py \
+  --prepared <original-preparation> --init <original-VM-initramfs> \
+  --recheck-run <completed-VM-run> --output <fresh-private-recheck>
+```
+
+This starts no VM and builds no image. It checks the retained input, request,
+raw evidence and source hashes, then runs the current response verifier. The
+new result preserves the original acquisition reference and records the new
+checker sources separately. Existing files are not rewritten. Checker-only
+changes do not require rebuilding the kernel, initramfs or loader.
+
+The result is `PASS_H0_VM_EVIDENCE_RECHECK`: a revalidated historical VM
+observation, with the original execution time separate from recheck time.
+It does not qualify changed runtime bytes, new acquisition logic or a different
+VM environment. A missing capture receipt, changed runtime input, incomplete
+capture or changed evidence is rejected without starting a VM automatically.
+Older runs and wrong-key rejection runs remain usable within their original
+scope but are not accepted by this positive-capture recheck path. Physical
+entry, USB/loader qualification and device authority are separate.

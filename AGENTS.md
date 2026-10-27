@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **62** (supersedes revision 61; 2026-10-27)
+Contract-Revision: **63** (supersedes revision 62; 2026-10-28)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -81,6 +81,85 @@ clause and missing condition; do not invent a generic screen-confirmation gate.
 The default does not waive boundary 1, activate dormant runners, renew budgets,
 transfer authority between targets, consume a new effect after uncertainty, or
 turn a possible rollback into an authorized and demonstrated recovery route.
+
+## Review Rules
+
+- One independent review is required when a common/target contract, F1 runner, schema, transfer/archive/recovery machinery, boundary, or hazard changes.
+- Review changed execution-critical closure and higher-precedence interactions;
+  ignore unreachable legacy helpers.
+- An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
+  campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs. Fresh qualification and any runner binding still apply.
+- Bind review to hazard-relevant machinery and the selected authority. Separate
+  declarative candidate data and expressly permitted functional changes from
+  that capability identity. New target/control/privilege/recovery/health semantics
+  still require review; routine in-scope candidate data needs fresh qualification,
+  not another independent review. Retained artifacts keep their original source
+  provenance rather than inheriting later development-file contents.
+- Scope review to reachable execution and the stated threat model in
+  `docs/operations/DEVICE_ACTION_RISK_TIERS.md`. Out-of-model speculation does
+  not automatically create mandatory machinery. A concrete new hazard stops
+  the affected scope and changes that review scope. Do not reopen resolved
+  work without changed inputs or new evidence.
+- Track whether old findings affect the current path, are explicitly covered,
+  or belong to a retired path. Different-topic PASS is not automatic coverage;
+  unrelated historical pending counts are not a blanket gate on new work.
+- Every new non-permanent gate must name the hazard or incident class it
+  blocks, its scope, objective retirement evidence, and an expiry or review
+  trigger. A gate without a retirement condition must be explicitly designated
+  permanent and reviewed as a boundary; do not carry a temporary gate forward
+  by default.
+
+## Development and Commit Discipline
+
+- Read this file, the selected target contract, and every affected goal; inspect
+  `git status --short` and keep edits scoped.
+- Keep each active goal focused on current state and the selected bounded unit.
+  Review completed history for archival above 800 lines; 900 lines is the hard
+  limit for any goal file.
+- Use canonical paths under `workspace/public/src/`, `workspace/private/`, and
+  `docs/`. Do not recreate legacy root trees.
+- State the bounded task and completion criterion briefly. Read current bytes
+  and the actual consumer before diagnosing a past incident; consult history
+  when generation or cause is uncertain, not before every unchanged read.
+- For the selected goal, prioritize the smallest useful working capability
+  within existing safety and proof requirements. Keep functional evidence
+  independent from detailed causal analysis and optional diagnostics; do not
+  gate that capability on their completion unless needed for safe execution
+  or its stated success criterion.
+- Before an expensive build or device experiment, use already available
+  evidence and existing low-cost checks to resolve questions they can answer.
+- Prefer the smallest working change and existing tools. Avoid speculative
+  frameworks and candidate-specific copies; derive repeated registration,
+  encoding and result rules from one existing declaration where practical.
+  New daemons/proxies must justify their in-scope benefit and must not break
+  the existing transport or recovery through resource contention.
+- Validate touched Python with `py_compile` and focused tests. Cross-compile
+  touched C with the repository toolchain and inspect the output with `file`.
+  Exercise representative real producer/consumer and failure paths, not just
+  unrelated helpers. Use fixed fixtures and behavioral invariants; do not pin
+  growing ledger counts or the checkout's current activation state as answers.
+  Historical snapshot tests must bind their historical input.
+- Reuse successful checks and build outputs while their relevant inputs are
+  unchanged. Expand validation only for changed paths, failures or new evidence.
+  Checker-only changes revalidate retained immutable artifacts and complete raw
+  evidence with the new checker; rerun only affected or missing cases. Keep
+  artifact provenance separate from checker provenance. A result label alone
+  is not reusable evidence.
+  Documentation-only changes need content/link/diff checks, not image builds;
+  a contract's semantic change still needs review. Unrelated census counts and
+  other-target changes should not be execution identity. Remove accidental
+  bindings through reviewed code changes, never by bypassing current checks.
+- Keep prepare, activation, consumption, recovery and terminal prerequisites
+  distinct. A stage must not invalidate itself by creating its normal output;
+  recovery must not rerun a pre-consumption absence check. Actual target,
+  artifact, authority and no-replay checks remain mandatory at the effect.
+- Stop expanding a task once its completion criterion and relevant checks pass.
+  Put necessary validation rationale in the existing change description rather
+  than adding a separate approval or evidence layer for every correction.
+- Use scoped staging; never `git add -A` or `git add .`.
+- Run `git diff --check` before commit. Commit only after the selected bounded
+  unit is validated.
+- Redact all private identifiers from tracked diffs.
 
 ## Binding Target Registry
 
@@ -327,81 +406,6 @@ are scoped to the current action and reusable while their inputs are unchanged.
   Record the source version and evidence location in the existing close record
   so later audit does not depend on the moving working tree. Routine narrative
   may be a concise commit body; do not duplicate it across per-run documents.
-
-## Review Rules
-
-- One independent review is required when a common/target contract, F1 runner, schema, transfer/archive/recovery machinery, boundary, or hazard changes.
-- Review changed execution-critical closure and higher-precedence interactions;
-  ignore unreachable legacy helpers.
-- An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
-  campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs. Fresh qualification and any runner binding still apply.
-- Bind review to hazard-relevant machinery and the selected authority. Separate
-  declarative candidate data and expressly permitted functional changes from
-  that capability identity. New target/control/privilege/recovery/health semantics
-  still require review; routine in-scope candidate data needs fresh qualification,
-  not another independent review. Retained artifacts keep their original source
-  provenance rather than inheriting later development-file contents.
-- Scope review to reachable execution and the stated threat model in
-  `docs/operations/DEVICE_ACTION_RISK_TIERS.md`. Out-of-model speculation does
-  not automatically create mandatory machinery. A concrete new hazard stops
-  the affected scope and changes that review scope. Do not reopen resolved
-  work without changed inputs or new evidence.
-- Track whether old findings affect the current path, are explicitly covered,
-  or belong to a retired path. Different-topic PASS is not automatic coverage;
-  unrelated historical pending counts are not a blanket gate on new work.
-- Every new non-permanent gate must name the hazard or incident class it
-  blocks, its scope, objective retirement evidence, and an expiry or review
-  trigger. A gate without a retirement condition must be explicitly designated
-  permanent and reviewed as a boundary; do not carry a temporary gate forward
-  by default.
-
-## Development and Commit Discipline
-
-- Read this file, the selected target contract, and every affected goal; inspect
-  `git status --short` and keep edits scoped.
-- Keep each active goal focused on current state and the selected bounded unit.
-  Review completed history for archival above 800 lines; 900 lines is the hard
-  limit for any goal file.
-- Use canonical paths under `workspace/public/src/`, `workspace/private/`, and
-  `docs/`. Do not recreate legacy root trees.
-- State the bounded task and completion criterion briefly. Read current bytes
-  and the actual consumer before diagnosing a past incident; consult history
-  when generation or cause is uncertain, not before every unchanged read.
-- For the selected goal, prioritize the smallest useful working capability
-  within existing safety and proof requirements. Keep functional evidence
-  independent from detailed causal analysis and optional diagnostics; do not
-  gate that capability on their completion unless needed for safe execution
-  or its stated success criterion.
-- Before an expensive build or device experiment, use already available
-  evidence and existing low-cost checks to resolve questions they can answer.
-- Prefer the smallest working change and existing tools. Avoid speculative
-  frameworks and candidate-specific copies; derive repeated registration,
-  encoding and result rules from one existing declaration where practical.
-  New daemons/proxies must justify their in-scope benefit and must not break
-  the existing transport or recovery through resource contention.
-- Validate touched Python with `py_compile` and focused tests. Cross-compile
-  touched C with the repository toolchain and inspect the output with `file`.
-  Exercise representative real producer/consumer and failure paths, not just
-  unrelated helpers. Use fixed fixtures and behavioral invariants; do not pin
-  growing ledger counts or the checkout's current activation state as answers.
-  Historical snapshot tests must bind their historical input.
-- Reuse successful checks and build outputs while their relevant inputs are
-  unchanged. Expand validation only for changed paths, failures or new evidence.
-  Documentation-only changes need content/link/diff checks, not image builds;
-  a contract's semantic change still needs review. Unrelated census counts and
-  other-target changes should not be execution identity. Remove accidental
-  bindings through reviewed code changes, never by bypassing current checks.
-- Keep prepare, activation, consumption, recovery and terminal prerequisites
-  distinct. A stage must not invalidate itself by creating its normal output;
-  recovery must not rerun a pre-consumption absence check. Actual target,
-  artifact, authority and no-replay checks remain mandatory at the effect.
-- Stop expanding a task once its completion criterion and relevant checks pass.
-  Put necessary validation rationale in the existing change description rather
-  than adding a separate approval or evidence layer for every correction.
-- Use scoped staging; never `git add -A` or `git add .`.
-- Run `git diff --check` before commit. Commit only after the selected bounded
-  unit is validated.
-- Redact all private identifiers from tracked diffs.
 
 ## Stop and Escalate
 

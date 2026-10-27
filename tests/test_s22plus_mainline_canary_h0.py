@@ -1,7 +1,9 @@
 """Fixed H0 wire, memory-coverage and DT-identity regression cases."""
+import contextlib
 import copy
 import hashlib
 import importlib
+import io
 import json
 from pathlib import Path
 import shutil
@@ -10,12 +12,14 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 HERE=ROOT/'workspace/public/src/mainline/s22plus_canary_h0'
 sys.path.insert(0,str(HERE))
 import prepare
 import verify
+import vm_evidence
 
 
 class CanaryTests(unittest.TestCase):
@@ -117,6 +121,87 @@ class CanaryTests(unittest.TestCase):
             tree={'/reserved-memory/fixture':row}
             self.assertEqual(prepare.fixed_reservations(tree),[(0x1000,0x3000)])
             self.assertEqual(prepare.fixed_reservations(tree,coverage=True),[(0x1000,0x3000)] if covered else [])
+
+    def vm_capture(self, root):
+        init=root/'init';init.mkdir();prepared=root/'prepared';prepared.mkdir();run=root/'run';run.mkdir()
+        manifest=copy.deepcopy(self.manifest);manifest['vm']=True
+        for name,data in [('init',b'fixture-init'),('initramfs',b'fixture-archive')]:
+            path=init/name;path.write_bytes(data)
+            manifest[name]={'path':str(path),'sha256':prepare.digest(path),'size':len(data)}
+        key=init/'key.bin';key.write_bytes(self.key);manifest['key_path']=str(key)
+        (init/'result.json').write_text(json.dumps(manifest))
+        kernel=prepared/'Image';kernel.write_bytes(b'fixture-kernel')
+        (prepared/'kernel-1-result.json').write_text(json.dumps({'image':str(kernel),'sha256':prepare.digest(kernel)}))
+        fdt=run/'vm.dtb';self.compile_dts('/dts-v1/; / { compatible="linux,dummy-virt"; };',fdt)
+        body=self.body(fdt.read_bytes());struct.pack_into('<I',body,252,1)
+        (run/'response.raw').write_bytes(self.raw(body,fdt.read_bytes()))
+        (run/'nonce.bin').write_bytes(self.nonce)
+        (run/'request.raw').write_bytes(verify.request(self.key,self.identity,self.nonce))
+        (run/'command.json').write_text('{}')
+        (run/'serial.log').write_text('G0Q_RAM_OBSERVER_READY\n')
+        (run/'qemu.stderr').write_text('')
+        vm_evidence.capture(run,vm_evidence.inputs(prepared,init,'kernel-1'),vm_evidence.snapshot(run),
+                            bad_key=False,elapsed=10.0,returncode=-15)
+        return prepared,init,run
+
+    def replay(self, prepared, init, run, output):
+        # A recheck cannot quietly turn a missing/invalid capture into a new VM run.
+        with (patch('subprocess.Popen',side_effect=AssertionError('unexpected process')),
+              patch('socket.socket',side_effect=AssertionError('unexpected network')),
+              contextlib.redirect_stdout(io.StringIO())):
+            return vm_evidence.recheck(prepared,init,run,output)
+
+    def test_vm_recheck_preserves_original_and_accepts_checker_only_change(self):
+        with tempfile.TemporaryDirectory(dir=self.base) as name:
+            root=Path(name);prepared,init,run=self.vm_capture(root)
+            before={str(p):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+            first=self.replay(prepared,init,run,root/'recheck-1')
+            self.assertEqual(first['status'],'PASS_H0_VM_EVIDENCE_RECHECK')
+            self.assertEqual(first['vm_executions'],0)
+            self.assertEqual(first['observation_status'],'PASS_H0_VM_PID1_OBSERVER')
+            changed=root/'changed';changed.mkdir()
+            for p in (run/'source').iterdir():shutil.copyfile(p,changed/p.name)
+            with (changed/'verify.py').open('a') as stream:stream.write('\n# checker-only revision\n')
+            with patch.object(vm_evidence,'HERE',changed):
+                second=self.replay(prepared,init,run,root/'recheck-2')
+            self.assertNotEqual(first['validator_source']['verify.py'],second['validator_source']['verify.py'])
+            self.assertEqual(first['capture'],second['capture'])
+            self.assertEqual(before,{p:Path(p).read_bytes() for p in before})
+            # No old result.json is necessary: complete raw capture survives a parser failure.
+            self.assertFalse((run/'result.json').exists())
+
+    def test_vm_recheck_rejects_changed_or_missing_inputs_and_evidence(self):
+        cases=['kernel','initramfs','key','nonce.bin','request.raw','response.raw','serial.log',
+               'command.json','source/verify.py','missing-capture','missing-response','bad-key','partial-evidence']
+        for case in cases:
+            with self.subTest(case=case),tempfile.TemporaryDirectory(dir=self.base) as name:
+                root=Path(name);prepared,init,run=self.vm_capture(root)
+                target={'kernel':prepared/'Image','initramfs':init/'initramfs','key':init/'key.bin'}.get(case,run/case)
+                if case.startswith('missing-'):
+                    (run/('capture.json' if case=='missing-capture' else 'response.raw')).unlink()
+                elif case in ('bad-key','partial-evidence'):
+                    receipt=json.loads((run/'capture.json').read_text())
+                    if case=='bad-key':receipt['bad_key']=True
+                    else:del receipt['evidence']['serial.log']
+                    (run/'capture.json').write_text(json.dumps(receipt))
+                else:target.write_bytes(target.read_bytes()+b'changed')
+                with self.assertRaises((ValueError,FileNotFoundError)):
+                    self.replay(prepared,init,run,root/'recheck')
+
+    def test_vm_recheck_reparses_instead_of_trusting_capture_label(self):
+        with tempfile.TemporaryDirectory(dir=self.base) as name:
+            root=Path(name);prepared,init,run=self.vm_capture(root)
+            raw=bytearray((run/'response.raw').read_bytes());raw[236]=0
+            # Even matching receipt hashes cannot turn an invalid authenticated response into PASS.
+            raw[256:288]=verify.tag(self.key,self.identity,1,raw[:256])
+            (run/'response.raw').write_bytes(raw)
+            receipt=json.loads((run/'capture.json').read_text())
+            receipt['evidence']['response.raw']=prepare.digest(run/'response.raw')
+            (run/'capture.json').write_text(json.dumps(receipt))
+            with self.assertRaisesRegex(ValueError,'health fields'):
+                self.replay(prepared,init,run,root/'recheck')
+            with self.assertRaisesRegex(ValueError,'outside original run'):
+                self.replay(prepared,init,run,run/'recheck')
 
 
 if __name__=='__main__':unittest.main()
