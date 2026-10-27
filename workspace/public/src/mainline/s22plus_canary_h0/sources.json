@@ -1,0 +1,24 @@
+{
+  "status": "H0_ONLY_NOT_DEVICE_AUTHORITY",
+  "kernel": {
+    "version": "7.2.11",
+    "url": "https://cdn.kernel.org/pub/linux/kernel/v7.x/linux-7.2.11.tar.xz",
+    "sha256": "fd0fc479f983a8c05313f13e9c36330fe6651cf725396748c40d5cd93fa1e6a4"
+  },
+  "r0q_port": {
+    "url": "https://github.com/cammo1997/SM-S901E-Linux-Part-Working",
+    "commit": "9863baf29b5a9cb30c3df3e466c5de6b04948557"
+  },
+  "uniloader": {
+    "url": "https://github.com/ivoszbg/uniLoader",
+    "commit": "7781b33c87ccde3e57bb744c5b8bccdbedfa4bc3"
+  },
+  "files": {
+    "r0q-port/kernel/config-r0q.aarch64": "c2201f876a305249fd53faa751a378878d351e76c7ae1b6a4f8511f5b9bf0472",
+    "r0q-port/kernel/sm8450-samsung-r0q.dts": "d07a32ed153f10fa647db58c489cbdcabb8662d399a71138547da093c9cd16b4",
+    "r0q-port/kernel/uniloader-patches/0001-dtb-relocate.patch": "77043487eca6fbbcdbe8b17263a3307601e00ec10e1d89dbee63037755172d04",
+    "r0q-port/kernel/uniloader-patches/r0q_defconfig.append": "af550991ea0cfc2caadebc094018e5db5f8b6b5801da8307506aa8e5fcb0c3df",
+    "linux-7.2.11/arch/arm64/boot/dts/qcom/sm8450-samsung-r0q.dts": "82f67d82a8db01149a3690bba7b312dc3e427edf2ab13a88a1eca2d220c67c82",
+    "uniloader-upstream/configs/r0q_defconfig": "ba44b1351a8b7ab8d5f06207675befc975770eb77757b49c4d0e63384a9006eb"
+  }
+}

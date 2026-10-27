@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/* Applied to Linux 7.2.11's minimal r0q USB board, not the full phone port.
+ * Private generated memory/initial-ramdisk data is included separately.
+ */
+#include "pmk8350.dtsi"
+
+/* Samsung's live RAM includes this reference-board MTE range. */
+/delete-node/ &mte_mem;
+
+/ {
+    model = "Samsung Galaxy S22+ RAM canary (H0)";
+    compatible = "samsung,g0q", "qcom,sm8450";
+};
+
+&framebuffer { status = "disabled"; };
+&pon_pwrkey { status = "okay"; };
+&pon_resin { linux,code = <KEY_VOLUMEDOWN>; status = "okay"; };
+&{/timer} { always-on; };
+
+/* Keep inherited reservation nodes even for disabled peripherals. */
+&ufs_mem_hc { status = "disabled"; };
+&ufs_mem_phy { status = "disabled"; };
+&pcie0 { status = "disabled"; };
+&pcie0_phy { status = "disabled"; };
+&pcie1 { status = "disabled"; };
+&pcie1_phy { status = "disabled"; };
+&gpu { status = "disabled"; };
+&mdss { status = "disabled"; };
+&remoteproc_mpss { status = "disabled"; };
+&remoteproc_adsp { status = "disabled"; };
+&remoteproc_cdsp { status = "disabled"; };
+&crypto { status = "disabled"; };
+
+/* These supplies match retained g0q live-FDT rail names and voltage ranges.
+ * Fixed peripheral USB2 is already selected by the r0q base DTS.
+ */
+&usb_1 { dr_mode = "peripheral"; maximum-speed = "high-speed"; };

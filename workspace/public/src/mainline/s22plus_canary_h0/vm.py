@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Boot the actual kernel and VM-marked PID1; use loopback QEMU networking."""
+import argparse
+import hashlib
+import ipaddress
+import json
+import os
+from pathlib import Path
+import secrets
+import socket
+import subprocess
+import time
+
+from prepare import ROOT, digest, require
+from verify import request, verify, RESPONSE, FDT_LIMIT
+
+
+def persist(path,data):
+    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    try:
+        with os.fdopen(fd,'wb',closefd=False) as stream:stream.write(data);stream.flush()
+        os.fchmod(fd,0o400);os.fsync(fd)
+    finally:os.close(fd)
+    parent=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+    try:os.fsync(parent)
+    finally:os.close(parent)
+
+
+def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
+    prepared,init,output=prepared.resolve(),init.resolve(),output.resolve()
+    require(output.is_relative_to(ROOT/'workspace/private'),'private VM output')
+    output.mkdir(mode=0o700,parents=True,exist_ok=False)
+    manifest=json.loads((init/'result.json').read_text());require(manifest['vm'] is True,'VM-only input')
+    require(bool(kernel_label) and all(c.isalnum() or c=='-' for c in kernel_label),'kernel label')
+    kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
+    kernel=Path(kernel_record['image']);require(digest(kernel)==kernel_record['sha256'],'kernel changed')
+    ramdisk=Path(manifest['initramfs']['path'])
+    require(digest(ramdisk)==manifest['initramfs']['sha256'],'VM initramfs changed')
+    qroot=ROOT/'workspace/private/tools/qemu-arm64-10.2.1/root'
+    qemu=qroot/'usr/bin/qemu-system-aarch64'
+    with socket.socket() as listener:listener.bind(('127.0.0.1',0));port=listener.getsockname()[1]
+    serial=output/'serial.log';stderr=output/'qemu.stderr'
+    net=manifest['network'];prefix=str(ipaddress.IPv4Interface(net['device_ip']+'/'+net['netmask']).network)
+    command=[str(qemu),'-machine','virt','-cpu','cortex-a76','-smp','1','-m','768',
+             '-no-reboot','-display','none','-monitor','none','-serial','file:'+str(serial),
+             '-kernel',str(kernel),'-initrd',str(ramdisk),
+             # CMDLINE_FORCE comes from the same actual g0q kernel. The VM
+             # fixture opens ttyAMA0 directly; -append would be ignored.
+             '-netdev',f'user,id=net0,net={prefix},host={net["host_ip"]},dhcpstart={net["device_ip"]},hostfwd=tcp:127.0.0.1:{port}-:{manifest["port"]}',
+             '-device','virtio-net-device,netdev=net0']
+    (output/'command.json').write_text(json.dumps({'command':command,'qemu_sha256':digest(qemu)},indent=2)+'\n')
+    env=dict(os.environ,LD_LIBRARY_PATH=str(qroot/'usr/lib/x86_64-linux-gnu'))
+    started=time.monotonic();raw=bytearray();nonce=secrets.token_bytes(32)
+    (output/'nonce.bin').write_bytes(nonce)
+    with stderr.open('xb') as err:
+        proc=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=err)
+        try:
+            until=time.monotonic()+90
+            while time.monotonic()<until:
+                require(proc.poll() is None,'QEMU exited early')
+                text=serial.read_bytes().replace(b'\r\n',b'\n') if serial.exists() else b''
+                require(b'G0Q_RAM_PARK' not in text,'PID1 parked before observer; inspect serial')
+                if b'G0Q_RAM_OBSERVER_READY\n' in text:break
+                time.sleep(.1)
+            else:raise ValueError('VM observer did not become ready')
+            key=Path(manifest['key_path']).read_bytes()
+            if bad_key:key=bytes([key[0]^1])+key[1:]
+            with socket.create_connection(('127.0.0.1',port),timeout=5) as client:
+                client.settimeout(10)
+                client.sendall(request(key,bytes.fromhex(manifest['candidate_id']),nonce))
+                while len(raw)<=RESPONSE+FDT_LIMIT:
+                    chunk=client.recv(min(65536,RESPONSE+FDT_LIMIT+1-len(raw)))
+                    if not chunk:break
+                    raw.extend(chunk)
+            persist(output/'response.raw',bytes(raw))
+            if bad_key:
+                require(not raw,'wrong key produced a response')
+                until=time.monotonic()+2
+                while time.monotonic()<until and b'G0Q_RAM_PARK error=13' not in serial.read_bytes():time.sleep(.05)
+                require(b'G0Q_RAM_PARK error=13' in serial.read_bytes(),'wrong-key failure path absent')
+                result={'status':'PASS_H0_VM_UNAUTHENTICATED_REQUEST_REJECTED'}
+            else:
+                result=verify(output/'response.raw',manifest,nonce,vm=True)
+            result.update(elapsed_seconds=round(time.monotonic()-started,3),
+                          kernel_sha256=kernel_record['sha256'],device_actions=0)
+            (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+            print(json.dumps({'status':result['status'],'elapsed_seconds':result['elapsed_seconds']}))
+        finally:
+            if not (output/'response.raw').exists():persist(output/'response.raw',bytes(raw))
+            proc.terminate()
+            try:proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--prepared',type=Path,required=True);p.add_argument('--init',type=Path,required=True)
+    p.add_argument('--output',type=Path,required=True);p.add_argument('--bad-key',action='store_true')
+    p.add_argument('--kernel-label',default='kernel-1')
+    a=p.parse_args();test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label)

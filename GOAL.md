@@ -34,6 +34,12 @@ identities, goals, artifacts and authority remain separate.
   a credible starting point, not g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
   records source evidence, known gaps and the proposed staged qualification.
+- **First mainline H0 build is available.** Linux 7.2.11, a generated g0q DTB,
+  static RAM PID1/initramfs and uniLoader were built. The actual kernel/PID1
+  passed authenticated VM observation, and the production NCM setup passed
+  a dummy-UDC test. These are not physical g0q evidence. Loader initial-source/
+  stub overlap remains unresolved before physical entry; no AP, activation or
+  candidate owner was published. [Build and review](docs/reports/S22PLUS_MAINLINE_RAM_CANARY_H0_2026-10-27.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Loader/kernel/DTB/initramfs placement and every required reservation still
@@ -108,7 +114,7 @@ networking, without Linux-side UFS access or an installed-root mount.
    past-failure checklist rows using current source/artifact consumers.
 2. Use one little CPU and the essential clock, interrupt, timer, SCM, PMIC and
    USB-PHY dependencies. Compile out UFS and disable its controller and PHY;
-   consider CONFIG_BLOCK=n for the RAM-only configuration. Exclude Wi-Fi/BT,
+   retain CONFIG_BLOCK in the first build to limit unrelated Kconfig changes. Exclude Wi-Fi/BT,
    PCIe, display/GPU, audio, camera, touch and remote-processor workloads.
    Preserve reserved memory even when its associated peripheral is disabled.
 3. Avoid charger programming, OTG source mode and PD voltage experiments.
