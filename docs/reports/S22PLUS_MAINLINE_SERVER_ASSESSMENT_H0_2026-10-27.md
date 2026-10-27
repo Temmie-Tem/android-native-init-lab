@@ -124,8 +124,9 @@ while the internal battery supplies the SoC.
 ## Storage protection
 
 The first canary should compile out UFS and disable both controller and PHY
-nodes. A RAM-only build may also omit CONFIG_BLOCK if its chosen configuration
-allows it. Supply no mass-storage gadget, storage helper, installed root mount
+nodes. Retain CONFIG_BLOCK in the first r0q-derived build to avoid unrelated
+Kconfig changes; omitting it can be considered later if useful. Supply no
+mass-storage gadget, storage helper, installed root mount
 or remote-processor workload. This bounds Linux-side storage activity; ABL
 still reads its ordinary boot inputs before Linux starts.
 
@@ -165,6 +166,63 @@ option for testing userspace without first enabling local filesystem writes.
 
 The first success criterion is mainline g0q + RAM PID1 + authenticated USB +
 original Android return. It is not an unattended-server qualification.
+
+## Claude consultation and selected first-build details
+
+Two bounded Claude Opus 5.5 discussions on 2026-10-27 reviewed this next unit.
+The second received source-backed corrections to the first response. These
+were advisory discussions with tools disabled, not a source-bound PASS_GO,
+an activation or a physical experiment. The resulting recommendation is:
+
+- Start from the pinned r0q kernel/patch/config and DTS baseline, preserving
+  understood boot dependencies, then record the g0q-specific delta. Do not
+  rebuild the board description from a bare SoC include or inherit r0q battery
+  settings. Retain SMP configuration and initially limit online CPUs with
+  maxcpus=1, checking the boot CPU against g0q topology and keeping CPU hotplug
+  out of the responder. Keep CONFIG_BLOCK; exclude UFS/MMC drivers and UFS
+  controller/PHY nodes, and audit the delivered initramfs for storage access.
+- Preserve g0q memory reservations and required cmd-db, RPMh, AOSS, PMIC and
+  USB supplies. Qualify loader, Image, DTB and initramfs placement together,
+  including the r0q DTB-relocation change. Keep the existing r0q clock/domain
+  workarounds explicit; any new workaround is a separate delta.
+- Use fixed USB2 peripheral NCM and a small RAM PID1 responder. Bind the
+  host challenge, current boot and measured live FDT to the authenticated
+  response. Host-measured image/member hashes, live measurements and embedded
+  identity claims are separate evidence; HMAC does not make this measured-boot
+  attestation. Reuse the corrected host parser and exact-endpoint static
+  addressing where compatible, with mainline-specific checks reviewed before
+  use. P463's foreign-uplink UTF-8 label failure is not fixed by ASCII gadget
+  strings.
+
+Several initial suggestions were corrected after inspecting Linux 7.2:
+
+- Blanket disabling of PON/pwrkey/resin is not supported by the identified
+  PS_HOLD concern. The PMK8350 variants in
+  [pm8941-pwrkey.c](https://github.com/torvalds/linux/blob/v7.2/drivers/input/misc/pm8941-pwrkey.c)
+  do not enable the older variant's PS_HOLD configuration notifier. Keep the
+  known board setup subject to the actual reachable register-write audit;
+  this does not claim that every PON-related write is absent.
+- [dwc3-qcom.c](https://github.com/torvalds/linux/blob/v7.2/drivers/usb/dwc3/dwc3-qcom.c)
+  already enables VBUS override for fixed peripheral mode. That resolves the
+  source-path question, while g0q wiring/PHY/enumeration remain unproved.
+- Omitting watchdog drivers excludes their control paths, not all SMC calls
+  or inherited firmware watchdog activity. An unexpected new boot is an
+  unexplained reset, not proof of watchdog causality. It ends that attempt;
+  closure follows the bound physical recovery route without automatic replay.
+- regulator_ignore_unused is a supported debug option in
+  [regulator/core.c](https://github.com/torvalds/linux/blob/v7.2/drivers/regulator/core.c),
+  but it was not established as part of the inspected r0q command line. Do
+  not add it by default. It only skips unused-regulator cleanup and cannot
+  establish rail safety or prevent explicit consumer writes. Framebuffer
+  diagnostics are also optional; neither is a first-canary prerequisite.
+
+The next concrete deliverable is the pinned build recipe, g0q DTS/config
+delta, memory-placement checks and RAM responder/host verification. Actual
+build outputs must qualify the boot container and changed execution/recovery
+closure before a device owner can use them. Production charging/thermal and
+watchdog qualification, RO UFS, journal recovery and resident operation remain
+later units. Existing physical-recovery requirements still apply to this first
+bounded canary; deferring production features does not establish them.
 
 ## Resident operation and alternatives
 
