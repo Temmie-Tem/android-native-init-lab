@@ -9,9 +9,10 @@ S22+ contract and its existing exact approved tasks; A90 and S20+ are excluded.
 The ordinary-terminal worker remains unprivileged uid/euid 1000, NoNewPrivs=0,
 with the same mode-0700 runtime directory, mode-0600 same-UID Unix socket and
 exclusive worker lock. No service, setuid helper, polkit/sandbox change, TCP
-listener, live module reload or restart API is added. The seven fixed MCP tool
+listener, live module reload or restart API is added. The eight fixed MCP tool
 names expose only bounded status/logs, exact start, normal return, stopped-owner
-recovery and raw-proved health continuation. The worker has no device descriptor.
+recovery, raw-proved health continuation and the named mainline preapproval D0.
+The worker has no device descriptor.
 
 The stable transport imports only Python's standard library. Each request
 starts one fixed repository backend with a fixed Python executable, a fresh
@@ -62,7 +63,7 @@ it neither renews a budget nor makes a failed request retryable after intent.
 The backend keeps the existing one-shot dispatch, normal automatic-boot return
 and raw-proved post-A health semantics. Start requires the saved actual human
 approval and unchanged reviewed task/entry. Normal continuation requires the
-existing automatic-boot ready record and original live window. The separate
+existing automatic-boot or mainline ready record and original live window. The separate
 `recover_approved_task` requires the same stopped, consumed owner and original
 effect recovery basis. It invokes only that owner's fixed `recover` command
 after physical Download, using its original exact A and unchanged approval,
@@ -73,6 +74,46 @@ accepts only one raw-proved `install-android` or `recover-android` and uses
 the original existing-A health branch. Each ingress has one durable intent.
 No arbitrary recovery, new
 grant, native control replay or uncertain transfer replay is exposed.
+
+The mainline task uses the independently reviewed fixed common entry
+`s22plus_mainline_terminal_v1.py`, with only the `start` verb and its exact
+prepared task path. It reuses the original mainline grant opener and Session.
+Its declaration joins the task, proposal, capability and preceding healthy
+Android closure; current task validation and global exclusion remain required.
+Start also requires the saved actual returned finite approval and explicit
+attendance. A mainline interrupted owner with durable effects may use the
+original-A recovery tool after the original launcher has settled even when
+the host cut prevented a `stopped` row. This never repeats a candidate or an
+uncertain A. Other profiles retain their existing stopped-row requirement.
+
+## Fixed mainline readiness
+
+`check_task_readiness` selects only the adopted
+[mainline preapproval D0](S22PLUS_MAINLINE_RAM_V1.md), under the current
+human-authorized foreground S22+ research task. It invokes only that named
+`ready` CLI on the exact prepared task. It creates no approval or grant and
+cannot dispatch a device control or partition transfer. It requires no F1
+owner and no prior F1 dispatch, grant or operation for that task. Status/log
+tools remain reads of existing state and never initiate readiness.
+
+The backend records a fresh readiness dispatch intent and process identity,
+then returns promptly while its result owner waits for the fixed child. A
+running or uncertain attempt is reported without another spawn. Only a
+settled attempt permits a later fixed read-only reobservation; a current
+raw-validated readiness is reused. Failed and partial evidence remains.
+Readiness uses the original target-session lease and cannot release another
+owner. Client disconnect does not cancel or repeat it. `task_status` exposes
+its existing process state and `task_log` has one fixed `readiness` stream.
+Process exit alone is not successful Android health; the grant opener still
+requires the original raw-derived same-host freshness checks.
+
+This readiness dispatch interlock addresses concurrent/uncertain host readers,
+applies only to the current prepared task, and is retired by a bound process
+exit result or the original owner's proved healthy task closure after the
+readiness process is no longer running. Uncertain spawn requires evidence-led
+H0 reconciliation. It
+grants no standing device authority and is reviewed again when the API or
+readiness owner changes.
 
 After dispatch the backend flushes exactly one bounded response and closes its
 RPC stdout. A non-daemon result waiter remains until the original entry exits
@@ -100,9 +141,10 @@ python3 /home/temmie/dev/android-native-init-lab/workspace/public/src/scripts/ho
 ```
 
 Its MCP registration uses the same script with `mcp`. A fresh MCP connection
-loads the seven-tool schema. Adding stopped-owner recovery requires one normal
-worker startup and MCP reconnection for this protocol upgrade; this H0 change
-does not start either. Future candidate changes and reviewed backend
+loads the eight-tool schema. The additive readiness API requires one normal
+worker startup and MCP reconnection: the previously loaded allowlist cannot
+accept a new tool through a backend-only review update. This change does not
+restart the resident or change process privileges. Future candidate changes and reviewed backend
 updates use that connection without another worker restart. Verify the exact
 selected backend review and `fresh_backend_per_request` through status before
 future authorized use. Existing P456 and P458 are closed and must never be

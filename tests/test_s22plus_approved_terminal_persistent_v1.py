@@ -273,7 +273,7 @@ class PersistentTests(unittest.TestCase):
                 self.assertFalse(invalid['ok'])
             finally:server.shutdown();thread.join()
         self.assertEqual({row['name'] for row in transport.tools()},
-            {'bridge_status','task_status','task_log','start_approved_task','continue_approved_task','recover_approved_task','resume_approved_health'})
+            {'bridge_status','task_status','task_log','start_approved_task','continue_approved_task','recover_approved_task','resume_approved_health','check_task_readiness'})
 
     def test_shared_admission_excludes_a_second_backend_process(self):
         script=(f"import sys\nsys.path.insert(0,{str(HOST)!r})\n"+

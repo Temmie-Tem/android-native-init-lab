@@ -54,9 +54,12 @@ identities, goals, artifacts and authority remain separate.
   device readiness remains separate from the finite attended run grant. No mainline transfer
   or physical boot/USB proof has occurred.
   The concrete H0 task is prepared; preapproval readiness stopped at the host
-  privilege check (`NoNewPrivs=1`) before an ADB target command. It needs the
-  named read-only check from the ordinary terminal before run approval.
+  privilege check (`NoNewPrivs=1`) before an ADB target command. The existing
+  ordinary-terminal connector now has the explicit readiness API and mainline
+  start/return/recovery integration. Its protocol upgrade needs one worker/MCP
+  refresh before connector-driven readiness and the finite attended approval.
   [Integration report](docs/reports/S22PLUS_MAINLINE_LIVE_INTEGRATION_H0_2026-10-28.md).
+  [Connector completion](docs/reports/S22PLUS_MAINLINE_CONNECTOR_H0_2026-10-28.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks

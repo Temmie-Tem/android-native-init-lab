@@ -11,6 +11,7 @@ import stat
 import subprocess
 import sys
 import threading
+import uuid
 
 ROOT = Path(__file__).resolve().parents[5]
 REVALIDATION = ROOT / 'workspace/public/src/scripts/revalidation'
@@ -22,6 +23,7 @@ UID = 1000
 REVIEW = 'workspace/public/src/device-action/bindings/s22plus_approved_terminal_persistent_current.json'
 POLICY = 'docs/operations/S22PLUS_APPROVED_TERMINAL_PERSISTENT_V1.md'
 DISPATCH = 'terminal-tool-dispatch-v1'
+READINESS = 'terminal-tool-readiness-v1'
 CONTINUATIONS = {'continue_approved_task': ('terminal-tool-continue-v1', 'continue'),
     'recover_approved_task': ('terminal-tool-recovery-v1', 'recover'),
     'resume_approved_health': ('terminal-tool-health-v1', 'recover')}
@@ -96,7 +98,7 @@ def checked_file(root, receipt, *, maximum=4 * 1024 * 1024):
 
 
 def review_sources(root):
-    return sorted([root / name for name in (
+    paths=[root / name for name in (
         'AGENTS.md', 'docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md',
         'docs/operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md',
         'docs/operations/DEVICE_ACTION_RISK_TIERS.md', POLICY,
@@ -114,7 +116,10 @@ def review_sources(root):
         'workspace/public/src/scripts/revalidation/s22plus_native_adapter_v3.py',
         'workspace/public/src/scripts/revalidation/s22plus_debian_handoff_session_v1.py',
         'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_session_v1.py',
-        'workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py')])
+        'workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py',
+        'workspace/public/src/scripts/host_tools/s22plus_mainline_terminal_v1.py')]
+    from s22plus_mainline_task_v1 import source_paths
+    return sorted(set(paths)|set(source_paths(root)))
 
 
 def verify_bridge(root, expected=None):
@@ -176,12 +181,15 @@ class Controller:
         self.bridge_identity = bridge_check(self.root)
         self.lock = AdmissionLock(self.root)
 
-    def bundle(self, name, *, current=False, approval=False):
+    def bundle(self, name, *, current=False, approval=False, recovery=False):
         require(type(name) is str and len(name) <= 512, 'invalid preparation directory')
         base = Path(name)
         require(base.is_absolute() and base.parent == self.outputs and
             re.fullmatch(r's22plus-[a-z0-9-]+-h0-[0-9]{8}-[0-9]+', base.name) and
             base.resolve(strict=True) == base, 'not a direct S22+ preparation directory')
+        if (base/'connector-preparation.json').exists():
+            from s22plus_mainline_terminal_v1 import bundle
+            return bundle(self.root,base,current=current,approval=approval,recovery=recovery)
         task_dir = base / 'offline-prepared-1/task'
         prepared_pin = records.pin(base / 'prepared-validation.json')
         prepared = records.read(checked_file(self.root, prepared_pin))
@@ -298,7 +306,69 @@ class Controller:
         if terminal_paths:
             require(len(terminal_paths) == 1, 'multiple operation terminals')
             value['terminal_state'] = records.read(terminal_paths[0]).get('terminal_state')
+        if bound['operation']=='mainline-ram':value['readiness']=self.readiness_status(bound)
         return value
+
+    def readiness_status(self,bound):
+        folder=bound['base']/READINESS
+        attempts=sorted(folder.glob('attempt-*')) if folder.exists() else []
+        require(len(attempts)<=10000,'readiness attempt inventory exceeded bound')
+        if not attempts:return dict(state='NOT_REQUESTED')
+        latest=attempts[-1];state=self.dispatch_state(bound['base'],str(latest.relative_to(bound['base'])))
+        return dict(attempt=latest.name,**state)
+
+    def check_readiness(self,name):
+        """Only the named foreground D0; no approval record, grant or F1 entry."""
+        with self.lock:
+            bridge=self.bridge_check(self.root)
+            require(bridge==self.bridge_identity,'bridge review changed before readiness')
+            bound=self.bundle(name,current=True)
+            require(bound['operation']=='mainline-ram','no reviewed readiness profile for this task')
+            base,directory=bound['base'],bound['directory']
+            registry.require_no_f1_owner(self.root)
+            require(not (directory/'grant.json').exists() and not list(directory.glob('operation-*')) and
+                self.dispatch_state(base)['state']=='NOT_DISPATCHED','readiness cannot follow a grant or dispatch')
+            for other in self.outputs.glob('*/'+DISPATCH+'/intent.json'):
+                require(self.dispatch_state(other.parent.parent)['state']=='CLOSED_BY_ORIGINAL_OWNER',
+                    'another F1 dispatch is active or unresolved')
+            state=self.readiness_status(bound)
+            if state['state'] not in ('NOT_REQUESTED','PROCESS_EXITED'):
+                return dict(dispatched=False,repeated_request=True,readiness=state)
+            # A current completed D0 is reusable; neither observation nor its
+            # host dispatch is repeated merely because the client asks again.
+            from s22plus_mainline_task_v1 import validate_readiness
+            rows=records.Journal(directory/'journal').rows()
+            if rows and rows[-1]['event']=='readiness-complete':
+                try:
+                    validate_readiness(bound['task_value'],rows[-1]['data']['result'],bound['task'],fresh=True)
+                except (ValueError,OSError,KeyError):pass
+                else:return dict(dispatched=False,reused_readiness=rows[-1]['data']['result'],readiness=state)
+            parent=direct_directory(base/READINESS,create=True)
+            ordinal=len(list(parent.glob('attempt-*')))+1
+            folder=direct_directory(parent/(f'attempt-{ordinal:05d}-'+uuid.uuid4().hex),create=True)
+            argv=['/usr/bin/python3',str(self.root/'workspace/public/src/scripts/revalidation/s22plus_mainline_task_v1.py'),
+                '--root',str(self.root),'ready',str(directory/'task.json')]
+            intent=records.publish(folder/'intent.json',dict(schema='s22plus-terminal-readiness-v1',
+                task=bound['task'],bridge_review=bridge,host_boot=records.host_boot(),
+                boottime_ns=records.clock(),command=argv,device_controls=0,partition_transfers=0))
+            try:
+                with (folder/'launcher.log').open('xb') as output:
+                    os.chmod(folder/'launcher.log',0o600)
+                    process=subprocess.Popen(argv,cwd=self.root,stdin=subprocess.DEVNULL,stdout=output,
+                        stderr=subprocess.STDOUT,close_fds=True,start_new_session=True)
+                    identity=process_identity(process.pid)
+                    require(identity is not None,'readiness spawn identity unavailable; preserve original attempt')
+                    records.publish(folder/'spawned.json',dict(intent=intent,process=identity))
+            except BaseException as error:
+                records.publish(folder/'result.json',dict(intent=intent,state='SPAWN_ERROR',
+                    error_type=type(error).__name__,returncode=None))
+                raise
+            def finish():
+                code=process.wait()
+                records.publish(folder/'result.json',dict(intent=intent,state='PROCESS_EXITED',
+                    process=identity,returncode=code,boottime_ns=records.clock()))
+            threading.Thread(target=finish,daemon=False).start()
+            return dict(dispatched=True,readiness=self.readiness_status(bound))
 
     def start(self, name):
         with self.lock:
@@ -309,7 +379,21 @@ class Controller:
             state = self.dispatch_state(base)
             if state['state'] != 'NOT_DISPATCHED':
                 return dict(dispatched=False, repeated_request=True, **self.status(name))
+            if bound['operation']=='mainline-ram':
+                ready=self.readiness_status(bound)
+                require(ready['state'] in ('NOT_REQUESTED','PROCESS_EXITED'),
+                    'readiness dispatcher is still active or uncertain')
+                from s22plus_mainline_task_v1 import validate_readiness
+                rows=records.Journal(directory/'journal').rows()
+                require(rows and rows[-1]['event']=='readiness-complete',
+                    'mainline preapproval readiness has not completed')
+                validate_readiness(bound['task_value'],rows[-1]['data']['result'],bound['task'],fresh=True)
             registry.require_no_f1_owner(self.root)
+            for attempt in self.outputs.glob('*/'+READINESS+'/attempt-*/intent.json'):
+                other_base=attempt.parents[2]
+                ready_state=self.dispatch_state(other_base,str(attempt.parent.relative_to(other_base)))
+                require(ready_state['state'] in ('PROCESS_EXITED','CLOSED_BY_ORIGINAL_OWNER'),
+                    'a readiness dispatcher is active or uncertain')
             for other in self.outputs.glob('*/' + DISPATCH + '/intent.json'):
                 require(self.dispatch_state(other.parent.parent)['state'] == 'CLOSED_BY_ORIGINAL_OWNER',
                     'another dispatch is running or unresolved')
@@ -317,15 +401,16 @@ class Controller:
                 not (directory / 'grant-host-preflight').exists() and not (base / 'execute-1.log').exists(),
                 'original attempt already exists; inspect its original owner')
             folder = direct_directory(base / DISPATCH, create=True)
+            argv=['/usr/bin/python3',bound['entry']['path'],*bound.get('entry_args',[])]
             intent = records.publish(folder / 'intent.json', dict(schema='s22plus-terminal-dispatch-v1',
                 task=bound['task'], entry=bound['entry'], approval=bound['approval'],
                 entry_review=bound['review'], bridge_review=bridge,
                 preceding_closed=bound['preceding_closed'], host_boot=records.host_boot(),
-                boottime_ns=records.clock(), command=['/usr/bin/python3', bound['entry']['path']]))
+                boottime_ns=records.clock(), command=argv))
             try:
                 with (folder / 'launcher.log').open('xb') as output:
                     os.chmod(folder / 'launcher.log', 0o600)
-                    process = subprocess.Popen(['/usr/bin/python3', bound['entry']['path']],
+                    process = subprocess.Popen(argv,
                         cwd=self.root, stdin=subprocess.DEVNULL, stdout=output, stderr=subprocess.STDOUT,
                         close_fds=True, start_new_session=True)
                     identity = process_identity(process.pid)
@@ -362,7 +447,7 @@ class Controller:
         from s22plus_native_adapter_v3 import Adapter
         from s22plus_native_session_v3 import operation_steps
         base, directory = bound['base'], bound['directory']
-        require(bound['operation'] == 'debian-autoboot', 'continuation requires automatic boot')
+        require(bound['operation'] in ('debian-autoboot','mainline-ram'), 'unselected continuation operation')
         require(not (directory / 'closed.json').exists(), 'task is already closed')
         operation = directory / 'operation-0001'
         require(list(directory.glob('operation-*')) == [operation] and
@@ -379,7 +464,7 @@ class Controller:
         request = session.request
         grant_pin = records.pin(directory / 'grant.json')
         require(request['task'] == bound['task'] and request['grant'] == grant_pin and
-            request['operation'] == 'debian-autoboot' and request['N'] == bound['task_value']['N'] and
+            request['operation'] == bound['operation'] and request['N'] == bound['task_value']['N'] and
             request['A'] == bound['task_value']['A'] and request['E'] is None and
             request['reentry'] is False and request['hud'] is False and request['usb_reconnect'] is False,
             'original operation scope differs')
@@ -396,7 +481,7 @@ class Controller:
         android = [row for row in rows if row['event'] == 'effect-intent' and
             row['data']['action'] == 'transfer' and row['data']['role'] == 'A']
         if stopped_recovery:
-            require(any(row['event'] == 'stopped' for row in rows) and session.has_recovery_basis(),
+            require((any(row['event'] == 'stopped' for row in rows) or bound['operation']=='mainline-ram') and session.has_recovery_basis(),
                 'recovery requires the stopped original effect owner')
             require(not (base / CONTINUATIONS['resume_approved_health'][0] / 'intent.json').exists(),
                 'health continuation already consumed the remaining recovery path')
@@ -430,10 +515,11 @@ class Controller:
                     records.pin(operation / (step.name + '.json')), 'preceding step is incomplete')
                 session.adapter.validate_result(step,
                     records.read(checked_file(self.root, completed[0]['data']['result'])), request)
-            ready_pin = records.pin(operation / 'debian-return-ready.json')
+            mainline=bound['operation']=='mainline-ram'
+            ready_pin = records.pin(operation / ('mainline-return-ready.json' if mainline else 'debian-return-ready.json'))
             ready = records.read(checked_file(self.root, ready_pin))
             require(ready['operation'] == evidence['operation'] and
-                ready['shutdown'] == records.pin(operation / 'debian-shutdown.json') and
+                ready['observation' if mainline else 'shutdown'] == records.pin(operation / ('mainline-evidence.json' if mainline else 'debian-shutdown.json')) and
                 type(ready['requested_ns']) is int and type(ready['deadline_ns']) is int and
                 ready['deadline_ns'] == min(session.grant['deadline_ns'], ready['requested_ns'] + 600_000_000_000) and
                 session.grant['opened_ns'] <= ready['requested_ns'] <= records.clock() < ready['deadline_ns'],
@@ -446,7 +532,7 @@ class Controller:
         with self.lock:
             bridge = self.bridge_check(self.root)
             require(bridge == self.bridge_identity, 'bridge review changed; restart the worker before dispatch')
-            bound = self.bundle(name, current=True, approval=True)
+            bound = self.bundle(name, current=True, approval=True,recovery=tool in ('recover_approved_task','resume_approved_health'))
             base = bound['base']
             if self.dispatch_state(base, phase)['state'] != 'NOT_DISPATCHED':
                 return dict(dispatched=False, repeated_request=True, **self.status(name))
@@ -486,6 +572,9 @@ class Controller:
             'continuation': CONTINUATIONS['continue_approved_task'][0] + '/launcher.log',
             'recovery': CONTINUATIONS['recover_approved_task'][0] + '/launcher.log',
             'health': CONTINUATIONS['resume_approved_health'][0] + '/launcher.log'}
+        if bound['operation']=='mainline-ram':
+            latest=self.readiness_status(bound)
+            if 'attempt' in latest:paths['readiness']=READINESS+'/'+latest['attempt']+'/launcher.log'
         require(stream in paths and type(count) is int and 1 <= count <= MAX_LOG,
             'invalid log selection or byte limit')
         path = bound['base'] / paths[stream]
@@ -514,11 +603,12 @@ class Controller:
                 no_new_privileges=nnp(), root=str(self.root), device_authority=False,
                 bridge_review=self.bridge_identity)
         allowed = {'preparation_directory'} | ({'stream', 'bytes'} if name == 'task_log' else set())
-        require(name in ('task_status', 'start_approved_task', 'task_log', *CONTINUATIONS) and
+        require(name in ('task_status', 'start_approved_task', 'task_log', 'check_task_readiness', *CONTINUATIONS) and
             set(arguments) <= allowed and 'preparation_directory' in arguments, 'unsupported tool or arguments')
         directory = arguments['preparation_directory']
         if name == 'task_status':
             return self.status(directory)
+        if name == 'check_task_readiness':return self.check_readiness(directory)
         if name == 'start_approved_task':
             return self.start(directory)
         if name in CONTINUATIONS:
