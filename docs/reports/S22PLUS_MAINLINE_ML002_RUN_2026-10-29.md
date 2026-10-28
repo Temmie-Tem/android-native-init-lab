@@ -1,12 +1,43 @@
 # S22+ mainline RAM/USB experiment ML002 — 2026-10-29
 
-Status: **PREPARED; NO CANDIDATE TRANSFER YET**.
+Status: **CONSUMED — NO_PROOF / ANDROID_CLOSED_HEALTHY**.
 
-The operator requested continuation through a physical successor experiment.
-The exact candidate and connector task are prepared, and the fixed preapproval
-D0 health transcript passed fresh raw revalidation. The generated finite
-approval and actual attendance statement have been requested; no grant or
-candidate transfer has occurred at this stage.
+The operator returned the exact finite approval and confirmed attendance and
+usable physical Download recovery after the candidate and fixed preapproval
+D0 health were qualified. One candidate N and one original Android A were
+transferred. Final rooted Android identity and boot/supporting-partition
+hashes passed. Authenticated mainline PID1/USB was not proved.
+
+## Physical result and recovery
+
+The original owner completed fresh preflight, Android Download entry and one
+N transfer. Its 117 bounded USB2 sysfs captures all succeeded but showed the
+selected device absent, with no related interface. The original 120-second
+window expired. No endpoint, host network profile or authenticated socket
+request was established. These are sampled observations, not a continuous
+record of every bus event.
+
+During the attempt the operator reported **repeated reboots approximately
+every 8–9 seconds**, describing a boot loop. The interval is a human estimate;
+the host did not measure reset edges or the boot stage. This differs from
+ML001's reported unchanged screen, but does not establish ABL acceptance,
+uniLoader entry, kernel/PID1 execution or a particular reset mechanism.
+No further candidate action was attempted.
+
+The operator confirmed physical Download entry while retaining attendance
+and the same cable/port. The original owner validated the Download endpoint
+and completed one original-A transfer. Its first health attempt failed at
+`03-health` with empty stdout and an ADB target-not-found error. That incomplete
+raw prefix was retained. The separately reviewed health-only continuation
+obtained a fresh complete bracket and closed `ANDROID_CLOSED_HEALTHY` without
+another transfer or mixing the failed prefix into the successful proof.
+
+Offline `repair_close` rederived the original transfer/health proof with
+command, socket and subprocess acquisition forbidden. The consumed records,
+terminal and 15 journal rows were unchanged; the F1 owner is absent. The
+connector now reports `CLOSED_BY_ORIGINAL_OWNER`. The single-operation grant
+is consumed and neither N nor A may replay. Automatic recovery remains
+unproved because physical assistance was used.
 
 ## Candidate and retained scope
 
@@ -59,7 +90,32 @@ Candidate AP SHA-256:
 Candidate addendum SHA-256:
 `08fa8c53be34acdb517c1a8f72f5a913f44034d2c105429baab0cbd19ef92d83`.
 
-Private artifacts, source snapshots, test results, exact task, review and
-preapproval raw evidence are under
+## Canonical timeline and retained evidence
+
+Seconds are relative to the original grant opening. Transfer completion and
+health times are the journal's raw-proved step completions; the final event
+is later H0 closure publication, not the time Android first became healthy.
+
+| Canonical event | Seconds | Evidence |
+| --- | ---: | --- |
+| live_session_start | 0.000 | Original finite grant |
+| candidate_flash_start | 15.433 | N transfer intent |
+| candidate_flash_done | 16.971 | Raw-complete N step |
+| candidate_boot_ready | — | Not proved |
+| rollback_flash_start | 159.794 | Original-A recovery intent |
+| rollback_flash_done | 161.184 | Raw-complete A step |
+| rollback_boot_ready | 281.419 | Fresh complete recovery-health bracket |
+| live_session_end | 412.314 | Audited task closure |
+
+The 682 bounded raw-capture receipts, operator observation, canonical timeline,
+task close, source snapshots, test results and exact candidate/review are under
 `workspace/private/outputs/s22plus-mainline-ml002-h0-20261029-1/`.
-Preparation is not a consumed operation, device authority or mainline proof.
+Closed task SHA-256:
+`9d0dbc6b234d749ec63f4b0d9f940f271d200fc839cbf4cc299ad86dba34c738`.
+
+The next useful unit is H0 diagnosis of this repeated-reset observation against
+the exact loader/kernel/configuration and existing evidence. The staging
+compatibility correction remains statically qualified, but physical progress
+and reset cause are unproved. No follow-on candidate or grant is armed. Any
+future proposal must account for the new observation within the existing
+review/qualification rules; this report creates no new authority or gate.

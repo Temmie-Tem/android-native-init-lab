@@ -75,14 +75,16 @@ identities, goals, artifacts and authority remain separate.
   measured failure cause. The H0 comparison retains the old canary identity;
   no new live candidate or grant is armed.
   [Placement successor](docs/reports/S22PLUS_MAINLINE_ABL_PLACEMENT_SUCCESSOR_H0_2026-10-28.md).
-- **ML002 successor is prepared, without a grant or candidate transfer.**
-  A fresh canary identity/key is combined with the unchanged reviewed staging
-  correction and retained kernel/DTB. New actual-loader, copy, full-consumer,
-  actual-EL and duplicate-package checks passed, as did the independent exact
-  candidate addendum and current consumer/connector preparation. Fixed
-  preapproval D0 health passed raw revalidation. The exact finite approval and
-  actual attendance statement are pending; preparation is not device authority.
-  [ML002 preparation/run record](docs/reports/S22PLUS_MAINLINE_ML002_RUN_2026-10-29.md).
+- **ML002 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.** The fresh
+  staging-corrected candidate passed H0 qualification and exact admission, then
+  one attended N transfer completed. All 117 fixed USB2 samples showed absence;
+  no authenticated request or PID1 proof occurred. The operator reported
+  repeated reboots approximately every 8–9 seconds; reset cause and execution
+  stage remain unproved. One physical Download/original-A return completed,
+  followed by fresh successful health-only continuation after a preserved ADB
+  target-not-found failure. N and A were each transferred once; no replay or
+  follow-on grant is armed.
+  [ML002 run record](docs/reports/S22PLUS_MAINLINE_ML002_RUN_2026-10-29.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -146,16 +148,21 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: RAM-only g0q mainline USB canary
+## Next bounded unit: H0 diagnosis of ML002 repeated resets
 
-The selected next runtime change is the H0-qualified staging-only successor.
-Prepare its fresh canary identity and connect the exact new artifacts and
-independent review through the existing candidate admission/owner before a new
-finite attended run. Reuse successful unchanged checks and preserve ML001.
-The exact firmware's panel auto-refresh setting supports later inherited-display
-work, but active scanout remains unmeasured. Display and additional host USB
-event diagnostics are separate follow-ups, not prerequisites for correcting the
-reproduced placement conflict or proof of the old run's failure stage.
+The staging-only successor was exercised as ML002 and closed healthy Android
+without mainline proof. Analyze the reported 8–9-second reboot loop against
+the exact retained artifacts, current consumers and bounded raw observations.
+Separate loader progress, kernel progress, reset mechanisms and missing USB
+evidence; elapsed time or a changed screen behavior alone cannot identify a
+cause. Select the smallest evidence-backed correction or observation before
+proposing another fresh candidate. Preserve both consumed runs and reuse
+unchanged checks. No additional device experiment is armed.
+
+The exact firmware's panel auto-refresh setting supports inherited-display
+investigation, but active scanout remains unmeasured. Display and additional
+host USB event diagnostics remain possible observations, not already qualified
+physical channels. The retained RAM-only canary objective below is unchanged.
 
 **Scope:** prepare and qualify the smallest exact g0q boot-only candidate that
 runs a RAM PID1 and emits authenticated evidence over fixed USB2 peripheral
