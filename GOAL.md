@@ -148,16 +148,23 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 diagnosis of ML002 repeated resets
+## Next bounded unit: H0 FYG8 watchdog initial-state trace
 
-The staging-only successor was exercised as ML002 and closed healthy Android
-without mainline proof. Analyze the reported 8–9-second reboot loop against
-the exact retained artifacts, current consumers and bounded raw observations.
-Separate loader progress, kernel progress, reset mechanisms and missing USB
-evidence; elapsed time or a changed screen behavior alone cannot identify a
-cause. Select the smallest evidence-backed correction or observation before
-proposing another fresh candidate. Preserve both consumed runs and reuse
-unchanged checks. No additional device experiment is armed.
+The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
+keeps the reset cause and physical boot stage unproved. It identified a
+conditional static mismatch between the retained hypervisor's vendor service
+UID and the actual mainline Gunyah-watchdog registration filter. Merely enabling
+that driver would not resolve the analyzed discovery path; this is not proof
+of ML002's cause, and no guard or runtime was changed.
+
+Trace the already identified HLOS virtual-watchdog STATUS/CONTROL state fields
+to initialization in the retained hypervisor binary. Resolve initial enable,
+bark/bite/timebase and any enabling boot path without a guest call, or explicitly
+record which inputs cannot be determined from retained artifacts. Do not turn
+static defaults into a live handoff-state claim. Keep this unit bounded;
+ABL/UEFI caller analysis and progress-observer preparation are separate
+follow-ups. Preserve both consumed runs and reuse unchanged checks. No new
+candidate or device grant is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
