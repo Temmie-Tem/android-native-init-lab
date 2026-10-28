@@ -63,6 +63,8 @@ identities, goals, artifacts and authority remain separate.
   fresh health-only continuation passed after a preserved ADB `error: closed`.
   N and A were each transferred once. Automatic recovery and the point where
   mainline boot/USB stopped remain unproved. No replay or successor is armed.
+  The operator observed the Samsung logo/unofficial-software warning followed
+  by an unchanged screen; this was not a multiline kernel log or PID1 proof.
   [ML001 run report](docs/reports/S22PLUS_MAINLINE_ML001_RUN_2026-10-28.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.

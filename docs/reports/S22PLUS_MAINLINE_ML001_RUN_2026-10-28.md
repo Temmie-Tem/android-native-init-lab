@@ -20,6 +20,13 @@ interface. The original 120-second window expired. No NCM endpoint was selected,
 no temporary host network profile was created and no authenticated socket
 request was attempted. The owner stopped and retained its recovery obligation.
 
+After closure, the operator clarified the visible screen during the candidate
+attempt: the **Samsung boot logo and unofficial-software warning appeared,
+then the displayed image did not change**. The initial wording meant the logo
+and warning, not multiple lines of kernel/execution logs. This is an operator
+observation with no recorded exact display timestamp. It adds visible-screen
+evidence without changing the original host captures or the closed result.
+
 The operator reported physical Download entry while maintaining attendance and
 the cable/port binding. The connector resumed the original owner, freshly
 validated the exact Download endpoint and completed one original-A transfer.
@@ -41,6 +48,14 @@ entry or kernel/PID1 progress. USB absence alone cannot distinguish an early
 boot failure from USB initialization failure. There is no live FDT, measured
 PID1 or authenticated response from this run. The original VM and dummy-UDC
 proofs remain H0 evidence and do not fill that gap.
+
+The reported logo/warning does not establish uniLoader entry or mainline
+kernel/PID1 execution. The candidate is designed for USB evidence: its config
+fragment disables DRM/FB, and its PID1 logs use `/dev/console` with a
+`/dev/null` fallback rather than a framebuffer drawing path. An unchanged
+screen therefore does not by itself prove a CPU/kernel hang or identify where
+execution stopped. Preserve the visible-screen observation and USB absence as
+separate facts.
 
 The exact original-A return and final Android health are proved. Physical
 assistance was used; automatic recovery is unproved. No Linux storage access
