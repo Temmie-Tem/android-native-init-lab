@@ -75,6 +75,14 @@ identities, goals, artifacts and authority remain separate.
   measured failure cause. The H0 comparison retains the old canary identity;
   no new live candidate or grant is armed.
   [Placement successor](docs/reports/S22PLUS_MAINLINE_ABL_PLACEMENT_SUCCESSOR_H0_2026-10-28.md).
+- **ML002 successor is prepared, without a grant or candidate transfer.**
+  A fresh canary identity/key is combined with the unchanged reviewed staging
+  correction and retained kernel/DTB. New actual-loader, copy, full-consumer,
+  actual-EL and duplicate-package checks passed, as did the independent exact
+  candidate addendum and current consumer/connector preparation. Fixed
+  preapproval D0 health passed raw revalidation. The exact finite approval and
+  actual attendance statement are pending; preparation is not device authority.
+  [ML002 preparation/run record](docs/reports/S22PLUS_MAINLINE_ML002_RUN_2026-10-29.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
