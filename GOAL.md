@@ -50,16 +50,20 @@ identities, goals, artifacts and authority remain separate.
   existing V3 owner now has one RAM/USB operation with original-A return,
   raw-first single-request observation and fixed preapproval health. The
   retained runtime/package is reused; 61 host tests and actual host network
-  readiness and independent source-bound review passed. Current preapproval
-  device readiness remains separate from the finite attended run grant. No mainline transfer
-  or physical boot/USB proof has occurred.
-  The concrete H0 task is prepared; preapproval readiness stopped at the host
-  privilege check (`NoNewPrivs=1`) before an ADB target command. The existing
-  ordinary-terminal connector now has the explicit readiness API and mainline
-  start/return/recovery integration. Its protocol upgrade needs one worker/MCP
-  refresh before connector-driven readiness and the finite attended approval.
+  readiness and independent source-bound review passed. The connector's
+  70-test upgrade and real ordinary-terminal restart are complete; named
+  preapproval D0, mainline start and original-owner recovery/health ran through
+  that connector. The earlier managed-process permission stop remains preserved.
   [Integration report](docs/reports/S22PLUS_MAINLINE_LIVE_INTEGRATION_H0_2026-10-28.md).
   [Connector completion](docs/reports/S22PLUS_MAINLINE_CONNECTOR_H0_2026-10-28.md).
+- **ML001 first physical attempt is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
+  One N transfer completed, but all 117 fixed USB2 captures showed absence
+  through the original 120-second window. No socket request or PID1 proof
+  occurred. One attended physical Download/original-A return completed; a
+  fresh health-only continuation passed after a preserved ADB `error: closed`.
+  N and A were each transferred once. Automatic recovery and the point where
+  mainline boot/USB stopped remain unproved. No replay or successor is armed.
+  [ML001 run report](docs/reports/S22PLUS_MAINLINE_ML001_RUN_2026-10-28.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -124,6 +128,11 @@ userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
 ## Next bounded unit: RAM-only g0q mainline USB canary
+
+The immediate next step is H0 diagnosis of ML001's missing USB evidence using
+its preserved loader/kernel/DT/runtime and host captures. Reuse successful
+unchanged checks. Do not repeat the consumed image or infer the failure stage
+from USB absence; select a fresh bounded successor only after that analysis.
 
 **Scope:** prepare and qualify the smallest exact g0q boot-only candidate that
 runs a RAM PID1 and emits authenticated evidence over fixed USB2 peripheral
