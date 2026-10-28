@@ -158,3 +158,57 @@ Private evidence is under
 `workspace/private/outputs/s22plus-mainline-entry-observer-h0-20261028-1/`,
 including firmware/module pins, disassembly, source snapshots, both envelope
 checks, new loader/test/package directories, and the independent review.
+
+## External review follow-up, 2026-10-29
+
+At the operator's request, Claude Opus 5.5 (`high`) and Gemini 4 Argon High
+(`high`) each completed two supplied-evidence review rounds. They exchanged
+first-round conclusions and received the actual admission consumer and one
+additional execution result. Neither invoked tools. Both final reviews found
+no actionable new defect in the fixed-staging change. These are advisory
+reviews, not a replacement for the retained source-bound review or device
+authority.
+
+The first packet included `qualify()` but omitted its `image_binding()`
+consumer. This caused Claude's initial claim that test/review receipts were
+not joined to the actual loader/package. After reading that consumer, it
+withdrew the claim: test loader hashes, package receipt hashes, key-derived
+identity and reviewed receipt sizes/hashes are already checked. The fixed
+relative evidence paths remain a documented next-candidate preparation issue,
+not a demonstrated acceptance bypass.
+
+Claude also withdrew its claim that the general live-stub-guard result string
+was stale. The guard remains correct. Recording the source/staging margin may
+be useful, but forcing disjointness would add an unnecessary condition to a
+loader that already supports safe backward overlap. No new gate or firmware
+constant duplication was added. Argon corrected its initial suggestion that
+unchanged source/compiler flags alone establish reusable linked-copy evidence.
+
+One narrow test suggestion was useful: the existing full-loader case started
+at the staging address, while the three actual source placements stopped at
+the relocated entry. A new private test uses the unchanged successor blob at
+the maximum normal selector and executes the combined backward relocation
+through the kernel branch. It passed in 35.514 seconds, checking BSS zeroing,
+stack bounds, synchronization, kernel argument registers, exact kernel/initrd
+destination bytes, and rewritten FDT properties/reservations/version. The
+wrapper passed `py_compile`; its source, actual checker, loader/ELF and source
+enumeration inputs are pinned. This supplements the original evidence without
+changing its receipts. It proves emulated control flow to the kernel branch,
+not Linux execution, physical cache behavior, Gunyah access or USB success.
+
+The next bounded unit remains fresh canary identity/key and exact successor
+artifact qualification through the existing owner. The current consumer still
+requires matching loader-test, actual-EL and reviewed artifact receipts; old
+results cannot simply be relabelled. Unchanged capability review and kernel
+evidence remain reusable within their recorded scope. A fresh output layout
+can satisfy the existing relative receipt names; an admission-producer code
+change, if selected, needs its scoped review. Display and host USB event
+diagnostics remain optional follow-ups.
+
+No production code, candidate registration, activation, grant, device command
+or transfer changed during this follow-up. A90, S20+ and unrelated dirty work
+were untouched. Raw replies, prompts, the added test and results, model
+identity checks and before/after usage accounting are private under
+`workspace/private/outputs/s22plus-mainline-placement-external-review-20261029-1/`.
+Claude's initial quota query returned HTTP 401 and is recorded as unavailable;
+later snapshots and all four successful calls' token totals are retained.
