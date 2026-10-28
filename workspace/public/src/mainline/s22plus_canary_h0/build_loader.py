@@ -12,7 +12,9 @@ from elftools.elf.elffile import ELFFile
 
 from prepare import HERE, ROOT, digest, require, run, config_values, uncovered, merged, audit_candidate
 
-TEXT=0xa8000000
+# Keep staging above the retained FYG8 ABL source envelope. Its normal EFI
+# placement overlaps the former staging base; the live-stub guard stays intact.
+TEXT=0xab000000
 PAYLOAD=0x80ba00000
 DTB=0xb6000000
 INITRD=0xb6915000

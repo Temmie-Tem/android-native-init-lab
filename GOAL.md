@@ -66,6 +66,15 @@ identities, goals, artifacts and authority remain separate.
   The operator observed the Samsung logo/unofficial-software warning followed
   by an unchanged screen; this was not a multiline kernel log or PID1 proof.
   [ML001 run report](docs/reports/S22PLUS_MAINLINE_ML001_RUN_2026-10-28.md).
+- **A firmware/loader placement conflict is reproduced and corrected in H0.**
+  The retained normal EFI configuration and ABL path supply 64 possible source
+  placements; the old loader accepts one and safely rejects 63. A staging-only
+  successor accepts all 64 at its copy guard, passes representative full copies,
+  the 20-case/1,051-copy corpus and actual-EL QEMU, and has a deterministic
+  boot-only package. This is conditional static/emulated evidence, not ML001's
+  measured failure cause. The H0 comparison retains the old canary identity;
+  no new live candidate or grant is armed.
+  [Placement successor](docs/reports/S22PLUS_MAINLINE_ABL_PLACEMENT_SUCCESSOR_H0_2026-10-28.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -131,10 +140,14 @@ camera, telephony, sensors and system suspend are optional later work.
 
 ## Next bounded unit: RAM-only g0q mainline USB canary
 
-The immediate next step is H0 diagnosis of ML001's missing USB evidence using
-its preserved loader/kernel/DT/runtime and host captures. Reuse successful
-unchanged checks. Do not repeat the consumed image or infer the failure stage
-from USB absence; select a fresh bounded successor only after that analysis.
+The selected next runtime change is the H0-qualified staging-only successor.
+Prepare its fresh canary identity and connect the exact new artifacts and
+independent review through the existing candidate admission/owner before a new
+finite attended run. Reuse successful unchanged checks and preserve ML001.
+The exact firmware's panel auto-refresh setting supports later inherited-display
+work, but active scanout remains unmeasured. Display and additional host USB
+event diagnostics are separate follow-ups, not prerequisites for correcting the
+reproduced placement conflict or proof of the old run's failure stage.
 
 **Scope:** prepare and qualify the smallest exact g0q boot-only candidate that
 runs a RAM PID1 and emits authenticated evidence over fixed USB2 peripheral
