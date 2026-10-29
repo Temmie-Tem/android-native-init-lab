@@ -30,9 +30,10 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Mainline progress through FDT setup and paging is demonstrated by ML005.**
-  Its exact post-FDT and post-`paging_init` records were recovered after healthy
-  original-A return; ML003/ML004 retain their earlier entry/MMU evidence.
+- **Mainline progress through the return from `time_init` is demonstrated by ML006.**
+  Its post-`setup_arch` and post-`time_init` records survived healthy original-A
+  return. This proves the named code boundaries, not interrupt delivery or
+  working timer ticks; earlier candidates retain their original evidence.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
@@ -131,6 +132,16 @@ identities, goals, artifacts and authority remain separate.
   its reset period and cause remain unproved. One N and one original-A transfer completed; first final health
   passed, with no health-only retry. No replay or follow-on grant is armed.
   [ML005 run](docs/reports/S22PLUS_MAINLINE_ML005_RUN_2026-10-30.md).
+- **ML006 is consumed: both return witnesses observed / ANDROID_CLOSED_HEALTHY.**
+  Six intact records at each site were recovered on the exact returned Android
+  boot, with no damaged/foreign candidates. The later point proves return from
+  `setup_arch`, the preceding helper call and `time_init` along this candidate's
+  sequential path; the earlier helper may have skipped writing. The second
+  helper's cleanup and return, ordinary IRQ enablement, timer ticks and PID1/USB remain
+  unproved. N and original A were each transferred once; first final health
+  passed. One expected target-not-found boot-wait read was preserved and handled
+  by the existing bounded reobservation path. No health-only continuation or
+  follow-on grant was needed. [ML006 run](docs/reports/S22PLUS_MAINLINE_ML006_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -195,7 +206,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML006 setup_arch and time_init return witnesses
+## Next bounded unit: H0 progress distinction after time_init
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -271,13 +282,20 @@ Two-round Claude/Argon discussion selected
 V4 calls in `start_kernel` immediately after `setup_arch` and `time_init` return.
 These distinguish later architecture progress from subsequent core memory,
 scheduler, IRQ and timer initialization, before ordinary IRQ enablement.
-The fixed writer and two-slot bound are retained, with exact late-fixmap,
-no-map alias and cleanup qualification at the new points. H0 qualification
-passed and final independent review is PASS_GO with no unresolved findings.
-The corrected explicit-receipt producer, production task admission and current
-fixed D0/raw Android health passed. ML006 is ready for its exact returned
-one-operation attended approval; no grant, control or partition transfer exists.
-Missing markers remain unknown and do not identify a failure location.
+The fixed writer and two-slot bound were retained, with exact late-fixmap,
+no-map alias and cleanup qualification at the new points. Its
+[attended run](docs/reports/S22PLUS_MAINLINE_ML006_RUN_2026-10-30.md) is now
+consumed and closed healthy: both stages have six intact records and the
+independent decoder agrees. USB/PID1 remains NO_PROOF; original A was restored
+once and first final health passed. Missing markers remain unknown and do not
+identify a failure location. No successor or follow-on grant is armed.
+
+The next bounded H0 question is how to witness progress after `time_init`,
+toward ordinary IRQ enablement, timer-tick-dependent work and later boot.
+The exact source still executes RNG, canary and perf initialization before
+enabling IRQs, followed by console and later initialization. Any chosen later
+witness must qualify its actual mapping lifetime and concurrency context;
+this state record neither selects a new image nor authorizes another run.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

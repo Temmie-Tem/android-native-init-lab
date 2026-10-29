@@ -1,6 +1,10 @@
 # S22+ ML006: post-setup-arch and post-time-init progress markers
 
-Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML006 run](S22PLUS_MAINLINE_ML006_RUN_2026-10-30.md)
+is consumed and closed healthy, with both return witnesses recovered. The
+readiness receipts and absence-of-grant statements below describe preparation
+before that execution and remain historical.
 
 Final independent source/artifact review is **PASS_GO**, with no unresolved
 findings. Production qualification, task preparation and the connector bundle
