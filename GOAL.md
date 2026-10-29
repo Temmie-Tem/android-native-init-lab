@@ -112,6 +112,13 @@ identities, goals, artifacts and authority remain separate.
   identify reset cause or demonstrate PID1/USB. The USB terminal remains
   NO_PROOF. No replay or follow-on grant is armed.
   [ML003 run](docs/reports/S22PLUS_MAINLINE_ML003_RUN_2026-10-30.md).
+- **ML003 reset-report provenance is bounded in H0.** The exact FYG8 reporter
+  maps OEM enum 6 to the retained NoC label; the general restart word and
+  upload string are separate inputs. The UEFI restore label can also appear
+  after a failed read, as reproduced with actual instructions. Fresh-event
+  attribution and the faulting component remain unproved. The next two-site
+  MMU/early-C observer is designed but not implemented or activated.
+  [Provenance and next design](docs/reports/S22PLUS_MAINLINE_ML003_RESET_PROVENANCE_H0_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -176,7 +183,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 progress distinction after ML003 kernel entry
+## Next bounded unit: H0 MMU and early-C progress observer
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -215,12 +222,17 @@ both early stage markers survived the tested physical return, while full
 PID1/USB proof remained absent. Original-A restoration and final health passed.
 The candidate, exact approval and operation are consumed and closed.
 
-The useful next H0 distinction is how far this kernel progresses after
-`primary_entry`, using its actual startup path and the newly demonstrated
-retained-log channel. Later initialization and reset cause remain separate
-questions. Missing markers remain unknown, and ML003 does not reinterpret the
-earlier ML001/ML002 results. No successor image or physical grant is selected
-by this goal update.
+The bounded [reset-report analysis](docs/reports/S22PLUS_MAINLINE_ML003_RESET_PROVENANCE_H0_2026-10-30.md)
+joined the retained firmware's reporter, OEM-slot writer and log-restoration
+path. Runtime configuration and event freshness remain unresolved; the next
+progress experiment is not gated on open-ended secure-firmware analysis.
+The proposed H0 successor observes the point before `__enable_mmu` and the
+point after `early_ioremap_init` but before `setup_machine_fdt`. Its latter
+writer needs explicit bounded mapping and cache/alias qualification while
+preserving `no-map`. Implementation, actual artifact qualification and scoped
+review remain outstanding. Later initialization and reset cause are separate
+questions. Missing markers remain unknown, and ML003 does not reinterpret
+ML001/ML002. No successor image or physical grant is selected by this update.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
