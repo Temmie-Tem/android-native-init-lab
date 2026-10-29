@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v3_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v4_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -96,7 +96,8 @@ response. Descriptor visibility alone proves none of these.
 
 An image carrying the schema-exact `retained_marker` qualification may add
 only the reviewed `s22plus-mainline-retained-marker-v1`,
-`s22plus-mainline-retained-marker-v2` or `s22plus-mainline-retained-marker-v3`
+`s22plus-mainline-retained-marker-v2`, `s22plus-mainline-retained-marker-v3` or
+`s22plus-mainline-retained-marker-v4`
 diagnostic writer. These formats are mutually exclusive in one candidate;
 each successor replaces both preceding sites.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
@@ -175,6 +176,31 @@ The schema-distinct V3 frames are decoded only from their exact qualification;
 older records retain their original meanings. A later positive with an absent
 earlier record is valid positive evidence, not a contradiction or new stop.
 
+V4 replaces both V3 sites with two calls in `start_kernel`, immediately after
+`setup_arch(&command_line)` returns and immediately after `time_init` returns,
+before `random_init` and ordinary IRQ enablement. It uses a fresh fixed
+stage pair, schema, magic and integrity domain. `setup_arch` and the assembly
+entry are unmarked. Its generated definitions precede the complete annotated
+`start_kernel` declaration; the existing function attributes and helpers'
+stack/PAC protections are retained. Writer guards, slots, Normal-NC attributes,
+header checks, byte stores and reverse cleanup are unchanged.
+
+Both V4 calls follow `early_ioremap_reset` and use this exact ARM64 tree's
+late fixmap set/clear path. They retain V3's no-linear-alias requirement at
+both new sites, including after core allocator initialization. Additional
+qualification runs the exact Image through real EL1 and VHE EL2 with the
+late-branch selector set, IRQs masked and `SYSTEM_BOOTING`. At both calls it
+proves no linear translation for the fixed log slice, positive adjacent RAM
+translation/read calibration, Normal-NC non-executable temporary mappings
+and complete temporary PTE/slot cleanup. Both actual linked calls must follow
+their named returns directly. Guard and mapping failure cases remain bounded.
+The late-mapping qualification addresses lifetime, alias and cleanup hazards
+only for V4; it is not a new prerequisite for older formats or recovery.
+Its review trigger is changed callsite, mapping/lifetime machinery or
+reservation. It retires only when a separately reviewed successor removes
+the late writer or substitutes equivalent safety evidence. H0 proves no
+physical cache coherency or physical page-table format.
+
 The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
 index between attempts. Each site runs at most once per entry, has a fixed
@@ -199,6 +225,13 @@ V3 `post-fdt` proves the named post-FDT recording point in that candidate;
 preceding helper call along the sequential path. The preceding call may have
 skipped writing. Neither record proves its own later unmap/return, any
 subsequent initialization, or a historical candidate's writer return.
+V4 `post-setup-arch` proves return from that candidate's `setup_arch` call;
+`post-time-init` proves return from its `time_init` call and from the preceding
+recording helper call along the sequential path. A preceding helper may have
+skipped its write and some or all cleanup calls. Neither record proves its
+own later cleanup/return, delivery of interrupts, working timer ticks or any
+later initialization. Missing V4 records do not transfer an earlier candidate's
+progress boundary into this candidate.
 
 ### Fixed post-closure retained-marker D0
 

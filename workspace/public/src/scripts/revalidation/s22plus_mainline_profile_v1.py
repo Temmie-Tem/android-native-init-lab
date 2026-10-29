@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v3_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v4_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -137,22 +137,39 @@ def marker_binding(image,manifest,loader):
                 tests['mmu_on']['kernel_sha256']==vm['mmu_on']['kernel_sha256']==
                     image['runtime_sources']['kernel']['sha256'],
                 'C marker lacks actual C and MMU-on kernel qualification')
-    if marker.version(config)==3:
+    if marker.version(config) in (3,4):
         require(vm['mmu_on'].get('post_paging_no_linear_alias_proved') is True and
-                vm['mmu_on'].get('qualified_c_stages')==tests['mmu_on'].get('qualified_c_stages')==[5,6],
-                'V3 marker lacks post-paging no-map and two-site qualification')
+                vm['mmu_on'].get('qualified_c_stages')==tests['mmu_on'].get('qualified_c_stages')==list(marker.c_stages(config)),
+                'later C marker lacks post-paging no-map and two-site qualification')
+    if marker.version(config)==4:
+        cases=vm['mmu_on'].get('cases',[])
+        require(vm['mmu_on'].get('late_fixmap_proved') is True and cases and
+                all(r.get('late_context_stages')==r.get('no_linear_alias_stages')==[7,8] and
+                    r.get('late_fixmap_proved') is True and r.get('first_c_returned') is True and
+                    r.get('mapping_slots_restored') is True for r in cases),
+                'V4 marker lacks both late contexts, aliases or cleanup')
+        normal={r['case']:r for r in cases if r.get('case') in ('normal','normal-el1')}
+        require(set(normal)=={'normal','normal-el1'} and
+                normal['normal'].get('actual_c_el')==2 and normal['normal-el1'].get('actual_c_el')==1 and
+                all(r.get('temporary_mapping_attribute_stages')==[7,8] for r in normal.values()),
+                'V4 marker lacks actual EL1/EL2 mapping attributes at both sites')
     source=read(unchanged(loader['retained_marker']['kernel_source']))
     require(source['config']==value['config'] and source['init_manifest']['sha256']==
             pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')
     return value
 
 
-def qualify(package_dir,loader_dir,output,*,marker_qualification=None):
+def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None):
     """Revalidate existing immutable artifacts, without building or contacting a device."""
     package_dir,loader_dir,output=[Path(p).resolve() for p in (package_dir,loader_dir,output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private qualification required')
     package=read(package_dir/'result.json');loader=read(loader_dir/'result.json')
     base=loader_dir.parent
+    loader_tests=pin(Path(loader_qualification).resolve()/'result.json')
+    entry_tests=pin(Path(entry_vm).resolve()/'result.json')
+    require(package['qualification_sha256']==loader_tests['sha256'] and
+            package['entry_vm_sha256']==entry_tests['sha256'],
+            'explicit test receipts differ from the packaged qualification')
     manifest=read(Path(loader['initramfs_manifest']))
     ap=package['copies'][0]['ap']
     with transport.pin_boot_only_ap(Path(ap['path']),label='mainline H0 image',
@@ -171,12 +188,12 @@ def qualify(package_dir,loader_dir,output,*,marker_qualification=None):
         run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
         runtime_sources=runtime)
     if marker_qualification is not None:image['retained_marker']=pin(Path(marker_qualification).resolve())
-    output.mkdir(mode=0o700,parents=True)
     record=dict(schema='s22plus-mainline-qualification-v1',status='PASS_H0_MAINLINE_CANDIDATE',image=image,
         package=pin(package_dir/'result.json'),loader=pin(loader_dir/'result.json'),
         init_manifest=pin(Path(loader['initramfs_manifest'])),
         entry_review=pin(base/'review/independent-loader-entry-package-review-1.json'),
-        loader_tests=pin(base/'qualification-4/result.json'),entry_tests=pin(base/'entry-vm-2/result.json'),device_actions=0)
+        loader_tests=loader_tests,entry_tests=entry_tests,device_actions=0)
+    output.mkdir(mode=0o700,parents=True)
     image=dict(image,qualification=publish(output/'qualification.json',record))
     image_binding(image,artifact_bytes=True)
     return publish(output/'image.json',image)

@@ -12,10 +12,12 @@ from prepare import digest, require, run
 
 def marker_provenance(prepared_dir,kernel):
     import retained_marker as marker
-    from prepare_marked import instrumented_head,instrumented_setup
+    from prepare_marked import instrumented_head,instrumented_setup,instrumented_main
     path=prepared_dir/'marker-source.json';text=(kernel/'arch/arm64/kernel/head.S').read_text()
-    setup=kernel/'arch/arm64/kernel/setup.c';header=setup.parent/'s22-retained-early-c.h'
-    c_marked=header.exists() or (setup.exists() and 's22-retained-early-c.h' in setup.read_text())
+    setup=kernel/'arch/arm64/kernel/setup.c';main=kernel/'init/main.c'
+    c_marked=any(p.parent.joinpath('s22-retained-early-c.h').exists() or
+                 (p.exists() and ('s22-retained-early-c.h' in p.read_text() or 's22_retained_' in p.read_text()))
+                 for p in (setup,main))
     require(('s22_retained_' in text or c_marked)==path.exists(),'partial marker source publication')
     if not path.exists():return None
     value=json.loads(path.read_text())
@@ -27,12 +29,25 @@ def marker_provenance(prepared_dir,kernel):
     marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
     require(text==instrumented_head(Path(value['original_head']['path']).read_text(),cfg),'complete marker source differs')
     if marker.c_stages(cfg):
+        header=(kernel/marker.c_source(cfg)).parent/'s22-retained-early-c.h'
         for key in ('original_setup','instrumented_setup','generated_header'):
             row=value[key];p=Path(row['path'])
             require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'early C source changed: '+key)
         require(Path(value['instrumented_setup']['path'])==setup and Path(value['generated_header']['path'])==header and
             setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text(),cfg) and
             header.read_text()==marker.render_c(cfg),'complete early C source differs')
+        if marker.version(cfg)==4:
+            for key in ('original_main','instrumented_main'):
+                row=value[key];p=Path(row['path'])
+                require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'start_kernel source changed: '+key)
+            require(Path(value['instrumented_main']['path'])==main and
+                    main.read_text()==instrumented_main(Path(value['original_main']['path']).read_text(),cfg) and
+                    not (setup.parent/'s22-retained-early-c.h').exists(),'complete V4 source differs')
+        else:
+            require(not (main.parent/'s22-retained-early-c.h').exists() and
+                    (not main.exists() or ('s22_retained_' not in main.read_text() and
+                                           's22-retained-early-c.h' not in main.read_text())),
+                    'earlier format contains a start_kernel marker')
     else:require(not c_marked,'V1 marker cannot contain the MMU-on writer')
     return value
 

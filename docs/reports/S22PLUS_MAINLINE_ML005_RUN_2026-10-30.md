@@ -44,8 +44,9 @@ Five copies per stage do not establish five boots or five paired attempts.
 The static records have no per-boot identity; adjacency does not prove that
 two records came from the same boot. They establish at-least-once occurrence
 during this candidate's attempts, not the last attempt, reset cause or a
-failure location. The operator confirmed physical Download; no separate
-candidate reset-period observation was supplied for this run. Earlier
+failure location. After closure, the operator additionally reported that the
+boot loop persisted during ML005. No numeric period was supplied; that
+observation does not identify a reset cause or stage. Earlier
 ML003/ML004 records retain their original meanings, including the limits on
 their writers' later return.
 
@@ -91,7 +92,10 @@ Private root:
 `workspace/private/outputs/s22plus-mainline-ml005-h0-20261030-1/`.
 The exact approval, one-shot grant, consumption, raw captures, terminal,
 closure and timeline remain under `task-1/`. The physical Download confirmation
-is preserved in `operator-observations-ml005.json`. `retention-1/` contains
+is preserved in `operator-observations-ml005.json`. The later boot-loop report
+is preserved as `operator-observation.json` under
+`workspace/private/outputs/s22plus-mainline-ml005-next-discussion-20261030-1/`;
+the original observation and consumed records remain unchanged. `retention-1/` contains
 the bounded raw log and both health brackets; `audit-run.py` and
 `run-audit-1.json` retain the independent H0 projection and its result.
 

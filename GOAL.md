@@ -127,7 +127,8 @@ identities, goals, artifacts and authority remain separate.
   through `setup_machine_fdt` and `paging_init`, including return from this
   candidate's earlier helper call. It does not prove the second writer's later
   cleanup/return, a boot count, reset cause or PID1/USB. The USB terminal remains
-  NO_PROOF. One N and one original-A transfer completed; first final health
+  NO_PROOF. The operator reports that ML005 also continued to boot-loop;
+  its reset period and cause remain unproved. One N and one original-A transfer completed; first final health
   passed, with no health-only retry. No replay or follow-on grant is armed.
   [ML005 run](docs/reports/S22PLUS_MAINLINE_ML005_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
@@ -194,7 +195,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 progress distinction after paging
+## Next bounded unit: ML006 setup_arch and time_init return witnesses
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -265,12 +266,18 @@ remains NO_PROOF; original A was restored once and first final health passed.
 Missing markers remain unknown; earlier candidates keep their original
 evidence and meanings. No successor or follow-on grant is armed.
 
-The next bounded H0 question is which positive witness can distinguish later
-`setup_arch` progress after paging while preserving the temporary-mapping
-and no-map requirements. The exact source next reaches ACPI/DT expansion,
-`bootmem_init`, resource setup and `early_ioremap_reset`; these stages are not
-yet physical evidence. Site selection and qualification remain future work,
-without reinterpreting missing markers as a failure location.
+Two-round Claude/Argon discussion selected
+[ML006](docs/reports/S22PLUS_MAINLINE_ML006_CORE_MARKERS_H0_2026-10-30.md):
+V4 calls in `start_kernel` immediately after `setup_arch` and `time_init` return.
+These distinguish later architecture progress from subsequent core memory,
+scheduler, IRQ and timer initialization, before ordinary IRQ enablement.
+The fixed writer and two-slot bound are retained, with exact late-fixmap,
+no-map alias and cleanup qualification at the new points. H0 qualification
+passed and final independent review is PASS_GO with no unresolved findings.
+The corrected explicit-receipt producer, production task admission and current
+fixed D0/raw Android health passed. ML006 is ready for its exact returned
+one-operation attended approval; no grant, control or partition transfer exists.
+Missing markers remain unknown and do not identify a failure location.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

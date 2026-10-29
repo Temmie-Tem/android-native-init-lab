@@ -61,6 +61,33 @@ class Frames(unittest.TestCase):
         self.assertIn('noinline void __init s22_retained_post_paging(void)',rendered)
         self.assertIn('0x1ffff0U - 256) + 0;',rendered)
         self.assertIn('0x1ffff0U - 256) + 128;',rendered)
+    def test_v4_is_disjoint_and_later_positive_needs_no_earlier_record(self):
+        cfg=marker.configuration(self.candidate,self.key,version=4)
+        marker.validate(cfg,self.candidate,self.key)
+        later=bytes.fromhex(cfg['frames']['8'])
+        for version in (1,2,3):
+            old=marker.configuration(self.candidate,self.key,version=version)
+            old_frames=b''.join(bytes.fromhex(v) for v in old['frames'].values())
+            result=marker.decode(old_frames+later,self.candidate,self.key,version=4)
+            self.assertEqual(result['observed_stages'],['post-time-init'])
+            self.assertFalse(result['same_boot_pair_proved']);self.assertFalse(result['replay_authorized'])
+            self.assertEqual(marker.decode(later,self.candidate,self.key,version=version)['status'],'NO_PROOF')
+        cfg['frames']['7']=cfg['frames']['8']
+        with self.assertRaises(ValueError):marker.validate(cfg,self.candidate,self.key)
+    def test_v4_hooks_are_after_returns_in_start_kernel_only(self):
+        import prepare_marked
+        cfg=marker.configuration(self.candidate,self.key,version=4)
+        setup='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n{\n\tpaging_init();\n}\n'
+        self.assertEqual(prepare_marked.instrumented_setup(setup,cfg),setup)
+        source=('asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\n'
+                'void start_kernel(void)\n{\n\tsetup_arch(&command_line);\n\ttime_init();\n\trandom_init();\n}\n')
+        value=prepare_marked.instrumented_main(source,cfg)
+        self.assertIn('\tsetup_arch(&command_line);\n\ts22_retained_post_setup_arch();\n',value)
+        self.assertIn('\ttime_init();\n\ts22_retained_post_time_init();\n\trandom_init();\n',value)
+        self.assertEqual(marker.c_source(cfg),'init/main.c')
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(source+'\ttime_init();\n',cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_setup(setup+'s22_retained_post_fdt();\n',cfg)
     def test_wrong_key_corrupt_and_truncated(self):
         for data,key in [(self.a,bytes(32)),(self.a[:127],self.key),(self.a[:60]+b'x'+self.a[61:],self.key),
                          (bytes(8)+self.a[8:],self.key),(self.a[:4],self.key)]:
@@ -77,6 +104,9 @@ class Frames(unittest.TestCase):
             head.write_text('s22_retained_kernel:\n')
             with self.assertRaisesRegex(ValueError,'partial marker'):build_kernel.marker_provenance(p,p/'source')
             head.write_text('unmarked entry\n');(p/'marker-source.json').write_text('{}')
+            with self.assertRaisesRegex(ValueError,'partial marker'):build_kernel.marker_provenance(p,p/'source')
+            (p/'marker-source.json').unlink();main=p/'source/init/main.c';main.parent.mkdir()
+            main.write_text('s22_retained_post_setup_arch();\n')
             with self.assertRaisesRegex(ValueError,'partial marker'):build_kernel.marker_provenance(p,p/'source')
     def test_no_header_or_outside_slot_store_in_actual_assembly(self):
         import qualify_retained as qualify

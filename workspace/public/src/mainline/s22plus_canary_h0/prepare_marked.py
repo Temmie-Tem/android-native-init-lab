@@ -15,8 +15,8 @@ def pin(p):
 
 def instrumented_head(old,cfg):
     end='SYM_CODE_END(primary_entry)\n'
-    if marker.version(cfg)==3:
-        require(old.count(end)==1 and 's22_retained_' not in old,'V3 requires unmarked assembly entry')
+    if marker.version(cfg) in (3,4):
+        require(old.count(end)==1 and 's22_retained_' not in old,'C-only format requires unmarked assembly entry')
         return old
     if marker.version(cfg)==2:
         site='SYM_FUNC_START_LOCAL(__primary_switch)\n'
@@ -28,12 +28,28 @@ def instrumented_head(old,cfg):
 
 def instrumented_setup(old,cfg=None):
     declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
+    if cfg is not None and marker.version(cfg)==4:
+        require(old.count(declaration)==1 and 's22_retained_' not in old and
+                's22-retained-early-c.h' not in old,'V4 requires unmarked setup_arch')
+        return old
     sites=[('\tearly_ioremap_init();\n','s22_retained_early_c')]
     if cfg is not None and marker.version(cfg)==3:
         sites=[('\tsetup_machine_fdt(__fdt_pointer);\n',marker.name(cfg,5)),
                ('\tpaging_init();\n',marker.name(cfg,6))]
     require(old.count(declaration)==1 and all(old.count(site)==1 for site,_ in sites) and 's22_retained_' not in old and
             's22-retained-early-c.h' not in old,'early C hook differs')
+    result=old.replace(declaration,'#include "s22-retained-early-c.h"\n\n'+declaration)
+    for site,name in sites:result=result.replace(site,site+'\t'+name+'();\n')
+    return result
+
+def instrumented_main(old,cfg):
+    require(marker.version(cfg)==4,'only V4 marks start_kernel')
+    declaration=('asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\n'
+                 'void start_kernel(void)\n')
+    sites=[('\tsetup_arch(&command_line);\n',marker.name(cfg,7)),
+           ('\ttime_init();\n',marker.name(cfg,8))]
+    require(old.count(declaration)==1 and all(old.count(site)==1 for site,_ in sites) and
+            's22_retained_' not in old and 's22-retained-early-c.h' not in old,'start_kernel hook differs')
     result=old.replace(declaration,'#include "s22-retained-early-c.h"\n\n'+declaration)
     for site,name in sites:result=result.replace(site,site+'\t'+name+'();\n')
     return result
@@ -80,13 +96,18 @@ def instrument(prepared,init,*,version=1):
         init_manifest=pin(init/'result.json'),original_head=pin(prepared/'original-head.S'),
         instrumented_head=pin(head),sources=[pin(HERE/x) for x in ('retained-marker.S','retained_marker.py','prepare_marked.py')],
         device_actions=0)
-    if version in (2,3):
+    if marker.c_stages(cfg):
         setup=Path(value['kernel'])/'arch/arm64/kernel/setup.c';original=prepared/'original-setup.c'
         original.write_bytes(setup.read_bytes());setup.write_text(instrumented_setup(original.read_text(),cfg))
-        header=setup.parent/'s22-retained-early-c.h';require(not header.exists(),'early C header already present')
+        source=Path(value['kernel'])/marker.c_source(cfg)
+        header=source.parent/'s22-retained-early-c.h';require(not header.exists(),'early C header already present')
         header.write_text(marker.render_c(cfg))
         receipt.update(schema='s22plus-mainline-marker-kernel-source-v'+str(version),original_setup=pin(original),
             instrumented_setup=pin(setup),generated_header=pin(header))
+        if version==4:
+            original_main=prepared/'original-main.c';original_main.write_bytes(source.read_bytes())
+            source.write_text(instrumented_main(original_main.read_text(),cfg))
+            receipt.update(original_main=pin(original_main),instrumented_main=pin(source))
         receipt['sources'].append(pin(HERE/'retained-early-c.h'))
     (prepared/'marker-source.json').write_text(json.dumps(receipt,indent=2)+'\n')
     return receipt
@@ -95,7 +116,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest='command',required=True)
     a=s.add_parser('prepare');a.add_argument('previous',type=Path);a.add_argument('output',type=Path)
     a=s.add_parser('instrument');a.add_argument('prepared',type=Path);a.add_argument('init',type=Path)
-    a.add_argument('--version',type=int,choices=(1,2,3),default=1)
+    a.add_argument('--version',type=int,choices=tuple(marker.FORMATS),default=1)
     a=p.parse_args();os.umask(0o077)
     result=prepare(a.previous,a.output) if a.command=='prepare' else instrument(a.prepared,a.init,version=a.version)
     print(json.dumps(dict(status='H0_ONLY',device_actions=0)))

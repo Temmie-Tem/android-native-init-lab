@@ -25,6 +25,9 @@ FORMATS={
     3:dict(schema='s22plus-mainline-retained-marker-v3',magic=b'S22MRK3!',
            domain=b'S22PLUS-MAINLINE-ARCH-MARKER-V3\0',
            stages={5:'post-fdt',6:'post-paging'},names={5:'post_fdt',6:'post_paging'}),
+    4:dict(schema='s22plus-mainline-retained-marker-v4',magic=b'S22MRK4!',
+           domain=b'S22PLUS-MAINLINE-CORE-MARKER-V4\0',
+           stages={7:'post-setup-arch',8:'post-time-init'},names={7:'post_setup_arch',8:'post_time_init'}),
 }
 
 def require(condition,message):
@@ -73,7 +76,11 @@ def render(config,stage):
 
 def c_stages(config):
     v=version(config)
-    return (4,) if v==2 else (5,6) if v==3 else ()
+    return (4,) if v==2 else tuple(FORMATS[v]['stages']) if v in (3,4) else ()
+
+def c_source(config):
+    require(c_stages(config),'selected format has no C source')
+    return 'init/main.c' if version(config)==4 else 'arch/arm64/kernel/setup.c'
 
 def render_c(config,stage=None):
     require(c_stages(config) and config['base']==BASE and config['region_size']==REGION and

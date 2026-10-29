@@ -91,10 +91,11 @@ def qualify(record,config,output):
     require(digest(image)==record['kernel']['sha256'],'C kernel changed')
     raw=image.read_bytes();syms=symbols(elf)
     placement={}
-    if marker.version(config)==3:
+    if marker.version(config) in (3,4):
+        containing='start_kernel' if marker.version(config)==4 else 'setup_arch'
         with elf.open('rb') as stream:
-            symbol=next(s for s in ELFFile(stream).get_section_by_name('.symtab').iter_symbols() if s.name=='setup_arch')
-            start=syms['setup_arch'];length=symbol['st_size']
+            symbol=next(s for s in ELFFile(stream).get_section_by_name('.symtab').iter_symbols() if s.name==containing)
+            start=syms[containing];length=symbol['st_size']
         calls=[]
         for offset in range(0,length,4):
             instruction=struct.unpack_from('<I',raw,start-syms['_text']+offset)[0]
@@ -104,16 +105,25 @@ def qualify(record,config,output):
             calls.append((start+offset,start+offset+4*immediate))
         def call(name):
             matches=[pc for pc,destination in calls if destination==syms[name]]
-            require(len(matches)==1,'actual setup_arch call count differs: '+name)
+            require(len(matches)==1,'actual '+containing+' call count differs: '+name)
             return matches[0]
-        post_fdt=call(marker.name(config,5));post_paging=call(marker.name(config,6))
-        remaps=[pc for pc,destination in calls if destination==syms['fixmap_remap_fdt']]
-        require(len(remaps)==2 and remaps[0]<call('early_init_dt_scan')<remaps[1]<post_fdt<call('jump_label_init')<call('paging_init') and
-                post_paging==call('paging_init')+4<call('early_ioremap_reset'), 'actual V3 call ordering differs')
-        require(not any(name in syms for name in ('s22_retained_pre_mmu','s22_retained_kernel','s22_retained_early_c')),
-                'V3 retains a superseded marker site')
-        placement=dict(post_fdt_call=post_fdt,post_paging_call=post_paging,assembly_marker_absent=True,
-                       actual_fdt_scan_and_readonly_remap_before_first=True)
+        if marker.version(config)==3:
+            post_fdt=call(marker.name(config,5));post_paging=call(marker.name(config,6))
+            remaps=[pc for pc,destination in calls if destination==syms['fixmap_remap_fdt']]
+            require(len(remaps)==2 and remaps[0]<call('early_init_dt_scan')<remaps[1]<post_fdt<call('jump_label_init')<call('paging_init') and
+                    post_paging==call('paging_init')+4<call('early_ioremap_reset'), 'actual V3 call ordering differs')
+            placement=dict(post_fdt_call=post_fdt,post_paging_call=post_paging,assembly_marker_absent=True,
+                           actual_fdt_scan_and_readonly_remap_before_first=True)
+        else:
+            post_arch=call(marker.name(config,7));post_time=call(marker.name(config,8))
+            require(post_arch==call('setup_arch')+4<call('mm_core_init_early') and
+                    post_arch<call('mm_core_init')<call('sched_init')<call('init_IRQ')<call('time_init') and
+                    post_time==call('time_init')+4<call('random_init'), 'actual V4 call ordering differs')
+            placement=dict(post_setup_arch_call=post_arch,post_time_init_call=post_time,
+                           actual_calls_immediately_after_returns=True,assembly_marker_absent=True)
+        selected={marker.name(config,s) for s in marker.c_stages(config)}
+        known={'s22_retained_'+name for fmt in marker.FORMATS.values() for name in fmt['names'].values()}
+        require(not ((known-selected)&syms.keys()),'C-only format retains a superseded marker site')
     rows=[]
     for stage in marker.c_stages(config):
         offset=syms[marker.name(config,stage)+'_frame']-syms['_text']

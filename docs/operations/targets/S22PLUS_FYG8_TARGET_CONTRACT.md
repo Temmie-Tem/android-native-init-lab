@@ -68,6 +68,12 @@ V3 instead uses two C sites after FDT setup and after `paging_init`, with the
 same guarded temporary writer and explicit qualification of no linear alias
 over the no-map log slice. Its two records replace V2's sites; older records
 and consumed owners retain their original meaning and authority.
+V4 instead places both calls in `start_kernel`, after the returns from
+`setup_arch` and `time_init`, with the same guarded writer and two-slot bound.
+Its policy additionally qualifies the exact late-fixmap path, live early-map
+state, IRQ-masked boot context, no linear alias and complete temporary mapping
+cleanup at the later points. Older formats and recovery retain their existing
+requirements. It adds no interrupt-delivery, timer-tick or userspace proof.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

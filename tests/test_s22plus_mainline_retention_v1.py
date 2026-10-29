@@ -5,6 +5,7 @@ import unittest
 from unittest import mock
 import hashlib
 import json
+import tempfile
 
 import test_s22plus_native_target_io_v3 as health_fixture
 import s22plus_mainline_retention_v1 as retention
@@ -91,6 +92,16 @@ class RetentionTests(unittest.TestCase):
         self.assertEqual(value['status'],'RETAINED_STAGE_OBSERVED')
         self.assertFalse(value['reset_cause_proved']);self.assertFalse(value['mainline_pid1'])
 
+    def test_v4_uses_its_qualified_domain_and_preserves_later_only_evidence(self):
+        self.setup_owner(version=4)
+        key=bytes(range(32))
+        data=retention.marker.frame(self.candidate,key,6,version=3)+retention.marker.frame(self.candidate,key,8,version=4)
+        value=read(Path(self.run_capture('v4',data=data)['path']))
+        self.assertEqual(value['observed_stages'],['post-time-init'])
+        self.assertEqual(value['status'],'RETAINED_STAGE_OBSERVED')
+        self.assertFalse(value['reset_cause_proved']);self.assertFalse(value['mainline_pid1'])
+        self.assertFalse(value['same_boot_pair_proved']);self.assertFalse(value['replay_authorized'])
+
     def test_changed_return_boot_keeps_raw_but_never_proves_stage(self):
         self.setup_owner()
         with self.assertRaisesRegex(ValueError,'Android changed'):self.run_capture('changed',changed_after=True)
@@ -125,6 +136,69 @@ class RetentionTests(unittest.TestCase):
             with self.assertRaises(OSError):retention.tasks.capability(self.root)
             next(p for p in paths if p.exists()).write_text('changed recovery owner')
             with self.assertRaises(ValueError):retention.tasks.capability(self.root,recovery=True)
+
+class MarkerAdmissionTests(unittest.TestCase):
+    def test_explicit_producer_receipts_must_match_package_before_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);package=root/'package';loader=root/'loader'
+            tests=root/'chosen-loader-tests';entry=root/'chosen-entry-tests'
+            for p in (package,loader,tests,entry):p.mkdir()
+            a=publish(tests/'result.json',dict(fixture='loader'))
+            e=publish(entry/'result.json',dict(fixture='entry'))
+            publish(loader/'result.json',{})
+            publish(package/'result.json',dict(qualification_sha256=a['sha256'],entry_vm_sha256='00'*32))
+            output=root/'workspace/private/output'
+            with mock.patch.object(retention.profile,'ROOT',root):
+                with self.assertRaisesRegex(ValueError,'explicit test receipts'):
+                    retention.profile.qualify(package,loader,output,loader_qualification=tests,entry_vm=entry)
+                self.assertFalse(output.exists())
+                # Resolving an explicit missing receipt must also leave no output.
+                with self.assertRaises(OSError):
+                    retention.profile.qualify(package,loader,output,loader_qualification=root/'missing',entry_vm=entry)
+                self.assertFalse(output.exists())
+
+    def qualify(self,version,change=lambda value:None):
+        with tempfile.TemporaryDirectory() as folder:
+            base=Path(folder);key=base/'key';key.write_bytes(bytes(range(32)))
+            manifest={'candidate_id':'12'*32};manifest_pin=publish(base/'init.json',manifest)
+            cfg=publish(base/'config.json',retention.marker.configuration(manifest['candidate_id'],key.read_bytes(),version=version))
+            stages=list(retention.marker.c_stages(read(Path(cfg['path']))))
+            common=dict(config=cfg,loader_sha256='34'*32,kernel_sha256='56'*32,
+                        device_actions=0,physical_retention_proved=False)
+            tests=publish(base/'tests.json',dict(common,status='PASS_H0_ACTUAL_RETAINED_MARKERS',
+                mmu_on=dict(status='PASS_H0_ACTUAL_EARLY_C',kernel_sha256=common['kernel_sha256'],qualified_c_stages=stages)))
+            vm=dict(common,status='PASS_H0_ACTUAL_EL_RETAINED_MARKERS',qualification_sha256=tests['sha256'],
+                mmu_on=dict(status='PASS_H0_ACTUAL_KERNEL_MMU_MARKERS',kernel_sha256=common['kernel_sha256'],
+                            qualified_c_stages=stages,post_paging_no_linear_alias_proved=True))
+            if version==4:
+                vm['mmu_on'].update(late_fixmap_proved=True,cases=[dict(case=name,actual_c_el=el,
+                    late_context_stages=[7,8],no_linear_alias_stages=[7,8],late_fixmap_proved=True,
+                    first_c_returned=True,mapping_slots_restored=True,temporary_mapping_attribute_stages=[7,8])
+                    for name,el in (('normal',2),('normal-el1',1))])
+            change(vm)
+            vm_pin=publish(base/'vm.json',vm)
+            qualified=publish(base/'qualified.json',dict(schema='s22plus-mainline-marker-qualification-v1',
+                status='PASS_H0_MAINLINE_RETAINED_MARKER',config=cfg,tests=tests,entry_vm=vm_pin,device_actions=0))
+            source=publish(base/'source.json',dict(config=cfg,init_manifest=manifest_pin))
+            image=dict(retained_marker=qualified,key=pin(key),runtime_sources={
+                'loader':{'sha256':common['loader_sha256']},'kernel':{'sha256':common['kernel_sha256']}})
+            loader=dict(retained_marker=dict(config=cfg,kernel_source=source),initramfs_manifest=manifest_pin['path'])
+            with mock.patch.object(retention.profile,'marker_codec',return_value=retention.marker):
+                return retention.profile.marker_binding(image,manifest,loader)
+
+    def test_v3_keeps_original_requirements_and_v4_accepts_complete_proof(self):
+        for version in (3,4):self.assertEqual(self.qualify(version)['status'],'PASS_H0_MAINLINE_RETAINED_MARKER')
+
+    def test_v4_rejects_missing_late_context_cleanup_alias_or_actual_el(self):
+        changes=[lambda v:v['mmu_on'].pop('late_fixmap_proved'),
+                 lambda v:v['mmu_on']['cases'].clear(),
+                 lambda v:v['mmu_on']['cases'][0].update(late_context_stages=[8]),
+                 lambda v:v['mmu_on']['cases'][0].update(no_linear_alias_stages=[7]),
+                 lambda v:v['mmu_on']['cases'][0].update(mapping_slots_restored=False),
+                 lambda v:v['mmu_on']['cases'][1].update(actual_c_el=2),
+                 lambda v:v['mmu_on']['cases'][1].update(temporary_mapping_attribute_stages=[8])]
+        for change in changes:
+            with self.subTest(change=change),self.assertRaises(ValueError):self.qualify(4,change)
 
 class ClosedBindingTests(unittest.TestCase):
     setUp=health_fixture.TargetTests.setUp
