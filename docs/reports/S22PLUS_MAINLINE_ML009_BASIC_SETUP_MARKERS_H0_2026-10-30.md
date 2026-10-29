@@ -1,6 +1,12 @@
 # S22+ ML009: before/after basic-setup progress witnesses
 
 Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML009 run](S22PLUS_MAINLINE_ML009_RUN_2026-10-30.md)
+is consumed and closed healthy. Five pre-basic-setup records were recovered;
+the post-basic-setup site remains unproved. The readiness receipts and absence-
+of-grant statements below describe preparation before execution and remain
+historical.
+
 Candidate build/artifact qualification, independent review, production task
 preparation and the first fixed preapproval D0 passed. The remaining bounded
 unit requires exact new one-operation attended approval, one physical

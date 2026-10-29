@@ -30,12 +30,12 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Mainline kernel initialization-thread progress is demonstrated by ML008.**
-  Five intact records from after the kthreadd wait in `kernel_init` survived
-  healthy original-A return. At least one attempt reached this point beyond
-  `rest_init`. The post-async-sync record was absent; its absence locates no
-  failure. IRQ delivery, timer ticks and later initialization remain unproved;
-  earlier candidates retain their original evidence.
+- **Mainline progress to immediately before basic setup is demonstrated by ML009.**
+  Five intact pre-basic-setup records survived healthy original-A return.
+  At least one attempt passed the earlier kernel-thread preparation and
+  early/pre-SMP initcall path in `kernel_init_freeable`. Its post-basic record
+  was absent; that absence locates no failure. IRQ delivery, timer ticks and
+  later initialization remain unproved; earlier candidates retain their evidence.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
@@ -166,6 +166,17 @@ identities, goals, artifacts and authority remain separate.
   first final health passed, with no failed task capture or health-only
   continuation. No follow-on grant is armed.
   [ML008 run](docs/reports/S22PLUS_MAINLINE_ML008_RUN_2026-10-30.md).
+- **ML009 is consumed: pre-basic-setup observed / ANDROID_CLOSED_HEALTHY.**
+  Five intact first-site records and no post-basic-setup record were recovered
+  on the exact returned Android boot, with zero damaged/foreign candidates.
+  Independent decoding agrees. The first point follows earlier kernel-thread
+  preparation and early initcalls; its helper return and basic-setup entry are
+  unproved. Missing later evidence does not locate a driver/initcall failure.
+  The operator reports the same boot-loop interval, without a numeric period.
+  All 115 raw USB snapshots show actual endpoint absence. N and A each
+  transferred once; first final health passed with no failed task capture or
+  health-only continuation. No follow-on grant is armed.
+  [ML009 run](docs/reports/S22PLUS_MAINLINE_ML009_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -230,7 +241,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML009 basic-setup progress
+## Next bounded unit: H0 progress through basic setup
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -355,11 +366,19 @@ select a failure interval or reset cause. Actual linked placement must account
 for compiler-inlined basic setup and initcall loops. Fresh Image, actual
 linked calls/loops, 318 C cases, 13 mapping cases, full RAM-PID1 VM and repeated
 boot/AP packaging passed. Final independent review is PASS_GO with no findings.
-Production task preparation and the first fixed preapproval D0 passed. Exact
-new one-operation approval and actual attendance remain required; no grant or
-device operation is armed. Freshness and all effect-time checks remain binding.
-The [ML009 preparation report](docs/reports/S22PLUS_MAINLINE_ML009_BASIC_SETUP_MARKERS_H0_2026-10-30.md)
-records the bounded unit and its remaining requirements.
+Its separately approved [attended run](docs/reports/S22PLUS_MAINLINE_ML009_RUN_2026-10-30.md)
+is consumed and closed healthy. Five pre-basic-setup records were recovered;
+the post-basic recording point remains unproved. The missing frame supplies no
+failure interval. USB/userspace PID1 remains NO_PROOF. The operator reports
+the same boot-loop interval. N and A each transferred once and first final
+health passed without a health-only continuation. No successor grant is armed.
+The [preparation report](docs/reports/S22PLUS_MAINLINE_ML009_BASIC_SETUP_MARKERS_H0_2026-10-30.md)
+retains the historical qualification and readiness checkpoint.
+
+The next bounded H0 question is useful positive evidence through driver-model
+setup and regular initcall traversal, with a qualified recording path. ML009
+advances the demonstrated prefix but does not establish a failure inside
+basic setup. This state selects no successor image or device action.
 Missing records still cannot locate a failure; kernel-task progress does not
 prove driver success, userspace PID1 or USB. No successor grant or device effect
 is armed, and reset-cause investigation remains separate.
