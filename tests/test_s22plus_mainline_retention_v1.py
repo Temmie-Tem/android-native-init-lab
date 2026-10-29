@@ -108,6 +108,16 @@ class RetentionTests(unittest.TestCase):
         self.assertTrue((self.private/'changed/last-kmsg.capture.json').exists())
         self.assertFalse((self.private/'changed/result.json').exists())
 
+    def test_v5_projection_keeps_older_records_and_missing_first_non_authoritative(self):
+        self.setup_owner(version=5)
+        key=bytes(range(32))
+        data=retention.marker.frame(self.candidate,key,8,version=4)+retention.marker.frame(self.candidate,key,10,version=5)
+        value=read(Path(self.run_capture('v5',data=data)['path']))
+        self.assertEqual(value['observed_stages'],['pre-rest-init'])
+        self.assertEqual(value['status'],'RETAINED_STAGE_OBSERVED')
+        self.assertFalse(value['same_boot_pair_proved']);self.assertFalse(value['mainline_pid1'])
+        self.assertFalse(value['replay_authorized']);self.assertFalse(value['stopped_at_last_record'])
+
     def test_fresh_same_target_health_required_before_proc_read(self):
         self.setup_owner();self.bound['returned']=dict(self.bound['returned'],boot_id_sha256='0'*64)
         with self.assertRaisesRegex(ValueError,'rebooted since'):self.run_capture('wrong-boot')
@@ -170,11 +180,16 @@ class MarkerAdmissionTests(unittest.TestCase):
             vm=dict(common,status='PASS_H0_ACTUAL_EL_RETAINED_MARKERS',qualification_sha256=tests['sha256'],
                 mmu_on=dict(status='PASS_H0_ACTUAL_KERNEL_MMU_MARKERS',kernel_sha256=common['kernel_sha256'],
                             qualified_c_stages=stages,post_paging_no_linear_alias_proved=True))
-            if version==4:
+            if version in (4,5):
                 vm['mmu_on'].update(late_fixmap_proved=True,cases=[dict(case=name,actual_c_el=el,
-                    late_context_stages=[7,8],no_linear_alias_stages=[7,8],late_fixmap_proved=True,
-                    first_c_returned=True,mapping_slots_restored=True,temporary_mapping_attribute_stages=[7,8])
+                    late_context_stages=stages,no_linear_alias_stages=stages,late_fixmap_proved=True,
+                    first_c_returned=True,mapping_slots_restored=True,temporary_mapping_attribute_stages=stages)
                     for name,el in (('normal',2),('normal-el1',1))])
+            if version==5:
+                vm['mmu_on']['bootstrap_context_proved']=True
+                for row in vm['mmu_on']['cases']:
+                    row['bootstrap_contexts']=[dict(stage=s,initial_task=True,boot_cpu=0,online_cpus=1,
+                                                   preempt_count_low32=1,irq_masked=s==9) for s in stages]
             change(vm)
             vm_pin=publish(base/'vm.json',vm)
             qualified=publish(base/'qualified.json',dict(schema='s22plus-mainline-marker-qualification-v1',
@@ -187,7 +202,19 @@ class MarkerAdmissionTests(unittest.TestCase):
                 return retention.profile.marker_binding(image,manifest,loader)
 
     def test_v3_keeps_original_requirements_and_v4_accepts_complete_proof(self):
-        for version in (3,4):self.assertEqual(self.qualify(version)['status'],'PASS_H0_MAINLINE_RETAINED_MARKER')
+        for version in (3,4,5):self.assertEqual(self.qualify(version)['status'],'PASS_H0_MAINLINE_RETAINED_MARKER')
+
+    def test_v5_rejects_missing_or_changed_bootstrap_context(self):
+        changes=[lambda v:v['mmu_on'].pop('bootstrap_context_proved'),
+                 lambda v:v['mmu_on']['cases'][0].pop('bootstrap_contexts'),
+                 lambda v:v['mmu_on']['cases'][0]['bootstrap_contexts'][0].update(irq_masked=False),
+                 lambda v:v['mmu_on']['cases'][1]['bootstrap_contexts'][1].update(irq_masked=True),
+                 lambda v:v['mmu_on']['cases'][0]['bootstrap_contexts'][1].update(initial_task=False),
+                 lambda v:v['mmu_on']['cases'][0]['bootstrap_contexts'][1].update(preempt_count_low32=0),
+                 lambda v:v['mmu_on']['cases'][0]['bootstrap_contexts'][1].update(online_cpus=2),
+                 lambda v:v['mmu_on']['cases'][0]['bootstrap_contexts'][1].update(boot_cpu=1)]
+        for change in changes:
+            with self.subTest(change=change),self.assertRaises(ValueError):self.qualify(5,change)
 
     def test_v4_rejects_missing_late_context_cleanup_alias_or_actual_el(self):
         changes=[lambda v:v['mmu_on'].pop('late_fixmap_proved'),

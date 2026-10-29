@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import struct
 import subprocess
@@ -47,8 +48,14 @@ def qualify(record,gdb,output):
     require(digest(kernel)==artifact['kernel_sha256'] and digest(elf)==artifact['elf_sha256'], 'MMU fixture inputs changed')
     raw=kernel.read_bytes();syms=symbols(elf);base=syms['_text']
     cfg=json.loads(Path(record['config']['path']).read_text())
-    architecture=marker.version(cfg) in (3,4)
-    late=marker.version(cfg)==4
+    architecture=marker.version(cfg) in (3,4,5)
+    late=marker.version(cfg) in (4,5)
+    bootstrap=marker.version(cfg)==5
+    offsets={}
+    if bootstrap:
+        generated=kernel.parents[3]/'include/generated/asm-offsets.h'
+        offsets={name:int(value) for name,value in re.findall(r'^#define (TSK_TI_PREEMPT|TSK_TI_CPU) (\d+)',generated.read_text(),re.M)}
+        require(set(offsets)=={'TSK_TI_PREEMPT','TSK_TI_CPU'},'generated bootstrap task offsets missing')
     first,second=marker.c_stages(cfg) if architecture else (3,4)
     second_name=marker.name(cfg,second)
     switch=syms['__primary_switch']-base
@@ -162,10 +169,25 @@ def mapping_attributes(stage,slot_offset):
             late_probe=f'''
 def late_context(stage):
     context()
-    assert pointer('$cpsr')&(1<<7), 'V4 writer reached with IRQs unmasked'
+    assert bool(pointer('$cpsr')&(1<<7))==({not bootstrap} or stage=={first}), 'writer IRQ state differs'
     assert struct.unpack('<i',inferior.read_memory({syms['after_paging_init']}+delta,4))[0]==1, 'late fixmap branch not selected'
-    assert struct.unpack('<i',inferior.read_memory({syms['system_state']}+delta,4))[0]==0, 'V4 fixture is not SYSTEM_BOOTING'
+    assert struct.unpack('<i',inferior.read_memory({syms['system_state']}+delta,4))[0]==0, 'late fixture is not SYSTEM_BOOTING'
     late_stages.append(stage)
+'''
+        bootstrap_probe=''
+        if bootstrap:
+            bootstrap_probe=f'''
+bootstrap_contexts=[]
+def bootstrap_context(stage):
+    task=pointer('$SP_EL0')
+    assert task=={syms['init_task']}+delta, 'writer left initial bootstrap task'
+    count=struct.unpack('<I',inferior.read_memory(task+{offsets['TSK_TI_PREEMPT']},4))[0]
+    cpu=struct.unpack('<I',inferior.read_memory(task+{offsets['TSK_TI_CPU']},4))[0]
+    online=struct.unpack('<i',inferior.read_memory({syms['__num_online_cpus']}+delta,4))[0]
+    assert count==1 and cpu==0 and online==1, 'bootstrap preemption or CPU context differs'
+    assert bytes(inferior.read_memory({syms['early_boot_irqs_disabled']}+delta,1))==bytes(1)
+    bootstrap_contexts.append(dict(stage=stage,initial_task=True,boot_cpu=cpu,online_cpus=online,
+                                   preempt_count_low32=count,irq_masked=bool(pointer('$cpsr')&(1<<7))))
 '''
         first_probe=''
         if architecture:
@@ -189,6 +211,7 @@ prev={syms['prev_map']}+delta
 assert bytes(inferior.read_memory(prev,56))==bytes(56)
 if {late}:
     late_context({first});no_linear_alias({first})
+if {bootstrap}:bootstrap_context({first})
 if {label=='first-guard-skip'}:
     with open({str(sparse)!r},'r+b',buffering=0) as f:
         f.seek({marker.BASE-0x40000000+4});f.write(bytes(4))
@@ -226,6 +249,7 @@ b.delete()
 delta=pointer('$x8')-{syms['__primary_switched']}
 {mapping_helpers}
 {late_probe}
+{bootstrap_probe}
 {first_probe}
 entry={syms[second_name]}+delta
 b=gdb.Breakpoint('*%d'%entry,type=gdb.BP_HARDWARE_BREAKPOINT,internal=True)
@@ -238,6 +262,7 @@ assert actual_el=={1 if virtual=='off' else 2}, 'selected QEMU exception-level f
 b.delete()
 if {architecture}:no_linear_alias({second})
 if {late}:late_context({second})
+if {bootstrap}:bootstrap_context({second})
 returned=pointer('$x30')
 prev={syms['prev_map']}+delta
 assert bytes(inferior.read_memory(prev,56))==bytes(56), 'real early map slots already occupied'
@@ -270,6 +295,7 @@ result=dict(case={label!r},kernel_physical=physical,relocation=delta,actual_c_el
             no_linear_alias_stages=alias_stages if {architecture} else [],
             temporary_mapping_attribute_stages=attribute_stages if {architecture} else [],
             early_c_committed={valid and not fail_map and change is None})
+if {bootstrap}:result['bootstrap_contexts']=bootstrap_contexts
 open({str(folder/'result.json')!r},'x').write(json.dumps(result,indent=2)+'\\n')
 end
 detach
@@ -297,5 +323,8 @@ quit
         late_fixmap_proved=late,
         fixture_dtbs={k:dict(path=str(v),sha256=digest(v)) for k,v in dtbs.items()},
         cache_coherency_proved=False,physical_retention_proved=False,device_actions=0)
+    if bootstrap:
+        result.update(bootstrap_context_proved=True,task_offsets=offsets,
+            task_offsets_source=dict(path=str(generated),sha256=digest(generated)))
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     return result

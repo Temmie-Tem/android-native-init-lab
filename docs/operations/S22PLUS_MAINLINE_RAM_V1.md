@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v4_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v5_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -97,7 +97,7 @@ response. Descriptor visibility alone proves none of these.
 An image carrying the schema-exact `retained_marker` qualification may add
 only the reviewed `s22plus-mainline-retained-marker-v1`,
 `s22plus-mainline-retained-marker-v2`, `s22plus-mainline-retained-marker-v3` or
-`s22plus-mainline-retained-marker-v4`
+`s22plus-mainline-retained-marker-v4` or `s22plus-mainline-retained-marker-v5`
 diagnostic writer. These formats are mutually exclusive in one candidate;
 each successor replaces both preceding sites.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
@@ -201,6 +201,36 @@ reservation. It retires only when a separately reviewed successor removes
 the late writer or substitutes equivalent safety evidence. H0 proves no
 physical cache coherency or physical page-table format.
 
+V5 replaces both V4 sites with two calls in `start_kernel`: after
+`early_boot_irqs_disabled = false` immediately before `local_irq_enable`,
+and immediately before `rest_init`, after `kcsan_init`. Its new schema,
+magic, integrity domain and stages 9/10 retain the same C template, two slots,
+guards, attributes, header checks, byte stores and reverse cleanup. It does
+not mask/unmask interrupts or change preemption itself. Both helpers remain
+in init memory; the new candidate contains no earlier marker calls.
+
+V5 qualification retains V4's real EL1/VHE EL2 late-mapping, no-linear-alias,
+positive calibration, temporary-attribute and complete-cleanup evidence at
+both sites. It additionally establishes that both calls run in the initial
+bootstrap task on the boot CPU, with one online CPU, `SYSTEM_BOOTING`, and
+low 32-bit preemption count 1; the upper reschedule field may vary. IRQs are
+masked at the first point and unmasked at the second. These are qualified
+source/context properties, not dynamically encoded fields in the static
+physical records. The exact enabled source/config/DT closure must exclude
+a competing early-map caller reachable from interrupts, softirqs or irq_work
+before `rest_init`; `maxcpus=1` alone is insufficient. The first linked call
+must immediately precede IRQ enablement, and the second must immediately
+precede `rest_init`. The qualifier derives task offsets from that build's
+generated definitions rather than assuming a historical structure layout.
+
+This V5-only requirement addresses global early-map slot reentrancy and
+bootstrap lifetime across IRQ enablement. Changed sites, context, enabled
+callers, mapping machinery or reservation trigger review. It retires only
+when a separately reviewed successor removes this writer/context hazard or
+substitutes equivalent safety evidence. It adds no requirement to consumed
+formats or original-A recovery and proves no physical interrupt delivery,
+timer tick, cache coherency or later task execution.
+
 The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
 index between attempts. Each site runs at most once per entry, has a fixed
@@ -232,6 +262,14 @@ skipped its write and some or all cleanup calls. Neither record proves its
 own later cleanup/return, delivery of interrupts, working timer ticks or any
 later initialization. Missing V4 records do not transfer an earlier candidate's
 progress boundary into this candidate.
+V5 `pre-irq-enable` proves its recording point before ordinary IRQ enablement;
+`pre-rest-init` proves its recording point after the intervening initialization
+and return from this candidate's earlier helper call. That call may have
+skipped writing. The later point follows the IRQ-unmask instruction but proves
+neither IRQ delivery nor timer ticks; `calibrate_delay` may use the frequency-
+derived fast path. Neither record proves its own subsequent cleanup/return,
+entry to `rest_init`, PID1, or an earlier candidate's helper return. A later-only
+positive does not create a missing earlier record or a same-boot pair.
 
 ### Fixed post-closure retained-marker D0
 

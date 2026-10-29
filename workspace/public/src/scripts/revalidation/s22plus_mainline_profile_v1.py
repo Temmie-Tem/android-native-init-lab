@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v4_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v5_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -137,22 +137,29 @@ def marker_binding(image,manifest,loader):
                 tests['mmu_on']['kernel_sha256']==vm['mmu_on']['kernel_sha256']==
                     image['runtime_sources']['kernel']['sha256'],
                 'C marker lacks actual C and MMU-on kernel qualification')
-    if marker.version(config) in (3,4):
+    if marker.version(config) in (3,4,5):
         require(vm['mmu_on'].get('post_paging_no_linear_alias_proved') is True and
                 vm['mmu_on'].get('qualified_c_stages')==tests['mmu_on'].get('qualified_c_stages')==list(marker.c_stages(config)),
                 'later C marker lacks post-paging no-map and two-site qualification')
-    if marker.version(config)==4:
+    if marker.version(config) in (4,5):
+        stages=list(marker.c_stages(config))
         cases=vm['mmu_on'].get('cases',[])
         require(vm['mmu_on'].get('late_fixmap_proved') is True and cases and
-                all(r.get('late_context_stages')==r.get('no_linear_alias_stages')==[7,8] and
+                all(r.get('late_context_stages')==r.get('no_linear_alias_stages')==stages and
                     r.get('late_fixmap_proved') is True and r.get('first_c_returned') is True and
                     r.get('mapping_slots_restored') is True for r in cases),
-                'V4 marker lacks both late contexts, aliases or cleanup')
+                'late marker lacks both contexts, aliases or cleanup')
         normal={r['case']:r for r in cases if r.get('case') in ('normal','normal-el1')}
         require(set(normal)=={'normal','normal-el1'} and
                 normal['normal'].get('actual_c_el')==2 and normal['normal-el1'].get('actual_c_el')==1 and
-                all(r.get('temporary_mapping_attribute_stages')==[7,8] for r in normal.values()),
-                'V4 marker lacks actual EL1/EL2 mapping attributes at both sites')
+                all(r.get('temporary_mapping_attribute_stages')==stages for r in normal.values()),
+                'late marker lacks actual EL1/EL2 mapping attributes at both sites')
+        if marker.version(config)==5:
+            expected=[dict(stage=s,initial_task=True,boot_cpu=0,online_cpus=1,
+                           preempt_count_low32=1,irq_masked=s==9) for s in stages]
+            require(vm['mmu_on'].get('bootstrap_context_proved') is True and
+                    all(r.get('bootstrap_contexts')==expected for r in cases),
+                    'V5 marker lacks exact bootstrap task/CPU/preemption/IRQ context')
     source=read(unchanged(loader['retained_marker']['kernel_source']))
     require(source['config']==value['config'] and source['init_manifest']['sha256']==
             pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')

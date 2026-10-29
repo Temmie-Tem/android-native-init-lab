@@ -74,6 +74,13 @@ Its policy additionally qualifies the exact late-fixmap path, live early-map
 state, IRQ-masked boot context, no linear alias and complete temporary mapping
 cleanup at the later points. Older formats and recovery retain their existing
 requirements. It adds no interrupt-delivery, timer-tick or userspace proof.
+V5 replaces those sites with calls immediately before ordinary IRQ enablement
+and immediately before `rest_init`, using the same writer and slot bounds.
+Its policy additionally qualifies the exact bootstrap task, boot CPU, low
+preemption count, differing IRQ states and absence of reachable competing
+early-map users before task creation. These qualified context properties are
+not dynamic fields in the static records. Historical formats and recovery
+retain their meanings; no interrupt-delivery or timer-tick claim is added.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

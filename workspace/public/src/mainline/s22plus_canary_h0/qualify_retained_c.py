@@ -91,8 +91,8 @@ def qualify(record,config,output):
     require(digest(image)==record['kernel']['sha256'],'C kernel changed')
     raw=image.read_bytes();syms=symbols(elf)
     placement={}
-    if marker.version(config) in (3,4):
-        containing='start_kernel' if marker.version(config)==4 else 'setup_arch'
+    if marker.version(config) in (3,4,5):
+        containing='start_kernel' if marker.version(config) in (4,5) else 'setup_arch'
         with elf.open('rb') as stream:
             symbol=next(s for s in ELFFile(stream).get_section_by_name('.symtab').iter_symbols() if s.name==containing)
             start=syms[containing];length=symbol['st_size']
@@ -114,13 +114,23 @@ def qualify(record,config,output):
                     post_paging==call('paging_init')+4<call('early_ioremap_reset'), 'actual V3 call ordering differs')
             placement=dict(post_fdt_call=post_fdt,post_paging_call=post_paging,assembly_marker_absent=True,
                            actual_fdt_scan_and_readonly_remap_before_first=True)
-        else:
+        elif marker.version(config)==4:
             post_arch=call(marker.name(config,7));post_time=call(marker.name(config,8))
             require(post_arch==call('setup_arch')+4<call('mm_core_init_early') and
                     post_arch<call('mm_core_init')<call('sched_init')<call('init_IRQ')<call('time_init') and
                     post_time==call('time_init')+4<call('random_init'), 'actual V4 call ordering differs')
             placement=dict(post_setup_arch_call=post_arch,post_time_init_call=post_time,
                            actual_calls_immediately_after_returns=True,assembly_marker_absent=True)
+        else:
+            pre_irq=call(marker.name(config,9));pre_rest=call(marker.name(config,10))
+            irq_instruction=struct.unpack_from('<I',raw,pre_irq+4-syms['_text'])[0]
+            require(irq_instruction in (0xd50342ff,0xd50343ff) and
+                    call('time_init')<call('random_init')<pre_irq<call('console_init')<
+                    call('calibrate_delay')<pre_rest and pre_rest+4==call('rest_init'),
+                    'actual V5 IRQ-enable/rest_init call ordering differs')
+            placement=dict(pre_irq_enable_call=pre_irq,irq_enable_instruction=irq_instruction,
+                           pre_rest_init_call=pre_rest,actual_calls_immediately_before_boundaries=True,
+                           assembly_marker_absent=True)
         selected={marker.name(config,s) for s in marker.c_stages(config)}
         known={'s22_retained_'+name for fmt in marker.FORMATS.values() for name in fmt['names'].values()}
         require(not ((known-selected)&syms.keys()),'C-only format retains a superseded marker site')

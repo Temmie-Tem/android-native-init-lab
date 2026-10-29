@@ -206,7 +206,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 progress distinction after time_init
+## Next bounded unit: ML007 bootstrap progress markers
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -290,12 +290,18 @@ independent decoder agrees. USB/PID1 remains NO_PROOF; original A was restored
 once and first final health passed. Missing markers remain unknown and do not
 identify a failure location. No successor or follow-on grant is armed.
 
-The next bounded H0 question is how to witness progress after `time_init`,
-toward ordinary IRQ enablement, timer-tick-dependent work and later boot.
-The exact source still executes RNG, canary and perf initialization before
-enabling IRQs, followed by console and later initialization. Any chosen later
-witness must qualify its actual mapping lifetime and concurrency context;
-this state record neither selects a new image nor authorizes another run.
+The next two-round Claude/Argon discussion selected
+[ML007](docs/reports/S22PLUS_MAINLINE_ML007_BOOTSTRAP_MARKERS_H0_2026-10-30.md):
+V5 markers immediately before ordinary IRQ enablement and immediately before
+`rest_init`. The unchanged writer remains in the initial bootstrap task with
+preemption disabled, before PID1/kthreadd creation and driver initcalls.
+Exact linked calls, enabled interrupt-path interference, initial-task/CPU and
+IRQ context, late mappings, no linear alias and cleanup are qualified.
+Final independent review is PASS_GO, production task preparation passes and
+the first fixed preapproval D0 proves current Android health. Delay calibration
+may use `lpj_fine`; a later positive would not prove timer ticks or IRQ delivery.
+The exact returned one-operation approval and actual attendance remain required.
+No successor grant, control or partition transfer is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

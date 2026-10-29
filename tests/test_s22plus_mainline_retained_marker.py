@@ -88,6 +88,31 @@ class Frames(unittest.TestCase):
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(source+'\ttime_init();\n',cfg)
         with self.assertRaises(ValueError):prepare_marked.instrumented_setup(setup+'s22_retained_post_fdt();\n',cfg)
+    def test_v5_domain_and_later_only_positive(self):
+        cfg=marker.configuration(self.candidate,self.key,version=5)
+        later=bytes.fromhex(cfg['frames']['10'])
+        for version in range(1,5):
+            old=marker.configuration(self.candidate,self.key,version=version)
+            old_frames=b''.join(bytes.fromhex(v) for v in old['frames'].values())
+            result=marker.decode(old_frames+later,self.candidate,self.key,version=5)
+            self.assertEqual(result['observed_stages'],['pre-rest-init'])
+            self.assertFalse(result['same_boot_pair_proved']);self.assertFalse(result['mainline_pid1'])
+            self.assertEqual(marker.decode(later,self.candidate,self.key,version=version)['status'],'NO_PROOF')
+    def test_v5_bootstrap_boundaries_ignore_unrelated_irq_calls(self):
+        import prepare_marked
+        cfg=marker.configuration(self.candidate,self.key,version=5)
+        source=('void unrelated(void) {\n\tlocal_irq_enable();\n}\n'
+                'asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\n'
+                'void start_kernel(void)\n{\n\tearly_boot_irqs_disabled = false;\n\tlocal_irq_enable();\n'
+                "\tkcsan_init();\n\n\t/* Do the rest non-__init'ed, we're now alive */\n\trest_init();\n}\n")
+        value=prepare_marked.instrumented_main(source,cfg)
+        self.assertIn('early_boot_irqs_disabled = false;\n\ts22_retained_pre_irq_enable();\n\tlocal_irq_enable();',value)
+        self.assertIn('\ts22_retained_pre_rest_init();\n\trest_init();',value)
+        self.assertEqual(value.count('s22_retained_pre_irq_enable();'),1)
+        self.assertEqual(marker.c_source(cfg),'init/main.c')
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('false;','true;'),cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('\n\trest_init();','\n\tother();\n\trest_init();'),cfg)
     def test_wrong_key_corrupt_and_truncated(self):
         for data,key in [(self.a,bytes(32)),(self.a[:127],self.key),(self.a[:60]+b'x'+self.a[61:],self.key),
                          (bytes(8)+self.a[8:],self.key),(self.a[:4],self.key)]:
