@@ -1,6 +1,12 @@
 # S22+ ML008: kernel_init wait and async return witnesses
 
 Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML008 run](S22PLUS_MAINLINE_ML008_RUN_2026-10-30.md)
+is consumed and closed healthy. Five post-wait records were recovered; the
+post-async-sync site remains unproved. The readiness receipts and absence-of-
+grant statements below describe preparation before execution and remain
+historical.
+
 Candidate build and artifact qualification, independent review, production
 task preparation and the first fixed preapproval D0 passed. No approval, grant
 or device operation is armed. The remaining bounded unit requires an exact

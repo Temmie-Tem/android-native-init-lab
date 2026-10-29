@@ -30,11 +30,12 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Mainline progress to immediately before `rest_init` is demonstrated by ML007.**
-  Its pre-IRQ-enable and pre-rest-init records survived healthy original-A
-  return. At least one attempt passed the IRQ-unmask instruction and intervening
-  core initialization. IRQ delivery, timer ticks and entry to `rest_init` remain
-  unproved; earlier candidates retain their original evidence.
+- **Mainline kernel initialization-thread progress is demonstrated by ML008.**
+  Five intact records from after the kthreadd wait in `kernel_init` survived
+  healthy original-A return. At least one attempt reached this point beyond
+  `rest_init`. The post-async-sync record was absent; its absence locates no
+  failure. IRQ delivery, timer ticks and later initialization remain unproved;
+  earlier candidates retain their original evidence.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
@@ -154,6 +155,17 @@ identities, goals, artifacts and authority remain separate.
   transferred once; first final health passed with no failed task capture or
   health-only continuation. No follow-on grant is armed.
   [ML007 run](docs/reports/S22PLUS_MAINLINE_ML007_RUN_2026-10-30.md).
+- **ML008 is consumed: post-kthreadd-wait observed / ANDROID_CLOSED_HEALTHY.**
+  Five intact first-site records and no post-async-sync record were recovered
+  on the exact returned Android boot, with zero damaged/foreign candidates.
+  Independent decoding agrees. Kernel initialization-thread progress is proved;
+  the first helper's later return and the second recording point are unproved.
+  Missing records do not locate a failure or establish non-execution. The
+  operator reports the same boot-loop interval, without a numeric period.
+  All 116 USB snapshots showed absence. N and A each transferred once and
+  first final health passed, with no failed task capture or health-only
+  continuation. No follow-on grant is armed.
+  [ML008 run](docs/reports/S22PLUS_MAINLINE_ML008_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -218,7 +230,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML008 kernel initialization-thread progress
+## Next bounded unit: H0 evidence through later kernel initialization
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -326,10 +338,18 @@ unchanged. Fresh layout derivation, actual PID1 entry/return context,
 post-initcall mapper/reservation exclusions and late mappings are qualified.
 The marker VM supplies the physical candidate initramfs so the later path is
 reachable; the full RAM-PID1 VM retains its distinct VM initramfs. Final
-independent review is PASS_GO with no findings. Production admission and the
-first fixed preapproval D0 passed. Exact new one-operation approval and actual
-attendance remain required; no grant or device operation is armed. Freshness
-and all effect-time checks remain mandatory.
+independent review is PASS_GO with no findings. Its separately approved
+[attended run](docs/reports/S22PLUS_MAINLINE_ML008_RUN_2026-10-30.md) is consumed
+and closed healthy: five first-site records were recovered, while the second
+site remains unproved. The missing later record does not establish a failure
+interval. USB/userspace PID1 remains NO_PROOF. The operator reports the same
+boot-loop interval. N and A each transferred once, and first final health
+passed without a health-only continuation. No successor grant is armed.
+
+The next bounded H0 question is useful positive progress evidence through the
+later kernel initialization path, including the recording path's ability to
+leave a witness. Missing ML008 records do not select an initcall failure or
+reset cause. This state selects no successor image or device action.
 Missing records still cannot locate a failure; kernel-task progress does not
 prove driver success, userspace PID1 or USB. No successor grant or device effect
 is armed, and reset-cause investigation remains separate.
