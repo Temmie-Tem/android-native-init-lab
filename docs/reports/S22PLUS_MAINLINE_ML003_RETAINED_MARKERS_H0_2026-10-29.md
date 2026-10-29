@@ -2,11 +2,17 @@
 
 Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
 
+This is the historical preparation checkpoint. ML003 was subsequently consumed
+and closed healthy on 2026-10-30; the
+[run record](S22PLUS_MAINLINE_ML003_RUN_2026-10-30.md) contains the physical
+early-entry proof and the still-unproved PID1/USB result.
+
 ML003 adds small positive progress records at uniLoader's final kernel handoff
 site and mainline's `primary_entry`, while keeping the existing RAM PID1/USB2
 experiment and original-A return. It follows the
 [feasibility assessment](S22PLUS_MAINLINE_RETAINED_LOG_FEASIBILITY_H0_2026-10-29.md).
-No physical ML003 experiment, grant or candidate consumption has occurred.
+At this preparation checkpoint no physical experiment, grant or candidate
+consumption had occurred.
 Only S22+ SM-S906N/g0q/S906NKSS7FYG8 is selected; A90 and S20+ are untouched.
 
 Independent source/artifact review is **PASS_GO**, with no unresolved findings.
@@ -16,7 +22,7 @@ v12 and completed the named preapproval D0. Its durable readiness journal and
 complete raw health were rederived with the existing 300-second freshness
 check; process exit alone was not accepted as readiness.
 
-The fresh task has no operator approval, grant, operation directory or consumed
+At that checkpoint the task had no operator approval, grant, operation directory or consumed
 candidate claim. Device controls and partition transfers are **0**. Readiness
 is a point-in-time observation and must still meet the existing freshness and
 effect-time checks when an attended experiment is separately authorized.

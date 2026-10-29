@@ -30,8 +30,9 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Mainline on this g0q: not yet demonstrated.** The sister r0q port supplies
-  a credible starting point, not g0q qualification. The current
+- **Early mainline kernel entry on this g0q is demonstrated by ML003.**
+  A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
+  a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
   records source evidence, known gaps and the proposed staged qualification.
 - **First mainline H0 build is available.** Linux 7.2.11, a generated g0q DTB,
@@ -101,20 +102,20 @@ identities, goals, artifacts and authority remain separate.
   markers cannot establish non-execution, and a boot-loop pair cannot by itself
   establish one shared boot.
   [Feasibility report](docs/reports/S22PLUS_MAINLINE_RETAINED_LOG_FEASIBILITY_H0_2026-10-29.md).
-- **ML003 is prepared immediately before an attended experiment.** The actual
-  loader and mainline entry markers passed 342 instruction cases and six
-  actual-EL fixtures; complete loader/copy checks, full-kernel VM PID1 and two
-  identical boot/AP packages also passed. Fixed post-return collection and
-  optional-codec recovery paths were qualified. Independent review is PASS_GO,
-  backend v12 is connected, and named preapproval D0 proved current original-A
-  health. No operator approval, grant, candidate consumption, reboot or transfer
-  is open/performed for ML003. The user selected stopping before the physical
-  experiment; readiness remains subject to its existing freshness checks.
-  [ML003 preparation](docs/reports/S22PLUS_MAINLINE_ML003_RETAINED_MARKERS_H0_2026-10-29.md).
+- **ML003 is consumed: early kernel entry observed / ANDROID_CLOSED_HEALTHY.**
+  All 116 USB samples showed absence and the operator again reported a boot
+  loop. After one N and one physical Download/original-A transfer, health-only
+  continuation completed final Android health. The fixed same-returned-boot
+  log read recovered six intact loader-handoff and six `primary_entry` records,
+  with no damaged/foreign candidates. This proves both early sites were reached
+  at least once in ML003; it does not count boots, prove a same-boot pair,
+  identify reset cause or demonstrate PID1/USB. The USB terminal remains
+  NO_PROOF. No replay or follow-on grant is armed.
+  [ML003 run](docs/reports/S22PLUS_MAINLINE_ML003_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
-  are qualified above; physical g0q admission remains unproved. Bypassing
+  are qualified above; usable mainline boot remains unproved. Bypassing
   ABL's DT pipeline does not remove Gunyah.
 - **P462 vendor-kernel proof remains valid within its original scope:** two
   Debian boots, one offline hello installation, function and exact retention
@@ -150,7 +151,8 @@ The initial preferred mainline boot route is:
                         -> mainline Linux + g0q DTB + minimal initramfs
                         -> admitted Debian root -> exec Debian host PID 1
 
-uniLoader is a proposed carrier, not a proved g0q boot path. The initial carrier
+uniLoader has delivered the FYG8 Android control and ML003's early mainline
+entry; a complete mainline PID1/USB boot is still unproved. The initial carrier
 should retain stock vendor_boot/DTBO and avoid changing the bootloader or
 recovery partition. Pin the complete loader/kernel/patch/config/DTB/initramfs
 set. Do not copy the sister port's Android-removal or flashing workflow.
@@ -174,7 +176,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: attended ML003, prepared but not authorized
+## Next bounded unit: H0 progress distinction after ML003 kernel entry
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -208,16 +210,17 @@ a Samsung logger port, and a small header-preserving span is source-compatible.
 ML003 implements a candidate-bound loader-handoff marker and a pre-MMU
 mainline-entry marker, with positive-only decoding and the existing original-A
 return. Its separate fixed post-return reader joins the exact closed mainline
-owner and same returned Android boot. Implementation, artifact qualification,
-independent review and current preapproval D0 are complete. Physical retention,
-mainline progress on g0q and ML002's reset cause remain unproved.
+owner and same returned Android boot. Its 2026-10-30 attended run is complete:
+both early stage markers survived the tested physical return, while full
+PID1/USB proof remained absent. Original-A restoration and final health passed.
+The candidate, exact approval and operation are consumed and closed.
 
-The operator requested preparation through the point immediately before the
-physical experiment. That bounded unit is complete. ML003 has no returned
-finite attended approval or grant; its proposal is preserved privately. A
-later experiment would use the existing one-N/one-A owner with current machine
-binding and actual attendance, followed by the independent post-closure marker
-read. The task is not dispatched by this goal update.
+The useful next H0 distinction is how far this kernel progresses after
+`primary_entry`, using its actual startup path and the newly demonstrated
+retained-log channel. Later initialization and reset cause remain separate
+questions. Missing markers remain unknown, and ML003 does not reinterpret the
+earlier ML001/ML002 results. No successor image or physical grant is selected
+by this goal update.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
