@@ -2,6 +2,11 @@
 
 Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
 
+This is the historical preparation checkpoint. ML004 was subsequently consumed
+and closed healthy on 2026-10-30; the
+[run record](S22PLUS_MAINLINE_ML004_RUN_2026-10-30.md) contains the physical
+MMU/early-C proof and the still-unproved RAM PID1/USB result.
+
 ML004 moves the two diagnostic slots proved by
 [ML003](S22PLUS_MAINLINE_ML003_RUN_2026-10-30.md) to the next useful boot
 boundaries: the start of `__primary_switch` before `__enable_mmu`, and

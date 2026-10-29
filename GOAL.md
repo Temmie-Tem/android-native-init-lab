@@ -183,7 +183,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML004 MMU and early-C progress experiment
+## Next bounded unit: H0 progress beyond early-C and FDT setup
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -227,17 +227,21 @@ joined the retained firmware's reporter, OEM-slot writer and log-restoration
 path. Runtime configuration and event freshness remain unresolved; the next
 progress experiment is not gated on open-ended secure-firmware analysis.
 The [ML004 successor](docs/reports/S22PLUS_MAINLINE_ML004_MMU_MARKERS_H0_2026-10-30.md)
-implements the point before `__enable_mmu` and the point after
-`early_ioremap_init` but before `setup_machine_fdt`. Its second writer uses
-bounded Normal-NC temporary mappings while preserving `no-map`. The actual
-linked writers, real EL1/EL2 MMU/mapping paths, full kernel VM PID1 and repeated
-boot-only packages passed H0 qualification. Independent final review is
-PASS_GO with no unresolved findings, the exact task reopens through production
-admission, and current fixed D0 readiness/raw Android health passed. The
-candidate is ready for its exact returned one-operation attended approval;
-no physical grant is open and no ML004 control or transfer has occurred.
-Later initialization and reset cause are separate questions. Missing markers
-remain unknown, and ML003 does not reinterpret ML001/ML002.
+qualified the points before `__enable_mmu` and after `early_ioremap_init`,
+before `setup_machine_fdt`, with bounded Normal-NC temporary mappings and the
+same no-map reservation. Its [attended run](docs/reports/S22PLUS_MAINLINE_ML004_RUN_2026-10-30.md)
+is now consumed and closed healthy: both stage records were recovered, proving
+MMU-enabled progress through `start_kernel` into the named early-C recording
+point in `setup_arch`. The recorder's later unmapping/return, FDT setup and
+subsequent initialization remain unproved. The operator reported recurrent
+resets during the candidate; reset cause and period are not established.
+RAM PID1/USB remains NO_PROOF. Original A was restored once and its first
+final-health bracket passed. There is no follow-on grant or replay authority.
+
+The next bounded H0 distinction is return from the early-C recorder and
+completion of `setup_machine_fdt`, before examining later architecture setup.
+No new candidate or physical grant is selected. Missing markers remain unknown,
+and earlier candidates keep their original evidence and meanings.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
