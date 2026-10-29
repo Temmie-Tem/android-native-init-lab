@@ -1,6 +1,11 @@
 # S22+ ML007: IRQ-enable and rest_init boundaries
 
 Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML007 run](S22PLUS_MAINLINE_ML007_RUN_2026-10-30.md)
+is consumed and closed healthy, with both stage witnesses recovered. The
+readiness receipts and absence-of-grant statements below describe preparation
+before that execution and remain historical.
+
 Final independent review is **PASS_GO**, with no unresolved findings. Production
 qualification, exact task preparation and the unchanged terminal worker's
 reviewed backend v16 all passed. The fixed preapproval D0 completed on its

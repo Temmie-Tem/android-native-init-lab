@@ -30,10 +30,11 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Mainline progress through the return from `time_init` is demonstrated by ML006.**
-  Its post-`setup_arch` and post-`time_init` records survived healthy original-A
-  return. This proves the named code boundaries, not interrupt delivery or
-  working timer ticks; earlier candidates retain their original evidence.
+- **Mainline progress to immediately before `rest_init` is demonstrated by ML007.**
+  Its pre-IRQ-enable and pre-rest-init records survived healthy original-A
+  return. At least one attempt passed the IRQ-unmask instruction and intervening
+  core initialization. IRQ delivery, timer ticks and entry to `rest_init` remain
+  unproved; earlier candidates retain their original evidence.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
@@ -142,6 +143,17 @@ identities, goals, artifacts and authority remain separate.
   passed. One expected target-not-found boot-wait read was preserved and handled
   by the existing bounded reobservation path. No health-only continuation or
   follow-on grant was needed. [ML006 run](docs/reports/S22PLUS_MAINLINE_ML006_RUN_2026-10-30.md).
+- **ML007 is consumed: pre-IRQ and pre-rest-init observed / ANDROID_CLOSED_HEALTHY.**
+  Five intact records at each site were recovered on the exact returned Android
+  boot, with no damaged/foreign candidates. The later point follows IRQ unmask
+  and the intervening core initialization; it proves return from this candidate's
+  earlier helper call, which may have skipped writing. It does not prove its own
+  cleanup/return, `rest_init` entry, IRQ delivery, timer ticks or PID1/USB. The
+  operator reports the same boot-loop interval as earlier experience, without
+  a numeric period or cause. All 116 USB snapshots showed absence. N and A each
+  transferred once; first final health passed with no failed task capture or
+  health-only continuation. No follow-on grant is armed.
+  [ML007 run](docs/reports/S22PLUS_MAINLINE_ML007_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -206,7 +218,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML007 bootstrap progress markers
+## Next bounded unit: H0 progress after rest_init
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -297,11 +309,21 @@ V5 markers immediately before ordinary IRQ enablement and immediately before
 preemption disabled, before PID1/kthreadd creation and driver initcalls.
 Exact linked calls, enabled interrupt-path interference, initial-task/CPU and
 IRQ context, late mappings, no linear alias and cleanup are qualified.
-Final independent review is PASS_GO, production task preparation passes and
-the first fixed preapproval D0 proves current Android health. Delay calibration
-may use `lpj_fine`; a later positive would not prove timer ticks or IRQ delivery.
-The exact returned one-operation approval and actual attendance remain required.
-No successor grant, control or partition transfer is armed.
+Its independently reviewed and separately approved
+[attended run](docs/reports/S22PLUS_MAINLINE_ML007_RUN_2026-10-30.md) is consumed
+and closed healthy. Five intact records at each site establish at-least-once
+progress to the point before `rest_init`; independent decoding agrees. USB/PID1
+remains NO_PROOF, and the operator reports a boot loop at the same interval as
+earlier experience. N and A each transferred once and first final health passed.
+Delay calibration may use `lpj_fine`; the later positive proves neither timer
+ticks nor IRQ delivery. No successor grant or device effect is armed.
+
+The next bounded H0 question is progress through `rest_init` into the kernel
+initialization thread and later initialization. Those sites need their own
+exact task/preemption, mapping-lifetime and worker/driver interference analysis.
+Missing records still cannot locate a failure, and reset-cause investigation
+remains separate from the smallest useful next functional progress witness.
+This state selects no new candidate or device action.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
