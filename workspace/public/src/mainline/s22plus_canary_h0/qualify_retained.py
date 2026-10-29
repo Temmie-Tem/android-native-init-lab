@@ -110,7 +110,7 @@ def qualify(loader,output):
     if marker.version(config)==2:
         specs=((3,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,
                 record['extents']['kernel-runtime'][0],'s22_retained_pre_mmu'),)
-    elif marker.version(config) in (3,4,5,6,7):specs=()
+    elif marker.version(config) in (3,4,5,6,7,8):specs=()
     for stage,blob,elf,linkbase,physical,name in specs:
         raw=blob.read_bytes();syms=symbols(elf);linkbase=linkbase if linkbase is not None else syms['_text']
         require(digest(blob)==(record['loader']['sha256'] if stage==1 else record['kernel']['sha256']),'actual marker artifact changed')
@@ -137,15 +137,20 @@ def qualify(loader,output):
     pair=b''.join(bytes.fromhex(v) for v in config['frames'].values())
     payload,_=snapshot.place_precursor(b'\xa5'*marker.PAYLOAD,marker.PAYLOAD+17,pair)
     returned=snapshot.stock_snapshot(payload,snapshot.Header(7,0x4d474f4c,marker.PAYLOAD+17,123)).data
-    decoded=marker.decode(returned,manifest['candidate_id'],key,version=marker.version(config))
-    require(decoded['observed_stages']==sorted(marker.FORMATS[marker.version(config)]['stages'].values()),
+    decoded=marker.decode(returned,manifest['candidate_id'],key,version=marker.version(config),config=config)
+    expected_stages=(list(marker.trace.stages(config['initcall_count']).values()) if marker.version(config)==8 else
+                     sorted(marker.FORMATS[marker.version(config)]['stages'].values()))
+    require(decoded['observed_stages']==expected_stages,
             'producer/snapshot/decoder join differs')
     result=dict(schema='s22plus-mainline-marker-tests-v1',status='PASS_H0_ACTUAL_RETAINED_MARKERS',
         loader_sha256=record['loader']['sha256'],kernel_sha256=record['kernel']['sha256'],config=marked['config'],
         source_sha256=digest(__file__),codec_sha256=digest(marker.__file__),assembly_sha256=digest(marker.HERE/'retained-marker.S'),
         cases=rows,routines=routines,producer_consumer=decoded,physical_retention_proved=False,device_actions=0)
     if marker.c_stages(config):
-        from qualify_retained_c import qualify as qualify_c
+        if marker.version(config)==8:
+            from qualify_retained_trace import qualify as qualify_c
+        else:
+            from qualify_retained_c import qualify as qualify_c
         result['mmu_on']=qualify_c(record,config,output/'early-c')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=result['status'],cases=len(rows),device_actions=0)))

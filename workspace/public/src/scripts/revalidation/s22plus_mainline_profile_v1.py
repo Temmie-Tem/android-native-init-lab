@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v7_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v8_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -131,7 +131,9 @@ def marker_binding(image,manifest,loader):
                 result['device_actions']==0 and result['physical_retention_proved'] is False,
                 'actual marker artifact tests differ')
     require(vm['qualification_sha256']==value['tests']['sha256'],'marker actual EL test input differs')
-    if marker.c_stages(config):
+    if marker.version(config)==8:
+        trace_binding(config,tests,vm,image)
+    elif marker.c_stages(config):
         require(tests.get('mmu_on',{}).get('status')=='PASS_H0_ACTUAL_EARLY_C' and
                 vm.get('mmu_on',{}).get('status')=='PASS_H0_ACTUAL_KERNEL_MMU_MARKERS' and
                 tests['mmu_on']['kernel_sha256']==vm['mmu_on']['kernel_sha256']==
@@ -183,6 +185,72 @@ def marker_binding(image,manifest,loader):
     require(source['config']==value['config'] and source['init_manifest']['sha256']==
             pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')
     return value
+
+
+def trace_binding(config,tests,vm,image):
+    """V8 has parameterized records and full traversal, not two-site evidence."""
+    actual=tests.get('mmu_on',{});mapped=vm.get('mmu_on',{})
+    count=config['initcall_count'];total=6+2*count
+    require(actual.get('status')=='PASS_H0_ACTUAL_INITCALL_TRACE_C' and
+            mapped.get('status')=='PASS_H0_ACTUAL_KERNEL_MMU_INITCALL_TRACE' and
+            actual.get('kernel_sha256')==mapped.get('kernel_sha256')==image['runtime_sources']['kernel']['sha256'] and
+            actual.get('declared_slots')==mapped.get('declared_slots')==total and
+            actual.get('declared_span')==mapped.get('declared_span')==config['span'],
+            'V8 trace lacks its actual parameterized writer and full-MMU qualification')
+    table=read(unchanged(actual['table']))
+    entries=table.get('entries',[]);bounds=table.get('boundaries',[])
+    require(table.get('status')=='PASS_H0_FINAL_PREL32_TABLE' and
+            table.get('regular_count')==len(entries)==count and
+            table.get('image',{}).get('sha256')==actual['kernel_sha256'] and
+            table.get('elf',{}).get('sha256')==actual.get('elf_sha256') and
+            table.get('frame_array_matches') is True and
+            [r.get('ordinal') for r in entries]==list(range(count)) and
+            len(bounds)==9 and all(type(x) is int for x in bounds) and
+            bounds[-1]-bounds[0]==4*count and
+            table.get('counts_by_level')==[(b-a)//4 for a,b in zip(bounds,bounds[1:])] and
+            all(r.get('entry_address')==bounds[0]+4*r['ordinal'] and
+                type(r.get('level')) is int and 0<=r['level']<8 and
+                bounds[r['level']]<=r['entry_address']<bounds[r['level']+1] and r.get('functions')
+                for r in entries), 'V8 ordinal labels lack the actual final ELF table')
+    layout=mapped.get('task_layout',{});compiler=actual.get('layout_compiler',{})
+    require(set(compiler)=={'path','sha256','version'} and
+            layout.get('status')=='PASS_H0_SAME_BUILD_TASK_LAYOUT' and
+            layout.get('config_sha256')==actual.get('layout_config_sha256') and
+            layout.get('command',{}).get('compiler')=={k:compiler[k] for k in ('path','sha256')} and
+            mapped.get('mapping_initramfs')==actual.get('mapping_initramfs')==image['runtime_sources'].get('initramfs') and
+            image['runtime_sources'].get('initramfs') is not None and
+            mapped.get('init_thread_context_proved') is True and mapped.get('late_fixmap_proved') is True and
+            mapped.get('post_paging_no_linear_alias_proved') is True,
+            'V8 lacks current layout, physical initramfs, late mapping or no-alias proof')
+    cases=mapped.get('cases',[])
+    names={'normal-el1','normal-el2','page-crossing','short-history','bad-header','header-map-full',
+           'slot-map-full','drift-before','drift-commit','timing-el1','timing-el2'}
+    require(len(cases)==len(names) and {r.get('case') for r in cases}==names,
+            'V8 full-loop normal/fault/timing fixture set differs')
+    middle=6+2*(count//2);order=[0,1,2]+list(range(6,total))+[3,4,5]
+    attrs={'normal-el1':[0,middle,5],'normal-el2':[0,middle,5],'page-crossing':[0,middle,5],
+           'short-history':[0,5],'bad-header':[],'header-map-full':[middle,5],
+           'slot-map-full':[middle,5],'drift-before':[0],'drift-commit':[0,middle]}
+    for case in cases:
+        label=case['case'];timing=label.startswith('timing-')
+        samples=[(0,'entry'),(5,'return')] if timing else [(s,p) for s in (0,middle,5) for p in ('entry','return')]
+        expected=[dict(event=s,phase=p,pid=1,initial_namespace_reaper=True,same_task_as_kernel_init_entry=True,
+            init_task_pid=0,kthreadd_pid=2,boot_cpu=0,online_cpus=1,preempt_count_low32=0,
+            irq_masked=False,system_state=1,late_selector=1) for s,p in samples]
+        require(case.get('full_pre_free_init_traversal') is True and case.get('real_mmu_boot') is True and
+                case.get('real_mapping_api') is True and case.get('mapping_slots_restored') is True and
+                case.get('header_and_outside_window_preserved') is True and
+                case.get('post_paging_no_linear_alias_proved') is True and
+                case.get('no_linear_alias_events')==([0,5] if timing else [0,middle,5]) and
+                case.get('temporary_mapping_attribute_events')==([] if timing else attrs[label]) and
+                case.get('init_thread_contexts')==expected and
+                case.get('actual_c_el')==(1 if label in ('normal-el1','timing-el1') else 2),
+                'V8 actual context, alias, mapping attributes or cleanup differs')
+        require(case.get('counter_breakpoints_used') is (not timing) and
+                case.get('per_event_counts')==(None if timing else [1]*total) and
+                case.get('event_order')==(None if timing else order) and
+                case.get('physical_timing_proved') is False,
+                'V8 traversal counts and timing claims are mixed')
 
 
 def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None):

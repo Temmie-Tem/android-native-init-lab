@@ -375,13 +375,18 @@ health passed without a health-only continuation. No successor grant is armed.
 The [preparation report](docs/reports/S22PLUS_MAINLINE_ML009_BASIC_SETUP_MARKERS_H0_2026-10-30.md)
 retains the historical qualification and readiness checkpoint.
 
-The next bounded H0 question is useful positive evidence through driver-model
-setup and regular initcall traversal, with a qualified recording path. ML009
-advances the demonstrated prefix but does not establish a failure inside
-basic setup. This state selects no successor image or device action.
-Missing records still cannot locate a failure; kernel-task progress does not
-prove driver success, userspace PID1 or USB. No successor grant or device effect
-is armed, and reset-cause investigation remains separate.
+The operator requested consolidation to reduce repeated physical trials.
+[ML010](docs/reports/S22PLUS_MAINLINE_ML010_CONSOLIDATED_TRACE_H0_2026-10-30.md)
+now has a fresh H0-qualified full trace of all 1,825 regular initcall entry/return
+points plus six milestones through the pre-free async return. Its 3,656 records
+use a fixed latched window and retain available leading slots when history is
+short. Actual C, full EL1/EL2 traversal, mapping/context, RAM-PID1 VM and package
+checks pass. Final independent review is PASS_GO with no remaining findings;
+production task preparation and current fixed preapproval D0 also pass. No
+successor grant or experiment is armed. ML009's missing record still establishes no
+failure inside basic setup; missing V8 records likewise cannot identify a
+culprit or reset cause. Kernel-task progress remains separate from driver
+success, userspace PID1 and USB.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

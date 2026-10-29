@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 import re
 import struct
+try:
+    from . import retained_trace as trace
+except ImportError:
+    import retained_trace as trace
 
 HERE=Path(__file__).resolve().parent
 BASE=0x800200000
@@ -37,6 +41,8 @@ FORMATS={
     7:dict(schema='s22plus-mainline-retained-marker-v7',magic=b'S22MRK7!',
            domain=b'S22PLUS-MAINLINE-BASICSETUP-MARKER-V7\0',
            stages={13:'pre-basic-setup',14:'post-basic-setup'},names={13:'pre_basic_setup',14:'post_basic_setup'}),
+    8:dict(schema=trace.SCHEMA,magic=trace.MAGIC,domain=trace.DOMAIN,
+           stages={},names={}),
 }
 
 def require(condition,message):
@@ -64,13 +70,16 @@ def frame(candidate,key,stage,*,version=1):
     prefix=fmt['magic']+struct.pack('<II',version,stage)+bytes.fromhex(candidate)+bytes(48)
     return prefix+hmac.digest(key,fmt['domain']+prefix,'sha256')
 
-def configuration(candidate,key,*,version=1):
+def configuration(candidate,key,*,version=1,initcall_count=None):
     require(version in FORMATS,'unknown retained marker version')
+    if version==8:return trace.configuration(candidate,key,initcall_count)
+    require(initcall_count is None,'legacy marker has no initcall count')
     return dict(schema=FORMATS[version]['schema'],candidate_id=candidate,
         base=BASE,region_size=REGION,span=SPAN,slot_size=SLOT,
         frames={str(s):frame(candidate,key,s,version=version).hex() for s in FORMATS[version]['stages']})
 
 def validate(config,candidate,key):
+    if version(config)==8:return trace.validate(config,candidate,key)
     require(config==configuration(candidate,key,version=version(config)),'retained marker configuration differs')
     return config
 
@@ -85,13 +94,17 @@ def render(config,stage):
 
 def c_stages(config):
     v=version(config)
+    if v==8:return (0,5)
     return (4,) if v==2 else tuple(FORMATS[v]['stages']) if v in (3,4,5,6,7) else ()
 
 def c_source(config):
     require(c_stages(config),'selected format has no C source')
-    return 'init/main.c' if version(config) in (4,5,6,7) else 'arch/arm64/kernel/setup.c'
+    return 'init/main.c' if version(config) in (4,5,6,7,8) else 'arch/arm64/kernel/setup.c'
 
 def render_c(config,stage=None):
+    if version(config)==8:
+        require(stage is None,'trace uses one parameterized writer')
+        return trace.render(config)
     require(c_stages(config) and config['base']==BASE and config['region_size']==REGION and
             config['span']==SPAN and config['slot_size']==SLOT,'MMU-on marker scope differs')
     if stage is None:return '\n'.join(render_c(config,s) for s in c_stages(config))
@@ -100,7 +113,8 @@ def render_c(config,stage=None):
     rows='\n'.join('\t'+','.join(str(x) for x in data[i:i+16])+',' for i in range(0,SLOT,16))
     return (HERE/'retained-early-c.h').read_text().replace('@FRAME@',rows).replace('@NAME@',name(config,stage)).replace('@SLOT@',str(slot(config,stage)))
 
-def decode(data,candidate,key,*,version=1):
+def decode(data,candidate,key,*,version=1,config=None):
+    if version==8:return trace.decode(data,candidate,key,config)
     require(type(data) is bytes and len(data)<=4*1024*1024,'retained capture exceeds bound')
     require(version in FORMATS,'unknown retained marker version');fmt=FORMATS[version]
     expected={s:frame(candidate,key,s,version=version) for s in fmt['stages']}

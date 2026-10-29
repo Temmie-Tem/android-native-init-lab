@@ -85,7 +85,7 @@ def projection(root,directory,task_directory):
     qualified=read(profile.unchanged(task['N']['retained_marker']))
     config=read(profile.unchanged(qualified['config']))
     result=marker.decode(raw.read_stdout(capture,maximum=MAXIMUM),bound['manifest']['candidate_id'],
-        verify(task['N']['key'],maximum=32).read_bytes(),version=marker.version(config))
+        verify(task['N']['key'],maximum=32).read_bytes(),version=marker.version(config),config=config)
     result.update(task=bound['task_receipt'],closed=bound['closed'],terminal=bound['terminal'],
         capture=pin(capture.receipt_path),before=pin(directory/'before/health.json'),after=pin(directory/'after/health.json'),
         same_returned_android_boot=True,device_controls=0,partition_transfers=0)

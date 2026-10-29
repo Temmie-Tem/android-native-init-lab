@@ -17,11 +17,11 @@ class RetentionTests(unittest.TestCase):
     setUp=health_fixture.TargetTests.setUp
     captures=health_fixture.TargetTests.captures
 
-    def setup_owner(self,version=1):
+    def setup_owner(self,version=1,initcall_count=None):
         self.root=self.directory;self.private=self.root/'workspace/private';self.private.mkdir(parents=True)
         self.owner=self.private/'task';self.owner.mkdir();key=self.owner/'key';key.write_bytes(bytes(range(32)))
         self.candidate='12'*32
-        config=publish(self.owner/'config.json',retention.marker.configuration(self.candidate,key.read_bytes(),version=version))
+        config=publish(self.owner/'config.json',retention.marker.configuration(self.candidate,key.read_bytes(),version=version,initcall_count=initcall_count))
         qualified=publish(self.owner/'marker-qualification.json',dict(config=config))
         self.task=dict(target=self.binding,A=self.android,N={'key':pin(key),'retained_marker':qualified},
             adb=pin(Path('/usr/bin/adb').resolve(),maximum=32*1024**2))
@@ -133,6 +133,19 @@ class RetentionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'rebooted since'):self.run_capture('wrong-boot')
         self.assertEqual(len(self.calls),7)
 
+    def test_v8_maximum_capture_is_durably_reopened_without_device_replay(self):
+        self.setup_owner(version=8,initcall_count=retention.marker.trace.MAX_INITCALLS)
+        cfg=read(self.owner/'config.json')
+        data=b''.join(bytes.fromhex(cfg['frames'][str(i)]) for i in range(4096))*8
+        result=self.run_capture('v8',data=data);value=read(Path(result['path']))
+        self.assertEqual(value['record_count'],32768)
+        self.assertEqual(len(value['events']),4096)
+        self.assertLess(Path(result['path']).stat().st_size,2*1024**2)
+        self.assertFalse(value['same_boot_pair_proved']);self.assertFalse(value['initcall_success_proved'])
+        with mock.patch.object(retention,'closed_binding',return_value=self.bound),\
+             mock.patch.object(retention.raw,'acquire_command',side_effect=AssertionError('device replay')):
+            self.assertEqual(retention.projection(self.root,self.private/'v8',self.owner),value)
+
     def test_partial_or_unmarked_owner_is_not_collectable(self):
         self.root=self.directory;self.owner=self.root/'workspace/private/task';self.owner.mkdir(parents=True)
         publish(self.owner/'task.json',dict(schema=retention.profile.TASK_SCHEMA,N={'profile':retention.profile.PROFILE},operations=[retention.profile.OPERATION]))
@@ -143,6 +156,7 @@ class RetentionTests(unittest.TestCase):
         self.root=self.directory;paths=[]
         for relative in ('workspace/public/src/scripts/revalidation/s22plus_mainline_task_v1.py',
                          'workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
+                         'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
                          'workspace/public/src/scripts/revalidation/s22plus_mainline_retention_v1.py'):
             p=self.root/relative;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(relative);paths.append(p)
         paths.sort();selected=retention.profile;review=self.root/selected.REVIEW;review.parent.mkdir(parents=True)

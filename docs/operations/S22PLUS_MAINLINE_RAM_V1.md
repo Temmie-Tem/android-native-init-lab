@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v7_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v8_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -98,9 +98,10 @@ An image carrying the schema-exact `retained_marker` qualification may add
 only the reviewed `s22plus-mainline-retained-marker-v1`,
 `s22plus-mainline-retained-marker-v2`, `s22plus-mainline-retained-marker-v3` or
 `s22plus-mainline-retained-marker-v4`, `s22plus-mainline-retained-marker-v5` or
-`s22plus-mainline-retained-marker-v6` or `s22plus-mainline-retained-marker-v7`
-diagnostic writer. These formats are mutually exclusive in one candidate;
-each successor replaces both preceding sites.
+`s22plus-mainline-retained-marker-v6`, `s22plus-mainline-retained-marker-v7` or
+`s22plus-mainline-retained-initcall-trace-v8` diagnostic writer. These formats
+are mutually exclusive in one candidate. V2–V7 replace both preceding sites;
+V8 replaces the pair with its finite trace defined below.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
 instrumented loader/kernel marker bytes. The immutable qualification joins the
 actual linked loader and kernel entry, candidate identity, generated frames,
@@ -111,7 +112,7 @@ original provenance and reviews.
 
 The exact RAM destination is the retained FYG8 `samsung,kernel_log_buf` slice
 at physical `0x800200000`, size `0x200000`. Its 16-byte header remains unchanged.
-Each site selects its own 128-byte half of a 256-byte span behind that site's
+For V1–V7, each site selects its own 128-byte half of a 256-byte span behind that site's
 sampled byte index, using the reviewed contiguous placement. The selected span
 can change if firmware moves the index between sites. Each eligible site writes
 only its own slot with byte accesses, invalidates its commit prefix first,
@@ -295,7 +296,7 @@ triggers and retirement conditions apply; older formats and recovery gain no
 new prerequisite. This pair adds no IRQ/preemption manipulation or repeated
 per-initcall writes.
 
-The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
+For V1–V7, the 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
 index between attempts. Each site runs at most once per entry, has a fixed
 instruction/write bound and no internal retry. Header checks detect some
@@ -357,6 +358,98 @@ completion, global background quiescence, the helper's own later return or the
 remaining tail. The early/pre-SMP and regular initcall loops are distinct.
 Both/later-only positives require no shared-boot record pair. Any absent site
 retains the existing non-localizing meaning and grants no replay or cause claim.
+
+### V8 consolidated regular-initcall trace
+
+V8 replaces the two-site writer with one finite parameterized C writer in
+`init/main.c`. Slots 0–5 are respectively immediately before basic setup,
+after `driver_init`, before command-line allocation in `do_initcalls`, after
+basic setup, after the explicit `wait_for_initramfs`, and after
+`async_synchronize_full` before init-memory freeing. The regular
+`do_initcall_level` loop records immediately before and after each existing
+`do_one_initcall` dispatch. Early/pre-SMP and module dispatches are unchanged.
+No initcall is skipped, added, reordered or repeated by the instrumentation.
+
+For the qualified final table of N regular entries, slots `6+2*k` and
+`7+2*k` record dispatch entry and return for ordinal k. The declaration permits
+1–2,045 regular entries and at most 4,096 128-byte slots, or 512 KiB of
+payload per kernel-init attempt. Each reachable event has at most one attempt
+and two temporary mapping calls; it has no internal retry. Ordinals come from
+the actual four-byte PREL32 entry pointer with alignment/range/phase guards,
+and the actual table extent must equal the compiled declaration. An invalid
+ordinal or table extent disables further trace writes while ordinary boot
+continues. A fresh final Image/ELF inventory binds ordinal labels, level
+boundaries and the complete embedded frame array. A retained table or matching
+count alone cannot supply the new build's function labels.
+
+The 512 KiB ceiling counts distinct slot payload. Prefix invalidation adds
+eight byte stores per committed record: the maximum is 4,096 × 136 = 557,056
+log byte stores per attempt, all within those slots. Writer state and stack
+remain ordinary init/task memory rather than additional log destinations.
+
+Frames contain a fresh candidate identity, V8 magic/domain, event and table
+count under the existing offline integrity construction. No runtime crypto,
+function address, return code or timestamp is added. All code, constant frames
+and small writer state remain in live init memory through the last call.
+The six fixed slots take priority when available log history is short; their
+numeric IDs are not chronological progress ranks.
+
+V8 retains the exact 2 MiB no-map slice, unchanged 16-byte header, current-EL
+MMU-on/little-endian guards and temporary Normal-NC/XN mapping mechanism.
+At the first distinct event with a valid header and index at least 128, it
+latches all four header words and one contiguous window. Effective span is
+`floor(min(index, declared_span)/128)*128`. Its position is
+`cursor-span` when `cursor >= span`, otherwise `payload_size-span`, with
+`cursor=index%payload_size`. Only a complete slot inside that effective span
+may be written. This keeps eligible short-history records inside the reader's
+prefix without assuming that a later full returned log proves a large initial
+index. A skipped earlier event is never retried; a later distinct event may
+establish the window if none was latched.
+
+Each record compares the current header with that initial snapshot before any
+slot store and again before committing. Header drift permanently disables
+further writes in that attempt; the window is never shifted or reopened.
+Prefix invalidation, body byte stores, prefix-last commit and full barriers
+remain mandatory. Every successful header/slot map is removed in reverse order
+before returning, including after drift or mapping failure. A mapping failure
+does not retry that event; a later distinct event may use the same latched
+window. No early mapping is held across an initcall or the level-7 leak check.
+Firmware reboot attempts retain independent per-attempt bounds and may select
+different windows. Header equality proves neither firmware exclusivity nor
+physical retention.
+
+Fresh V8 qualification covers the actual linked ordinal wrapper, writer
+guards, short-history/span boundaries, mapping failures before/after latching,
+sticky header drift, interrupted stores and unchanged bytes outside each
+permitted slot. Real EL1/VHE EL2 full traversal uses the physical candidate
+initramfs, same-build calibrated PID1 context, no linear alias, Normal-NC/XN
+temporary attributes and complete prior mapping-state restoration. It checks
+each event's cardinality across the full path through the final pre-free call.
+Timing measurements run separately without per-record debugger stops and are
+H0 costs only; they do not promise unchanged physical reboot timing. Existing
+enabled-caller/config/DT exclusions remain necessary for the non-reentrant
+early mapper. Prior two-site case counts are not V8 qualification.
+
+These V8-specific checks address parameterized write bounds, ordinal identity,
+window overlap, mapper lifetime/reentrancy and evidence-size hazards. Their
+scope is this format; changed sites, count/layout, writer, decoder, mapper,
+enabled callers, initramfs or reservation trigger review. They retire only
+when a separately reviewed successor removes the corresponding mechanism or
+provides equivalent evidence. Older formats and original-A recovery gain no
+new prerequisites. Expanded records require the fresh source-bound capability
+review and exact candidate qualification; older reviews and grants do not
+authorize them.
+
+An entry record proves the point before wrapper dispatch, not entry into the
+callback body. A return record proves that dispatch returned, not a successful
+return code, driver match, probe or async work. The fixed later milestones
+prove their named returns, not successful unpacking, global quiescence,
+userspace exec or USB. Each positive remains at-least-once evidence for that
+candidate's attempts. Missing return/other frames cannot identify a failed
+function, last attempt or reset cause; grouped offsets and record counts do
+not establish shared boots. The decoder groups duplicate offsets so a maximum
+bounded capture fits the existing durable-record limit. Original raw evidence,
+the final ordinal table, USB proof, original-A recovery and health stay separate.
 
 ### Fixed post-closure retained-marker D0
 

@@ -56,9 +56,10 @@ only fixed identity/root/partition-digest health and host/lane evidence, refuses
 an unresolved F1 owner, and grants no control, payload or run authority.
 
 The same policy's optional `retained_marker` qualification adopts only its
-two fixed early diagnostic RAM slots in the exact Samsung log slice, with
-unchanged header/no-map bounds, fresh artifact qualification and independent
-review. Positive stage occurrence is separate from USB/PID1 and recovery.
+versioned diagnostic RAM writes in the exact Samsung log slice, with unchanged
+header/no-map bounds, fresh artifact qualification and independent review.
+V1–V7 use two fixed slots. Positive stage occurrence is separate from USB/PID1
+and recovery.
 V1 places those slots at loader handoff and kernel entry. Its schema-distinct
 V2 successor instead places them before MMU enablement and in early
 `setup_arch`, using only the policy's fixed Normal-NC temporary header/slot
@@ -95,6 +96,17 @@ proof accommodating inlined driver setup and regular initcall loops. The
 writer and two-slot bound remain unchanged. A post-basic positive proves
 traversal return, not driver success, initramfs completion or background
 quiescence. Missing records, older formats and recovery retain their meanings.
+V8 replaces that pair with six fixed pre-free-init milestones and entry/return
+records for the exact final regular-initcall table. The linked table binds
+ordinals; at most 4,096 slots/512 KiB are permitted per kernel-init attempt.
+The policy's fixed latched window preserves available leading slots when
+history is short and permanently disables that attempt's writes on header
+drift. Each record retains two bounded temporary mappings and reverse cleanup;
+no mapping remains across an initcall. Fresh actual-code/full-traversal,
+cardinality, mapping/context and durable-result-size qualification is required.
+This format adds no driver-success, missing-frame localization, shared-boot,
+reset-cause, userspace or USB claim. Older reviews/grants cannot authorize it;
+the finite attended operation and original-A recovery remain unchanged.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

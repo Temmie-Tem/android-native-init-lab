@@ -33,7 +33,7 @@ def inputs(prepared, init, kernel_label):
 def snapshot(output):
     source=output/'source';source.mkdir()
     paths=[HERE/name for name in ('vm.py','vm_evidence.py','verify.py','prepare.py',
-                                 'retained_kernel_vm.py','retained_marker.py','qualify_retained.py')]
+                                 'retained_kernel_vm.py','retained_marker.py','retained_trace.py','qualify_retained.py')]
     paths.append(ROOT/'workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py')
     for path in paths:shutil.copyfile(path,source/path.name)
     return {path.name:digest(source/path.name) for path in paths}
@@ -74,7 +74,16 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
                 'VM fixture lacks no-map log hole')
     sources={'vm.py','vm_evidence.py','verify.py','prepare.py','s22plus_fyg8_p319_max77705_irq_dt_audit.py'}
     expanded=sources|{'retained_kernel_vm.py','retained_marker.py','qualify_retained.py'}
-    require(set(receipt['source']) in (sources,expanded),'capture source incomplete')
+    require(set(receipt['source']) in (sources,expanded,expanded|{'retained_trace.py'}),'capture source incomplete')
+    kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
+    if 'retained_marker' in kernel_record:
+        marker_source=kernel_record['retained_marker']
+        require(digest(marker_source['path'])==marker_source['sha256'],'rechecked VM marker source changed')
+        marker_config=json.loads(Path(marker_source['path']).read_text())['config']
+        require(digest(marker_config['path'])==marker_config['sha256'],'rechecked VM marker config changed')
+        if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-initcall-trace-v8':
+            require(set(receipt['source'])==expanded|{'retained_trace.py'} and 'fixture_dtb' in command,
+                    'V8 VM capture lacks trace source or no-map fixture')
     for name,expected in receipt['source'].items():
         require(digest(previous/'source'/name)==expected,'capture source changed')
     manifest=json.loads((init/'result.json').read_text())
