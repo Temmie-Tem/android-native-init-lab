@@ -22,6 +22,9 @@ FORMATS={
     2:dict(schema='s22plus-mainline-retained-marker-v2',magic=b'S22MRK2!',
            domain=b'S22PLUS-MAINLINE-MMU-MARKER-V2\0',
            stages={3:'pre-mmu',4:'early-c'},names={3:'pre_mmu',4:'early_c'}),
+    3:dict(schema='s22plus-mainline-retained-marker-v3',magic=b'S22MRK3!',
+           domain=b'S22PLUS-MAINLINE-ARCH-MARKER-V3\0',
+           stages={5:'post-fdt',6:'post-paging'},names={5:'post_fdt',6:'post_paging'}),
 }
 
 def require(condition,message):
@@ -60,7 +63,7 @@ def validate(config,candidate,key):
     return config
 
 def render(config,stage):
-    require(stage in FORMATS[version(config)]['stages'] and stage!=4 and config['base']==BASE and config['region_size']==REGION and
+    require(stage in FORMATS[version(config)]['stages'] and stage in (1,2,3) and config['base']==BASE and config['region_size']==REGION and
             config['span']==SPAN and config['slot_size']==SLOT,'marker write scope differs')
     data=bytes.fromhex(config['frames'][str(stage)])
     require(len(data)==SLOT,'marker frame size differs')
@@ -68,12 +71,18 @@ def render(config,stage):
     rows='\n'.join('\t.byte '+','.join(str(x) for x in data[i:i+16]) for i in range(0,SLOT,16))
     return (HERE/'retained-marker.S').read_text().replace('@NAME@',routine).replace('@SLOT@',str(slot(config,stage))).replace('@FRAME@',rows)
 
-def render_c(config):
-    require(version(config)==2 and config['base']==BASE and config['region_size']==REGION and
+def c_stages(config):
+    v=version(config)
+    return (4,) if v==2 else (5,6) if v==3 else ()
+
+def render_c(config,stage=None):
+    require(c_stages(config) and config['base']==BASE and config['region_size']==REGION and
             config['span']==SPAN and config['slot_size']==SLOT,'MMU-on marker scope differs')
-    data=bytes.fromhex(config['frames']['4']);require(len(data)==SLOT,'early C frame size differs')
+    if stage is None:return '\n'.join(render_c(config,s) for s in c_stages(config))
+    require(stage in c_stages(config),'C stage is outside selected format')
+    data=bytes.fromhex(config['frames'][str(stage)]);require(len(data)==SLOT,'early C frame size differs')
     rows='\n'.join('\t'+','.join(str(x) for x in data[i:i+16])+',' for i in range(0,SLOT,16))
-    return (HERE/'retained-early-c.h').read_text().replace('@FRAME@',rows)
+    return (HERE/'retained-early-c.h').read_text().replace('@FRAME@',rows).replace('@NAME@',name(config,stage)).replace('@SLOT@',str(slot(config,stage)))
 
 def decode(data,candidate,key,*,version=1):
     require(type(data) is bytes and len(data)<=4*1024*1024,'retained capture exceeds bound')

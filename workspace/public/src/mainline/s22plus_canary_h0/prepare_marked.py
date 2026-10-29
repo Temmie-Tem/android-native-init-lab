@@ -15,6 +15,9 @@ def pin(p):
 
 def instrumented_head(old,cfg):
     end='SYM_CODE_END(primary_entry)\n'
+    if marker.version(cfg)==3:
+        require(old.count(end)==1 and 's22_retained_' not in old,'V3 requires unmarked assembly entry')
+        return old
     if marker.version(cfg)==2:
         site='SYM_FUNC_START_LOCAL(__primary_switch)\n'
         require(old.count(site)==old.count(end)==1 and 's22_retained_' not in old,'kernel MMU hook differs')
@@ -23,13 +26,17 @@ def instrumented_head(old,cfg):
     require(old.count(site)==old.count(end)==1 and 's22_retained_' not in old,'kernel entry hook differs')
     return old.replace(site,'SYM_CODE_START(primary_entry)\n\tbl\ts22_retained_kernel\n\tbl\trecord_mmu_state\n').replace(end,end+'\n'+marker.render(cfg,2)+'\n')
 
-def instrumented_setup(old):
+def instrumented_setup(old,cfg=None):
     declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
-    site='\tearly_ioremap_init();\n'
-    require(old.count(declaration)==old.count(site)==1 and 's22_retained_' not in old and
+    sites=[('\tearly_ioremap_init();\n','s22_retained_early_c')]
+    if cfg is not None and marker.version(cfg)==3:
+        sites=[('\tsetup_machine_fdt(__fdt_pointer);\n',marker.name(cfg,5)),
+               ('\tpaging_init();\n',marker.name(cfg,6))]
+    require(old.count(declaration)==1 and all(old.count(site)==1 for site,_ in sites) and 's22_retained_' not in old and
             's22-retained-early-c.h' not in old,'early C hook differs')
-    return old.replace(declaration,'#include "s22-retained-early-c.h"\n\n'+declaration).replace(
-        site,site+'\ts22_retained_early_c();\n')
+    result=old.replace(declaration,'#include "s22-retained-early-c.h"\n\n'+declaration)
+    for site,name in sites:result=result.replace(site,site+'\t'+name+'();\n')
+    return result
 
 def prepare(previous,output):
     previous,output=previous.resolve(),output.resolve()
@@ -73,12 +80,12 @@ def instrument(prepared,init,*,version=1):
         init_manifest=pin(init/'result.json'),original_head=pin(prepared/'original-head.S'),
         instrumented_head=pin(head),sources=[pin(HERE/x) for x in ('retained-marker.S','retained_marker.py','prepare_marked.py')],
         device_actions=0)
-    if version==2:
+    if version in (2,3):
         setup=Path(value['kernel'])/'arch/arm64/kernel/setup.c';original=prepared/'original-setup.c'
-        original.write_bytes(setup.read_bytes());setup.write_text(instrumented_setup(original.read_text()))
+        original.write_bytes(setup.read_bytes());setup.write_text(instrumented_setup(original.read_text(),cfg))
         header=setup.parent/'s22-retained-early-c.h';require(not header.exists(),'early C header already present')
         header.write_text(marker.render_c(cfg))
-        receipt.update(schema='s22plus-mainline-marker-kernel-source-v2',original_setup=pin(original),
+        receipt.update(schema='s22plus-mainline-marker-kernel-source-v'+str(version),original_setup=pin(original),
             instrumented_setup=pin(setup),generated_header=pin(header))
         receipt['sources'].append(pin(HERE/'retained-early-c.h'))
     (prepared/'marker-source.json').write_text(json.dumps(receipt,indent=2)+'\n')
@@ -88,7 +95,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest='command',required=True)
     a=s.add_parser('prepare');a.add_argument('previous',type=Path);a.add_argument('output',type=Path)
     a=s.add_parser('instrument');a.add_argument('prepared',type=Path);a.add_argument('init',type=Path)
-    a.add_argument('--version',type=int,choices=(1,2),default=1)
+    a.add_argument('--version',type=int,choices=(1,2,3),default=1)
     a=p.parse_args();os.umask(0o077)
     result=prepare(a.previous,a.output) if a.command=='prepare' else instrument(a.prepared,a.init,version=a.version)
     print(json.dumps(dict(status='H0_ONLY',device_actions=0)))

@@ -183,7 +183,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 progress beyond early-C and FDT setup
+## Next bounded unit: ML005 post-FDT and post-paging progress experiment
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -238,10 +238,18 @@ resets during the candidate; reset cause and period are not established.
 RAM PID1/USB remains NO_PROOF. Original A was restored once and its first
 final-health bracket passed. There is no follow-on grant or replay authority.
 
-The next bounded H0 distinction is return from the early-C recorder and
-completion of `setup_machine_fdt`, before examining later architecture setup.
-No new candidate or physical grant is selected. Missing markers remain unknown,
-and earlier candidates keep their original evidence and meanings.
+Two-round Claude/Argon discussion and exact source checks selected
+[ML005](docs/reports/S22PLUS_MAINLINE_ML005_ARCH_MARKERS_H0_2026-10-30.md):
+two C markers after `setup_machine_fdt` and after `paging_init`, replacing both
+earlier sites within the same two-slot bound. The actual new kernel passes
+both linked-writer tests, real EL1/EL2 no-map/page-table checks and VM PID1
+evidence. The exact loader-produced DTB also passes the bounded real-kernel
+FDT path fixture. Independent final review is PASS_GO with no unresolved
+findings; production task admission and current fixed D0/raw Android health
+passed. The exact one-operation attended approval remains required, and no
+ML005 grant, control or partition transfer exists. Missing markers remain
+unknown; a later positive with an absent earlier record is valid evidence.
+Earlier candidates keep their original evidence and meanings.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

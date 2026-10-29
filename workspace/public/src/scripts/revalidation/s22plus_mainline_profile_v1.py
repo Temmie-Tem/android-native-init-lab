@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v2_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v3_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -131,12 +131,16 @@ def marker_binding(image,manifest,loader):
                 result['device_actions']==0 and result['physical_retention_proved'] is False,
                 'actual marker artifact tests differ')
     require(vm['qualification_sha256']==value['tests']['sha256'],'marker actual EL test input differs')
-    if marker.version(config)==2:
+    if marker.c_stages(config):
         require(tests.get('mmu_on',{}).get('status')=='PASS_H0_ACTUAL_EARLY_C' and
                 vm.get('mmu_on',{}).get('status')=='PASS_H0_ACTUAL_KERNEL_MMU_MARKERS' and
                 tests['mmu_on']['kernel_sha256']==vm['mmu_on']['kernel_sha256']==
                     image['runtime_sources']['kernel']['sha256'],
-                'V2 marker lacks actual C and MMU-on kernel qualification')
+                'C marker lacks actual C and MMU-on kernel qualification')
+    if marker.version(config)==3:
+        require(vm['mmu_on'].get('post_paging_no_linear_alias_proved') is True and
+                vm['mmu_on'].get('qualified_c_stages')==tests['mmu_on'].get('qualified_c_stages')==[5,6],
+                'V3 marker lacks post-paging no-map and two-site qualification')
     source=read(unchanged(loader['retained_marker']['kernel_source']))
     require(source['config']==value['config'] and source['init_manifest']['sha256']==
             pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')

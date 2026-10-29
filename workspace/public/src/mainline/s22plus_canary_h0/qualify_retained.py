@@ -110,6 +110,7 @@ def qualify(loader,output):
     if marker.version(config)==2:
         specs=((3,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,
                 record['extents']['kernel-runtime'][0],'s22_retained_pre_mmu'),)
+    elif marker.version(config)==3:specs=()
     for stage,blob,elf,linkbase,physical,name in specs:
         raw=blob.read_bytes();syms=symbols(elf);linkbase=linkbase if linkbase is not None else syms['_text']
         require(digest(blob)==(record['loader']['sha256'] if stage==1 else record['kernel']['sha256']),'actual marker artifact changed')
@@ -143,7 +144,7 @@ def qualify(loader,output):
         loader_sha256=record['loader']['sha256'],kernel_sha256=record['kernel']['sha256'],config=marked['config'],
         source_sha256=digest(__file__),codec_sha256=digest(marker.__file__),assembly_sha256=digest(marker.HERE/'retained-marker.S'),
         cases=rows,routines=routines,producer_consumer=decoded,physical_retention_proved=False,device_actions=0)
-    if marker.version(config)==2:
+    if marker.c_stages(config):
         from qualify_retained_c import qualify as qualify_c
         result['mmu_on']=qualify_c(record,config,output/'early-c')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')

@@ -56,6 +56,18 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
              '-device','virtio-net-device,netdev=net0']
     (output/'command.json').write_text(json.dumps({'command':command,'qemu_sha256':digest(qemu)},indent=2)+'\n')
     env=dict(os.environ,LD_LIBRARY_PATH=str(qroot/'usr/lib/x86_64-linux-gnu'))
+    fixture=None
+    if 'retained_marker' in kernel_record:
+        marker_source=kernel_record['retained_marker']
+        require(digest(marker_source['path'])==marker_source['sha256'],'VM marker provenance changed')
+        marker_config=json.loads(Path(marker_source['path']).read_text())['config']
+        require(digest(marker_config['path'])==marker_config['sha256'],'VM marker config changed')
+        if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-marker-v3':
+            from retained_kernel_vm import nomap_fixture
+            fixture=nomap_fixture(qemu,env,output,'off')
+            command+=['-dtb',str(fixture)]
+            (output/'command.json').write_text(json.dumps(dict(command=command,qemu_sha256=digest(qemu),
+                fixture_dtb=dict(path=str(fixture),sha256=digest(fixture))),indent=2)+'\n')
     started=time.monotonic();raw=bytearray();nonce=secrets.token_bytes(32)
     persist(output/'nonce.bin',nonce)
     key=Path(manifest['key_path']).read_bytes()

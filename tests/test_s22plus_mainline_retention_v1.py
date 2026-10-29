@@ -83,6 +83,13 @@ class RetentionTests(unittest.TestCase):
         value=read(Path(self.run_capture('v2',data=data)['path']))
         self.assertEqual(value['observed_stages'],['early-c','pre-mmu'])
         self.assertFalse(value['same_boot_pair_proved']);self.assertFalse(value['mainline_pid1'])
+    def test_v3_later_marker_is_positive_without_first(self):
+        self.setup_owner(version=3)
+        data=retention.marker.frame(self.candidate,bytes(range(32)),6,version=3)
+        value=read(Path(self.run_capture('v3',data=data)['path']))
+        self.assertEqual(value['observed_stages'],['post-paging'])
+        self.assertEqual(value['status'],'RETAINED_STAGE_OBSERVED')
+        self.assertFalse(value['reset_cause_proved']);self.assertFalse(value['mainline_pid1'])
 
     def test_changed_return_boot_keeps_raw_but_never_proves_stage(self):
         self.setup_owner()

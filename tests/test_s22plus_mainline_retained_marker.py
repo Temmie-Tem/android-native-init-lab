@@ -33,6 +33,34 @@ class Frames(unittest.TestCase):
         self.assertFalse(result['same_boot_pair_proved']);self.assertFalse(result['last_attempt_proved'])
         cfg['frames']['3']=cfg['frames']['4']
         with self.assertRaises(ValueError):marker.validate(cfg,self.candidate,self.key)
+    def test_v3_later_positive_needs_no_earlier_record(self):
+        cfg=marker.configuration(self.candidate,self.key,version=3)
+        later=bytes.fromhex(cfg['frames']['6'])
+        old=marker.frame(self.candidate,self.key,4,version=2)
+        result=marker.decode(old+self.a+later,self.candidate,self.key,version=3)
+        self.assertEqual(result['observed_stages'],['post-paging'])
+        self.assertEqual(result['status'],'RETAINED_STAGE_OBSERVED')
+        self.assertFalse(result['stopped_at_last_record']);self.assertFalse(result['reset_cause_proved'])
+        self.assertFalse(result['same_boot_pair_proved']);self.assertFalse(result['replay_authorized'])
+        self.assertEqual(marker.decode(later,self.candidate,self.key,version=2)['status'],'NO_PROOF')
+    def test_v3_exact_hooks_replace_old_sites(self):
+        import prepare_marked
+        cfg=marker.configuration(self.candidate,self.key,version=3)
+        head='SYM_CODE_START(primary_entry)\n\tbl\trecord_mmu_state\nSYM_CODE_END(primary_entry)\n'
+        self.assertEqual(prepare_marked.instrumented_head(head,cfg),head)
+        source='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n{\n\tearly_ioremap_init();\n\tsetup_machine_fdt(__fdt_pointer);\n\tpaging_init();\n}\n'
+        value=prepare_marked.instrumented_setup(source,cfg)
+        self.assertIn('\tsetup_machine_fdt(__fdt_pointer);\n\ts22_retained_post_fdt();\n',value)
+        self.assertIn('\tpaging_init();\n\ts22_retained_post_paging();\n',value)
+        self.assertNotIn('s22_retained_early_c();',value)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_setup(value,cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_setup(source+'\tpaging_init();\n',cfg)
+        rendered=marker.render_c(cfg)
+        self.assertNotIn('@',rendered)
+        self.assertIn('noinline void __init s22_retained_post_fdt(void)',rendered)
+        self.assertIn('noinline void __init s22_retained_post_paging(void)',rendered)
+        self.assertIn('0x1ffff0U - 256) + 0;',rendered)
+        self.assertIn('0x1ffff0U - 256) + 128;',rendered)
     def test_wrong_key_corrupt_and_truncated(self):
         for data,key in [(self.a,bytes(32)),(self.a[:127],self.key),(self.a[:60]+b'x'+self.a[61:],self.key),
                          (bytes(8)+self.a[8:],self.key),(self.a[:4],self.key)]:

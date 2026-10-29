@@ -26,12 +26,12 @@ def marker_provenance(prepared_dir,kernel):
     cfg=json.loads(Path(value['config']['path']).read_text());ir=json.loads(Path(value['init_manifest']['path']).read_text())
     marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
     require(text==instrumented_head(Path(value['original_head']['path']).read_text(),cfg),'complete marker source differs')
-    if marker.version(cfg)==2:
+    if marker.c_stages(cfg):
         for key in ('original_setup','instrumented_setup','generated_header'):
             row=value[key];p=Path(row['path'])
             require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'early C source changed: '+key)
         require(Path(value['instrumented_setup']['path'])==setup and Path(value['generated_header']['path'])==header and
-            setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text()) and
+            setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text(),cfg) and
             header.read_text()==marker.render_c(cfg),'complete early C source differs')
     else:require(not c_marked,'V1 marker cannot contain the MMU-on writer')
     return value

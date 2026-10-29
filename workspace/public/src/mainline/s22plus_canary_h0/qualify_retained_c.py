@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 import struct
+from elftools.elf.elffile import ELFFile
 
 from unicorn import Uc, UC_ARCH_ARM64, UC_MODE_ARM, UC_HOOK_CODE, UC_HOOK_MEM_WRITE
 from unicorn import arm64_const as regs
@@ -11,9 +12,9 @@ from qualify_retained import symbols
 import retained_marker as marker
 
 
-def exercise(raw, syms, config, *, idx=marker.PAYLOAD+300, magic=0x4d474f4c,
+def exercise(raw, syms, config, *, stage=4, idx=marker.PAYLOAD+300, magic=0x4d474f4c,
              state=1, el=1, fail_map=0, change=None, cut=None):
-    base=syms['_text']; start=syms['s22_retained_early_c']
+    name=marker.name(config,stage);base=syms['_text'];start=syms[name]
     stack=0x20000000; stop=stack+0x10000
     u=Uc(UC_ARCH_ARM64,UC_MODE_ARM);u.reg_write(regs.UC_ARM64_REG_PSTATE,5)
     u.mem_map(base,(len(raw)+0x100000+4095)&~4095);u.mem_write(base,raw)
@@ -28,7 +29,7 @@ def exercise(raw, syms, config, *, idx=marker.PAYLOAD+300, magic=0x4d474f4c,
     protected={i:0x1234000000000000+i for i in range(19,30)}
     for i,v in protected.items():u.reg_write(getattr(regs,'UC_ARM64_REG_X'+str(i)),v)
     cursor=idx%marker.PAYLOAD
-    position=(cursor-256 if cursor>=256 else marker.PAYLOAD-256)+128
+    position=(cursor-256 if cursor>=256 else marker.PAYLOAD-256)+marker.slot(config,stage)
     slot=marker.BASE+16+position
     calls=[];active=[];writes=[]
     def code(uc,pc,size,user):
@@ -53,7 +54,7 @@ def exercise(raw, syms, config, *, idx=marker.PAYLOAD+300, magic=0x4d474f4c,
             pair=(uc.reg_read(regs.UC_ARM64_REG_X0),uc.reg_read(regs.UC_ARM64_REG_X1))
             require(active and pair==active.pop(), 'mapping cleanup order/extent differs')
             uc.reg_write(regs.UC_ARM64_REG_PC,uc.reg_read(regs.UC_ARM64_REG_LR));return
-        if change is not None and pc==syms['s22_retained_early_c_recheck']:
+        if change is not None and pc==syms[name+'_recheck']:
             uc.mem_write(marker.BASE+change,struct.pack('<I',0x12345678))
     def write(uc,kind,address,size,value,user):
         if stack<=address<address+size<=stop:return
@@ -66,21 +67,21 @@ def exercise(raw, syms, config, *, idx=marker.PAYLOAD+300, magic=0x4d474f4c,
     if cut is not None:
         offset=slot-marker.BASE
         require(after[:offset]==before[:offset] and after[offset+128:]==before[offset+128:], 'interrupted C escaped slot')
-        require(after[offset:offset+128]!=bytes.fromhex(config['frames']['4']), 'partial C committed a complete new frame')
-        return dict(cut_after_hook=cut,complete_frame=False)
+        require(after[offset:offset+128]!=bytes.fromhex(config['frames'][str(stage)]), 'partial C committed a complete new frame')
+        return dict(stage=stage,cut_after_hook=cut,complete_frame=False)
     require(u.reg_read(regs.UC_ARM64_REG_PC)==stop and not active, 'writer failed to return/clean mappings')
     require(u.reg_read(regs.UC_ARM64_REG_SP)==stop-16, 'stack changed')
     for i,v in protected.items():require(u.reg_read(getattr(regs,'UC_ARM64_REG_X'+str(i)))==v, 'callee-saved register changed')
     admitted=el in (1,2) and state&0x2000001==1
     eligible=admitted and magic==0x4d474f4c and idx>=256 and not fail_map
     if eligible:
-        frame=bytes.fromhex(config['frames']['4'])
+        frame=bytes.fromhex(config['frames'][str(stage)])
         expected[slot-marker.BASE:slot-marker.BASE+128]=frame if change is None else bytes(8)+frame[8:]
         if change is not None:struct.pack_into('<I',expected,change,0x12345678)
     require(after==expected,'C writer bytes/header/outside-slot differ')
     if not admitted:require(not calls,'ineligible CPU state made a mapping')
     if not eligible:require(not writes,'ineligible C writer wrote')
-    return dict(idx=idx,el=el,state=state,fail_map=fail_map,header_mutation=change,
+    return dict(stage=stage,idx=idx,el=el,state=state,fail_map=fail_map,header_mutation=change,
                 committed=eligible and change is None,map_calls=calls,mappings_released=True)
 
 
@@ -89,22 +90,47 @@ def qualify(record,config,output):
     image=Path(record['kernel']['image']);elf=image.parents[3]/'vmlinux'
     require(digest(image)==record['kernel']['sha256'],'C kernel changed')
     raw=image.read_bytes();syms=symbols(elf)
-    offset=syms['s22_retained_early_c_frame']-syms['_text']
-    require(raw[offset:offset+128]==bytes.fromhex(config['frames']['4']),'actual C frame differs')
+    placement={}
+    if marker.version(config)==3:
+        with elf.open('rb') as stream:
+            symbol=next(s for s in ELFFile(stream).get_section_by_name('.symtab').iter_symbols() if s.name=='setup_arch')
+            start=syms['setup_arch'];length=symbol['st_size']
+        calls=[]
+        for offset in range(0,length,4):
+            instruction=struct.unpack_from('<I',raw,start-syms['_text']+offset)[0]
+            if instruction>>26!=0b100101:continue
+            immediate=instruction&0x3ffffff
+            if immediate&(1<<25):immediate-=1<<26
+            calls.append((start+offset,start+offset+4*immediate))
+        def call(name):
+            matches=[pc for pc,destination in calls if destination==syms[name]]
+            require(len(matches)==1,'actual setup_arch call count differs: '+name)
+            return matches[0]
+        post_fdt=call(marker.name(config,5));post_paging=call(marker.name(config,6))
+        remaps=[pc for pc,destination in calls if destination==syms['fixmap_remap_fdt']]
+        require(len(remaps)==2 and remaps[0]<call('early_init_dt_scan')<remaps[1]<post_fdt<call('jump_label_init')<call('paging_init') and
+                post_paging==call('paging_init')+4<call('early_ioremap_reset'), 'actual V3 call ordering differs')
+        require(not any(name in syms for name in ('s22_retained_pre_mmu','s22_retained_kernel','s22_retained_early_c')),
+                'V3 retains a superseded marker site')
+        placement=dict(post_fdt_call=post_fdt,post_paging_call=post_paging,assembly_marker_absent=True,
+                       actual_fdt_scan_and_readonly_remap_before_first=True)
     rows=[]
-    for idx in (0,255,256,marker.PAYLOAD-1,marker.PAYLOAD,marker.PAYLOAD+1,
-                marker.PAYLOAD+300,marker.PAYLOAD+4196,0xffffffff):
-        rows.append(exercise(raw,syms,config,idx=idx))
-    for el in (0,2,3):rows.append(exercise(raw,syms,config,el=el))
-    for state in (0,4,5,1|(1<<25)):
-        rows.append(exercise(raw,syms,config,state=state))
-    rows.append(exercise(raw,syms,config,magic=0))
-    for fail in (1,2):rows.append(exercise(raw,syms,config,fail_map=fail))
-    for change in (0,4,8,12):rows.append(exercise(raw,syms,config,change=change))
-    for cut in range(1,136):rows.append(exercise(raw,syms,config,cut=cut))
+    for stage in marker.c_stages(config):
+        offset=syms[marker.name(config,stage)+'_frame']-syms['_text']
+        require(raw[offset:offset+128]==bytes.fromhex(config['frames'][str(stage)]),'actual C frame differs')
+        def case(**kw):return exercise(raw,syms,config,stage=stage,**kw)
+        for idx in (0,255,256,marker.PAYLOAD-1,marker.PAYLOAD,marker.PAYLOAD+1,
+                    marker.PAYLOAD+300,marker.PAYLOAD+4196,marker.PAYLOAD+4324,0xffffffff):
+            rows.append(case(idx=idx))
+        for el in (0,2,3):rows.append(case(el=el))
+        for state in (0,4,5,1|(1<<25)):rows.append(case(state=state))
+        rows.append(case(magic=0))
+        for fail in (1,2):rows.append(case(fail_map=fail))
+        for change in (0,4,8,12):rows.append(case(change=change))
+        for cut in range(1,136):rows.append(case(cut=cut))
     result=dict(status='PASS_H0_ACTUAL_EARLY_C',kernel_sha256=digest(image),
         kernel_path=str(image),elf_path=str(elf),elf_sha256=digest(elf),
-        source_sha256=digest(__file__),cases=rows,mapping_api_mocked=True,
+        source_sha256=digest(__file__),cases=rows,placement=placement,qualified_c_stages=list(marker.c_stages(config)),mapping_api_mocked=True,
         mmu_translation_proved=False,device_actions=0)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     return result

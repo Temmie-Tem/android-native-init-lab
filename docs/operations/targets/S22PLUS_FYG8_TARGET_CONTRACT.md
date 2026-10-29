@@ -64,6 +64,10 @@ V2 successor instead places them before MMU enablement and in early
 `setup_arch`, using only the policy's fixed Normal-NC temporary header/slot
 mappings after MMU enablement. Both retain the same no-map slice, two-slot
 write bound, positive-only evidence and independent exact-artifact review.
+V3 instead uses two C sites after FDT setup and after `paging_init`, with the
+same guarded temporary writer and explicit qualification of no linear alias
+over the no-map log slice. Its two records replace V2's sites; older records
+and consumed owners retain their original meaning and authority.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

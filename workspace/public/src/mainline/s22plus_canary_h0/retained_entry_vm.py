@@ -93,7 +93,7 @@ quit
         qualification_sha256=digest(qualification/'result.json'),source_sha256=digest(__file__),
         qemu_sha256=digest(qemu),gdb_sha256=digest(gdb),cases=rows,
         physical_retention_proved=False,cache_coherency_proved=False,device_actions=0)
-    if marker.version(config)==2:
+    if marker.c_stages(config):
         from retained_kernel_vm import qualify as qualify_kernel
         result['mmu_on']=qualify_kernel(record,gdb,output/'early-c-kernel')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')

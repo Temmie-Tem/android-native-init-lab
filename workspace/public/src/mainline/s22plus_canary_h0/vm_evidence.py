@@ -32,7 +32,8 @@ def inputs(prepared, init, kernel_label):
 
 def snapshot(output):
     source=output/'source';source.mkdir()
-    paths=[HERE/name for name in ('vm.py','vm_evidence.py','verify.py','prepare.py')]
+    paths=[HERE/name for name in ('vm.py','vm_evidence.py','verify.py','prepare.py',
+                                 'retained_kernel_vm.py','retained_marker.py','qualify_retained.py')]
     paths.append(ROOT/'workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py')
     for path in paths:shutil.copyfile(path,source/path.name)
     return {path.name:digest(source/path.name) for path in paths}
@@ -64,8 +65,16 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
     require(set(receipt['evidence'])==required,'capture evidence incomplete')
     for name,expected in receipt['evidence'].items():
         require(digest(previous/name)==expected,'captured evidence changed: '+name)
+    command=json.loads((previous/'command.json').read_text())
+    if 'fixture_dtb' in command:
+        fixture=command['fixture_dtb'];path=Path(fixture['path'])
+        require(path.is_relative_to(previous) and digest(path)==fixture['sha256'], 'VM fixture DTB changed')
+        from prepare import nodes,fixed_reservations,uncovered
+        require(not uncovered([(0x800200000,0x800400000)],fixed_reservations(nodes(path),coverage=True)),
+                'VM fixture lacks no-map log hole')
     sources={'vm.py','vm_evidence.py','verify.py','prepare.py','s22plus_fyg8_p319_max77705_irq_dt_audit.py'}
-    require(set(receipt['source'])==sources,'capture source incomplete')
+    expanded=sources|{'retained_kernel_vm.py','retained_marker.py','qualify_retained.py'}
+    require(set(receipt['source']) in (sources,expanded),'capture source incomplete')
     for name,expected in receipt['source'].items():
         require(digest(previous/'source'/name)==expected,'capture source changed')
     manifest=json.loads((init/'result.json').read_text())

@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v2_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v3_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -95,9 +95,10 @@ response. Descriptor visibility alone proves none of these.
 ### Optional early retained markers
 
 An image carrying the schema-exact `retained_marker` qualification may add
-only the reviewed `s22plus-mainline-retained-marker-v1` or
-`s22plus-mainline-retained-marker-v2` diagnostic writer. These formats are
-mutually exclusive in one candidate; V2 replaces both V1 sites.
+only the reviewed `s22plus-mainline-retained-marker-v1`,
+`s22plus-mainline-retained-marker-v2` or `s22plus-mainline-retained-marker-v3`
+diagnostic writer. These formats are mutually exclusive in one candidate;
+each successor replaces both preceding sites.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
 instrumented loader/kernel marker bytes. The immutable qualification joins the
 actual linked loader and kernel entry, candidate identity, generated frames,
@@ -145,6 +146,35 @@ that no temporary mapping remains. H0 cannot prove physical cache coherency or
 retention. V2's distinct frame magic/version and stage IDs must be decoded from
 the exact candidate qualification; V1 records retain their original meaning.
 
+V3 replaces both V2 sites with two calls in `setup_arch`: immediately after
+`setup_machine_fdt(__fdt_pointer)` and immediately after `paging_init`, both
+before `early_ioremap_reset`. There is no assembly marker or pre-FDT C call.
+Each call uses the same C writer mechanics, with only its compile-time symbol,
+frame and fixed half-slot changed. The MMU/endian guards, two bounded Normal-NC
+mapping attempts, header stability check, byte stores and reverse cleanup
+remain unchanged; compiler stack/PAC protections are retained. Firmware may
+move the header index between calls, so adjacency is not promised.
+
+The post-paging site requires the exact candidate's active no-map log
+reservation. Its additional qualification blocks a conflicting cacheable
+linear alias: the exact Image runs with a QEMU-shaped no-map fixture, actual
+page-table walks show no linear translation across the log slice while
+adjacent ordinary RAM translates and is readable, and the Normal-NC temporary
+writer and unmap finish. Both actual EL1 and EL2 paths and a first-site guard
+skip followed by a positive second site are qualified. This check is scoped
+to V3's post-paging writer; it does not gate V1/V2 or recovery. It is retired
+only if a separately reviewed successor removes that post-paging mapping
+hazard or replaces this evidence with equivalent mapping proof. Changed site,
+mapping machinery or reservation is its review trigger. Generic QEMU RAM
+without the no-map hole is not this qualification, and H0 is not physical
+cache-coherency proof.
+
+Actual linked calls must place the first writer after the FDT scan's success
+path and read-only remap, and the second directly after `paging_init` returns.
+The schema-distinct V3 frames are decoded only from their exact qualification;
+older records retain their original meanings. A later positive with an absent
+earlier record is valid positive evidence, not a contradiction or new stop.
+
 The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
 index between attempts. Each site runs at most once per entry, has a fixed
@@ -164,6 +194,11 @@ An observed V2 `pre-mmu` frame proves entry to that site's writer, not MMU
 enablement. An observed `early-c` frame proves execution in the named
 MMU-enabled `setup_arch` path, including prior entry to `start_kernel`; it does
 not prove FDT setup, subsequent initialization or userspace.
+V3 `post-fdt` proves the named post-FDT recording point in that candidate;
+`post-paging` proves the post-`paging_init` point and return from that candidate's
+preceding helper call along the sequential path. The preceding call may have
+skipped writing. Neither record proves its own later unmap/return, any
+subsequent initialization, or a historical candidate's writer return.
 
 ### Fixed post-closure retained-marker D0
 
