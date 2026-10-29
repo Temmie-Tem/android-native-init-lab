@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_ram_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -91,6 +91,79 @@ There is no reconnect or request retry after uncertainty. The protocol proves
 actual RAM PID1 identity, selected kernel release, live DT semantics and
 reservations, one CPU, no block devices, timer health and a fresh authenticated
 response. Descriptor visibility alone proves none of these.
+
+### Optional early retained markers
+
+An image carrying the schema-exact `retained_marker` qualification may add
+only the reviewed `s22plus-mainline-retained-marker-v1` diagnostic writer.
+Absent that receipt, the image remains the RAM/USB variant and may not contain
+instrumented loader/kernel marker bytes. The immutable qualification joins the
+actual linked loader and kernel entry, candidate identity, generated frames,
+unchanged-header bounds, instruction tests, actual-EL fixtures and independent
+artifact review. A source/preparation marker without its complete receipt is
+not an ordinary unmarked candidate. Existing consumed artifacts retain their
+original provenance and reviews.
+
+The exact RAM destination is the retained FYG8 `samsung,kernel_log_buf` slice
+at physical `0x800200000`, size `0x200000`. Its 16-byte header remains unchanged.
+Each site selects its own 128-byte half of a 256-byte span behind that site's
+sampled byte index, using the reviewed contiguous placement. The selected span
+can change if firmware moves the index between sites. Each eligible site writes
+only its own slot with byte accesses, invalidates its commit prefix first,
+checks all four header words before committing, and completes stores with
+barriers. The sites are loader handoff after all payload copies and mainline
+`primary_entry` before `record_mmu_state`. Both independently require EL1/EL2,
+little-endian data, MMU off and data cache off before any log access; unsuitable
+state/header/index skips recording and continues the original boot. They do
+not change mappings, header fields, interrupt controls, storage, watchdogs or
+the logger. The existing no-map reservation is retained.
+
+The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
+loop touches only 256 bytes across the entire operation: firmware may move the
+index between attempts. Each site runs at most once per entry, has a fixed
+instruction/write bound and no internal retry. Header checks detect some
+interference and do not establish exclusive ownership or future retention.
+The existing finite experiment/USB observation and attended recovery limits
+are unchanged.
+
+These static candidate-bound records support positive **at-least-once stage
+occurrence during the candidate's attempts**. Integrity validation and exact
+artifact provenance are required; the embedded tag is not a fresh runtime
+challenge response. Records do not prove one shared boot, last attempt, ordering
+across resets, reset cause, PID 1 or authenticated USB. Missing, torn, foreign
+or overwritten records never prove non-execution or where execution stopped.
+The live USB/PID1 result and original-A recovery/health remain separate.
+
+### Fixed post-closure retained-marker D0
+
+The named `s22plus_mainline_retention_v1.py` capture is a foreground D0 profile
+for the current mainline research task, without attendance or another per-read
+approval. It selects only an instrumented mainline task with rederived
+`s22plus-comparison-task-closed-v1` closure, its exact one N and one original-A
+transfer, candidate consumption, complete raw final Android health and no
+unresolved F1 owner. It never invokes repair, changes old journals or borrows a
+Debian/calibration task's authority. Current observer review is separate from
+the preserved execution/artifact provenance.
+
+Under the existing exact-target lease it reads fixed rooted Android health,
+requires the same boot as the completed original-A return, checks ADB shell-v2,
+then acquires `su -c 'cat /proc/last_kmsg'` once with a 30-second timeout,
+4 MiB stdout and 16 KiB stderr bounds. Complete raw producer status and bytes
+are sealed before projection. A second fixed health bracket must prove the
+same target, partitions, properties and Android boot. No arbitrary proc path,
+RAM read, control, transfer, storage command or grant is exposed.
+
+Failure ends that invocation and preserves its raw prefix and stop record.
+A later fresh invocation may repeat only these fixed read-only observations,
+with the same closed owner and fresh health; it does not reuse a partial
+capture, resolve another owner, renew an experiment or replay an effect.
+Projection can be repeated from complete retained raw evidence without a new
+device read. Marker output does not revise the closed USB/PID1 verdict.
+
+The marker codec, artifact builders/tests and this post-closure collector are
+not original-A recovery prerequisites. Their absence or failure cannot add a
+candidate step before recovery; the existing owner, target, A, transfer and
+raw-health checks remain mandatory.
 
 ## Return, interruption and evidence
 

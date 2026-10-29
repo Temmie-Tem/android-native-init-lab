@@ -1,5 +1,6 @@
 """Mainline USB producer/consumer, exact scope and owner interruption tests."""
 import copy
+import builtins
 from contextlib import ExitStack
 import errno
 import json
@@ -160,6 +161,40 @@ class OwnerTests(unittest.TestCase):
         before=list(device.actions);session.repair_close();self.assertEqual(device.actions,before)
         with self.assertRaises(ValueError):session.execute(attended=True)
 
+    def test_missing_or_broken_marker_codec_cannot_block_a_after_complete_usb(self):
+        original_import=builtins.__import__
+        for error in (ImportError('missing marker codec'),SyntaxError('broken marker codec')):
+            self.setUp();session,device=self.operation()
+            self.assertEqual(session.execute(attended=True)['state'],'AWAITING_PHYSICAL_DOWNLOAD')
+            self.assertIn(profile.SELECTION,device.proofs);device.mode='Download'
+            recover=device.recover_step_result;failed_imports=[]
+            def missing(name,globals=None,locals=None,fromlist=(),level=0):
+                if name=='mainline.s22plus_canary_h0' and 'retained_marker' in fromlist:
+                    failed_imports.append(name);raise error
+                return original_import(name,globals,locals,fromlist,level)
+            def recover_proof(step,request):
+                # The real adapter rederives USB evidence while reconstructing
+                # this step, before the remaining normal A steps are probed.
+                if step.name==profile.SELECTION:profile.marker_codec()
+                return recover(step,request)
+            with mock.patch.object(task,'capability',return_value={'fixture':True}),\
+                 mock.patch('builtins.__import__',side_effect=missing),\
+                 mock.patch.object(device,'recover_step_result',side_effect=recover_proof):
+                result=session.recover(attended=True)
+                self.assertEqual(result['state'],'ANDROID_CLOSED')
+                self.assertEqual(device.installed,['N','A'])
+                self.assertEqual(len(failed_imports),1)
+                with mock.patch.object(access,'rederive',side_effect=lambda *_:profile.marker_codec()):
+                    terminal=mainline.terminal(device,session.request,recovered=True)
+                    self.assertEqual(terminal['status'],'NO_PROOF')
+                    self.assertTrue(terminal['original_a_return_proved'])
+
+    def test_unreviewed_marker_code_is_rejected_before_import(self):
+        with mock.patch.object(task,'capability',side_effect=ValueError('source changed')),\
+             mock.patch('builtins.__import__',wraps=builtins.__import__) as imports:
+            with self.assertRaisesRegex(ValueError,'source changed'):profile.marker_codec()
+            self.assertFalse(any(c.args[0]=='mainline.s22plus_canary_h0' for c in imports.call_args_list))
+
     def test_n_intent_cut_and_partial_observation_only_recover_a(self):
         for fault in ('install-native-first','observation'):
             self.setUp();session,device=self.operation();device.fail_after=fault
@@ -266,11 +301,18 @@ class ObserverTests(unittest.TestCase):
             with mock.patch.object(access.socket,'socket',side_effect=AssertionError('replay')),\
                  mock.patch.object(access,'host_command',side_effect=AssertionError('new command')):
                 self.assertEqual(access.rederive(adapter,request),value)
+                with mock.patch.object(access,'host_boot',return_value='different-host-boot'):
+                    self.assertEqual(access.rederive(adapter,request),value)
                 (adapter.folder(profile.SELECTION)/'usb-after-response.capture.json').unlink()
                 with self.assertRaises((ValueError,OSError,raw.RawCaptureError)):access.rederive(adapter,request)
 
 
 class ScopeTests(unittest.TestCase):
+    def test_live_grant_still_rejects_host_reboot(self):
+        grant=dict(schema=owner.SCHEMA,host_boot='original',opened_ns=1,deadline_ns=100)
+        with mock.patch.object(owner,'host_boot',return_value='new'),mock.patch.object(owner,'clock',return_value=2):
+            with self.assertRaises(ValueError):owner.live_grant(grant)
+
     def setUp(self):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
         self.root=Path(tmp.name);(self.root/'workspace/private').mkdir(parents=True)

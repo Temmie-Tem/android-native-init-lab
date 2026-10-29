@@ -41,7 +41,13 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
     with socket.socket() as listener:listener.bind(('127.0.0.1',0));port=listener.getsockname()[1]
     serial=output/'serial.log';stderr=output/'qemu.stderr'
     net=manifest['network'];prefix=str(ipaddress.IPv4Interface(net['device_ip']+'/'+net['netmask']).network)
-    command=[str(qemu),'-machine','virt','-cpu','cortex-a76','-smp','1','-m','768',
+    # The marked physical kernel intentionally probes the fixed high Samsung
+    # log slice before normal MMU setup. Back that address in this emulator;
+    # its zero/invalid header exercises the skip path without changing Image.
+    memory='36G' if 'retained_marker' in kernel_record else '768'
+    sparse=output/'guest-ram.sparse' if 'retained_marker' in kernel_record else None
+    memory_args=(['-object',f'memory-backend-file,id=vmram,size=36G,mem-path={sparse},share=on,reserve=off,prealloc=off,dump=off'] if sparse else [])
+    command=[str(qemu),*memory_args,'-machine','virt,memory-backend=vmram' if sparse else 'virt','-cpu','cortex-a76','-smp','1','-m',memory,
              '-no-reboot','-display','none','-monitor','none','-serial','file:'+str(serial),
              '-kernel',str(kernel),'-initrd',str(ramdisk),
              # CMDLINE_FORCE comes from the same actual g0q kernel. The VM
@@ -85,6 +91,7 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
             proc.terminate()
             try:proc.wait(timeout=5)
             except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
+            if sparse is not None and sparse.exists():sparse.unlink()
     require(inputs(prepared,init,kernel_label)==binding,'VM input changed during acquisition')
     capture(output,binding,source,bad_key=bad_key,elapsed=round(time.monotonic()-started,3),returncode=proc.returncode)
     if bad_key:

@@ -17,6 +17,8 @@ from s22plus_native_records_v3 import SCHEMA,Journal,canonical,clock,digest,host
 # Selected mainline/Android/transport branches only. The shared modules also
 # contain vendor-native operations which this exact task cannot select.
 MODULES=('s22plus_mainline_task_v1','s22plus_mainline_profile_v1','s22plus_mainline_access_v1',
+    's22plus_mainline_retention_v1',
+    's22plus_native_android_storage_v1',
     's22plus_mainline_session_v1','s22plus_native_task_v3','s22plus_native_session_v3',
     's22plus_native_adapter_v3','s22plus_native_qualification_v1','s22plus_native_records_v3','s22plus_native_target_io_v3',
     's22plus_native_host_v3','s22plus_native_host_census_v1','s22plus_debian_handoff_session_v1',
@@ -40,6 +42,7 @@ def source_paths(root,selected=profile):
         'docs/operations/DEVICE_ACTION_PROCESS_V2.md','docs/operations/DEVICE_ACTION_RISK_TIERS.md',
         'workspace/public/src/mainline/s22plus_canary_h0/verify.py',
         'workspace/public/src/mainline/s22plus_canary_h0/prepare.py',
+        'workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/revalidation/device_action_f1_legacy_consumed_candidate_authority_v1.json']
     if selected is not profile:
@@ -66,6 +69,14 @@ def loader_build_only(path):
             ('build_loader.py','package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')})
 
 
+def marker_only(path):
+    # This observer runs only after proved original-A closure. Neither it nor
+    # the marker codec is imported by the original-A recovery path.
+    return path in ('workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
+                    'workspace/public/src/scripts/revalidation/s22plus_mainline_retention_v1.py',
+                    'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py')
+
+
 def capability(root,*,recovery=False,selected=profile):
     root=Path(root);path=root/selected.REVIEW;value=read(path)
     require(set(value)=={'schema','verdict','scope','sources','reviewer','findings'} and
@@ -78,7 +89,7 @@ def capability(root,*,recovery=False,selected=profile):
         # Loader comparison recovery neither rebuilds nor requalifies N. Keep
         # only its actually imported owner/observer/transport/authority closure
         # mandatory after a stop; candidate build/checker files are not A inputs.
-        if recovery and selected is not profile and loader_build_only(row['path']):continue
+        if recovery and (marker_only(row['path']) or selected is not profile and loader_build_only(row['path'])):continue
         tasks.unchanged(dict(row,path=str(root/row['path'])))
     return pin(path)
 

@@ -220,15 +220,15 @@ def rederive(adapter,request):
     folder=adapter.folder(profile.SELECTION)
     window=read(folder/'window.json');attempt=read(folder/'attempt.json');connection=read(folder/'connection.json')
     manifest=profile.image_binding(request['N'])
+    wanted=window_for(adapter,request)
     require(window['operation']==pin(adapter.directory/'operation.json') and
-            window['host_boot']==attempt['host_boot']==host_boot() and
+            window['host_boot']==attempt['host_boot']==wanted['host_boot'] and
             connection['attempt']==pin(folder/'attempt.json') and
             connection['response']==pin(folder/'response.capture.json') and
             connection['sent_complete_request'] is True and connection['eof'] is True and
             connection['descriptor_closed'] is True and
             window['opened_ns']<=attempt['opened_ns']<connection['finished_ns']<window['deadline_ns']==attempt['deadline_ns'],
             'observation does not join its original complete window')
-    wanted=window_for(adapter,request)
     require(window==wanted,'mainline observation window changed')
     selected=read(folder/'endpoint.json')
     require(attempt['endpoint']==selected and

@@ -97,11 +97,20 @@ identities, goals, artifacts and authority remain separate.
   header-preserving placement and actual Samsung snapshot consumer support a
   small marker without a logger port; 12 extracted-source host cases passed.
   ML002 reserves this firmware-shared slice as no-map, so the proposed sites
-  are the loader handoff and checked pre-MMU kernel entry. Actual marker code,
-  mainline collection and physical retention remain unqualified. Missing
+  are the loader handoff and checked pre-MMU kernel entry. Missing
   markers cannot establish non-execution, and a boot-loop pair cannot by itself
   establish one shared boot.
   [Feasibility report](docs/reports/S22PLUS_MAINLINE_RETAINED_LOG_FEASIBILITY_H0_2026-10-29.md).
+- **ML003 is prepared immediately before an attended experiment.** The actual
+  loader and mainline entry markers passed 342 instruction cases and six
+  actual-EL fixtures; complete loader/copy checks, full-kernel VM PID1 and two
+  identical boot/AP packages also passed. Fixed post-return collection and
+  optional-codec recovery paths were qualified. Independent review is PASS_GO,
+  backend v12 is connected, and named preapproval D0 proved current original-A
+  health. No operator approval, grant, candidate consumption, reboot or transfer
+  is open/performed for ML003. The user selected stopping before the physical
+  experiment; readiness remains subject to its existing freshness checks.
+  [ML003 preparation](docs/reports/S22PLUS_MAINLINE_ML003_RETAINED_MARKERS_H0_2026-10-29.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -165,7 +174,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 mainline retained stage markers
+## Next bounded unit: attended ML003, prepared but not authorized
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -196,12 +205,19 @@ research.
 The post-LA001 comparison selected a bounded Samsung retained-log feasibility
 check. That check is complete: the reader format and compression do not require
 a Samsung logger port, and a small header-preserving span is source-compatible.
-The proposed next H0 implementation is a candidate-bound loader-handoff marker
-and a pre-MMU mainline-entry marker, with positive-only decoding and the existing
-original-A return. It includes a mainline-specific join to the fixed post-return
-reader, whose current allowlist does not admit mainline. Implementation, actual
-artifact qualification and independent review remain outstanding; no new
-candidate, grant or device effect is armed by this goal update.
+ML003 implements a candidate-bound loader-handoff marker and a pre-MMU
+mainline-entry marker, with positive-only decoding and the existing original-A
+return. Its separate fixed post-return reader joins the exact closed mainline
+owner and same returned Android boot. Implementation, artifact qualification,
+independent review and current preapproval D0 are complete. Physical retention,
+mainline progress on g0q and ML002's reset cause remain unproved.
+
+The operator requested preparation through the point immediately before the
+physical experiment. That bounded unit is complete. ML003 has no returned
+finite attended approval or grant; its proposal is preserved privately. A
+later experiment would use the existing one-N/one-A owner with current machine
+binding and actual attendance, followed by the independent post-closure marker
+read. The task is not dispatched by this goal update.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

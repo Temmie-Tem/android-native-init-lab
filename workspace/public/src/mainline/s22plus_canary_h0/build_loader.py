@@ -11,6 +11,7 @@ import subprocess
 from elftools.elf.elffile import ELFFile
 
 from prepare import HERE, ROOT, digest, require, run, config_values, uncovered, merged, audit_candidate
+import retained_marker as marker
 
 # Keep staging above the retained FYG8 ABL source envelope. Its normal EFI
 # placement overlaps the former staging base; the live-stub guard stays intact.
@@ -61,6 +62,17 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     dt_audit=audit_candidate(prep['live_fdt']['path'],ir['dtb']['path'])
     for record in [ir['initramfs'],ir['dtb']]:require(digest(record['path'])==record['sha256'],'member changed')
     require(digest(kr['image'])==kr['sha256'],'kernel changed')
+    marked=kr.get('retained_marker')
+    marker_source=None
+    if marked:
+        require(digest(marked['path'])==marked['sha256'],'kernel marker provenance differs')
+        marker_source=json.loads(Path(marked['path']).read_text())
+        cfgref=marker_source['config']
+        require(digest(cfgref['path'])==cfgref['sha256'] and
+                marker_source['init_manifest']==dict(path=str(init/'result.json'),size=(init/'result.json').stat().st_size,
+                    sha256=digest(init/'result.json')),'kernel/loader marker identity differs')
+        cfg=json.loads(Path(cfgref['path']).read_text())
+        marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
     if not reuse:output.mkdir(mode=0o700,parents=True,exist_ok=False)
     require(not (output/'result.json').exists(),'result already published')
     source=output/'source'
@@ -69,9 +81,19 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
         run(['patch','--batch','--fuzz=0','-p1','-i',patch],output/'patch.log',cwd=source)
         run(['patch','--batch','--fuzz=0','-p1','-i',local_patch],output/'entry-patch.log',cwd=source)
         (source/'arch/aarch64/g0q-source-ram.inc').write_text(range_include(ranges))
+        if marked:
+            start=source/'arch/aarch64/start.S';text=start.read_text()
+            hook='ENTRY(load_kernel_and_jump)\n'
+            require(text.count(hook)==1 and 's22_retained_' not in text,'loader marker hook differs')
+            start.write_text(text.replace(hook,hook+'\tbl s22_retained_loader\n')+'\n'+marker.render(cfg,1))
     require('fuzz' not in (output/'patch.log').read_text().lower(),'fuzzy patch application')
     require('fuzz' not in (output/'entry-patch.log').read_text().lower(),'fuzzy entry patch')
     require((source/'arch/aarch64/g0q-source-ram.inc').read_text()==range_include(ranges),'source RAM table changed')
+    if marked:
+        text=(source/'arch/aarch64/start.S').read_text()
+        require(text.endswith(marker.render(cfg,1)) and
+                text.count('ENTRY(load_kernel_and_jump)\n\tbl s22_retained_loader\n')==1,
+                'linked loader marker source differs')
     config=(upstream/'configs/r0q_defconfig').read_text()
     config=re.sub(r'^CONFIG_TEXT_BASE=.*$',f'CONFIG_TEXT_BASE={TEXT:#x}',config,flags=re.M)
     config=re.sub(r'^CONFIG_PAYLOAD_ENTRY=.*$',f'CONFIG_PAYLOAD_ENTRY={PAYLOAD:#x}',config,flags=re.M)
@@ -127,6 +149,7 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     require(offset==0 and declared_size>=blob.stat().st_size and
             declared_size==symbols['_stack_end']-symbols['_head'], 'loader Image header geometry')
     raw=blob.read_bytes()
+    require((marker.MAGIC in raw)==bool(marked),'linked marker bytes lack declared scope')
     with elf.open('rb') as stream:
         parsed=ELFFile(stream)
         for section in parsed.iter_sections():
@@ -171,6 +194,9 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
             'initial_abl_source_and_stub_overlap':'RUNTIME_GUARD_REJECTS_LIVE_STUB_OVERWRITE',
             'physical_entry':'NOT_ADMITTED_H0_ONLY',
             'device_actions':0}
+    if marked:
+        result['retained_marker']=dict(config=marker_source['config'],kernel_source=marked,
+            source_sha256=digest(HERE/'retained-marker.S'),codec_sha256=digest(HERE/'retained_marker.py'))
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'loader_bytes':blob.stat().st_size,'fixed_reservation_overlap':False}))
 

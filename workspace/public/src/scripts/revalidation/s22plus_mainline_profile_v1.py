@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_ram_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -35,6 +35,7 @@ def unchanged(receipt,maximum=128*1024*1024):
 
 def image_binding(image,*,artifact_bytes=False):
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification','runtime_sources'}
+    if 'retained_marker' in image:keys.add('retained_marker')
     require(set(image)==keys and image['schema']=='s22plus-mainline-image-v1' and image['profile']==PROFILE and
             image['namespace']==NAMESPACE and image['version']==VERSION and
             re.fullmatch('[0-9a-f]{32}',image['run_id_hex']),'mainline image shape differs')
@@ -74,6 +75,14 @@ def image_binding(image,*,artifact_bytes=False):
         key=str(Path(receipt['path']).relative_to(ROOT))
         require(key in reviewed and all(reviewed[key][k]==receipt[k] for k in ('size','sha256')),
                 'candidate evidence was not covered by retained entry review')
+    require(('retained_marker' in image)==('retained_marker' in loader)==('retained_marker' in loader['kernel']),
+            'instrumented loader lacks its marker admission')
+    if 'retained_marker' in image:
+        marked=marker_binding(image,manifest,loader)
+        for receipt in (image['retained_marker'],marked['config'],marked['tests'],marked['entry_vm']):
+            path=str(Path(receipt['path']).relative_to(ROOT))
+            require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
+                    'retained marker evidence lacks exact independent coverage')
     for receipt in image['runtime_sources'].values():unchanged(receipt)
     require(image['runtime_sources']=={
         'loader':dict(path=loader['loader']['path'],size=loader['loader']['size'],sha256=loader['loader']['sha256']),
@@ -90,7 +99,45 @@ def image_binding(image,*,artifact_bytes=False):
     return manifest
 
 
-def qualify(package_dir,loader_dir,output):
+def marker_codec():
+    # A stopped owner may probe historical USB evidence before selecting A.
+    # Candidate-only code must be reviewed before import, and an unavailable
+    # decoder is an ordinary failed candidate validation, never a new recovery
+    # prerequisite or an uncaught import failure.
+    from s22plus_mainline_task_v1 import capability
+    capability(ROOT)
+    try:
+        from mainline.s22plus_canary_h0 import retained_marker
+    except (ImportError,SyntaxError) as error:
+        raise ValueError('reviewed marker codec is unavailable') from error
+    return retained_marker
+
+
+def marker_binding(image,manifest,loader):
+    marker=marker_codec()
+    value=read(unchanged(image['retained_marker']))
+    require(set(value)=={'schema','status','config','tests','entry_vm','device_actions'} and
+            value['schema']=='s22plus-mainline-marker-qualification-v1' and
+            value['status']=='PASS_H0_MAINLINE_RETAINED_MARKER' and value['device_actions']==0,
+            'marker qualification shape differs')
+    require(value['config']==loader['retained_marker']['config'],'loader marker config differs')
+    config=read(unchanged(value['config']));key=unchanged(image['key'],32).read_bytes()
+    marker.validate(config,manifest['candidate_id'],key)
+    tests=read(unchanged(value['tests']));vm=read(unchanged(value['entry_vm']))
+    for result,status in ((tests,'PASS_H0_ACTUAL_RETAINED_MARKERS'),(vm,'PASS_H0_ACTUAL_EL_RETAINED_MARKERS')):
+        require(result['status']==status and result['config']==value['config'] and
+                result['loader_sha256']==image['runtime_sources']['loader']['sha256'] and
+                result['kernel_sha256']==image['runtime_sources']['kernel']['sha256'] and
+                result['device_actions']==0 and result['physical_retention_proved'] is False,
+                'actual marker artifact tests differ')
+    require(vm['qualification_sha256']==value['tests']['sha256'],'marker actual EL test input differs')
+    source=read(unchanged(loader['retained_marker']['kernel_source']))
+    require(source['config']==value['config'] and source['init_manifest']['sha256']==
+            pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')
+    return value
+
+
+def qualify(package_dir,loader_dir,output,*,marker_qualification=None):
     """Revalidate existing immutable artifacts, without building or contacting a device."""
     package_dir,loader_dir,output=[Path(p).resolve() for p in (package_dir,loader_dir,output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private qualification required')
@@ -113,6 +160,7 @@ def qualify(package_dir,loader_dir,output):
     image=dict(schema='s22plus-mainline-image-v1',profile=PROFILE,namespace=NAMESPACE,version=VERSION,
         run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
         runtime_sources=runtime)
+    if marker_qualification is not None:image['retained_marker']=pin(Path(marker_qualification).resolve())
     output.mkdir(mode=0o700,parents=True)
     record=dict(schema='s22plus-mainline-qualification-v1',status='PASS_H0_MAINLINE_CANDIDATE',image=image,
         package=pin(package_dir/'result.json'),loader=pin(loader_dir/'result.json'),

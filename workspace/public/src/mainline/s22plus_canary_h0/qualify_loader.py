@@ -21,6 +21,7 @@ from unicorn.arm64_const import (UC_ARM64_REG_PC, UC_ARM64_REG_PSTATE, UC_ARM64_
                                 UC_ARM64_REG_SP)
 
 from prepare import ROOT, digest, require, merged, uncovered, nodes, memreserve
+import retained_marker as marker
 
 PAGE=4096
 SYNC=struct.pack('<IIII',0xd5033f9f,0xd508751f,0xd5033f9f,0xd5033fdf)
@@ -57,7 +58,12 @@ def case(blob,record,all_symbols,source,*,state=None,el=1,full=False,bad_fdt=Fal
     size=len(blob);stub=s['_start']-head;source_limit=min(source+size,2**64)
     intervals=[(source,source_limit),(head,s['_stack_end'])]
     if full:intervals+=list(map(tuple,record['extents'].values()))
+    marked=record.get('retained_marker') if full else None
+    if marked:intervals.append((marker.BASE,marker.BASE+marker.REGION))
     u,mapped=machine(intervals)
+    if marked:
+        marker_header=struct.pack('<IIII',7,0x4d474f4c,marker.PAYLOAD+300,123)
+        u.mem_write(marker.BASE,marker_header)
     # Unicorn 2.1.4 returns CurrentEL=EL1 even after changing PSTATE mode.
     # Exercise other actual guard branches by injecting the MRS result only.
     if el != 1:
@@ -150,6 +156,13 @@ def case(blob,record,all_symbols,source,*,state=None,el=1,full=False,bad_fdt=Fal
                                       ('ramdisk','initramfs',s['ramdisk_size'])]:
                 require(bytes(u.mem_read(record['extents'][key][0],length))==
                         blob[s[symbol]-head:s[symbol]-head+length],key+' final bytes')
+        if marked:
+            cfg=json.loads(Path(marked['config']['path']).read_text())
+            expected_marker=bytearray(b'\xa5'*marker.PAYLOAD)
+            if not bad_fdt:expected_marker[44:44+marker.SLOT]=bytes.fromhex(cfg['frames']['1'])
+            require(bytes(u.mem_read(marker.BASE,marker.HEADER))==marker_header and
+                    bytes(u.mem_read(marker.BASE+marker.HEADER,marker.PAYLOAD))==expected_marker,
+                    'full loader marker/header/write extent differs')
     else:
         require(terminal==(['entry'] if expected else ['reject']),'placement terminal differs')
         if expected:

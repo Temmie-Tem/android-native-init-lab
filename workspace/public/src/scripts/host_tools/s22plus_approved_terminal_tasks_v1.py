@@ -118,10 +118,12 @@ def review_sources(root):
         'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_session_v1.py',
         'workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py',
         'workspace/public/src/scripts/host_tools/s22plus_mainline_terminal_v1.py')]
-    from s22plus_mainline_task_v1 import source_paths,loader_build_only
+    from s22plus_mainline_task_v1 import source_paths,loader_build_only,marker_only
     import s22plus_loader_android_profile_v1 as loader_android
-    loader_sources={p for p in source_paths(root,loader_android) if not loader_build_only(str(p.relative_to(root)))}
-    return sorted(set(paths)|set(source_paths(root))|loader_sources)
+    loader_sources={p for p in source_paths(root,loader_android)
+        if not loader_build_only(str(p.relative_to(root))) and not marker_only(str(p.relative_to(root)))}
+    mainline_sources={p for p in source_paths(root) if not marker_only(str(p.relative_to(root)))}
+    return sorted(set(paths)|mainline_sources|loader_sources)
 
 
 def verify_bridge(root, expected=None):

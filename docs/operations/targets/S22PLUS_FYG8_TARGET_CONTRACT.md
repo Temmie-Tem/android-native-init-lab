@@ -55,6 +55,19 @@ S22+ research task without physical attendance or a per-read request. It reads
 only fixed identity/root/partition-digest health and host/lane evidence, refuses
 an unresolved F1 owner, and grants no control, payload or run authority.
 
+The same policy's optional `retained_marker` qualification adopts only its
+two fixed early diagnostic RAM slots in the exact Samsung log slice, with
+unchanged header/no-map bounds, fresh artifact qualification and independent
+review. Positive stage occurrence is separate from USB/PID1 and recovery.
+Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
+the exact marked mainline owner closes healthy original A. It performs one
+bounded fixed `last_kmsg` read between same-returned-boot health brackets,
+without attendance or a per-read request. A fresh invocation after a pure
+read failure preserves that failure and repeats only this fixed observation;
+no unresolved F1 owner, uncertain effect or prior grant is discharged. The
+complete RAM/write, evidence, collection and recovery conditions are in the
+linked mainline policy. This adoption alone performs no device effect.
+
 Bounded attended F1 sessions: **REVIEW_GATED_CAPABILITY** under
 [the exact S22+ session policy](S22PLUS_FYG8_ATTENDED_F1_SESSION_V1.md).
 Its source-bound independent PASS_GO activation receipt and one explicit finite
