@@ -36,13 +36,13 @@ def marker_provenance(prepared_dir,kernel):
         require(Path(value['instrumented_setup']['path'])==setup and Path(value['generated_header']['path'])==header and
             setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text(),cfg) and
             header.read_text()==marker.render_c(cfg),'complete early C source differs')
-        if marker.version(cfg) in (4,5):
+        if marker.version(cfg) in (4,5,6):
             for key in ('original_main','instrumented_main'):
                 row=value[key];p=Path(row['path'])
                 require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'start_kernel source changed: '+key)
             require(Path(value['instrumented_main']['path'])==main and
                     main.read_text()==instrumented_main(Path(value['original_main']['path']).read_text(),cfg) and
-                    not (setup.parent/'s22-retained-early-c.h').exists(),'complete start_kernel marker source differs')
+                    not (setup.parent/'s22-retained-early-c.h').exists(),'complete main.c marker source differs')
         else:
             require(not (main.parent/'s22-retained-early-c.h').exists() and
                     (not main.exists() or ('s22_retained_' not in main.read_text() and

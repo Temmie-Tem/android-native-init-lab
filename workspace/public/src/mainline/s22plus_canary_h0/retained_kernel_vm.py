@@ -4,6 +4,8 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
+import shutil
 import socket
 import struct
 import subprocess
@@ -11,6 +13,64 @@ import subprocess
 from prepare import ROOT,digest,require
 from qualify_retained import symbols
 import retained_marker as marker
+
+
+def task_layout(kernel,output,compiler_expected,config_expected):
+    """Derive this build's layout without rebuilding or changing its Image."""
+    output.mkdir(mode=0o700,parents=True,exist_ok=False)
+    build=kernel.parents[3]
+    command_file=build/'arch/arm64/kernel/.asm-offsets.s.cmd'
+    line=command_file.read_text().splitlines()[0]
+    prefix='savedcmd_arch/arm64/kernel/asm-offsets.s := '
+    require(line.startswith(prefix),'actual offset compiler command missing')
+    argv=shlex.split(line[len(prefix):])
+    require(argv and argv[0]=='aarch64-linux-gnu-gcc' and argv.count('-S')==argv.count('-o')==1 and
+            argv[-1].endswith('/arch/arm64/kernel/asm-offsets.c') and
+            sum(a.startswith('-Wp,-MMD,') for a in argv)==1,'actual offset compiler command differs')
+    found=shutil.which(argv[0]);require(found is not None,'offset compiler missing')
+    compiler=Path(found).resolve(strict=True)
+    require(str(compiler)==compiler_expected['path'] and digest(compiler)==compiler_expected['sha256'] and
+            digest(build/'.config')==config_expected,'offset probe differs from the actual Image toolchain/config')
+    generated=build/'include/generated/asm-offsets.h'
+    source=output/'layout.c'
+    source.write_text('''#define COMPILE_OFFSETS
+#include <linux/sched.h>
+#include <linux/pid_namespace.h>
+#include <linux/kbuild.h>
+int main(void) {
+ DEFINE(S22_TSK_PID, offsetof(struct task_struct, pid));
+ DEFINE(S22_TSK_PID_SIZE, sizeof(((struct task_struct *)0)->pid));
+ DEFINE(S22_TSK_TI_CPU, offsetof(struct task_struct, thread_info.cpu));
+ DEFINE(S22_TSK_TI_PREEMPT, offsetof(struct task_struct, thread_info.preempt_count));
+ DEFINE(S22_NS_CHILD_REAPER, offsetof(struct pid_namespace, child_reaper));
+ DEFINE(S22_NS_REAPER_SIZE, sizeof(((struct pid_namespace *)0)->child_reaper));
+ return 0;
+}
+''')
+    assembly=output/'layout.s';dependency=output/'layout.d'
+    argv[0]=str(compiler);argv[-1]=str(source);argv[argv.index('-o')+1]=str(assembly)
+    argv=[('-Wp,-MMD,'+str(dependency)) if a.startswith('-Wp,-MMD,') else a for a in argv]
+    command=dict(argv=argv,cwd=str(build),source_command=dict(path=str(command_file),sha256=digest(command_file)),
+                 compiler=dict(path=str(compiler),sha256=digest(compiler)))
+    (output/'command.json').write_text(json.dumps(command,indent=2)+'\n')
+    with (output/'compile.stdout').open('xb') as stdout,(output/'compile.stderr').open('xb') as stderr:
+        check=subprocess.run(argv,cwd=build,stdout=stdout,stderr=stderr,timeout=30)
+    require(check.returncode==0,'same-build task layout compilation failed')
+    entries=re.findall(r'->S22_([A-Z0-9_]+) (\d+) ',assembly.read_text())
+    offsets={name:int(value) for name,value in entries}
+    wanted={'TSK_PID','TSK_PID_SIZE','TSK_TI_CPU','TSK_TI_PREEMPT','NS_CHILD_REAPER','NS_REAPER_SIZE'}
+    require(set(offsets)==wanted and len(entries)==len(wanted),'layout definitions differ')
+    official={name:int(value) for name,value in re.findall(r'^#define (TSK_TI_CPU|TSK_TI_PREEMPT) (\d+)',generated.read_text(),re.M)}
+    require(set(official)=={'TSK_TI_CPU','TSK_TI_PREEMPT'} and
+            all(offsets[k]==v for k,v in official.items()) and
+            offsets['TSK_PID_SIZE']==4 and offsets['NS_REAPER_SIZE']==8,'same-build layout calibration differs')
+    result=dict(status='PASS_H0_SAME_BUILD_TASK_LAYOUT',offsets=offsets,command=command,
+                generated_offsets=dict(path=str(generated),sha256=digest(generated)),
+                source=dict(path=str(source),sha256=digest(source)),
+                assembly=dict(path=str(assembly),sha256=digest(assembly)),
+                config_sha256=digest(build/'.config'),device_actions=0)
+    (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+    return result
 
 
 def nomap_fixture(qemu,env,output,virtual,*,calibration=False):
@@ -48,14 +108,21 @@ def qualify(record,gdb,output):
     require(digest(kernel)==artifact['kernel_sha256'] and digest(elf)==artifact['elf_sha256'], 'MMU fixture inputs changed')
     raw=kernel.read_bytes();syms=symbols(elf);base=syms['_text']
     cfg=json.loads(Path(record['config']['path']).read_text())
-    architecture=marker.version(cfg) in (3,4,5)
-    late=marker.version(cfg) in (4,5)
+    architecture=marker.version(cfg) in (3,4,5,6)
+    late=marker.version(cfg) in (4,5,6)
     bootstrap=marker.version(cfg)==5
+    init_thread=marker.version(cfg)==6
     offsets={}
-    if bootstrap:
+    if bootstrap or init_thread:
         generated=kernel.parents[3]/'include/generated/asm-offsets.h'
         offsets={name:int(value) for name,value in re.findall(r'^#define (TSK_TI_PREEMPT|TSK_TI_CPU) (\d+)',generated.read_text(),re.M)}
         require(set(offsets)=={'TSK_TI_PREEMPT','TSK_TI_CPU'},'generated bootstrap task offsets missing')
+    layout=task_layout(kernel,output/'task-layout',artifact['layout_compiler'],artifact['layout_config_sha256']) if init_thread else None
+    if layout:offsets=layout['offsets']
+    if init_thread:
+        initrd=artifact['mapping_initramfs'];initrd_path=Path(initrd['path'])
+        require(initrd_path.stat().st_size==initrd['size'] and digest(initrd_path)==initrd['sha256'],
+                'init-thread fixture initramfs changed')
     first,second=marker.c_stages(cfg) if architecture else (3,4)
     second_name=marker.name(cfg,second)
     switch=syms['__primary_switch']-base
@@ -95,6 +162,7 @@ def qualify(record,gdb,output):
             '-smp','1','-m','36G','-display','none','-monitor','none','-serial','file:'+str(folder/'serial.log'),
             '-no-reboot','-S','-gdb',f'tcp:127.0.0.1:{port}','-kernel',str(kernel),
             '-device',f'loader,file={seed},addr={marker.BASE},force-raw=on']
+        if init_thread:command+=['-initrd',str(initrd_path)]
         if architecture:
             command+=['-dtb',str(dtbs[virtual])]
             for side,address,byte in [('below',marker.BASE-4096,0x6c),('above',marker.BASE+marker.REGION,0x6d)]:
@@ -169,9 +237,9 @@ def mapping_attributes(stage,slot_offset):
             late_probe=f'''
 def late_context(stage):
     context()
-    assert bool(pointer('$cpsr')&(1<<7))==({not bootstrap} or stage=={first}), 'writer IRQ state differs'
+    assert bool(pointer('$cpsr')&(1<<7))==({not init_thread} and ({not bootstrap} or stage=={first})), 'writer IRQ state differs'
     assert struct.unpack('<i',inferior.read_memory({syms['after_paging_init']}+delta,4))[0]==1, 'late fixmap branch not selected'
-    assert struct.unpack('<i',inferior.read_memory({syms['system_state']}+delta,4))[0]==0, 'late fixture is not SYSTEM_BOOTING'
+    assert struct.unpack('<i',inferior.read_memory({syms['system_state']}+delta,4))[0]=={1 if init_thread else 0}, 'late fixture system state differs'
     late_stages.append(stage)
 '''
         bootstrap_probe=''
@@ -188,6 +256,35 @@ def bootstrap_context(stage):
     assert bytes(inferior.read_memory({syms['early_boot_irqs_disabled']}+delta,1))==bytes(1)
     bootstrap_contexts.append(dict(stage=stage,initial_task=True,boot_cpu=cpu,online_cpus=online,
                                    preempt_count_low32=count,irq_masked=bool(pointer('$cpsr')&(1<<7))))
+'''
+        thread_probe=thread_entry=''
+        if init_thread:
+            thread_probe=f'''
+thread_contexts=[]
+def thread_context(stage,phase):
+    task=pointer('$SP_EL0')
+    kthreadd=struct.unpack('<Q',inferior.read_memory({syms['kthreadd_task']}+delta,8))[0]
+    reaper=struct.unpack('<Q',inferior.read_memory({syms['init_pid_ns']}+delta+{offsets['NS_CHILD_REAPER']},8))[0]
+    def pid(address):return struct.unpack('<i',inferior.read_memory(address+{offsets['TSK_PID']},4))[0]
+    assert kthreadd and task==init_thread_task==reaper and task not in ({syms['init_task']}+delta,kthreadd)
+    assert pid(task)==1 and pid({syms['init_task']}+delta)==0 and pid(kthreadd)==2, 'task PID/reaper calibration differs'
+    count=struct.unpack('<I',inferior.read_memory(task+{offsets['TSK_TI_PREEMPT']},4))[0]
+    cpu=struct.unpack('<I',inferior.read_memory(task+{offsets['TSK_TI_CPU']},4))[0]
+    online=struct.unpack('<i',inferior.read_memory({syms['__num_online_cpus']}+delta,4))[0]
+    state=struct.unpack('<i',inferior.read_memory({syms['system_state']}+delta,4))[0]
+    late_selector=struct.unpack('<i',inferior.read_memory({syms['after_paging_init']}+delta,4))[0]
+    assert count==0 and cpu==0 and online==1 and state==1 and late_selector==1
+    assert not pointer('$cpsr')&(1<<7), 'init-thread IRQs are masked'
+    thread_contexts.append(dict(stage=stage,phase=phase,pid=1,initial_namespace_reaper=True,
+        same_task_as_kernel_init_entry=True,init_task_pid=0,kthreadd_pid=2,boot_cpu=cpu,
+        online_cpus=online,preempt_count_low32=count,irq_masked=False,system_state=state,late_selector=late_selector))
+'''
+            thread_entry=f'''
+b=gdb.Breakpoint('*%d'%({syms['kernel_init']}+delta),type=gdb.BP_HARDWARE_BREAKPOINT,internal=True)
+gdb.execute('continue')
+assert pointer('$pc')=={syms['kernel_init']}+delta
+init_thread_task=pointer('$SP_EL0')
+b.delete()
 '''
         first_probe=''
         if architecture:
@@ -212,6 +309,7 @@ assert bytes(inferior.read_memory(prev,56))==bytes(56)
 if {late}:
     late_context({first});no_linear_alias({first})
 if {bootstrap}:bootstrap_context({first})
+if {init_thread}:thread_context({first},'entry')
 if {label=='first-guard-skip'}:
     with open({str(sparse)!r},'r+b',buffering=0) as f:
         f.seek({marker.BASE-0x40000000+4});f.write(bytes(4))
@@ -221,6 +319,7 @@ gdb.execute('continue')
 assert pointer('$pc')==first_return and bytes(inferior.read_memory(prev,56))==bytes(56)
 b.delete()
 if {late}:mappings_cleared()
+if {init_thread}:thread_context({first},'return')
 if {label=='first-guard-skip'}:
     with open({str(sparse)!r},'r+b',buffering=0) as f:
         f.seek({marker.BASE-0x40000000+4});f.write(struct.pack('<I',0x4d474f4c))
@@ -250,6 +349,8 @@ delta=pointer('$x8')-{syms['__primary_switched']}
 {mapping_helpers}
 {late_probe}
 {bootstrap_probe}
+{thread_probe}
+{thread_entry}
 {first_probe}
 entry={syms[second_name]}+delta
 b=gdb.Breakpoint('*%d'%entry,type=gdb.BP_HARDWARE_BREAKPOINT,internal=True)
@@ -263,6 +364,7 @@ b.delete()
 if {architecture}:no_linear_alias({second})
 if {late}:late_context({second})
 if {bootstrap}:bootstrap_context({second})
+if {init_thread}:thread_context({second},'entry')
 returned=pointer('$x30')
 prev={syms['prev_map']}+delta
 assert bytes(inferior.read_memory(prev,56))==bytes(56), 'real early map slots already occupied'
@@ -282,6 +384,7 @@ gdb.execute('continue')
 assert pointer('$pc')==returned
 assert bytes(inferior.read_memory(prev,56))==struct.pack('<7Q',*occupied), 'real early mapping leaked'
 if {architecture}:mappings_cleared()
+if {init_thread}:thread_context({second},'return')
 with open({str(sparse)!r},'rb') as f:
     f.seek({marker.BASE-0x40000000});actual=f.read({marker.REGION})
 open({str(folder/'observed.bin')!r},'xb').write(actual)
@@ -296,6 +399,7 @@ result=dict(case={label!r},kernel_physical=physical,relocation=delta,actual_c_el
             temporary_mapping_attribute_stages=attribute_stages if {architecture} else [],
             early_c_committed={valid and not fail_map and change is None})
 if {bootstrap}:result['bootstrap_contexts']=bootstrap_contexts
+if {init_thread}:result['init_thread_contexts']=thread_contexts
 open({str(folder/'result.json')!r},'x').write(json.dumps(result,indent=2)+'\\n')
 end
 detach
@@ -326,5 +430,8 @@ quit
     if bootstrap:
         result.update(bootstrap_context_proved=True,task_offsets=offsets,
             task_offsets_source=dict(path=str(generated),sha256=digest(generated)))
+    if init_thread:
+        require(digest(initrd_path)==initrd['sha256'],'init-thread initramfs changed during qualification')
+        result.update(init_thread_context_proved=True,task_layout=layout,mapping_initramfs=initrd)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     return result

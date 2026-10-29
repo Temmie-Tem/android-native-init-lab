@@ -81,6 +81,13 @@ preemption count, differing IRQ states and absence of reachable competing
 early-map users before task creation. These qualified context properties are
 not dynamic fields in the static records. Historical formats and recovery
 retain their meanings; no interrupt-delivery or timer-tick claim is added.
+V6 replaces V5 with calls in `kernel_init` after the kthreadd wait and after
+registered async synchronization, before init-memory freeing. Its policy
+qualifies actual preemptible PID1 entry/return context using same-build layout
+derivation, late mappings and post-initcall caller/reservation exclusions.
+The writer and two-slot bound are unchanged. Kernel PID1 task progress is
+separate from RAM-userspace PID1/USB proof, driver success and background
+quiescence. Older formats, consumed owners and recovery retain their meanings.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

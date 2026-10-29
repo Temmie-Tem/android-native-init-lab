@@ -218,7 +218,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 progress after rest_init
+## Next bounded unit: ML008 kernel initialization-thread progress
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -318,12 +318,21 @@ earlier experience. N and A each transferred once and first final health passed.
 Delay calibration may use `lpj_fine`; the later positive proves neither timer
 ticks nor IRQ delivery. No successor grant or device effect is armed.
 
-The next bounded H0 question is progress through `rest_init` into the kernel
-initialization thread and later initialization. Those sites need their own
-exact task/preemption, mapping-lifetime and worker/driver interference analysis.
-Missing records still cannot locate a failure, and reset-cause investigation
-remains separate from the smallest useful next functional progress witness.
-This state selects no new candidate or device action.
+The next two-round Claude/Argon discussion selected
+[ML008](docs/reports/S22PLUS_MAINLINE_ML008_INIT_THREAD_MARKERS_H0_2026-10-30.md):
+V6 calls in `kernel_init` after the kthreadd wait and after registered async
+synchronization, before init-memory freeing. The writer and two-slot bound are
+unchanged. Fresh layout derivation, actual PID1 entry/return context,
+post-initcall mapper/reservation exclusions and late mappings are qualified.
+The marker VM supplies the physical candidate initramfs so the later path is
+reachable; the full RAM-PID1 VM retains its distinct VM initramfs. Final
+independent review is PASS_GO with no findings. Production admission and the
+first fixed preapproval D0 passed. Exact new one-operation approval and actual
+attendance remain required; no grant or device operation is armed. Freshness
+and all effect-time checks remain mandatory.
+Missing records still cannot locate a failure; kernel-task progress does not
+prove driver success, userspace PID1 or USB. No successor grant or device effect
+is armed, and reset-cause investigation remains separate.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

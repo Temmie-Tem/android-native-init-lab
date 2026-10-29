@@ -113,6 +113,30 @@ class Frames(unittest.TestCase):
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('false;','true;'),cfg)
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('\n\trest_init();','\n\tother();\n\trest_init();'),cfg)
+    def test_v6_domains_and_later_only_frame_remain_independent(self):
+        cfg=marker.configuration(self.candidate,self.key,version=6)
+        later=bytes.fromhex(cfg['frames']['12'])
+        for version in range(1,6):
+            old=marker.configuration(self.candidate,self.key,version=version)
+            data=b''.join(bytes.fromhex(v) for v in old['frames'].values())+later
+            result=marker.decode(data,self.candidate,self.key,version=6)
+            self.assertEqual(result['observed_stages'],['post-async-sync'])
+            self.assertFalse(result['mainline_pid1']);self.assertFalse(result['stopped_at_last_record'])
+            self.assertEqual(marker.decode(later,self.candidate,self.key,version=version)['status'],'NO_PROOF')
+    def test_v6_kernel_init_hooks_precede_init_memory_freeing(self):
+        import prepare_marked
+        cfg=marker.configuration(self.candidate,self.key,version=6)
+        source=('void start_kernel(void)\n{\n\trest_init();\n}\n'
+                'static int __ref kernel_init(void *unused)\n{\n'
+                '\twait_for_completion(&kthreadd_done);\n\tkernel_init_freeable();\n'
+                '\tasync_synchronize_full();\n\n\tsystem_state = SYSTEM_FREEING_INITMEM;\n\tfree_initmem();\n}\n')
+        value=prepare_marked.instrumented_main(source,cfg)
+        self.assertIn('\twait_for_completion(&kthreadd_done);\n\ts22_retained_post_kthreadd_wait();\n',value)
+        self.assertIn('\tasync_synchronize_full();\n\ts22_retained_post_async_sync();\n\n\tsystem_state',value)
+        self.assertIn('#include "s22-retained-early-c.h"\n\nstatic int __ref kernel_init',value)
+        self.assertNotIn('s22_retained_pre_rest_init',value)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('SYSTEM_FREEING_INITMEM','SYSTEM_RUNNING'),cfg)
     def test_wrong_key_corrupt_and_truncated(self):
         for data,key in [(self.a,bytes(32)),(self.a[:127],self.key),(self.a[:60]+b'x'+self.a[61:],self.key),
                          (bytes(8)+self.a[8:],self.key),(self.a[:4],self.key)]:

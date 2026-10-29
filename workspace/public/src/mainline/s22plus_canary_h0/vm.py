@@ -64,7 +64,7 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
         require(digest(marker_config['path'])==marker_config['sha256'],'VM marker config changed')
         if json.loads(Path(marker_config['path']).read_text())['schema'] in (
                 's22plus-mainline-retained-marker-v3','s22plus-mainline-retained-marker-v4',
-                's22plus-mainline-retained-marker-v5'):
+                's22plus-mainline-retained-marker-v5','s22plus-mainline-retained-marker-v6'):
             from retained_kernel_vm import nomap_fixture
             fixture=nomap_fixture(qemu,env,output,'off')
             command+=['-dtb',str(fixture)]

@@ -118,6 +118,16 @@ class RetentionTests(unittest.TestCase):
         self.assertFalse(value['same_boot_pair_proved']);self.assertFalse(value['mainline_pid1'])
         self.assertFalse(value['replay_authorized']);self.assertFalse(value['stopped_at_last_record'])
 
+    def test_v6_later_only_projection_is_not_userspace_pid1_or_failure_localization(self):
+        self.setup_owner(version=6)
+        key=bytes(range(32))
+        data=retention.marker.frame(self.candidate,key,10,version=5)+retention.marker.frame(self.candidate,key,12,version=6)
+        value=read(Path(self.run_capture('v6',data=data)['path']))
+        self.assertEqual(value['observed_stages'],['post-async-sync'])
+        self.assertEqual(value['status'],'RETAINED_STAGE_OBSERVED')
+        for field in ('mainline_pid1','same_boot_pair_proved','replay_authorized','reset_cause_proved','stopped_at_last_record'):
+            self.assertFalse(value[field])
+
     def test_fresh_same_target_health_required_before_proc_read(self):
         self.setup_owner();self.bound['returned']=dict(self.bound['returned'],boot_id_sha256='0'*64)
         with self.assertRaisesRegex(ValueError,'rebooted since'):self.run_capture('wrong-boot')
@@ -175,12 +185,17 @@ class MarkerAdmissionTests(unittest.TestCase):
             stages=list(retention.marker.c_stages(read(Path(cfg['path']))))
             common=dict(config=cfg,loader_sha256='34'*32,kernel_sha256='56'*32,
                         device_actions=0,physical_retention_proved=False)
-            tests=publish(base/'tests.json',dict(common,status='PASS_H0_ACTUAL_RETAINED_MARKERS',
-                mmu_on=dict(status='PASS_H0_ACTUAL_EARLY_C',kernel_sha256=common['kernel_sha256'],qualified_c_stages=stages)))
+            test_value=dict(common,status='PASS_H0_ACTUAL_RETAINED_MARKERS',
+                mmu_on=dict(status='PASS_H0_ACTUAL_EARLY_C',kernel_sha256=common['kernel_sha256'],qualified_c_stages=stages))
+            if version==6:
+                initrd=dict(path=str(base/'physical-initrd'),size=1,sha256='ab'*32)
+                compiler=dict(path='/fixture/arm64-gcc',sha256='cd'*32,version='fixture')
+                test_value['mmu_on'].update(layout_compiler=compiler,layout_config_sha256='ef'*32,mapping_initramfs=initrd)
+            tests=publish(base/'tests.json',test_value)
             vm=dict(common,status='PASS_H0_ACTUAL_EL_RETAINED_MARKERS',qualification_sha256=tests['sha256'],
                 mmu_on=dict(status='PASS_H0_ACTUAL_KERNEL_MMU_MARKERS',kernel_sha256=common['kernel_sha256'],
                             qualified_c_stages=stages,post_paging_no_linear_alias_proved=True))
-            if version in (4,5):
+            if version in (4,5,6):
                 vm['mmu_on'].update(late_fixmap_proved=True,cases=[dict(case=name,actual_c_el=el,
                     late_context_stages=stages,no_linear_alias_stages=stages,late_fixmap_proved=True,
                     first_c_returned=True,mapping_slots_restored=True,temporary_mapping_attribute_stages=stages)
@@ -190,6 +205,15 @@ class MarkerAdmissionTests(unittest.TestCase):
                 for row in vm['mmu_on']['cases']:
                     row['bootstrap_contexts']=[dict(stage=s,initial_task=True,boot_cpu=0,online_cpus=1,
                                                    preempt_count_low32=1,irq_masked=s==9) for s in stages]
+            if version==6:
+                vm['mmu_on'].update(init_thread_context_proved=True,mapping_initramfs=initrd,
+                    task_layout=dict(status='PASS_H0_SAME_BUILD_TASK_LAYOUT',config_sha256='ef'*32,
+                                     command=dict(compiler={k:compiler[k] for k in ('path','sha256')})))
+                for row in vm['mmu_on']['cases']:
+                    row['init_thread_contexts']=[dict(stage=s,phase=phase,pid=1,initial_namespace_reaper=True,
+                        same_task_as_kernel_init_entry=True,init_task_pid=0,kthreadd_pid=2,boot_cpu=0,
+                        online_cpus=1,preempt_count_low32=0,irq_masked=False,system_state=1,late_selector=1)
+                        for s in stages for phase in ('entry','return')]
             change(vm)
             vm_pin=publish(base/'vm.json',vm)
             qualified=publish(base/'qualified.json',dict(schema='s22plus-mainline-marker-qualification-v1',
@@ -197,12 +221,33 @@ class MarkerAdmissionTests(unittest.TestCase):
             source=publish(base/'source.json',dict(config=cfg,init_manifest=manifest_pin))
             image=dict(retained_marker=qualified,key=pin(key),runtime_sources={
                 'loader':{'sha256':common['loader_sha256']},'kernel':{'sha256':common['kernel_sha256']}})
+            if version==6:image['runtime_sources']['initramfs']=initrd
             loader=dict(retained_marker=dict(config=cfg,kernel_source=source),initramfs_manifest=manifest_pin['path'])
             with mock.patch.object(retention.profile,'marker_codec',return_value=retention.marker):
                 return retention.profile.marker_binding(image,manifest,loader)
 
     def test_v3_keeps_original_requirements_and_v4_accepts_complete_proof(self):
-        for version in (3,4,5):self.assertEqual(self.qualify(version)['status'],'PASS_H0_MAINLINE_RETAINED_MARKER')
+        for version in (3,4,5,6):self.assertEqual(self.qualify(version)['status'],'PASS_H0_MAINLINE_RETAINED_MARKER')
+
+    def test_v6_rejects_layout_initramfs_or_pid1_context_mismatch(self):
+        changes=[lambda v:v['mmu_on'].pop('init_thread_context_proved'),
+                 lambda v:v['mmu_on'].pop('task_layout'),
+                 lambda v:v['mmu_on']['task_layout'].update(config_sha256='00'*32),
+                 lambda v:v['mmu_on']['task_layout']['command']['compiler'].update(sha256='00'*32),
+                 lambda v:v['mmu_on'].update(mapping_initramfs={'vm_initrd':True}),
+                 lambda v:v['mmu_on']['cases'][0].pop('init_thread_contexts'),
+                 lambda v:v['mmu_on']['cases'][0]['init_thread_contexts'].pop(),
+                 lambda v:v['mmu_on']['cases'][0]['init_thread_contexts'][0].update(pid=2),
+                 lambda v:v['mmu_on']['cases'][0]['init_thread_contexts'][1].update(phase='entry'),
+                 lambda v:v['mmu_on']['cases'][0]['init_thread_contexts'][1].update(initial_namespace_reaper=False),
+                 lambda v:v['mmu_on']['cases'][0]['init_thread_contexts'][2].update(same_task_as_kernel_init_entry=False),
+                 lambda v:v['mmu_on']['cases'][0]['init_thread_contexts'][3].update(kthreadd_pid=0),
+                 lambda v:v['mmu_on']['cases'][1]['init_thread_contexts'][0].update(preempt_count_low32=1),
+                 lambda v:v['mmu_on']['cases'][1]['init_thread_contexts'][1].update(irq_masked=True),
+                 lambda v:v['mmu_on']['cases'][1]['init_thread_contexts'][2].update(system_state=2),
+                 lambda v:v['mmu_on']['cases'][1]['init_thread_contexts'][3].update(late_selector=0)]
+        for change in changes:
+            with self.subTest(change=change),self.assertRaises(ValueError):self.qualify(6,change)
 
     def test_v5_rejects_missing_or_changed_bootstrap_context(self):
         changes=[lambda v:v['mmu_on'].pop('bootstrap_context_proved'),

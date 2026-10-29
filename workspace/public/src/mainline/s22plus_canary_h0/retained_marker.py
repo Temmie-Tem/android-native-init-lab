@@ -31,6 +31,9 @@ FORMATS={
     5:dict(schema='s22plus-mainline-retained-marker-v5',magic=b'S22MRK5!',
            domain=b'S22PLUS-MAINLINE-BOOTSTRAP-MARKER-V5\0',
            stages={9:'pre-irq-enable',10:'pre-rest-init'},names={9:'pre_irq_enable',10:'pre_rest_init'}),
+    6:dict(schema='s22plus-mainline-retained-marker-v6',magic=b'S22MRK6!',
+           domain=b'S22PLUS-MAINLINE-INITTHREAD-MARKER-V6\0',
+           stages={11:'post-kthreadd-wait',12:'post-async-sync'},names={11:'post_kthreadd_wait',12:'post_async_sync'}),
 }
 
 def require(condition,message):
@@ -79,11 +82,11 @@ def render(config,stage):
 
 def c_stages(config):
     v=version(config)
-    return (4,) if v==2 else tuple(FORMATS[v]['stages']) if v in (3,4,5) else ()
+    return (4,) if v==2 else tuple(FORMATS[v]['stages']) if v in (3,4,5,6) else ()
 
 def c_source(config):
     require(c_stages(config),'selected format has no C source')
-    return 'init/main.c' if version(config) in (4,5) else 'arch/arm64/kernel/setup.c'
+    return 'init/main.c' if version(config) in (4,5,6) else 'arch/arm64/kernel/setup.c'
 
 def render_c(config,stage=None):
     require(c_stages(config) and config['base']==BASE and config['region_size']==REGION and

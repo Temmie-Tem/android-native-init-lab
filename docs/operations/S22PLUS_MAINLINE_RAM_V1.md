@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v5_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v6_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -97,7 +97,8 @@ response. Descriptor visibility alone proves none of these.
 An image carrying the schema-exact `retained_marker` qualification may add
 only the reviewed `s22plus-mainline-retained-marker-v1`,
 `s22plus-mainline-retained-marker-v2`, `s22plus-mainline-retained-marker-v3` or
-`s22plus-mainline-retained-marker-v4` or `s22plus-mainline-retained-marker-v5`
+`s22plus-mainline-retained-marker-v4`, `s22plus-mainline-retained-marker-v5` or
+`s22plus-mainline-retained-marker-v6`
 diagnostic writer. These formats are mutually exclusive in one candidate;
 each successor replaces both preceding sites.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
@@ -231,6 +232,46 @@ substitutes equivalent safety evidence. It adds no requirement to consumed
 formats or original-A recovery and proves no physical interrupt delivery,
 timer tick, cache coherency or later task execution.
 
+V6 replaces both V5 calls with two calls in `kernel_init`: immediately after
+`wait_for_completion(&kthreadd_done)` returns, and immediately after
+`async_synchronize_full` returns, before the `SYSTEM_FREEING_INITMEM` store
+and init-memory freeing. Its distinct schema, magic, integrity domain and
+stages 11/12 retain the unchanged C template and two-slot bound. The `__ref`
+caller reaches the init-only helpers and data while that memory is still live.
+It adds no IRQ/preemption manipulation and contains no earlier marker calls.
+
+Both V6 calls use the late fixmap path in the preemptible kernel PID1 task,
+with `SYSTEM_SCHEDULING`, low 32-bit preemption count zero, IRQs unmasked and
+one online boot CPU. Its actual EL1/VHE EL2 qualification observes these
+properties at each helper's entry and return, including the same task as
+`kernel_init` entry, PID1 and the initial PID namespace's child reaper.
+It derives PID/reaper layout from that Image's compiler/config and generated
+headers using a private host-only offset probe; CPU/preemption offsets are
+calibrated against the build's generated definitions, and actual PID0/PID2
+provide independent field calibration. Historical numeric offsets are not
+answers. Physical static frames do not dynamically encode these properties,
+and this kernel-task witness does not satisfy the RAM-userspace PID1/USB proof.
+
+V6 retains the no-linear-alias, positive adjacent-RAM calibration, temporary
+Normal-NC/XN attributes, bounded failure and complete cleanup evidence at both
+new sites. The mapping fixture supplies the exact hash-bound candidate
+initramfs so the later initialization path is reachable, and stops before
+userspace execution. The separate full RAM-PID1 VM keeps its own VM initramfs
+and unseeded/invalid-header skip path. The exact enabled caller/config/DT
+closure must exclude competing task, work, async and interrupt early-map users
+after initcalls and Linux consumers or aliases of the protected no-map slice.
+One online CPU or `async_synchronize_full` alone does not establish exclusivity:
+exclusive async domains, ordinary workers and future queued work remain outside
+that synchronization. A writer-local guard cannot serialize a suspended peer.
+
+This V6-only qualification addresses preemptible mapper reentrancy, init-memory
+lifetime and post-initcall reservation ownership. Changed sites, enabled
+callers, mapping/lifetime machinery, initramfs or reservation trigger review.
+It retires only when a separately reviewed successor removes those observer
+hazards or substitutes equivalent evidence. It adds no gate to older formats
+or original-A recovery, and no forced scheduler-stress test without a concrete
+uncovered hazard.
+
 The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
 index between attempts. Each site runs at most once per entry, has a fixed
@@ -270,6 +311,18 @@ neither IRQ delivery nor timer ticks; `calibrate_delay` may use the frequency-
 derived fast path. Neither record proves its own subsequent cleanup/return,
 entry to `rest_init`, PID1, or an earlier candidate's helper return. A later-only
 positive does not create a missing earlier record or a same-boot pair.
+V6 `post-kthreadd-wait` proves its recording point in this candidate's
+`kernel_init` after the named wait returned; it is not a sleep/wakeup, specific
+scheduler-call, IRQ-delivery or timer-tick witness. `post-async-sync` proves its
+point after `kernel_init_freeable`, the preceding helper call and
+`async_synchronize_full` returned along the sequential path. The earlier helper
+may have skipped writing and cleanup. Returned initcalls or synchronization do
+not establish driver success, successful initramfs unpack/access or global
+background quiescence. Neither record proves its own later cleanup/return,
+freeing init memory, userspace exec or an earlier candidate's helper return.
+A later positive with missing USB does not eliminate earlier nonfatal driver
+defects or localize a fault after initialization. Missing or later-only records
+retain the same non-localizing positive-only meaning as the earlier formats.
 
 ### Fixed post-closure retained-marker D0
 

@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v5_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v6_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -137,11 +137,11 @@ def marker_binding(image,manifest,loader):
                 tests['mmu_on']['kernel_sha256']==vm['mmu_on']['kernel_sha256']==
                     image['runtime_sources']['kernel']['sha256'],
                 'C marker lacks actual C and MMU-on kernel qualification')
-    if marker.version(config) in (3,4,5):
+    if marker.version(config) in (3,4,5,6):
         require(vm['mmu_on'].get('post_paging_no_linear_alias_proved') is True and
                 vm['mmu_on'].get('qualified_c_stages')==tests['mmu_on'].get('qualified_c_stages')==list(marker.c_stages(config)),
                 'later C marker lacks post-paging no-map and two-site qualification')
-    if marker.version(config) in (4,5):
+    if marker.version(config) in (4,5,6):
         stages=list(marker.c_stages(config))
         cases=vm['mmu_on'].get('cases',[])
         require(vm['mmu_on'].get('late_fixmap_proved') is True and cases and
@@ -160,6 +160,25 @@ def marker_binding(image,manifest,loader):
             require(vm['mmu_on'].get('bootstrap_context_proved') is True and
                     all(r.get('bootstrap_contexts')==expected for r in cases),
                     'V5 marker lacks exact bootstrap task/CPU/preemption/IRQ context')
+        if marker.version(config)==6:
+            layout=vm['mmu_on'].get('task_layout',{})
+            compiler=tests['mmu_on'].get('layout_compiler',{})
+            require(set(compiler)=={'path','sha256','version'} and
+                    layout.get('status')=='PASS_H0_SAME_BUILD_TASK_LAYOUT' and
+                    layout.get('config_sha256')==tests['mmu_on'].get('layout_config_sha256') and
+                    re.fullmatch('[0-9a-f]{64}',str(layout.get('config_sha256'))) is not None and
+                    layout.get('command',{}).get('compiler')=={k:compiler[k] for k in ('path','sha256')},
+                    'V6 marker lacks same-build layout toolchain/config binding')
+            require(vm['mmu_on'].get('mapping_initramfs')==tests['mmu_on'].get('mapping_initramfs')==
+                    image['runtime_sources'].get('initramfs') and image['runtime_sources'].get('initramfs') is not None,
+                    'V6 mapping fixture lacks the physical candidate initramfs')
+            expected=[dict(stage=s,phase=phase,pid=1,initial_namespace_reaper=True,
+                same_task_as_kernel_init_entry=True,init_task_pid=0,kthreadd_pid=2,boot_cpu=0,
+                online_cpus=1,preempt_count_low32=0,irq_masked=False,system_state=1,late_selector=1)
+                for s in stages for phase in ('entry','return')]
+            require(vm['mmu_on'].get('init_thread_context_proved') is True and
+                    all(r.get('init_thread_contexts')==expected for r in cases),
+                    'V6 marker lacks exact PID1 entry/return context and calibration')
     source=read(unchanged(loader['retained_marker']['kernel_source']))
     require(source['config']==value['config'] and source['init_manifest']['sha256']==
             pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')

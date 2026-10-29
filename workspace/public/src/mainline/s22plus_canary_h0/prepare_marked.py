@@ -15,7 +15,7 @@ def pin(p):
 
 def instrumented_head(old,cfg):
     end='SYM_CODE_END(primary_entry)\n'
-    if marker.version(cfg) in (3,4,5):
+    if marker.version(cfg) in (3,4,5,6):
         require(old.count(end)==1 and 's22_retained_' not in old,'C-only format requires unmarked assembly entry')
         return old
     if marker.version(cfg)==2:
@@ -28,9 +28,9 @@ def instrumented_head(old,cfg):
 
 def instrumented_setup(old,cfg=None):
     declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
-    if cfg is not None and marker.version(cfg) in (4,5):
+    if cfg is not None and marker.version(cfg) in (4,5,6):
         require(old.count(declaration)==1 and 's22_retained_' not in old and
-                's22-retained-early-c.h' not in old,'start_kernel format requires unmarked setup_arch')
+                's22-retained-early-c.h' not in old,'main.c format requires unmarked setup_arch')
         return old
     sites=[('\tearly_ioremap_init();\n','s22_retained_early_c')]
     if cfg is not None and marker.version(cfg)==3:
@@ -43,19 +43,27 @@ def instrumented_setup(old,cfg=None):
     return result
 
 def instrumented_main(old,cfg):
-    require(marker.version(cfg) in (4,5),'selected format does not mark start_kernel')
+    require(marker.version(cfg) in (4,5,6),'selected format does not mark main.c')
     declaration=('asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\n'
                  'void start_kernel(void)\n')
-    sites=[('\tsetup_arch(&command_line);\n',marker.name(cfg,7)),
-           ('\ttime_init();\n',marker.name(cfg,8))] if marker.version(cfg)==4 else [
-           ('\tearly_boot_irqs_disabled = false;\n',marker.name(cfg,9)),
-           ("\t/* Do the rest non-__init'ed, we're now alive */\n",marker.name(cfg,10))]
+    if marker.version(cfg)==4:
+        sites=[('\tsetup_arch(&command_line);\n',marker.name(cfg,7)),
+               ('\ttime_init();\n',marker.name(cfg,8))]
+    elif marker.version(cfg)==5:
+        sites=[('\tearly_boot_irqs_disabled = false;\n',marker.name(cfg,9)),
+               ("\t/* Do the rest non-__init'ed, we're now alive */\n",marker.name(cfg,10))]
+    else:
+        declaration='static int __ref kernel_init(void *unused)\n'
+        sites=[('\twait_for_completion(&kthreadd_done);\n',marker.name(cfg,11)),
+               ('\tasync_synchronize_full();\n',marker.name(cfg,12))]
+        require(old.count('\tasync_synchronize_full();\n\n\tsystem_state = SYSTEM_FREEING_INITMEM;\n')==1,
+                'V6 init-memory lifetime boundary differs')
     if marker.version(cfg)==5:
         require(old.count('\tearly_boot_irqs_disabled = false;\n\tlocal_irq_enable();\n')==1 and
                 old.count("\tkcsan_init();\n\n\t/* Do the rest non-__init'ed, we're now alive */\n\trest_init();\n")==1,
                 'V5 bootstrap boundaries differ')
     require(old.count(declaration)==1 and all(old.count(site)==1 for site,_ in sites) and
-            's22_retained_' not in old and 's22-retained-early-c.h' not in old,'start_kernel hook differs')
+            's22_retained_' not in old and 's22-retained-early-c.h' not in old,'main.c hook differs')
     result=old.replace(declaration,'#include "s22-retained-early-c.h"\n\n'+declaration)
     for site,name in sites:result=result.replace(site,site+'\t'+name+'();\n')
     return result
@@ -110,7 +118,7 @@ def instrument(prepared,init,*,version=1):
         header.write_text(marker.render_c(cfg))
         receipt.update(schema='s22plus-mainline-marker-kernel-source-v'+str(version),original_setup=pin(original),
             instrumented_setup=pin(setup),generated_header=pin(header))
-        if version in (4,5):
+        if version in (4,5,6):
             original_main=prepared/'original-main.c';original_main.write_bytes(source.read_bytes())
             source.write_text(instrumented_main(original_main.read_text(),cfg))
             receipt.update(original_main=pin(original_main),instrumented_main=pin(source))

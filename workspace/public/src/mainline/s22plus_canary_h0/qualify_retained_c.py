@@ -91,8 +91,8 @@ def qualify(record,config,output):
     require(digest(image)==record['kernel']['sha256'],'C kernel changed')
     raw=image.read_bytes();syms=symbols(elf)
     placement={}
-    if marker.version(config) in (3,4,5):
-        containing='start_kernel' if marker.version(config) in (4,5) else 'setup_arch'
+    if marker.version(config) in (3,4,5,6):
+        containing='kernel_init' if marker.version(config)==6 else 'start_kernel' if marker.version(config) in (4,5) else 'setup_arch'
         with elf.open('rb') as stream:
             symbol=next(s for s in ELFFile(stream).get_section_by_name('.symtab').iter_symbols() if s.name==containing)
             start=syms[containing];length=symbol['st_size']
@@ -121,7 +121,7 @@ def qualify(record,config,output):
                     post_time==call('time_init')+4<call('random_init'), 'actual V4 call ordering differs')
             placement=dict(post_setup_arch_call=post_arch,post_time_init_call=post_time,
                            actual_calls_immediately_after_returns=True,assembly_marker_absent=True)
-        else:
+        elif marker.version(config)==5:
             pre_irq=call(marker.name(config,9));pre_rest=call(marker.name(config,10))
             irq_instruction=struct.unpack_from('<I',raw,pre_irq+4-syms['_text'])[0]
             require(irq_instruction in (0xd50342ff,0xd50343ff) and
@@ -130,6 +130,14 @@ def qualify(record,config,output):
                     'actual V5 IRQ-enable/rest_init call ordering differs')
             placement=dict(pre_irq_enable_call=pre_irq,irq_enable_instruction=irq_instruction,
                            pre_rest_init_call=pre_rest,actual_calls_immediately_before_boundaries=True,
+                           assembly_marker_absent=True)
+        else:
+            post_wait=call(marker.name(config,11));post_async=call(marker.name(config,12))
+            require(post_wait==call('wait_for_completion')+4<call('kernel_init_freeable')<
+                    call('async_synchronize_full') and post_async==call('async_synchronize_full')+4<call('free_initmem'),
+                    'actual V6 kernel-init return boundaries differ')
+            placement=dict(post_kthreadd_wait_call=post_wait,post_async_sync_call=post_async,
+                           actual_calls_immediately_after_returns=True,before_free_initmem=True,
                            assembly_marker_absent=True)
         selected={marker.name(config,s) for s in marker.c_stages(config)}
         known={'s22_retained_'+name for fmt in marker.FORMATS.values() for name in fmt['names'].values()}
@@ -152,5 +160,12 @@ def qualify(record,config,output):
         kernel_path=str(image),elf_path=str(elf),elf_sha256=digest(elf),
         source_sha256=digest(__file__),cases=rows,placement=placement,qualified_c_stages=list(marker.c_stages(config)),mapping_api_mocked=True,
         mmu_translation_proved=False,device_actions=0)
+    if marker.version(config)==6:
+        manifest=json.loads(Path(record['initramfs_manifest']).read_text())
+        initrd=manifest['initramfs'];path=Path(initrd['path'])
+        require(manifest['vm'] is False and path.stat().st_size==initrd['size'] and digest(path)==initrd['sha256'],
+                'init-thread fixture initramfs differs from physical candidate')
+        result.update(layout_compiler=record['kernel']['command']['compiler'],
+                      layout_config_sha256=record['kernel']['config_sha256'],mapping_initramfs=initrd)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     return result
