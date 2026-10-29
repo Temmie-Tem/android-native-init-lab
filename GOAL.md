@@ -93,6 +93,15 @@ identities, goals, artifacts and authority remain separate.
   This demonstrates the selected loader/vendor-FDT path, not mainline boot,
   ML002's replaced-DTB path or its reset cause. No follow-on grant is armed.
   [LA001 run record](docs/reports/S22PLUS_LOADER_ANDROID_LA001_RUN_2026-10-29.md).
+- **Samsung retained-log feasibility is complete in H0.** The existing
+  header-preserving placement and actual Samsung snapshot consumer support a
+  small marker without a logger port; 12 extracted-source host cases passed.
+  ML002 reserves this firmware-shared slice as no-map, so the proposed sites
+  are the loader handoff and checked pre-MMU kernel entry. Actual marker code,
+  mainline collection and physical retention remain unqualified. Missing
+  markers cannot establish non-execution, and a boot-loop pair cannot by itself
+  establish one shared boot.
+  [Feasibility report](docs/reports/S22PLUS_MAINLINE_RETAINED_LOG_FEASIBILITY_H0_2026-10-29.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -156,7 +165,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 mainline follow-up selection after LA001
+## Next bounded unit: H0 mainline retained stage markers
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -184,12 +193,15 @@ It can qualify shared loader stages; it cannot prove the replaced-DTB mainline
 path or identify ML002's reset cause. The watchdog trace remains separate H0
 research.
 
-Select the next mainline H0 experiment from the actual differences between
-the successful control and consumed ML002: loader/FDT delivery, kernel entry
-and the selected kernel/DTB consumers. Reuse the unchanged qualified stages,
-keep hypotheses distinct from measured failure causes, and choose one useful
-bounded distinction before preparing another physical candidate. No new
-candidate, grant or device effect is selected by this goal update.
+The post-LA001 comparison selected a bounded Samsung retained-log feasibility
+check. That check is complete: the reader format and compression do not require
+a Samsung logger port, and a small header-preserving span is source-compatible.
+The proposed next H0 implementation is a candidate-bound loader-handoff marker
+and a pre-MMU mainline-entry marker, with positive-only decoding and the existing
+original-A return. It includes a mainline-specific join to the fixed post-return
+reader, whose current allowlist does not admit mainline. Implementation, actual
+artifact qualification and independent review remain outstanding; no new
+candidate, grant or device effect is armed by this goal update.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
