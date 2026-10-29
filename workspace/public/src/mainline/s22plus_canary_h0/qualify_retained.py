@@ -110,7 +110,7 @@ def qualify(loader,output):
     if marker.version(config)==2:
         specs=((3,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,
                 record['extents']['kernel-runtime'][0],'s22_retained_pre_mmu'),)
-    elif marker.version(config) in (3,4,5,6):specs=()
+    elif marker.version(config) in (3,4,5,6,7):specs=()
     for stage,blob,elf,linkbase,physical,name in specs:
         raw=blob.read_bytes();syms=symbols(elf);linkbase=linkbase if linkbase is not None else syms['_text']
         require(digest(blob)==(record['loader']['sha256'] if stage==1 else record['kernel']['sha256']),'actual marker artifact changed')

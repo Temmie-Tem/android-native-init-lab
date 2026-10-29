@@ -88,6 +88,13 @@ derivation, late mappings and post-initcall caller/reservation exclusions.
 The writer and two-slot bound are unchanged. Kernel PID1 task progress is
 separate from RAM-userspace PID1/USB proof, driver success and background
 quiescence. Older formats, consumed owners and recovery retain their meanings.
+V7 replaces V6 with calls immediately before and after basic setup in
+`kernel_init_freeable`. It inherits the policy's PID1 context, late mapping,
+reservation and lifetime qualification at the new sites, with actual linked
+proof accommodating inlined driver setup and regular initcall loops. The
+writer and two-slot bound remain unchanged. A post-basic positive proves
+traversal return, not driver success, initramfs completion or background
+quiescence. Missing records, older formats and recovery retain their meanings.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

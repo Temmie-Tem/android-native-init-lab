@@ -108,10 +108,10 @@ def qualify(record,gdb,output):
     require(digest(kernel)==artifact['kernel_sha256'] and digest(elf)==artifact['elf_sha256'], 'MMU fixture inputs changed')
     raw=kernel.read_bytes();syms=symbols(elf);base=syms['_text']
     cfg=json.loads(Path(record['config']['path']).read_text())
-    architecture=marker.version(cfg) in (3,4,5,6)
-    late=marker.version(cfg) in (4,5,6)
+    architecture=marker.version(cfg) in (3,4,5,6,7)
+    late=marker.version(cfg) in (4,5,6,7)
     bootstrap=marker.version(cfg)==5
-    init_thread=marker.version(cfg)==6
+    init_thread=marker.version(cfg) in (6,7)
     offsets={}
     if bootstrap or init_thread:
         generated=kernel.parents[3]/'include/generated/asm-offsets.h'

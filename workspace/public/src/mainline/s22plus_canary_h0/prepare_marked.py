@@ -15,7 +15,7 @@ def pin(p):
 
 def instrumented_head(old,cfg):
     end='SYM_CODE_END(primary_entry)\n'
-    if marker.version(cfg) in (3,4,5,6):
+    if marker.version(cfg) in (3,4,5,6,7):
         require(old.count(end)==1 and 's22_retained_' not in old,'C-only format requires unmarked assembly entry')
         return old
     if marker.version(cfg)==2:
@@ -28,7 +28,7 @@ def instrumented_head(old,cfg):
 
 def instrumented_setup(old,cfg=None):
     declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
-    if cfg is not None and marker.version(cfg) in (4,5,6):
+    if cfg is not None and marker.version(cfg) in (4,5,6,7):
         require(old.count(declaration)==1 and 's22_retained_' not in old and
                 's22-retained-early-c.h' not in old,'main.c format requires unmarked setup_arch')
         return old
@@ -43,7 +43,7 @@ def instrumented_setup(old,cfg=None):
     return result
 
 def instrumented_main(old,cfg):
-    require(marker.version(cfg) in (4,5,6),'selected format does not mark main.c')
+    require(marker.version(cfg) in (4,5,6,7),'selected format does not mark main.c')
     declaration=('asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protector\n'
                  'void start_kernel(void)\n')
     if marker.version(cfg)==4:
@@ -52,12 +52,20 @@ def instrumented_main(old,cfg):
     elif marker.version(cfg)==5:
         sites=[('\tearly_boot_irqs_disabled = false;\n',marker.name(cfg,9)),
                ("\t/* Do the rest non-__init'ed, we're now alive */\n",marker.name(cfg,10))]
-    else:
+    elif marker.version(cfg)==6:
         declaration='static int __ref kernel_init(void *unused)\n'
         sites=[('\twait_for_completion(&kthreadd_done);\n',marker.name(cfg,11)),
                ('\tasync_synchronize_full();\n',marker.name(cfg,12))]
         require(old.count('\tasync_synchronize_full();\n\n\tsystem_state = SYSTEM_FREEING_INITMEM;\n')==1,
                 'V6 init-memory lifetime boundary differs')
+    else:
+        declaration='static noinline void __init kernel_init_freeable(void)\n'
+        sites=[('\tpage_alloc_init_late();\n',marker.name(cfg,13)),
+               ('\tdo_basic_setup();\n',marker.name(cfg,14))]
+        require(old.count('\tpage_alloc_init_late();\n\n\tdo_basic_setup();\n\n\tkunit_run_all_tests();\n')==1 and
+                old.count('\tkernel_init_freeable();\n')==1 and
+                old.index('\tkernel_init_freeable();\n')<old.index('\tsystem_state = SYSTEM_FREEING_INITMEM;\n'),
+                'V7 basic-setup and init-memory lifetime boundaries differ')
     if marker.version(cfg)==5:
         require(old.count('\tearly_boot_irqs_disabled = false;\n\tlocal_irq_enable();\n')==1 and
                 old.count("\tkcsan_init();\n\n\t/* Do the rest non-__init'ed, we're now alive */\n\trest_init();\n")==1,
@@ -118,7 +126,7 @@ def instrument(prepared,init,*,version=1):
         header.write_text(marker.render_c(cfg))
         receipt.update(schema='s22plus-mainline-marker-kernel-source-v'+str(version),original_setup=pin(original),
             instrumented_setup=pin(setup),generated_header=pin(header))
-        if version in (4,5,6):
+        if version in (4,5,6,7):
             original_main=prepared/'original-main.c';original_main.write_bytes(source.read_bytes())
             source.write_text(instrumented_main(original_main.read_text(),cfg))
             receipt.update(original_main=pin(original_main),instrumented_main=pin(source))

@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v6_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v7_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -98,7 +98,7 @@ An image carrying the schema-exact `retained_marker` qualification may add
 only the reviewed `s22plus-mainline-retained-marker-v1`,
 `s22plus-mainline-retained-marker-v2`, `s22plus-mainline-retained-marker-v3` or
 `s22plus-mainline-retained-marker-v4`, `s22plus-mainline-retained-marker-v5` or
-`s22plus-mainline-retained-marker-v6`
+`s22plus-mainline-retained-marker-v6` or `s22plus-mainline-retained-marker-v7`
 diagnostic writer. These formats are mutually exclusive in one candidate;
 each successor replaces both preceding sites.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
@@ -272,6 +272,29 @@ hazards or substitutes equivalent evidence. It adds no gate to older formats
 or original-A recovery, and no forced scheduler-stress test without a concrete
 uncovered hazard.
 
+V7 replaces both V6 calls with two calls in `kernel_init_freeable`, immediately
+before and after its sole `do_basic_setup()` call. Its distinct schema, magic,
+integrity domain and stages 13/14 retain the same writer, two slots and guards.
+The first point follows `page_alloc_init_late` and the earlier pre-SMP initcalls;
+it is not before all initcalls. The second follows driver-model setup and the
+regular initcall traversal, before the explicit `wait_for_initramfs` and the
+remaining initialization tail. Both helpers and their caller remain init-only
+and are reached before `kernel_init` frees init memory.
+
+V7 adopts V6's same-build layout and actual PID1 entry/return context checks,
+late mapping/attribute/cleanup, no-linear-alias and adjacent-RAM calibration,
+physical-initramfs fixture binding, and enabled mapper/reservation exclusions
+at its own new sites. The actual linked Image must show the calls surrounding
+the compiled basic-setup region. When helpers are inlined, qualification binds
+the actual boundary calls and regular initcall loop/cleanup rather than
+requiring a nonexistent `do_basic_setup` call or historical instruction offsets.
+The pre-SMP initcall loop remains before the first marker. Source generation
+must preserve both loops and contain only one call to each recording helper.
+The same mapper reentrancy, reservation and init-lifetime hazards, review
+triggers and retirement conditions apply; older formats and recovery gain no
+new prerequisite. This pair adds no IRQ/preemption manipulation or repeated
+per-initcall writes.
+
 The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
 index between attempts. Each site runs at most once per entry, has a fixed
@@ -323,6 +346,17 @@ freeing init memory, userspace exec or an earlier candidate's helper return.
 A later positive with missing USB does not eliminate earlier nonfatal driver
 defects or localize a fault after initialization. Missing or later-only records
 retain the same non-localizing positive-only meaning as the earlier formats.
+
+V7 `pre-basic-setup` proves the named recording point after the preceding
+kernel-thread preparation and early initcalls returned, not the helper's own
+return or entry into basic setup. `post-basic-setup` proves return from this
+candidate's preceding helper call and basic setup along its sequential path;
+the preceding helper may have skipped writing or some or all cleanup. It does
+not prove successful initcall return codes, driver/probe success, initramfs
+completion, global background quiescence, the helper's own later return or the
+remaining tail. The early/pre-SMP and regular initcall loops are distinct.
+Both/later-only positives require no shared-boot record pair. Any absent site
+retains the existing non-localizing meaning and grants no replay or cause claim.
 
 ### Fixed post-closure retained-marker D0
 

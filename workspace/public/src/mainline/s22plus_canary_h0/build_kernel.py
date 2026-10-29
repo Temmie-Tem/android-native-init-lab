@@ -36,7 +36,7 @@ def marker_provenance(prepared_dir,kernel):
         require(Path(value['instrumented_setup']['path'])==setup and Path(value['generated_header']['path'])==header and
             setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text(),cfg) and
             header.read_text()==marker.render_c(cfg),'complete early C source differs')
-        if marker.version(cfg) in (4,5,6):
+        if marker.version(cfg) in (4,5,6,7):
             for key in ('original_main','instrumented_main'):
                 row=value[key];p=Path(row['path'])
                 require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'start_kernel source changed: '+key)

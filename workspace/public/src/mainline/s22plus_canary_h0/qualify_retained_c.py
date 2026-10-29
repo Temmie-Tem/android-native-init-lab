@@ -91,8 +91,10 @@ def qualify(record,config,output):
     require(digest(image)==record['kernel']['sha256'],'C kernel changed')
     raw=image.read_bytes();syms=symbols(elf)
     placement={}
-    if marker.version(config) in (3,4,5,6):
-        containing='kernel_init' if marker.version(config)==6 else 'start_kernel' if marker.version(config) in (4,5) else 'setup_arch'
+    if marker.version(config) in (3,4,5,6,7):
+        containing=('kernel_init_freeable' if marker.version(config)==7 else
+                    'kernel_init' if marker.version(config)==6 else
+                    'start_kernel' if marker.version(config) in (4,5) else 'setup_arch')
         with elf.open('rb') as stream:
             symbol=next(s for s in ELFFile(stream).get_section_by_name('.symtab').iter_symbols() if s.name==containing)
             start=syms[containing];length=symbol['st_size']
@@ -131,13 +133,26 @@ def qualify(record,config,output):
             placement=dict(pre_irq_enable_call=pre_irq,irq_enable_instruction=irq_instruction,
                            pre_rest_init_call=pre_rest,actual_calls_immediately_before_boundaries=True,
                            assembly_marker_absent=True)
-        else:
+        elif marker.version(config)==6:
             post_wait=call(marker.name(config,11));post_async=call(marker.name(config,12))
             require(post_wait==call('wait_for_completion')+4<call('kernel_init_freeable')<
                     call('async_synchronize_full') and post_async==call('async_synchronize_full')+4<call('free_initmem'),
                     'actual V6 kernel-init return boundaries differ')
             placement=dict(post_kthreadd_wait_call=post_wait,post_async_sync_call=post_async,
                            actual_calls_immediately_after_returns=True,before_free_initmem=True,
+                           assembly_marker_absent=True)
+        else:
+            pre_basic=call(marker.name(config,13));post_basic=call(marker.name(config,14))
+            initcalls=[pc for pc,destination in calls if destination==syms['do_one_initcall']]
+            require(pre_basic==call('page_alloc_init_late')+4 and pre_basic+4==call('cpuset_init_smp') and
+                    pre_basic<call('ksysfs_init')<call('driver_init')<call('init_irq_proc') and
+                    len(initcalls)==2 and initcalls[0]<pre_basic<call('init_irq_proc')<initcalls[1]<call('kfree') and
+                    post_basic==call('kfree')+4 and post_basic+4==call('wait_for_initramfs')<call('console_on_rootfs'),
+                    'actual V7 inlined basic-setup boundaries differ')
+            placement=dict(pre_basic_setup_call=pre_basic,post_basic_setup_call=post_basic,
+                           early_initcall_call=initcalls[0],regular_initcall_call=initcalls[1],
+                           command_line_free_call=call('kfree'),initramfs_wait_call=call('wait_for_initramfs'),
+                           inlined_basic_setup_boundaries_proved=True,before_free_initmem=True,
                            assembly_marker_absent=True)
         selected={marker.name(config,s) for s in marker.c_stages(config)}
         known={'s22_retained_'+name for fmt in marker.FORMATS.values() for name in fmt['names'].values()}
@@ -160,7 +175,7 @@ def qualify(record,config,output):
         kernel_path=str(image),elf_path=str(elf),elf_sha256=digest(elf),
         source_sha256=digest(__file__),cases=rows,placement=placement,qualified_c_stages=list(marker.c_stages(config)),mapping_api_mocked=True,
         mmu_translation_proved=False,device_actions=0)
-    if marker.version(config)==6:
+    if marker.version(config) in (6,7):
         manifest=json.loads(Path(record['initramfs_manifest']).read_text())
         initrd=manifest['initramfs'];path=Path(initrd['path'])
         require(manifest['vm'] is False and path.stat().st_size==initrd['size'] and digest(path)==initrd['sha256'],

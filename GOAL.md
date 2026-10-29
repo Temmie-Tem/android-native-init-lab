@@ -230,7 +230,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 evidence through later kernel initialization
+## Next bounded unit: ML009 basic-setup progress
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -346,10 +346,20 @@ interval. USB/userspace PID1 remains NO_PROOF. The operator reports the same
 boot-loop interval. N and A each transferred once, and first final health
 passed without a health-only continuation. No successor grant is armed.
 
-The next bounded H0 question is useful positive progress evidence through the
-later kernel initialization path, including the recording path's ability to
-leave a witness. Missing ML008 records do not select an initcall failure or
-reset cause. This state selects no successor image or device action.
+Two-round Claude/Argon discussion selected ML009: two V7 calls immediately
+before and after `do_basic_setup` in `kernel_init_freeable`. The writer and
+two-slot bound are unchanged. This separates additional positive progress
+through early kernel-thread preparation from the regular initcall traversal
+and remaining initramfs/access/async tail. Missing ML008 or V7 records do not
+select a failure interval or reset cause. Actual linked placement must account
+for compiler-inlined basic setup and initcall loops. Fresh Image, actual
+linked calls/loops, 318 C cases, 13 mapping cases, full RAM-PID1 VM and repeated
+boot/AP packaging passed. Final independent review is PASS_GO with no findings.
+Production task preparation and the first fixed preapproval D0 passed. Exact
+new one-operation approval and actual attendance remain required; no grant or
+device operation is armed. Freshness and all effect-time checks remain binding.
+The [ML009 preparation report](docs/reports/S22PLUS_MAINLINE_ML009_BASIC_SETUP_MARKERS_H0_2026-10-30.md)
+records the bounded unit and its remaining requirements.
 Missing records still cannot locate a failure; kernel-task progress does not
 prove driver success, userspace PID1 or USB. No successor grant or device effect
 is armed, and reset-cause investigation remains separate.

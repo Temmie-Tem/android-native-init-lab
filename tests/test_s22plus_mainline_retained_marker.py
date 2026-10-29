@@ -137,6 +137,33 @@ class Frames(unittest.TestCase):
         self.assertNotIn('s22_retained_pre_rest_init',value)
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
         with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('SYSTEM_FREEING_INITMEM','SYSTEM_RUNNING'),cfg)
+    def test_v7_domains_and_later_only_positive_preserve_old_formats(self):
+        cfg=marker.configuration(self.candidate,self.key,version=7)
+        later=bytes.fromhex(cfg['frames']['14'])
+        for version in range(1,7):
+            old=marker.configuration(self.candidate,self.key,version=version)
+            data=b''.join(bytes.fromhex(v) for v in old['frames'].values())+later
+            result=marker.decode(data,self.candidate,self.key,version=7)
+            self.assertEqual(result['observed_stages'],['post-basic-setup'])
+            self.assertFalse(result['mainline_pid1']);self.assertFalse(result['same_boot_pair_proved'])
+            self.assertFalse(result['stopped_at_last_record']);self.assertFalse(result['reset_cause_proved'])
+            self.assertEqual(marker.decode(later,self.candidate,self.key,version=version)['status'],'NO_PROOF')
+    def test_v7_hooks_bracket_basic_setup_in_freeable_init_only(self):
+        import prepare_marked
+        cfg=marker.configuration(self.candidate,self.key,version=7)
+        source=('static int __ref kernel_init(void *unused)\n{\n'
+                '\tkernel_init_freeable();\n\tasync_synchronize_full();\n'
+                '\tsystem_state = SYSTEM_FREEING_INITMEM;\n}\n'
+                'static noinline void __init kernel_init_freeable(void)\n{\n'
+                '\tpage_alloc_init_late();\n\n\tdo_basic_setup();\n\n\tkunit_run_all_tests();\n}\n')
+        value=prepare_marked.instrumented_main(source,cfg)
+        self.assertIn('\tpage_alloc_init_late();\n\ts22_retained_pre_basic_setup();\n\n\tdo_basic_setup();',value)
+        self.assertIn('\tdo_basic_setup();\n\ts22_retained_post_basic_setup();\n\n\tkunit_run_all_tests();',value)
+        self.assertIn('#include "s22-retained-early-c.h"\n\nstatic noinline void __init kernel_init_freeable',value)
+        self.assertNotIn('s22_retained_post_kthreadd_wait',value)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(value,cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(source.replace('\n\tdo_basic_setup();','\n\tother();\n\tdo_basic_setup();'),cfg)
+        with self.assertRaises(ValueError):prepare_marked.instrumented_main(source+'\tdo_basic_setup();\n',cfg)
     def test_wrong_key_corrupt_and_truncated(self):
         for data,key in [(self.a,bytes(32)),(self.a[:127],self.key),(self.a[:60]+b'x'+self.a[61:],self.key),
                          (bytes(8)+self.a[8:],self.key),(self.a[:4],self.key)]:
