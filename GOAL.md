@@ -183,7 +183,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 MMU and early-C progress observer
+## Next bounded unit: ML004 MMU and early-C progress experiment
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -226,13 +226,18 @@ The bounded [reset-report analysis](docs/reports/S22PLUS_MAINLINE_ML003_RESET_PR
 joined the retained firmware's reporter, OEM-slot writer and log-restoration
 path. Runtime configuration and event freshness remain unresolved; the next
 progress experiment is not gated on open-ended secure-firmware analysis.
-The proposed H0 successor observes the point before `__enable_mmu` and the
-point after `early_ioremap_init` but before `setup_machine_fdt`. Its latter
-writer needs explicit bounded mapping and cache/alias qualification while
-preserving `no-map`. Implementation, actual artifact qualification and scoped
-review remain outstanding. Later initialization and reset cause are separate
-questions. Missing markers remain unknown, and ML003 does not reinterpret
-ML001/ML002. No successor image or physical grant is selected by this update.
+The [ML004 successor](docs/reports/S22PLUS_MAINLINE_ML004_MMU_MARKERS_H0_2026-10-30.md)
+implements the point before `__enable_mmu` and the point after
+`early_ioremap_init` but before `setup_machine_fdt`. Its second writer uses
+bounded Normal-NC temporary mappings while preserving `no-map`. The actual
+linked writers, real EL1/EL2 MMU/mapping paths, full kernel VM PID1 and repeated
+boot-only packages passed H0 qualification. Independent final review is
+PASS_GO with no unresolved findings, the exact task reopens through production
+admission, and current fixed D0 readiness/raw Android health passed. The
+candidate is ready for its exact returned one-operation attended approval;
+no physical grant is open and no ML004 control or transfer has occurred.
+Later initialization and reset cause are separate questions. Missing markers
+remain unknown, and ML003 does not reinterpret ML001/ML002.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

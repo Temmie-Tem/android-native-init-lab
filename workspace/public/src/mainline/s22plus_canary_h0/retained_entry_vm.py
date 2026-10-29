@@ -39,7 +39,7 @@ def qualify(qualification,gdb,output):
                 '-device',f"loader,addr={routine['address']},cpu-num=0"]
             stop=0x40010000;expected=bytearray(seed.read_bytes())
             if el!=3:
-                start=marker.HEADER+44+(routine['stage']-1)*marker.SLOT
+                start=marker.HEADER+44+marker.slot(config,routine['stage'])
                 expected[start:start+marker.SLOT]=bytes.fromhex(config['frames'][str(routine['stage'])])
             expected_path=folder/'expected.bin';expected_path.write_bytes(expected)
             script=f'''set pagination off
@@ -93,6 +93,9 @@ quit
         qualification_sha256=digest(qualification/'result.json'),source_sha256=digest(__file__),
         qemu_sha256=digest(qemu),gdb_sha256=digest(gdb),cases=rows,
         physical_retention_proved=False,cache_coherency_proved=False,device_actions=0)
+    if marker.version(config)==2:
+        from retained_kernel_vm import qualify as qualify_kernel
+        result['mmu_on']=qualify_kernel(record,gdb,output/'early-c-kernel')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=result['status'],cases=len(rows),device_actions=0)))
 

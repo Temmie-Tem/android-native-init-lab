@@ -16,11 +16,13 @@ class RetentionTests(unittest.TestCase):
     setUp=health_fixture.TargetTests.setUp
     captures=health_fixture.TargetTests.captures
 
-    def setup_owner(self):
+    def setup_owner(self,version=1):
         self.root=self.directory;self.private=self.root/'workspace/private';self.private.mkdir(parents=True)
         self.owner=self.private/'task';self.owner.mkdir();key=self.owner/'key';key.write_bytes(bytes(range(32)))
         self.candidate='12'*32
-        self.task=dict(target=self.binding,A=self.android,N={'key':pin(key)},
+        config=publish(self.owner/'config.json',retention.marker.configuration(self.candidate,key.read_bytes(),version=version))
+        qualified=publish(self.owner/'marker-qualification.json',dict(config=config))
+        self.task=dict(target=self.binding,A=self.android,N={'key':pin(key),'retained_marker':qualified},
             adb=pin(Path('/usr/bin/adb').resolve(),maximum=32*1024**2))
         self.bound=dict(task=self.task,task_receipt=publish(self.owner/'task.json',self.task),
             closed=publish(self.owner/'closed.json',dict(synthetic_owner=True)),
@@ -74,6 +76,13 @@ class RetentionTests(unittest.TestCase):
         stop=pin(self.private/'failed/stopped.json');self.assertFalse((self.private/'failed/result.json').exists())
         self.assertEqual(len(self.calls),9)
         self.run_capture('fresh');self.assertEqual(pin(self.private/'failed/stopped.json'),stop)
+
+    def test_v2_projects_only_qualified_mmu_stages(self):
+        self.setup_owner(version=2)
+        data=b''.join(retention.marker.frame(self.candidate,bytes(range(32)),stage,version=2) for stage in (3,4))
+        value=read(Path(self.run_capture('v2',data=data)['path']))
+        self.assertEqual(value['observed_stages'],['early-c','pre-mmu'])
+        self.assertFalse(value['same_boot_pair_proved']);self.assertFalse(value['mainline_pid1'])
 
     def test_changed_return_boot_keeps_raw_but_never_proves_stage(self):
         self.setup_owner()

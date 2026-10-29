@@ -12,9 +12,11 @@ from prepare import digest, require, run
 
 def marker_provenance(prepared_dir,kernel):
     import retained_marker as marker
-    from prepare_marked import instrumented_head
+    from prepare_marked import instrumented_head,instrumented_setup
     path=prepared_dir/'marker-source.json';text=(kernel/'arch/arm64/kernel/head.S').read_text()
-    require(('s22_retained_' in text)==path.exists(),'partial marker source publication')
+    setup=kernel/'arch/arm64/kernel/setup.c';header=setup.parent/'s22-retained-early-c.h'
+    c_marked=header.exists() or (setup.exists() and 's22-retained-early-c.h' in setup.read_text())
+    require(('s22_retained_' in text or c_marked)==path.exists(),'partial marker source publication')
     if not path.exists():return None
     value=json.loads(path.read_text())
     for key in ('config','original_head','instrumented_head','init_manifest'):
@@ -24,6 +26,14 @@ def marker_provenance(prepared_dir,kernel):
     cfg=json.loads(Path(value['config']['path']).read_text());ir=json.loads(Path(value['init_manifest']['path']).read_text())
     marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
     require(text==instrumented_head(Path(value['original_head']['path']).read_text(),cfg),'complete marker source differs')
+    if marker.version(cfg)==2:
+        for key in ('original_setup','instrumented_setup','generated_header'):
+            row=value[key];p=Path(row['path'])
+            require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'early C source changed: '+key)
+        require(Path(value['instrumented_setup']['path'])==setup and Path(value['generated_header']['path'])==header and
+            setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text()) and
+            header.read_text()==marker.render_c(cfg),'complete early C source differs')
+    else:require(not c_marked,'V1 marker cannot contain the MMU-on writer')
     return value
 
 

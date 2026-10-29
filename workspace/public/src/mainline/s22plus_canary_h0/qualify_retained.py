@@ -49,7 +49,7 @@ def exercise(routine,stage,config,*,idx=marker.PAYLOAD+300,magic=0x4d474f4c,stat
     if change is not None:
         def interfere(uc,pc,n,user):uc.mem_write(marker.BASE+change,struct.pack('<I',0x12345678))
         u.hook_add(UC_HOOK_CODE,interfere,begin=labels[name+'_recheck'],end=labels[name+'_recheck'])
-    c=idx%marker.PAYLOAD;position=(c-marker.SPAN if c>=marker.SPAN else marker.PAYLOAD-marker.SPAN)+(stage-1)*marker.SLOT
+    c=idx%marker.PAYLOAD;position=(c-marker.SPAN if c>=marker.SPAN else marker.PAYLOAD-marker.SPAN)+marker.slot(config,stage)
     admitted=el in (1,2) and not state&0x2000005 and magic==0x4d474f4c and idx>=marker.SPAN
     writes=[];reads=[]
     def access(uc,kind,a,n,value,user):
@@ -104,17 +104,21 @@ def qualify(loader,output):
     config=json.loads(cfgpath.read_text());manifest=json.loads(Path(record['initramfs_manifest']).read_text())
     key=Path(manifest['key_path']).read_bytes();marker.validate(config,manifest['candidate_id'],key)
     rows=[];routines=[]
-    for stage,blob,elf,linkbase,physical,name in (
+    specs=(
         (1,Path(record['loader']['path']),Path(record['elf']['path']),record['runtime_symbols']['_head'],record['runtime_symbols']['_head'],'s22_retained_loader'),
-        (2,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,record['extents']['kernel-runtime'][0],'s22_retained_kernel')):
+        (2,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,record['extents']['kernel-runtime'][0],'s22_retained_kernel'))
+    if marker.version(config)==2:
+        specs=((3,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,
+                record['extents']['kernel-runtime'][0],'s22_retained_pre_mmu'),)
+    for stage,blob,elf,linkbase,physical,name in specs:
         raw=blob.read_bytes();syms=symbols(elf);linkbase=linkbase if linkbase is not None else syms['_text']
         require(digest(blob)==(record['loader']['sha256'] if stage==1 else record['kernel']['sha256']),'actual marker artifact changed')
         routine=linked(raw,syms,linkbase,physical,name)
         fstart=syms[name+'_frame']-linkbase
         require(raw[fstart:fstart+marker.SLOT]==bytes.fromhex(config['frames'][str(stage)]),'actual linked frame differs')
-        hook=syms['load_kernel_and_jump'] if stage==1 else syms['primary_entry']
+        hook=syms['load_kernel_and_jump' if stage==1 else '__primary_switch' if stage==3 else 'primary_entry']
         instruction=struct.unpack_from('<I',raw,hook-linkbase)[0]
-        if stage==1:
+        if stage in (1,3):
             require(instruction==0xd503245f,'loader BTI landing instruction differs')
             hook+=4;instruction=struct.unpack_from('<I',raw,hook-linkbase)[0]
         immediate=instruction&0x3ffffff
@@ -129,15 +133,19 @@ def qualify(loader,output):
     import sys
     sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/revalidation'))
     import s22plus_fyg8_retained_snapshot_model as snapshot
-    pair=bytes.fromhex(config['frames']['1'])+bytes.fromhex(config['frames']['2'])
+    pair=b''.join(bytes.fromhex(v) for v in config['frames'].values())
     payload,_=snapshot.place_precursor(b'\xa5'*marker.PAYLOAD,marker.PAYLOAD+17,pair)
     returned=snapshot.stock_snapshot(payload,snapshot.Header(7,0x4d474f4c,marker.PAYLOAD+17,123)).data
-    decoded=marker.decode(returned,manifest['candidate_id'],key)
-    require(decoded['observed_stages']==['kernel-entry','loader-handoff'],'producer/snapshot/decoder join differs')
+    decoded=marker.decode(returned,manifest['candidate_id'],key,version=marker.version(config))
+    require(decoded['observed_stages']==sorted(marker.FORMATS[marker.version(config)]['stages'].values()),
+            'producer/snapshot/decoder join differs')
     result=dict(schema='s22plus-mainline-marker-tests-v1',status='PASS_H0_ACTUAL_RETAINED_MARKERS',
         loader_sha256=record['loader']['sha256'],kernel_sha256=record['kernel']['sha256'],config=marked['config'],
         source_sha256=digest(__file__),codec_sha256=digest(marker.__file__),assembly_sha256=digest(marker.HERE/'retained-marker.S'),
         cases=rows,routines=routines,producer_consumer=decoded,physical_retention_proved=False,device_actions=0)
+    if marker.version(config)==2:
+        from qualify_retained_c import qualify as qualify_c
+        result['mmu_on']=qualify_c(record,config,output/'early-c')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=result['status'],cases=len(rows),device_actions=0)))
 

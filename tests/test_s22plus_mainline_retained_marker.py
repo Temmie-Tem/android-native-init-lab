@@ -22,6 +22,17 @@ class Frames(unittest.TestCase):
         v=marker.decode(self.a*3,self.candidate,self.key)
         self.assertEqual(v['observed_stages'],['loader-handoff']);self.assertEqual(len(v['records']),3)
         self.assertFalse(v['last_attempt_proved'])
+    def test_v2_does_not_reinterpret_v1_or_claim_a_shared_boot(self):
+        cfg=marker.configuration(self.candidate,self.key,version=2)
+        marker.validate(cfg,self.candidate,self.key)
+        data=b''.join(bytes.fromhex(v) for v in cfg['frames'].values())
+        self.assertEqual(marker.decode(data,self.candidate,self.key)['status'],'NO_PROOF')
+        self.assertEqual(marker.decode(self.a+self.b,self.candidate,self.key,version=2)['status'],'NO_PROOF')
+        result=marker.decode(data,self.candidate,self.key,version=2)
+        self.assertEqual(result['observed_stages'],['early-c','pre-mmu'])
+        self.assertFalse(result['same_boot_pair_proved']);self.assertFalse(result['last_attempt_proved'])
+        cfg['frames']['3']=cfg['frames']['4']
+        with self.assertRaises(ValueError):marker.validate(cfg,self.candidate,self.key)
     def test_wrong_key_corrupt_and_truncated(self):
         for data,key in [(self.a,bytes(32)),(self.a[:127],self.key),(self.a[:60]+b'x'+self.a[61:],self.key),
                          (bytes(8)+self.a[8:],self.key),(self.a[:4],self.key)]:

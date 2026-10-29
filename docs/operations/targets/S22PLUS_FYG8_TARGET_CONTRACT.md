@@ -59,6 +59,11 @@ The same policy's optional `retained_marker` qualification adopts only its
 two fixed early diagnostic RAM slots in the exact Samsung log slice, with
 unchanged header/no-map bounds, fresh artifact qualification and independent
 review. Positive stage occurrence is separate from USB/PID1 and recovery.
+V1 places those slots at loader handoff and kernel entry. Its schema-distinct
+V2 successor instead places them before MMU enablement and in early
+`setup_arch`, using only the policy's fixed Normal-NC temporary header/slot
+mappings after MMU enablement. Both retain the same no-map slice, two-slot
+write bound, positive-only evidence and independent exact-artifact review.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

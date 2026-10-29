@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v2_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -95,7 +95,9 @@ response. Descriptor visibility alone proves none of these.
 ### Optional early retained markers
 
 An image carrying the schema-exact `retained_marker` qualification may add
-only the reviewed `s22plus-mainline-retained-marker-v1` diagnostic writer.
+only the reviewed `s22plus-mainline-retained-marker-v1` or
+`s22plus-mainline-retained-marker-v2` diagnostic writer. These formats are
+mutually exclusive in one candidate; V2 replaces both V1 sites.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
 instrumented loader/kernel marker bytes. The immutable qualification joins the
 actual linked loader and kernel entry, candidate identity, generated frames,
@@ -111,12 +113,37 @@ sampled byte index, using the reviewed contiguous placement. The selected span
 can change if firmware moves the index between sites. Each eligible site writes
 only its own slot with byte accesses, invalidates its commit prefix first,
 checks all four header words before committing, and completes stores with
-barriers. The sites are loader handoff after all payload copies and mainline
+barriers. The V1 sites are loader handoff after all payload copies and mainline
 `primary_entry` before `record_mmu_state`. Both independently require EL1/EL2,
 little-endian data, MMU off and data cache off before any log access; unsuitable
 state/header/index skips recording and continues the original boot. They do
 not change mappings, header fields, interrupt controls, storage, watchdogs or
 the logger. The existing no-map reservation is retained.
+
+V2's first site is the start of `__primary_switch`, immediately before its
+page-table register preparation and `__enable_mmu` call. It uses the same
+EL1/EL2, little-endian, MMU-off, data-cache-off assembly writer and first slot.
+Its second site is in `setup_arch`, after `early_fixmap_init` and
+`early_ioremap_init` and before `setup_machine_fdt`. It independently requires
+EL1/EL2, little-endian data and the current EL's MMU enabled. It maps only the
+fixed 16-byte header and selected second 128-byte slot using
+`early_memremap_prot` with non-executable Normal-NC attributes, including a
+second page when that slot crosses a page boundary. Header reads remain four
+aligned words and slot writes remain byte stores. It unmaps every successful
+mapping in reverse order on success or rejection; unavailable mapping, invalid
+header/index or changed header leaves no new complete frame. There are at most
+two map attempts and no retry. The writer does not alter the no-map reservation,
+create a cached alias or modify MMU control registers, interrupt controls,
+peripherals, storage or watchdogs. This is a fixed early-kernel temporary
+mapping, not general RAM-access authority.
+
+V2 qualification additionally executes the actual linked C writer's bounds,
+guards, mapping-failure and interrupted-store cases, and boots the same kernel
+through real MMU setup and mapping/unmapping in QEMU. That fixture includes
+cross-page placement, exhausted mapping slots and header changes, and verifies
+that no temporary mapping remains. H0 cannot prove physical cache coherency or
+retention. V2's distinct frame magic/version and stage IDs must be decoded from
+the exact candidate qualification; V1 records retain their original meaning.
 
 The 256 distinct payload bytes are a bound per two-site boot attempt, not a claim that a boot
 loop touches only 256 bytes across the entire operation: firmware may move the
@@ -133,6 +160,10 @@ challenge response. Records do not prove one shared boot, last attempt, ordering
 across resets, reset cause, PID 1 or authenticated USB. Missing, torn, foreign
 or overwritten records never prove non-execution or where execution stopped.
 The live USB/PID1 result and original-A recovery/health remain separate.
+An observed V2 `pre-mmu` frame proves entry to that site's writer, not MMU
+enablement. An observed `early-c` frame proves execution in the named
+MMU-enabled `setup_arch` path, including prior entry to `start_kernel`; it does
+not prove FDT setup, subsequent initialization or userspace.
 
 ### Fixed post-closure retained-marker D0
 

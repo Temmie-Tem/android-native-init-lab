@@ -159,7 +159,8 @@ def case(blob,record,all_symbols,source,*,state=None,el=1,full=False,bad_fdt=Fal
         if marked:
             cfg=json.loads(Path(marked['config']['path']).read_text())
             expected_marker=bytearray(b'\xa5'*marker.PAYLOAD)
-            if not bad_fdt:expected_marker[44:44+marker.SLOT]=bytes.fromhex(cfg['frames']['1'])
+            if not bad_fdt and marker.version(cfg)==1:
+                expected_marker[44:44+marker.SLOT]=bytes.fromhex(cfg['frames']['1'])
             require(bytes(u.mem_read(marker.BASE,marker.HEADER))==marker_header and
                     bytes(u.mem_read(marker.BASE+marker.HEADER,marker.PAYLOAD))==expected_marker,
                     'full loader marker/header/write extent differs')

@@ -14,10 +14,22 @@ def pin(p):
     p=Path(p);return dict(path=str(p.resolve()),size=p.stat().st_size,sha256=digest(p))
 
 def instrumented_head(old,cfg):
-    site='SYM_CODE_START(primary_entry)\n\tbl\trecord_mmu_state\n'
     end='SYM_CODE_END(primary_entry)\n'
+    if marker.version(cfg)==2:
+        site='SYM_FUNC_START_LOCAL(__primary_switch)\n'
+        require(old.count(site)==old.count(end)==1 and 's22_retained_' not in old,'kernel MMU hook differs')
+        return old.replace(site,site+'\tbl\ts22_retained_pre_mmu\n').replace(end,end+'\n'+marker.render(cfg,3)+'\n')
+    site='SYM_CODE_START(primary_entry)\n\tbl\trecord_mmu_state\n'
     require(old.count(site)==old.count(end)==1 and 's22_retained_' not in old,'kernel entry hook differs')
     return old.replace(site,'SYM_CODE_START(primary_entry)\n\tbl\ts22_retained_kernel\n\tbl\trecord_mmu_state\n').replace(end,end+'\n'+marker.render(cfg,2)+'\n')
+
+def instrumented_setup(old):
+    declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
+    site='\tearly_ioremap_init();\n'
+    require(old.count(declaration)==old.count(site)==1 and 's22_retained_' not in old and
+            's22-retained-early-c.h' not in old,'early C hook differs')
+    return old.replace(declaration,'#include "s22-retained-early-c.h"\n\n'+declaration).replace(
+        site,site+'\ts22_retained_early_c();\n')
 
 def prepare(previous,output):
     previous,output=previous.resolve(),output.resolve()
@@ -45,12 +57,12 @@ def prepare(previous,output):
     (output/'prepared.json').write_text(json.dumps(value,indent=2)+'\n')
     return value
 
-def instrument(prepared,init):
+def instrument(prepared,init,*,version=1):
     prepared,init=prepared.resolve(),init.resolve()
     require(prepared.is_relative_to(ROOT/'workspace/private'),'private marker source')
     value=json.loads((prepared/'prepared.json').read_text());manifest=json.loads((init/'result.json').read_text())
     require(manifest['vm'] is False,'physical marker must use physical candidate identity')
-    key=Path(manifest['key_path']).read_bytes();cfg=marker.configuration(manifest['candidate_id'],key)
+    key=Path(manifest['key_path']).read_bytes();cfg=marker.configuration(manifest['candidate_id'],key,version=version)
     cfgpath=prepared/'retained-marker.json';require(not cfgpath.exists(),'marker already prepared')
     head=Path(value['kernel'])/'arch/arm64/kernel/head.S';old=head.read_text()
     (prepared/'original-head.S').write_text(old)
@@ -61,6 +73,14 @@ def instrument(prepared,init):
         init_manifest=pin(init/'result.json'),original_head=pin(prepared/'original-head.S'),
         instrumented_head=pin(head),sources=[pin(HERE/x) for x in ('retained-marker.S','retained_marker.py','prepare_marked.py')],
         device_actions=0)
+    if version==2:
+        setup=Path(value['kernel'])/'arch/arm64/kernel/setup.c';original=prepared/'original-setup.c'
+        original.write_bytes(setup.read_bytes());setup.write_text(instrumented_setup(original.read_text()))
+        header=setup.parent/'s22-retained-early-c.h';require(not header.exists(),'early C header already present')
+        header.write_text(marker.render_c(cfg))
+        receipt.update(schema='s22plus-mainline-marker-kernel-source-v2',original_setup=pin(original),
+            instrumented_setup=pin(setup),generated_header=pin(header))
+        receipt['sources'].append(pin(HERE/'retained-early-c.h'))
     (prepared/'marker-source.json').write_text(json.dumps(receipt,indent=2)+'\n')
     return receipt
 
@@ -68,6 +88,7 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest='command',required=True)
     a=s.add_parser('prepare');a.add_argument('previous',type=Path);a.add_argument('output',type=Path)
     a=s.add_parser('instrument');a.add_argument('prepared',type=Path);a.add_argument('init',type=Path)
+    a.add_argument('--version',type=int,choices=(1,2),default=1)
     a=p.parse_args();os.umask(0o077)
-    result=prepare(a.previous,a.output) if a.command=='prepare' else instrument(a.prepared,a.init)
+    result=prepare(a.previous,a.output) if a.command=='prepare' else instrument(a.prepared,a.init,version=a.version)
     print(json.dumps(dict(status='H0_ONLY',device_actions=0)))

@@ -73,6 +73,7 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
                     sha256=digest(init/'result.json')),'kernel/loader marker identity differs')
         cfg=json.loads(Path(cfgref['path']).read_text())
         marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
+    loader_marked=bool(marked) and marker.version(cfg)==1
     if not reuse:output.mkdir(mode=0o700,parents=True,exist_ok=False)
     require(not (output/'result.json').exists(),'result already published')
     source=output/'source'
@@ -81,7 +82,7 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
         run(['patch','--batch','--fuzz=0','-p1','-i',patch],output/'patch.log',cwd=source)
         run(['patch','--batch','--fuzz=0','-p1','-i',local_patch],output/'entry-patch.log',cwd=source)
         (source/'arch/aarch64/g0q-source-ram.inc').write_text(range_include(ranges))
-        if marked:
+        if loader_marked:
             start=source/'arch/aarch64/start.S';text=start.read_text()
             hook='ENTRY(load_kernel_and_jump)\n'
             require(text.count(hook)==1 and 's22_retained_' not in text,'loader marker hook differs')
@@ -89,11 +90,14 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     require('fuzz' not in (output/'patch.log').read_text().lower(),'fuzzy patch application')
     require('fuzz' not in (output/'entry-patch.log').read_text().lower(),'fuzzy entry patch')
     require((source/'arch/aarch64/g0q-source-ram.inc').read_text()==range_include(ranges),'source RAM table changed')
-    if marked:
+    if loader_marked:
         text=(source/'arch/aarch64/start.S').read_text()
         require(text.endswith(marker.render(cfg,1)) and
                 text.count('ENTRY(load_kernel_and_jump)\n\tbl s22_retained_loader\n')==1,
                 'linked loader marker source differs')
+    else:
+        require('s22_retained_' not in (source/'arch/aarch64/start.S').read_text(),
+                'undeclared loader marker source')
     config=(upstream/'configs/r0q_defconfig').read_text()
     config=re.sub(r'^CONFIG_TEXT_BASE=.*$',f'CONFIG_TEXT_BASE={TEXT:#x}',config,flags=re.M)
     config=re.sub(r'^CONFIG_PAYLOAD_ENTRY=.*$',f'CONFIG_PAYLOAD_ENTRY={PAYLOAD:#x}',config,flags=re.M)
@@ -149,7 +153,9 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     require(offset==0 and declared_size>=blob.stat().st_size and
             declared_size==symbols['_stack_end']-symbols['_head'], 'loader Image header geometry')
     raw=blob.read_bytes()
-    require((marker.MAGIC in raw)==bool(marked),'linked marker bytes lack declared scope')
+    require(any(f['magic'] in raw for f in marker.FORMATS.values())==bool(marked),
+            'linked marker bytes lack declared scope')
+    if marked:require(marker.FORMATS[marker.version(cfg)]['magic'] in raw,'selected marker bytes absent')
     with elf.open('rb') as stream:
         parsed=ELFFile(stream)
         for section in parsed.iter_sections():
