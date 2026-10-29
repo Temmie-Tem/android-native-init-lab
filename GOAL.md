@@ -30,7 +30,9 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Early mainline kernel entry on this g0q is demonstrated by ML003.**
+- **Mainline progress through FDT setup and paging is demonstrated by ML005.**
+  Its exact post-FDT and post-`paging_init` records were recovered after healthy
+  original-A return; ML003/ML004 retain their earlier entry/MMU evidence.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
@@ -116,9 +118,18 @@ identities, goals, artifacts and authority remain separate.
   maps OEM enum 6 to the retained NoC label; the general restart word and
   upload string are separate inputs. The UEFI restore label can also appear
   after a failed read, as reproduced with actual instructions. Fresh-event
-  attribution and the faulting component remain unproved. The next two-site
-  MMU/early-C observer is designed but not implemented or activated.
+  attribution and the faulting component remain unproved. The subsequent
+  ML004 MMU/early-C and ML005 post-FDT/post-paging runs are closed below.
   [Provenance and next design](docs/reports/S22PLUS_MAINLINE_ML003_RESET_PROVENANCE_H0_2026-10-30.md).
+- **ML005 is consumed: post-FDT and post-paging observed / ANDROID_CLOSED_HEALTHY.**
+  The same-returned-boot read recovered five intact records at each site,
+  with no damaged/foreign candidates. This proves at-least-once progress
+  through `setup_machine_fdt` and `paging_init`, including return from this
+  candidate's earlier helper call. It does not prove the second writer's later
+  cleanup/return, a boot count, reset cause or PID1/USB. The USB terminal remains
+  NO_PROOF. One N and one original-A transfer completed; first final health
+  passed, with no health-only retry. No replay or follow-on grant is armed.
+  [ML005 run](docs/reports/S22PLUS_MAINLINE_ML005_RUN_2026-10-30.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -183,7 +194,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML005 post-FDT and post-paging progress experiment
+## Next bounded unit: H0 progress distinction after paging
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -245,11 +256,21 @@ earlier sites within the same two-slot bound. The actual new kernel passes
 both linked-writer tests, real EL1/EL2 no-map/page-table checks and VM PID1
 evidence. The exact loader-produced DTB also passes the bounded real-kernel
 FDT path fixture. Independent final review is PASS_GO with no unresolved
-findings; production task admission and current fixed D0/raw Android health
-passed. The exact one-operation attended approval remains required, and no
-ML005 grant, control or partition transfer exists. Missing markers remain
-unknown; a later positive with an absent earlier record is valid evidence.
-Earlier candidates keep their original evidence and meanings.
+findings. Its [attended run](docs/reports/S22PLUS_MAINLINE_ML005_RUN_2026-10-30.md)
+is now consumed and closed healthy: both new stages have five intact records,
+and the independent decoder agrees. The post-paging point proves return from
+this candidate's preceding helper call along the sequential path. It does
+not prove its own later cleanup/return or later initialization. USB/PID1
+remains NO_PROOF; original A was restored once and first final health passed.
+Missing markers remain unknown; earlier candidates keep their original
+evidence and meanings. No successor or follow-on grant is armed.
+
+The next bounded H0 question is which positive witness can distinguish later
+`setup_arch` progress after paging while preserving the temporary-mapping
+and no-map requirements. The exact source next reaches ACPI/DT expansion,
+`bootmem_init`, resource setup and `early_ioremap_reset`; these stages are not
+yet physical evidence. Site selection and qualification remain future work,
+without reinterpreting missing markers as a failure location.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

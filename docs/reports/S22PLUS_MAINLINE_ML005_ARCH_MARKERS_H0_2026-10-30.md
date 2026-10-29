@@ -1,6 +1,10 @@
 # S22+ ML005: post-FDT and post-paging progress markers
 
-Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML005 run](S22PLUS_MAINLINE_ML005_RUN_2026-10-30.md)
+is consumed and closed healthy, with both later-stage markers recovered.
+The preparation facts below describe the checkpoint before that execution;
+its readiness receipt and absence-of-grant statements are historical.
 
 ML005 prepares two later positive progress witnesses after
 [ML004](S22PLUS_MAINLINE_ML004_RUN_2026-10-30.md) proved MMU-enabled early
