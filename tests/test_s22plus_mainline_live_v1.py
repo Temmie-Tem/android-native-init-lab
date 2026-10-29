@@ -316,7 +316,7 @@ class ReadinessTests(unittest.TestCase):
             health=self.health,network_permissions=self.network,device_controls=0,partition_transfers=0)
         self.ready=records.publish(self.folder/'ready.json',self.value)
         self.journal=records.Journal(self.base/'journal');self.journal.append('readiness-complete',result=self.ready)
-        self.input={'target':{},'A':{}}
+        self.input={'target':{},'A':{},'N':{'profile':profile.PROFILE}}
         patch=mock.patch.object(task.target,'health_projection',return_value={'captures':{'fixture':True}})
         patch.start();self.addCleanup(patch.stop)
 
@@ -326,7 +326,8 @@ class ReadinessTests(unittest.TestCase):
             with self.assertRaises(ValueError):task.validate_readiness(self.input,self.ready,self.task,fresh=True)
             task.validate_readiness(self.input,self.ready,self.task,fresh=False)
         with mock.patch.object(task,'host_boot',return_value='different'):
-            with self.assertRaises(ValueError):task.validate_readiness(self.input,self.ready,self.task,fresh=False)
+            with self.assertRaises(ValueError):task.validate_readiness(self.input,self.ready,self.task,fresh=True)
+            task.validate_readiness(self.input,self.ready,self.task,fresh=False)
         (self.base/'journal/0000.json').unlink()
         with self.assertRaises(ValueError):task.validate_readiness(self.input,self.ready,self.task,fresh=True)
 

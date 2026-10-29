@@ -22,6 +22,9 @@ NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
 OBSERVATION_NS=120_000_000_000
+TASK_SCHEMA='s22plus-mainline-task-v1'
+REVIEW_SCHEMA='s22plus-mainline-ram-review-v1'
+REVIEW_SCOPE='MAINLINE_RAM_F1_CAPABILITY'
 
 
 def unchanged(receipt,maximum=128*1024*1024):

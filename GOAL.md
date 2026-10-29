@@ -85,6 +85,14 @@ identities, goals, artifacts and authority remain separate.
   target-not-found failure. N and A were each transferred once; no replay or
   follow-on grant is armed.
   [ML002 run record](docs/reports/S22PLUS_MAINLINE_ML002_RUN_2026-10-29.md).
+- **LA001 loader-to-FYG8 control is consumed: PASS / ANDROID_CLOSED_HEALTHY.**
+  The current-boot loader marker, exact vendor kernel and complete Android
+  proof passed. A fresh same-boot bracket bound normal Download return and
+  original-A restoration. One health-only continuation completed final health
+  after a preserved ADB disappearance; N and A were each transferred once.
+  This demonstrates the selected loader/vendor-FDT path, not mainline boot,
+  ML002's replaced-DTB path or its reset cause. No follow-on grant is armed.
+  [LA001 run record](docs/reports/S22PLUS_LOADER_ANDROID_LA001_RUN_2026-10-29.md).
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
@@ -148,7 +156,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 FYG8 watchdog initial-state trace
+## Next bounded unit: H0 mainline follow-up selection after LA001
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -157,21 +165,38 @@ UID and the actual mainline Gunyah-watchdog registration filter. Merely enabling
 that driver would not resolve the analyzed discovery path; this is not proof
 of ML002's cause, and no guard or runtime was changed.
 
-Trace the already identified HLOS virtual-watchdog STATUS/CONTROL state fields
-to initialization in the retained hypervisor binary. Resolve initial enable,
-bark/bite/timebase and any enabling boot path without a guest call, or explicitly
-record which inputs cannot be determined from retained artifacts. Do not turn
-static defaults into a live handoff-state claim. Keep this unit bounded;
-ABL/UEFI caller analysis and progress-observer preparation are separate
-follow-ups. Preserve both consumed runs and reuse unchanged checks. No new
-candidate or device grant is armed.
+The completed comparison kept the exact original-A FYG8 vendor kernel and
+inherited Android initrd, passing through a qualified uniLoader with the full
+current ABL FDT. It adds one candidate-bound FDT marker so a complete current
+Android proof can distinguish the loader path from ordinary Android return.
+The [control policy](docs/operations/S22PLUS_LOADER_ANDROID_V1.md) and
+[H0 qualification](docs/reports/S22PLUS_LOADER_ANDROID_H0_2026-10-29.md) bind the
+one-shot owner, fixed evidence, normal Download return and original-A recovery.
+LA001 now proves this selected physical loader/vendor-Android path and its
+original-A return. The one finite attended operation is closed and consumed.
+There is no standing approval or consumed-run replay.
+
+**Control completion criterion — met:** a candidate-bound marker, exact kernel and
+partition identities in one current Android boot, followed by original-A
+restoration and health. A failed or absent proof may close NO_PROOF only after
+that return. The comparison added no native_data access or watchdog changes.
+It can qualify shared loader stages; it cannot prove the replaced-DTB mainline
+path or identify ML002's reset cause. The watchdog trace remains separate H0
+research.
+
+Select the next mainline H0 experiment from the actual differences between
+the successful control and consumed ML002: loader/FDT delivery, kernel entry
+and the selected kernel/DTB consumers. Reuse the unchanged qualified stages,
+keep hypotheses distinct from measured failure causes, and choose one useful
+bounded distinction before preparing another physical candidate. No new
+candidate, grant or device effect is selected by this goal update.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
 host USB event diagnostics remain possible observations, not already qualified
 physical channels. The retained RAM-only canary objective below is unchanged.
 
-**Scope:** prepare and qualify the smallest exact g0q boot-only candidate that
+**Retained mainline scope:** prepare and qualify the smallest exact g0q boot-only candidate that
 runs a RAM PID1 and emits authenticated evidence over fixed USB2 peripheral
 networking, without Linux-side UFS access or an installed-root mount.
 

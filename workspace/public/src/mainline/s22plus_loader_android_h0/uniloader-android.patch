@@ -1,0 +1,154 @@
+--- a/arch/aarch64/reloc.S
++++ b/arch/aarch64/reloc.S
+@@ -2,12 +2,14 @@
+ /* g0q RAM canary: fixed staging, bounded file copy, no live-stub overwrite. */
+ #include "asmdefs.h"
+ #include "linux-kernel-image-header.h"
++#include "g0q-android-marker.h"
+ 
+ .section .head.text, "ax"
+ ENTRY_ALIAS(_head)
+ 	linux_image_header _reloc_entry
+ 
+ ENTRY_ALIAS(_reloc_entry)
++	mov x28, x0
+ 	/* Only the reviewed MMU/cache-off, little-endian EL1/EL2 path. */
+ 	mrs x9, CurrentEL
+ ENTRY_ALIAS(_reloc_check_el); cmp x9, #4
+@@ -48,6 +50,23 @@
+ 	cmp x7, x12
+ 	b.hi .Lrange
+ 
++	/* Guard's PC-relative constants require an equal 4 KiB source slide.
++	 * It has no stack, calls, or stores; the build verifies its instructions.
++	 */
++	tst x8, #4095
++	b.ne _reloc_rejected
++	adr x1, _g0q_guard_plan
++	mov x2, x8
++	mov x3, x7
++	bl loader_guard
++	cbz x0, _reloc_rejected
++ENTRY_ALIAS(_guard_passed)
++	adr x8, _head
++	adr x4, _stub_end
++	ldr x5, .Ldestination
++	ldr x6, .Lcopy_size
++	add x7, x4, x6
++
+ 	cmp x4, x5
+ 	b.eq .Lsync
+ 	b.hi .Lbelow
+@@ -85,6 +104,10 @@
+ .Ldestination: .quad _stub_end
+ .Lcopy_size:   .quad _copy_size
+ .Lentry:       .quad _start
++ENTRY_ALIAS(_g0q_guard_plan)
++	.quad _head, _stack_end
++	.quad CONFIG_PAYLOAD_ENTRY, CONFIG_PAYLOAD_ENTRY + G0Q_VENDOR_RUNTIME
++	.quad CONFIG_DTB_ENTRY, CONFIG_DTB_ENTRY + CONFIG_FDT_BUF_SIZE
+ ENTRY_ALIAS(_g0q_source_ram)
+ #include "g0q-source-ram.inc"
+ ENTRY_ALIAS(_g0q_source_ram_end)
+--- a/arch/aarch64/start.S
++++ b/arch/aarch64/start.S
+@@ -43,13 +43,14 @@
+ 2:
+ 
+ 	/* Fall through */
+-	adrp    x0, dtb             /* Load page of dtb */
+-	add     x0, x0, #:lo12:dtb  /* Add offset within the page */
++	mov     x0, x28            /* Actual current ABL FDT, preserved before relocation */
+ 	adrp    x1, kernel          /* Load page of kernel */
+ 	add     x1, x1, #:lo12:kernel /* Add offset within the page */
+ #ifndef CONFIG_RAMDISK_NO_COPY
+ 	adrp    x2, ramdisk          /* Load page of kernel */
+ 	add     x2, x2, #:lo12:ramdisk /* Add offset within the page */
++#else
++	mov     x2, xzr
+ #endif
+ 
+ 	bl main
+--- a/arch/aarch64/Makefile
++++ b/arch/aarch64/Makefile
+@@ -4,3 +4,7 @@
+ 
+ obj-$(CONFIG_POSITION_INDEPENDENT) += aarch64/reloc.o
+ obj-y += aarch64/start.o aarch64/load-kernel.o aarch64/memcpy.o
++
++# This leaf is called before any stack exists. All other C keeps the normal ABI.
++obj-y += aarch64/guard.o
++CFLAGS_guard.o += -O2 -fpie -fno-stack-protector -fomit-frame-pointer -fno-jump-tables -ffixed-x28 -ffixed-x29 -ffixed-x30 -fcall-used-x19 -fcall-used-x20 -fcall-used-x21 -fcall-used-x22 -fcall-used-x23 -fcall-used-x24 -fcall-used-x25 -fcall-used-x26 -fcall-used-x27
+--- a/drivers/ramdisk-handler.c
++++ b/drivers/ramdisk-handler.c
+@@ -1,55 +1,21 @@
+-// SPDX-License-Identifier: GPL-2.0-only
+-/*
+- * Copyright (c) 2025, Victor Paul <vipollmail@gmail.com>
+- */
+-
++/* SPDX-License-Identifier: GPL-2.0-only */
++/* Loader Android control: preserve the actual ABL tree and assembled initrd. */
+ #include <drivers/ramdisk-handler.h>
+-#include <lib/debug.h>
+ #include <lib/libfdt/libfdt.h>
++#include "../arch/aarch64/g0q-android-marker.h"
+ 
+ int ramdisk_handler_patch_dtb(const void *fdt, void *buf, int bufsize)
+ {
+-	int ret, dtb_chosen_offset;
+-#ifdef __aarch64__
+-	void *ramdisk_end = (void*)CONFIG_RAMDISK_ENTRY + (unsigned long)&ramdisk_size;
+-#elif __arm__
+-	void *ramdisk_end = (void*)CONFIG_RAMDISK_ENTRY + ramdisk_size;
+-#endif
+-
+-	printk(KERN_INFO, "trying to open fdt...\n");
+-	ret = fdt_open_into(fdt, buf, bufsize);
+-	if (ret < 0) {
+-		printk(KERN_ERR, "fdt_open_into() failed: %s\n", fdt_strerror(ret));
+-		return ret;
+-	}
+-
+-	dtb_chosen_offset = fdt_path_offset(buf, "/chosen");
+-	if (dtb_chosen_offset < 0) {
+-		printk(KERN_ERR, "Could not find /chosen node: %s\n", fdt_strerror(dtb_chosen_offset));
+-		return dtb_chosen_offset;
+-	}
+-
+-	printk(KERN_INFO, "adding linux,initrd-start...\n");
+-#ifdef __aarch64__
+-	ret = fdt_setprop_u64(buf, dtb_chosen_offset, "linux,initrd-start", (uint64_t)CONFIG_RAMDISK_ENTRY);
+-#elif __arm__
+-	ret = fdt_setprop_u32(buf, dtb_chosen_offset, "linux,initrd-start", (uint32_t)CONFIG_RAMDISK_ENTRY);
+-#endif
+-	if (ret < 0) {
+-		printk(KERN_ERR, "failed to add linux,initrd-start: %s\n", fdt_strerror(ret));
+-		return ret;
+-	}
+-
+-	printk(KERN_INFO, "adding linux,initrd-end...\n");
+-#ifdef __aarch64__
+-	ret = fdt_setprop_u64(buf, dtb_chosen_offset, "linux,initrd-end", (uint64_t)ramdisk_end);
+-#elif __arm__
+-	ret = fdt_setprop_u32(buf, dtb_chosen_offset, "linux,initrd-end", (uint32_t)ramdisk_end);
+-#endif
+-	if (ret < 0) {
+-		printk(KERN_ERR, "failed to add linux,initrd-end: %s\n", fdt_strerror(ret));
+-		return ret;
+-	}
+-
+-	return 0;
++    int length, chosen = fdt_path_offset(fdt, "/chosen");
++    if (chosen < 0) return chosen;
++    if (fdt_getprop(fdt, chosen, "codex,uniloader-android-v1", &length) ||
++        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
++    int ret = fdt_open_into(fdt, buf, bufsize);
++    if (ret) return ret;
++    chosen = fdt_path_offset(buf, "/chosen");
++    if (chosen < 0) return chosen;
++    ret = fdt_setprop(buf, chosen, "codex,uniloader-android-v1",
++                      G0Q_ANDROID_MARKER, sizeof(G0Q_ANDROID_MARKER) - 1);
++    if (ret) return ret;
++    return fdt_pack(buf);
+ }

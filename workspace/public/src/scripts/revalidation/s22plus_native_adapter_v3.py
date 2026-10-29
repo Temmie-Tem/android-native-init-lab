@@ -39,7 +39,7 @@ TRANSFER_SOURCE=pin(Path(__file__).resolve())
 
 
 def before_window_transfer(image,grant,now):
-    if image['profile']=='mainline-ram-v1':return
+    if image['profile'] in ('mainline-ram-v1','loader-android-v1'):return
     if image['profile']==autoboot.PROFILE:
         from s22plus_debian_file_profile_v1 import before_transfer
         from s22plus_debian_reboot_access_v1 import selected as reboot_selected
@@ -58,6 +58,9 @@ def image_identity(image, binding):
 
 
 def image_valid(image, *, artifact_bytes=False):
+    if image.get('profile')=='loader-android-v1':
+        from s22plus_loader_android_profile_v1 import image_binding
+        return image_binding(image,artifact_bytes=artifact_bytes)
     if image.get('profile')=='mainline-ram-v1':
         from s22plus_mainline_profile_v1 import image_binding
         return image_binding(image,artifact_bytes=artifact_bytes)
@@ -262,7 +265,7 @@ class Adapter:
         return read(verify(request['task']))
 
     def check(self, request, *, recovery=False):
-        if request.get('operation')=='mainline-ram' or request.get('N',{}).get('profile')=='mainline-ram-v1':
+        if request.get('operation') in ('mainline-ram','loader-android') or request.get('N',{}).get('profile') in ('mainline-ram-v1','loader-android-v1'):
             from s22plus_mainline_task_v1 import validate_operation
             return validate_operation(self,request,recovery=recovery)
         from s22plus_native_task_v3 import validate_task, validate_grant
@@ -320,9 +323,10 @@ class Adapter:
 
     def prepare(self, operation, grant, *, reentry=False, hud=False):
         task=read(verify(grant['task']))
-        if operation=='mainline-ram':
+        if operation in ('mainline-ram','loader-android'):
             from s22plus_mainline_task_v1 import validate_task
             validate_task(self.root,task,live=True)
+            require(task['operations']==[operation],'comparison operation/profile mismatch')
             require(not reentry and not hud,'mainline has no optional native observations')
             return dict(task=grant['task'],N=task['N'],E=None,A=task['A'],admission=None,
                         prior_terminal=None,usb_reconnect=False)
@@ -364,7 +368,7 @@ class Adapter:
         return value
 
     def preflight(self, request, *, guard):
-        if request.get('operation')=='mainline-ram':
+        if request.get('operation') in ('mainline-ram','loader-android'):
             from s22plus_mainline_task_v1 import preflight
             return preflight(self,request,guard)
         guard(); task=self.configuration(request)
@@ -408,19 +412,31 @@ class Adapter:
 
     def android_download(self, step, request, *, guard, before_dispatch):
         folder=self.folder(step.name,create=True)
+        candidate_proof=candidate_deadline=None
+        if request.get('operation')=='loader-android' and step.name=='loader-android-download':
+            from s22plus_loader_android_access_v1 import before_return,window_for
+            candidate_proof=before_return(self,request,folder,guard)
+            candidate_deadline=window_for(self,request)['deadline_ns']
         before=deadline=None
         def intent_detail():
             nonlocal before, deadline
             # Session.intent calls this after authority/consumption checks, so
             # both generation and clock belong to the final dispatch boundary.
             before=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
+            if candidate_proof is not None:
+                from s22plus_loader_android_access_v1 import return_proof
+                return_proof(self,request,candidate_proof,current_usb=before)
             deadline=clock()+30_000_000_000
             receipt=publish(folder/'departure-before.json',before)
-            return dict(departure=receipt,departure_deadline_ns=deadline)
+            detail=dict(departure=receipt,departure_deadline_ns=deadline)
+            if candidate_proof is not None:detail['candidate_proof']=candidate_proof
+            return detail
         def dispatch():
             before_dispatch(intent_detail)
             require(deadline is not None and clock()<deadline,
                 'USB departure deadline expired before Android command dispatch')
+            require(candidate_deadline is None or clock()<candidate_deadline,
+                'original loader window expired before Android command dispatch')
         result=self.android(request,folder,guard).download(before_dispatch=dispatch)
         result['departure']=target.wait_departure(before,folder,deadline_ns=deadline,guard=guard)
         publish(folder/'result.json',result)
@@ -514,6 +530,9 @@ class Adapter:
         mark('arrival-binding')
         if step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
+        elif request['operation']=='loader-android':
+            from s22plus_loader_android_session_v1 import arrival_deadline
+            arrival_deadline=arrival_deadline(self,step,request)
         elif request['operation']=='mainline-ram':
             from s22plus_mainline_session_v1 import arrival_deadline
             arrival_deadline=arrival_deadline(self,step,request)
@@ -771,6 +790,11 @@ class Adapter:
         return value
 
     def recover_step_result(self, step, request):
+        if step.action=='loader-android-evidence':
+            require(request['operation']=='loader-android' and step.name=='loader-android-evidence',
+                    'unselected loader Android result')
+            from s22plus_loader_android_access_v1 import rederive
+            return rederive(self,request)
         if step.action=='mainline-evidence':
             require(request['operation']=='mainline-ram' and step.name=='mainline-evidence','unselected mainline result')
             from s22plus_mainline_access_v1 import rederive
@@ -850,6 +874,9 @@ class Adapter:
 
     def validate_result(self, step, value, request):
         require(value==self.recover_step_result(step,request),'step result differs from original raw evidence')
+        if request.get('operation')=='loader-android':
+            from s22plus_loader_android_session_v1 import validate_result
+            validate_result(self,step,value,request)
         if request.get('operation')=='mainline-ram':
             from s22plus_mainline_session_v1 import validate_result
             validate_result(self,step,value,request)
@@ -938,6 +965,10 @@ class Adapter:
         if request.get('operation')=='mainline-ram':
             from s22plus_mainline_session_v1 import terminal
             result['mainline']=terminal(self,request,recovered=recovered)
+            return result
+        if request.get('operation')=='loader-android':
+            from s22plus_loader_android_session_v1 import terminal
+            result['loader_android']=terminal(self,request,recovered=recovered)
             return result
         if request['operation']=='native-ext4':
             from s22plus_native_ext4_session_v1 import terminal

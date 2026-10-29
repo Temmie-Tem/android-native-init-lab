@@ -44,6 +44,14 @@ health checks must pass before Download intent. The common preapproval
 identity/health requirements still apply; a proposed task is not READY merely
 because its H0 preparation passes.
 
+The target's separately reviewed
+[uniLoader-to-Android comparison](S22PLUS_LOADER_ANDROID_V1.md) adopts this
+same named preapproval D0 and `ready` CLI with its own exact task/profile
+validation. Its fixed original-A transcript, exclusion, durable evidence and
+freshness are identical. This D0 reuse does not select a RAM candidate or
+transfer this policy's runtime, grant, observation or continuation authority
+to the distinct comparison operation.
+
 The named `s22plus_mainline_task_v1.py ready` foreground D0 entry obtains only
 the existing fixed Android identity/root/partition-digest health transcript,
 selected host/lane checks and preapproval raw evidence. It requires no pending

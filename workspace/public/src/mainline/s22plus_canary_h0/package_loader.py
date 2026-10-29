@@ -28,10 +28,13 @@ def package(loader,qualification,entry_vm,output):
     loader,qualification,entry_vm,output=[p.resolve() for p in (loader,qualification,entry_vm,output)]
     require(output.is_relative_to(ROOT/'workspace/private'),'private package output')
     record=json.loads((loader/'result.json').read_text());blob=Path(record['loader']['path'])
-    require(record['status']=='H0_LOADER_BUILT_RUNTIME_PLACEMENT_GUARDED' and
+    android_control=record['status']=='H0_LOADER_ANDROID_BUILT_NOT_DEVICE_ADMITTED'
+    require(record['status'] in ('H0_LOADER_BUILT_RUNTIME_PLACEMENT_GUARDED',
+                                'H0_LOADER_ANDROID_BUILT_NOT_DEVICE_ADMITTED') and
             digest(blob)==record['loader']['sha256'],'loader input differs')
-    for path,status in [(qualification,'PASS_H0_ACTUAL_ARM64_LOADER'),
-                        (entry_vm,'PASS_H0_QEMU_ACTUAL_EXCEPTION_LEVELS')]:
+    statuses=(('PASS_H0_ACTUAL_ARM64_LOADER_ANDROID','PASS_H0_QEMU_ACTUAL_EL_LOADER_ANDROID')
+              if android_control else ('PASS_H0_ACTUAL_ARM64_LOADER','PASS_H0_QEMU_ACTUAL_EXCEPTION_LEVELS'))
+    for path,status in zip((qualification,entry_vm),statuses):
         value=json.loads((path/'result.json').read_text())
         require(value['status']==status and value['loader_sha256']==digest(blob),'loader qualification differs')
     target=json.loads((ROOT/'workspace/public/src/device-action/profiles/s22plus_fyg8.json').read_text())
@@ -69,9 +72,13 @@ def package(loader,qualification,entry_vm,output):
     result={'status':'H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED','loader_sha256':digest(blob),
             'qualification_sha256':digest(qualification/'result.json'),'entry_vm_sha256':digest(entry_vm/'result.json'),
             'original_a_sha256':digest(baseline),'magiskboot_sha256':digest(magiskboot),'lz4_sha256':digest(lz4),
-            'source_sha256':digest(__file__),'copies':records,'outer_ramdisk_retained_and_not_used_by_loader':True,
+            'source_sha256':digest(__file__),'copies':records,'outer_ramdisk_retained_and_not_used_by_loader':not android_control,
             'signature_note':'Retained signature/vbmeta bytes do not authenticate this modified payload.',
             'device_actions':0,'activation':False}
+    if android_control:
+        require(record['original_a']['sha256']==digest(baseline),'control kernel baseline differs from packaged A')
+        result['profile']='loader-android-v1'
+        result['outer_ramdisk_inherited_from_abl']=True
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'boot_bytes':records[0]['boot']['size'],
                       'ap_bytes':records[0]['ap']['size'],'two_packages_identical':True}))

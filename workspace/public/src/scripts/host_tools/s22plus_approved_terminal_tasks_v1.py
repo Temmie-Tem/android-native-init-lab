@@ -118,8 +118,10 @@ def review_sources(root):
         'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_session_v1.py',
         'workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py',
         'workspace/public/src/scripts/host_tools/s22plus_mainline_terminal_v1.py')]
-    from s22plus_mainline_task_v1 import source_paths
-    return sorted(set(paths)|set(source_paths(root)))
+    from s22plus_mainline_task_v1 import source_paths,loader_build_only
+    import s22plus_loader_android_profile_v1 as loader_android
+    loader_sources={p for p in source_paths(root,loader_android) if not loader_build_only(str(p.relative_to(root)))}
+    return sorted(set(paths)|set(source_paths(root))|loader_sources)
 
 
 def verify_bridge(root, expected=None):
@@ -306,7 +308,7 @@ class Controller:
         if terminal_paths:
             require(len(terminal_paths) == 1, 'multiple operation terminals')
             value['terminal_state'] = records.read(terminal_paths[0]).get('terminal_state')
-        if bound['operation']=='mainline-ram':value['readiness']=self.readiness_status(bound)
+        if bound['operation'] in ('mainline-ram','loader-android'):value['readiness']=self.readiness_status(bound)
         return value
 
     def readiness_status(self,bound):
@@ -323,7 +325,7 @@ class Controller:
             bridge=self.bridge_check(self.root)
             require(bridge==self.bridge_identity,'bridge review changed before readiness')
             bound=self.bundle(name,current=True)
-            require(bound['operation']=='mainline-ram','no reviewed readiness profile for this task')
+            require(bound['operation'] in ('mainline-ram','loader-android'),'no reviewed readiness profile for this task')
             base,directory=bound['base'],bound['directory']
             registry.require_no_f1_owner(self.root)
             require(not (directory/'grant.json').exists() and not list(directory.glob('operation-*')) and
@@ -379,7 +381,7 @@ class Controller:
             state = self.dispatch_state(base)
             if state['state'] != 'NOT_DISPATCHED':
                 return dict(dispatched=False, repeated_request=True, **self.status(name))
-            if bound['operation']=='mainline-ram':
+            if bound['operation'] in ('mainline-ram','loader-android'):
                 ready=self.readiness_status(bound)
                 require(ready['state'] in ('NOT_REQUESTED','PROCESS_EXITED'),
                     'readiness dispatcher is still active or uncertain')
@@ -447,7 +449,9 @@ class Controller:
         from s22plus_native_adapter_v3 import Adapter
         from s22plus_native_session_v3 import operation_steps
         base, directory = bound['base'], bound['directory']
-        require(bound['operation'] in ('debian-autoboot','mainline-ram'), 'unselected continuation operation')
+        require(bound['operation'] in ('debian-autoboot','mainline-ram') or
+            bound['operation']=='loader-android' and tool in ('recover_approved_task','resume_approved_health'),
+            'unselected continuation operation')
         require(not (directory / 'closed.json').exists(), 'task is already closed')
         operation = directory / 'operation-0001'
         require(list(directory.glob('operation-*')) == [operation] and
@@ -480,8 +484,11 @@ class Controller:
             journal_tail=records.pin(session.journal.directory / f'{len(rows)-1:04d}.json'))
         android = [row for row in rows if row['event'] == 'effect-intent' and
             row['data']['action'] == 'transfer' and row['data']['role'] == 'A']
+        reconcile_loader_stop=(stopped_recovery and bound['operation']=='loader-android' and
+            not any(row['event']=='stopped' for row in rows))
         if stopped_recovery:
-            require((any(row['event'] == 'stopped' for row in rows) or bound['operation']=='mainline-ram') and session.has_recovery_basis(),
+            require((any(row['event'] == 'stopped' for row in rows) or bound['operation']=='mainline-ram' or
+                     reconcile_loader_stop) and session.has_recovery_basis(),
                 'recovery requires the stopped original effect owner')
             require(not (base / CONTINUATIONS['resume_approved_health'][0] / 'intent.json').exists(),
                 'health continuation already consumed the remaining recovery path')
@@ -525,6 +532,19 @@ class Controller:
                 session.grant['opened_ns'] <= ready['requested_ns'] <= records.clock() < ready['deadline_ns'],
                 'physical return request differs or expired')
             evidence['return_ready'] = ready_pin
+        if reconcile_loader_stop:
+            # continue_task holds the target lease. All original ownership,
+            # settled-launcher and existing-A raw checks above already passed.
+            # Record the observed interruption; never fabricate old success or
+            # backdate a stop. Missing/uncertain launcher results cannot reach it.
+            session.journal.append('stopped',error_type='SettledLauncherInterruption',
+                error_message='Original loader entry exited without publishing a stop; H0 reconciliation only.',
+                effect_intended=session.has_effect(),original_dispatch=original,
+                launcher_result=records.pin(base/DISPATCH/'result.json'),
+                launcher_spawn=records.pin(base/DISPATCH/'spawned.json'),
+                preceding_journal_tail=evidence['journal_tail'])
+            evidence['journal_tail']=records.pin(session.journal.directory/f'{len(session.rows())-1:04d}.json')
+            evidence['stop_reconciliation']=evidence['journal_tail']
         return operation, evidence
 
     def continue_task(self, name, tool):
@@ -572,7 +592,7 @@ class Controller:
             'continuation': CONTINUATIONS['continue_approved_task'][0] + '/launcher.log',
             'recovery': CONTINUATIONS['recover_approved_task'][0] + '/launcher.log',
             'health': CONTINUATIONS['resume_approved_health'][0] + '/launcher.log'}
-        if bound['operation']=='mainline-ram':
+        if bound['operation'] in ('mainline-ram','loader-android'):
             latest=self.readiness_status(bound)
             if 'attempt' in latest:paths['readiness']=READINESS+'/'+latest['attempt']+'/launcher.log'
         require(stream in paths and type(count) is int and 1 <= count <= MAX_LOG,

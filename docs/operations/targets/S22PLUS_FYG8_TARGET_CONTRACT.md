@@ -24,6 +24,21 @@ current runner. Attended F1 remains the default; the separate deferred-physical
 native-baseline mode below accepts later physical recovery without asserting
 automatic-recovery qualification.
 
+### uniLoader-to-Android comparison V1
+
+The [loader Android control](../S22PLUS_LOADER_ANDROID_V1.md) adopts one ordinary
+attended boot-only F1 operation through the existing V3 Session. It preserves
+the current ABL FDT and assembled initrd, inserts a qualified loader before
+the exact original-A FYG8 kernel, and proves a unique loader-created marker
+with fixed same-boot candidate Android health. Normal return uses one freshly
+bound Android Download command and original-A transfer/health; failure keeps
+attended physical Download/original-A recovery. It requires current independent
+review, exact candidate qualification, a returned finite one-operation grant
+and actual attendance. It grants no native_data effect or native admission.
+The same named mainline foreground preapproval D0 and `ready` CLI are adopted
+for this schema-exact comparison task, with unchanged fixed original-A reads,
+owner exclusion and freshness. Preparation/review alone performs no effect.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

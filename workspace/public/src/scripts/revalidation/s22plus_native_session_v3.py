@@ -13,7 +13,7 @@ from device_action_raw_capture_v1 import RawCaptureError
 from s22plus_native_records_v3 import (SCHEMA, Journal, SessionError, canonical,
     clock, digest, host_boot, pin, private_path, publish, read, require, verify)
 
-OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot','mainline-ram')
+OPERATIONS = ('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot','mainline-ram','loader-android')
 
 
 class ResultPublicationError(SessionError):
@@ -37,6 +37,9 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
         'native operation selection differs')
     require(operation=='experiment' or not (reentry or hud),'optional observations belong to E')
     require(operation=='bootstrap' or not native_bootstrap,'native bootstrap origin belongs to bootstrap')
+    if operation=='loader-android':
+        from s22plus_loader_android_session_v1 import normal_steps
+        return normal_steps()
     if operation=='mainline-ram':
         from s22plus_mainline_session_v1 import normal_steps
         return normal_steps()
@@ -71,6 +74,7 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
 
 
 def operation_steps(request):
+    if request['operation']=='loader-android':return steps('loader-android')
     if request['operation']=='mainline-ram':return steps('mainline-ram')
     from s22plus_debian_reboot_access_v1 import selected as reboot_selected,normal_steps as reboot_steps
     if reboot_selected(request):return reboot_steps()
@@ -246,6 +250,11 @@ class Session:
                 terminal_callback=lambda detail:guard()
             value=self.adapter.observe(step,self.request,guard=guard,
                 before_terminal=terminal_callback,**options)
+        elif step.action=='loader-android-evidence':
+            require(self.request['operation']=='loader-android' and step.name=='loader-android-evidence',
+                    'unselected loader Android observation')
+            from s22plus_loader_android_access_v1 import observe
+            value=observe(self.adapter,self.request,guard)
         elif step.action=='mainline-evidence':
             require(self.request['operation']=='mainline-ram' and step.name=='mainline-evidence','unselected mainline observation')
             from s22plus_mainline_access_v1 import observe
@@ -301,7 +310,7 @@ class Session:
             expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot','debian-shutdown','debian-reboot')
                 or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')
                 or self.request['operation']=='native-ext4' and step.name=='experiment-first'
-                or self.request['operation']!='mainline-ram' and mutates_step(self.request['operation'],step.name)]
+                or self.request['operation'] not in ('mainline-ram','loader-android') and mutates_step(self.request['operation'],step.name)]
             require([effect['step'] for effect in effects]==expected,
                 'normal terminal omits or differs from a durable effect')
         terminal_path=self.directory/'terminal.json'
@@ -319,6 +328,9 @@ class Session:
         return terminal
 
     def execute(self, *, attended):
+        if self.request['operation']=='loader-android':
+            from s22plus_loader_android_session_v1 import Coordinator
+            return Coordinator(self).execute(attended=attended)
         if self.request['operation']=='mainline-ram':
             from s22plus_mainline_session_v1 import Coordinator
             return Coordinator(self).execute(attended=attended)

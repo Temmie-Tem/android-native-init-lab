@@ -17,10 +17,11 @@ def bundle(root,base,*,current=False,approval=False,recovery=False):
         declaration['schema']=='s22plus-mainline-connector-preparation-v1' and
         declaration['status']=='PREPARED_H0_NOT_RUN_APPROVAL','mainline connector preparation differs')
     directory=base/'task-1';task_pin=pin(directory/'task.json');task=read(verify(task_pin))
+    selected=mainline.selected_profile(task['N'])
     require(declaration['task']==task_pin and declaration['review']==task['review'] and
-        task['schema']=='s22plus-mainline-task-v1' and task['N']['profile']==mainline.profile.PROFILE and
-        task['N']['namespace']==mainline.profile.NAMESPACE and task['N']['version']==mainline.profile.VERSION and
-        task['operations']==[mainline.profile.OPERATION] and task['seconds']==mainline.profile.SECONDS and
+        task['schema']==selected.TASK_SCHEMA and task['N']['profile']==selected.PROFILE and
+        task['N']['namespace']==selected.NAMESPACE and task['N']['version']==selected.VERSION and
+        task['operations']==[selected.OPERATION] and task['seconds']==selected.SECONDS and
         task['operation_budget']==1 and task['recovery_mode']=='attended' and task['E'] is None,
         'mainline connector scope differs')
     proposal_pin=pin(directory/'proposal.json');proposal=read(verify(proposal_pin))
@@ -53,7 +54,7 @@ def bundle(root,base,*,current=False,approval=False,recovery=False):
             'actual finite attended mainline approval is absent or differs')
     return dict(base=base,directory=directory,task=task_pin,task_value=task,entry=entry_pin,
         entry_args=['start',str(directory/'task.json')],review=declaration_pin,approval=approved,
-        preceding_closed=previous_pin,namespace=mainline.profile.NAMESPACE,operation=mainline.profile.OPERATION)
+        preceding_closed=previous_pin,namespace=selected.NAMESPACE,operation=selected.OPERATION)
 
 
 def start(root,task_path):
@@ -78,7 +79,7 @@ def start(root,task_path):
     grant=mainline.open_grant(root,task_path,returned_approval=approved['selected_returned_approval'],
         operator_statement=approved['actual_user_text'])
     publish(base/'opened-grant.json',dict(grant=grant,approval=bound['approval'],terminal_entry_point=bound['entry']))
-    directory=prepare_operation(root,Path(grant['path']),operation=mainline.profile.OPERATION,
+    directory=prepare_operation(root,Path(grant['path']),operation=bound['operation'],
         adapter=Adapter(root,task_path.parent))
     return Session(root,directory,Adapter(root,directory)).execute(attended=True)
 

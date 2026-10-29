@@ -66,7 +66,9 @@ def select_android(text, target):
     return rows
 
 
-def health_projection(captures, target, android):
+def health_projection(captures, target, android, *, loader_marker_sha256=None):
+    require(loader_marker_sha256 is None or type(loader_marker_sha256) is str and
+        re.fullmatch('[0-9a-f]{64}',loader_marker_sha256),'loader marker identity differs')
     require(len(captures)==7,'fixed Android same-boot bracket is incomplete')
     texts=[]
     for receipt in captures:
@@ -76,7 +78,7 @@ def health_projection(captures, target, android):
     inventory=select_android(texts[0],target)
     repeated=select_android(texts[4],target)
     first=fields(texts[2],PROPERTY_FIELDS); last=fields(texts[6],PROPERTY_FIELDS)
-    health=fields(texts[3],HEALTH_FIELDS)
+    health=fields(texts[3],HEALTH_FIELDS|({'loader_marker'} if loader_marker_sha256 is not None else set()))
     require(inventory==repeated and texts[1]==texts[5]==target['topology'] and first==last,
         'Android target or boot changed during health bracket')
     require({key:first[key] for key in ('model','device','bootloader','incremental','boot_completed','bootanim','verified_boot_state')}
@@ -88,12 +90,19 @@ def health_projection(captures, target, android):
     require(set(android['partition_sha256'])==HEALTH_FIELDS-{'root'}
         and all(re.fullmatch('[0-9a-f]{64}',health[key]) and health[key]==android['partition_sha256'][key]
             for key in HEALTH_FIELDS-{'root'}),'Android rollback/supporting partition digest differs')
-    return dict(target=TARGET,serial_sha256=digest(target['serial'].encode()),
+    result=dict(target=TARGET,serial_sha256=digest(target['serial'].encode()),
         topology_sha256=digest(target['topology'].encode()),boot_id_sha256=digest(first['boot_id'].encode()),
         rooted_android_health=True,properties=first,partition_sha256=android['partition_sha256'],captures=captures)
+    if loader_marker_sha256 is not None:
+        require(health['loader_marker']==loader_marker_sha256,'current-boot loader marker differs')
+        result['loader_marker_sha256']=loader_marker_sha256
+    return result
 
 
 class Android:
+    ROOT_COMMAND=ROOT_HEALTH
+    READY_COMMAND='getprop sys.boot_completed'
+    READY_MAXIMUM=16
     def __init__(self, tool, target, android, directory, *, guard):
         self.tool=tool; self.target=target; self.android=android
         self.directory=Path(directory); self.directory.mkdir(mode=0o700,exist_ok=True)
@@ -173,7 +182,7 @@ class Android:
     def _health_attempt(self, captures, *, deadline_ns):
         serial=self.target['serial']
         properties=['-s',serial,'shell','sh -c '+shlex.quote(PROPERTIES)]
-        health=['-s',serial,'shell','su -c '+shlex.quote(ROOT_HEALTH)]
+        health=['-s',serial,'shell','su -c '+shlex.quote(self.ROOT_COMMAND)]
         commands=[(['devices','-l'],10),(['-s',serial,'get-devpath'],10),(properties,20),(health,180),
             (['devices','-l'],10),(['-s',serial,'get-devpath'],10),(properties,20)]
         for index,(arguments,timeout) in enumerate(commands):
@@ -199,6 +208,9 @@ class Android:
             # Validate the selector before the first target-specific command.
             if index in (0,4): select_android(text,self.target)
             if index in (1,5): require(text==self.target['topology'],'Android devpath differs')
+        return self.project_health(captures)
+
+    def project_health(self,captures):
         return health_projection(captures,self.target,self.android)
 
     def download(self, *, before_dispatch):
@@ -206,6 +218,10 @@ class Android:
             before_launch=before_dispatch)
         raw.require_success(handle)
         return dict(capture=pin(handle.receipt_path),request='adb-reboot-download',accepted=True)
+
+    def readiness_complete(self,value):
+        require(value in ('','0','1'),'Android boot-complete property is malformed')
+        return value=='1'
 
     def wait_ready(self, *, deadline_ns):
         """Bounded readiness reads; the required seven-read health is separate."""
@@ -234,10 +250,10 @@ class Android:
                 'ADB readiness target is ambiguous')
             if selected and selected[0][1]=='device':
                 select_android(text,self.target)
-                command=['-s',self.target['serial'],'shell','getprop sys.boot_completed']
+                command=['-s',self.target['serial'],'shell',self.READY_COMMAND]
                 handle=observe(command,f'wait-{index:03d}-boot')
                 vanished=(handle.returncode==1 and not handle.timed_out and not handle.output_exceeded and
-                    handle.producer_error_type is None and raw.read_stdout(handle,maximum=16)==b'' and
+                    handle.producer_error_type is None and raw.read_stdout(handle,maximum=self.READY_MAXIMUM)==b'' and
                     raw.read_stderr(handle,maximum=16384)==
                     ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'))
                 if vanished:
@@ -245,10 +261,9 @@ class Android:
                     # again in the next bounded inventory; never retry control.
                     value=''
                 else:
-                    value=raw.decode_success_stdout(handle,maximum=16)
+                    value=raw.decode_success_stdout(handle,maximum=self.READY_MAXIMUM)
                     require(not raw.read_stderr(handle,maximum=16384),'Android readiness read returned diagnostics')
-                require(value in ('','0','1'),'Android boot-complete property is malformed')
-                if value=='1':
+                if self.readiness_complete(value):
                     require(clock()<deadline_ns,'Android readiness exceeded original deadline')
                     return
             index+=1

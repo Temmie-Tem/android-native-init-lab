@@ -17,12 +17,13 @@ import s22plus_native_records_v3 as records
 save=prior.previous.save
 
 
-def fixture(root,ordinal=1):
+def fixture(root,ordinal=1,selected=None):
+    selected=selected or mainline.profile
     base=root/f'workspace/private/outputs/s22plus-mainline-fixture-h0-20261028-{ordinal}'
     directory=base/'task-1';directory.mkdir(parents=True)
-    task=save(directory/'task.json',dict(schema='s22plus-mainline-task-v1',
-        N=dict(profile=mainline.profile.PROFILE,namespace=mainline.profile.NAMESPACE,version=mainline.profile.VERSION),
-        operations=['mainline-ram'],seconds=1800,operation_budget=1,recovery_mode='attended',E=None,
+    task=save(directory/'task.json',dict(schema=selected.TASK_SCHEMA,
+        N=dict(profile=selected.PROFILE,namespace=selected.NAMESPACE,version=selected.VERSION),
+        operations=[selected.OPERATION],seconds=1800,operation_budget=1,recovery_mode='attended',E=None,
         review={'fixture':'capability'},target={'fixture':'owned-S22'},A={'fixture':'original-A'}))
     proposal=save(directory/'proposal.json',dict(task=task,
         approval=mainline.tasks.approval_text(records.read(Path(task['path'])),task),grants_device_authority=False))
@@ -42,7 +43,7 @@ def fixture(root,ordinal=1):
 class TerminalTests(unittest.TestCase):
     def setUp(self):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);self.root=Path(tmp.name)
-        self.base=fixture(self.root);self.directory=self.base/'task-1'
+        self.base=fixture(self.root,selected=getattr(self,'selected_profile',None));self.directory=self.base/'task-1'
         self.controller=backend.Controller(self.root,bridge_check=lambda root:{'fixture':'bridge'})
         patch=mock.patch.object(mainline,'validate_task');patch.start();self.addCleanup(patch.stop)
         patch=mock.patch.object(backend.registry,'require_no_f1_owner');patch.start();self.addCleanup(patch.stop)
@@ -66,7 +67,7 @@ class TerminalTests(unittest.TestCase):
         directory=(base or self.base)/'task-1'
         result=save(directory/'fixture-ready.json',{'fixture':True})
         records.Journal(directory/'journal').append('readiness-complete',result=result)
-        patch=mock.patch.object(mainline,'validate_readiness',return_value={'observed_ns':records.clock()})
+        patch=mock.patch.object(mainline,'validate_readiness',return_value={'observed_ns':records.clock(),'host_boot':records.host_boot()})
         patch.start();self.addCleanup(patch.stop)
 
     def test_readiness_is_explicit_async_and_does_not_create_grant_or_approval(self):
@@ -147,7 +148,7 @@ class TerminalTests(unittest.TestCase):
         terminal=save(self.base/'closed-terminal.json',dict(terminal_state='ANDROID_CLOSED_HEALTHY',research_closed=True))
         save(self.directory/'closed.json',dict(task=records.pin(self.directory/'task.json'),
             terminal_state='ANDROID_CLOSED_HEALTHY',current_android_terminal=terminal))
-        old=self.base;self.base=fixture(self.root,2);self.directory=self.base/'task-1'
+        old=self.base;self.base=fixture(self.root,2,selected=getattr(self,'selected_profile',None));self.directory=self.base/'task-1'
         self.approve();self.ready_for_f1()
         self.assertTrue(self.controller.start(str(self.base))['dispatched']);self.settle()
         self.assertEqual(self.controller.status(str(old))['readiness']['state'],'CLOSED_BY_ORIGINAL_OWNER')
@@ -221,7 +222,11 @@ class MainlineContinuationTests(TerminalTests):
     def setUp(self):
         super().setUp();self.approve();self.ready_for_f1();self.controller.start(str(self.base));self.settle()
         from s22plus_native_adapter_v3 import Adapter
-        from s22plus_mainline_session_v1 import normal_steps
+        selected_profile=getattr(self,'selected_profile',mainline.profile)
+        if selected_profile.PROFILE=='loader-android-v1':
+            from s22plus_loader_android_session_v1 import normal_steps
+        else:
+            from s22plus_mainline_session_v1 import normal_steps
         self.operation=self.directory/'operation-0001';self.operation.mkdir(mode=0o700)
         selected=records.read(self.directory/'task.json');task_pin=records.pin(self.directory/'task.json');now=records.clock()
         preapproval=save(self.directory/'fixture-preapproval.json',{'fixture':True})
@@ -229,7 +234,7 @@ class MainlineContinuationTests(TerminalTests):
             host_boot=records.host_boot(),opened_ns=now,deadline_ns=now+1800_000_000_000,operation_budget=1,
             recovery_mode='attended',operator_statement='fixture',returned_approval=records.read(self.directory/'proposal.json')['approval'],
             preapproval=preapproval))
-        request=dict(schema=records.SCHEMA,operation='mainline-ram',task=task_pin,grant=grant,N=selected['N'],A=selected['A'],
+        request=dict(schema=records.SCHEMA,operation=selected_profile.OPERATION,task=task_pin,grant=grant,N=selected['N'],A=selected['A'],
             E=None,reentry=False,hud=False,usb_reconnect=False,admission=None,prior_terminal=None)
         operation=save(self.operation/'operation.json',request)
         save(self.operation/'consumed.json',dict(schema=records.SCHEMA,operation_sha256=operation['sha256'],grant=grant))
@@ -239,14 +244,15 @@ class MainlineContinuationTests(TerminalTests):
             self.journal.append('step-start',step=step.name,action=step.action,role=step.role)
             if step.action in ('download','transfer'):self.journal.append('effect-intent',step=step.name,action=step.action,role=step.role)
             self.journal.append('step-complete',step=step.name,result=value)
-        save(self.operation/'mainline-return-ready.json',dict(operation=operation,
-            observation=records.pin(self.operation/'mainline-evidence.json'),requested_ns=now,deadline_ns=now+600_000_000_000))
+        if selected_profile is mainline.profile:
+            save(self.operation/'mainline-return-ready.json',dict(operation=operation,
+                observation=records.pin(self.operation/'mainline-evidence.json'),requested_ns=now,deadline_ns=now+600_000_000_000))
         backend.registry.initialize(self.root);backend.registry.begin_f1_owner(self.root,self.operation,operation['sha256'])
         cli=self.root/'workspace/public/src/scripts/revalidation/s22plus_native_task_v3.py'
         cli.write_text("import sys\nfrom pathlib import Path\nassert len(sys.argv)==6 and sys.argv[1]=='--root' and sys.argv[5]=='--attended'\nassert sys.argv[3] in ('continue','recover')\np=Path(sys.argv[4])\nwith (p/('fixture-'+sys.argv[3])).open('x') as f:f.write('once')\n")
         for obj,name,options in [(Adapter,'check',{}),(Adapter,'validate_result',{}),
             (Adapter,'recover_transfer_result',{'return_value':{'completed':True}}),
-            (mainline,'validate_readiness',{'return_value':{'observed_ns':now}})]:
+            (mainline,'validate_readiness',{'return_value':{'observed_ns':now,'host_boot':records.host_boot()}})]:
             patch=mock.patch.object(obj,name,**options);mocked=patch.start();self.addCleanup(patch.stop)
             if name=='recover_transfer_result':self.raw=mocked
 

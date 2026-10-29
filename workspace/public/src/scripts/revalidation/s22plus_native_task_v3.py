@@ -124,9 +124,9 @@ def unchanged(receipt, *, maximum=2*1024*1024):
 
 
 def capability(root, *, recovery=False, profile=None):
-    if profile=='mainline-ram-v1':
-        from s22plus_mainline_task_v1 import capability as mainline_capability
-        return mainline_capability(root,recovery=recovery)
+    if profile in ('mainline-ram-v1','loader-android-v1'):
+        from s22plus_mainline_task_v1 import capability as mainline_capability,selected_profile
+        return mainline_capability(root,recovery=recovery,selected=selected_profile({'profile':profile}))
     from s22plus_native_root_inspect_profile_v1 import PROFILE as root_inspect_profile
     from s22plus_native_userspace_probe_profile_v1 import PROFILE as userspace_probe_profile
     from s22plus_native_preflight_profile_v1 import PROFILE as preflight_profile
@@ -173,7 +173,8 @@ def android_artifact(root):
 
 
 def validate_task(root, task, *, live=False, recovery=False, require_android=True, qualification=None):
-    if task.get('N',{}).get('profile')=='mainline-ram-v1' or 'mainline-ram' in task.get('operations',[]):
+    if task.get('N',{}).get('profile') in ('mainline-ram-v1','loader-android-v1') or any(
+            op in task.get('operations',[]) for op in ('mainline-ram','loader-android')):
         from s22plus_mainline_task_v1 import validate_task as mainline_task
         return mainline_task(root,task,live=live,recovery=recovery,require_android=require_android)
     from s22plus_native_adapter_v3 import image_valid
@@ -455,13 +456,15 @@ def prepare_task(root, output, *, native, experiment, target, installation, reco
 
 
 def approval_text(task, receipt):
+    if task.get('N',{}).get('profile')=='loader-android-v1':
+        return f"APPROVE S22PLUS LOADER ANDROID V1 {receipt['sha256']} {task['seconds']}s 1operation attended"
     if task.get('N',{}).get('profile')=='mainline-ram-v1':
         return f"APPROVE S22PLUS MAINLINE RAM V1 {receipt['sha256']} {task['seconds']}s 1operation attended"
     return f"APPROVE S22PLUS NATIVE V3 {receipt['sha256']} {task['seconds']}s {task['operation_budget']}operations {task['recovery_mode']}"
 
 
 def validate_grant(task, grant, path):
-    mainline=task.get('N',{}).get('profile')=='mainline-ram-v1'
+    mainline=task.get('N',{}).get('profile') in ('mainline-ram-v1','loader-android-v1')
     require(set(grant)==({'schema','task','directory','host_boot','opened_ns','deadline_ns','operation_budget',
         'recovery_mode','operator_statement','returned_approval'}|({'preapproval'} if mainline else set())) and grant['schema']==SCHEMA,
         'native grant schema differs')
@@ -478,12 +481,13 @@ def validate_grant(task, grant, path):
     if mainline:
         from s22plus_mainline_task_v1 import validate_readiness
         ready=validate_readiness(task,grant['preapproval'],grant['task'],fresh=False)
-        require(0<=grant['opened_ns']-ready['observed_ns']<=300_000_000_000,'grant did not open on current health')
+        require(ready['host_boot']==grant['host_boot'] and
+            0<=grant['opened_ns']-ready['observed_ns']<=300_000_000_000,'grant did not open on current health')
 
 
 def open_grant(root, task_path, *, returned_approval, operator_statement):
     task_path=private_path(root,task_path); receipt=pin(task_path); task=read(task_path)
-    if task.get('N',{}).get('profile')=='mainline-ram-v1':
+    if task.get('N',{}).get('profile') in ('mainline-ram-v1','loader-android-v1'):
         from s22plus_mainline_task_v1 import open_grant as mainline_grant
         return mainline_grant(root,task_path,returned_approval=returned_approval,operator_statement=operator_statement)
     validate_task(root,task,live=True)
@@ -504,7 +508,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5])
     sub=parser.add_subparsers(dest='command',required=True)
-    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot','mainline-ram'))
+    run=sub.add_parser('execute'); run.add_argument('operation',choices=('bootstrap','experiment','android-exit','storage-census','gpt-reserve','native-ext4','root-inspect','userspace-probe','preflight','staged-preflight','switch-root','debian-handoff','journal-recovery','root-evidence','debian-early','log-calibrate','debian-integrated','debian-autoboot','mainline-ram','loader-android'))
     run.add_argument('grant',type=Path); run.add_argument('--attended',action='store_true')
     run.add_argument('--reentry',action='store_true'); run.add_argument('--hud',action='store_true')
     run.add_argument('--experiment-image',type=Path)
