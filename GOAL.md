@@ -30,12 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Mainline progress to immediately before basic setup is demonstrated by ML009.**
-  Five intact pre-basic-setup records survived healthy original-A return.
-  At least one attempt passed the earlier kernel-thread preparation and
-  early/pre-SMP initcall path in `kernel_init_freeable`. Its post-basic record
-  was absent; that absence locates no failure. IRQ delivery, timer ticks and
-  later initialization remain unproved; earlier candidates retain their evidence.
+- **ML010 demonstrates regular-initcall progress to the point before late
+  `deferred_probe_initcall` dispatch.** Its complete trace recovers entry/return
+  records for the preceding 1,793 dispatches and the next entry point, with
+  healthy original-A return. That callback's body/return and later milestones
+  remain unproved; missing records locate no failure or reset cause. Returned
+  dispatches are not driver/probe success. Earlier candidates retain their
+  own evidence; no shared-boot or historical progress transfer is inferred.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
@@ -381,12 +382,21 @@ now has a fresh H0-qualified full trace of all 1,825 regular initcall entry/retu
 points plus six milestones through the pre-free async return. Its 3,656 records
 use a fixed latched window and retain available leading slots when history is
 short. Actual C, full EL1/EL2 traversal, mapping/context, RAM-PID1 VM and package
-checks pass. Final independent review is PASS_GO with no remaining findings;
-production task preparation and current fixed preapproval D0 also pass. No
-successor grant or experiment is armed. ML009's missing record still establishes no
-failure inside basic setup; missing V8 records likewise cannot identify a
-culprit or reset cause. Kernel-task progress remains separate from driver
-success, userspace PID1 and USB.
+checks passed, followed by independent PASS_GO and separately returned exact
+attended approval. Its [physical run](docs/reports/S22PLUS_MAINLINE_ML010_RUN_2026-10-30.md)
+is consumed and closed healthy: 12,208 intact records cover 3,590 distinct
+events, with all entry/return pairs for ordinals 0–1,792 and the entry point
+before ordinal 1,793, `deferred_probe_initcall` at level 7. Six damaged candidates
+are rejected. The missing return does not identify a culprit or reset cause;
+record counts are not boot counts. All 114 USB snapshots show actual absence.
+N and A each transferred once and first final health passed without a health-only
+continuation. USB/userspace PID1 remains NO_PROOF, and no successor is armed.
+
+The next bounded H0 question is useful positive evidence around the exact
+deferred-probe dispatch/work and dependency paths. The current trace does not
+prove entry into that callback body or select a failed flush, probe or timeout.
+Source analysis and any proposed observer must preserve async-context and
+record-retention limits. No successor image or device action is selected.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

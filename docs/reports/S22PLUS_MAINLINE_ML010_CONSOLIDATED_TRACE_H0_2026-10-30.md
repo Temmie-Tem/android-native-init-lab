@@ -1,6 +1,11 @@
 # S22+ ML010: consolidated initcall progress evidence
 
-Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML010 run](S22PLUS_MAINLINE_ML010_RUN_2026-10-30.md)
+is consumed and closed healthy. Intact records reach the point before late
+`deferred_probe_initcall` dispatch; its return remains unproved. The readiness
+receipts and absence-of-grant statements below describe preparation before
+execution and remain historical.
 
 The selected bounded unit replaces repeated two-point physical trials with one
 candidate that records all regular initcall dispatches and the following
