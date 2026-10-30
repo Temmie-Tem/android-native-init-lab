@@ -1,6 +1,12 @@
 # S22+ ML012: retain the FYG8 board's GPIO reservations
 
 Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The separately approved [ML012 run](S22PLUS_MAINLINE_ML012_RUN_2026-10-31.md)
+is now consumed and closed healthy. USB and retained markers supplied no
+positive candidate proof. One health-only continuation completed final health
+after ADB disappearance, without another transfer. Readiness and no-grant
+statements below describe the historical preparation checkpoint.
+
 
 ML011 remains consumed and closed healthy. This preparation has no grant or
 experimental device effect. A90 and S20+ are untouched.

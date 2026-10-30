@@ -30,16 +30,18 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML012 is prepared and ready for its exact attended approval.** Two-round
-  Claude/Argon discussion selected the exact FYG8 board GPIO reservations:
-  add GPIO50/93 to the existing 36–39 exclusion. The compiled DT differs in
-  that property only; V9 hooks and all 3,914 events remain unchanged.
-  New actual-code/MMU/VM/package checks, independent exact-artifact PASS_GO
-  and fixed preapproval Android health pass. Existing capability and terminal
-  backend reviews remain current; no grant or experimental effect is armed.
+- **ML012 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.** The exact
+  GPIO50/93 reservation correction retains V9 observation, but all 114 USB
+  snapshots show absence and the complete returned log has zero V9 records.
+  Missing markers locate no failure and do not measure the correction's effect.
+  The operator reports the same boot-loop interval, without a new numeric period.
+  N and A each transferred once. After a preserved ADB disappearance and
+  incomplete property prefix without boot ID, one health-only continuation
+  passed; no extra transfer occurred. The incomplete prefix cannot distinguish
+  reconnect from an additional Android boot. No successor or grant is armed.
   Separate H0 analysis confirms hardware/firmware watchdog control paths below
-  Linux, but current arming, expiry and the candidate reset cause are unproved.
-  [ML012 preparation](docs/reports/S22PLUS_MAINLINE_ML012_GPIO_RESERVATIONS_H0_2026-10-31.md).
+  Linux; candidate arming, expiry and reset attribution remain unproved.
+  [ML012 run](docs/reports/S22PLUS_MAINLINE_ML012_RUN_2026-10-31.md).
 - **ML011 demonstrates execution inside `deferred_probe_initcall` and its first
   worker phase.** It records multiple OF-associated callback returns and the
   TLMM-associated pre-callback point, without a TLMM callback/bus return record.
@@ -253,7 +255,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML012 exact board GPIO reservations
+## Next bounded unit: H0 evidence continuity after ML012
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -424,11 +426,21 @@ removes the two indices from GPIO registration-time direction reads; it is not
 a blanket MMIO prohibition or a diagnosis of ML011. Independent static checks
 find no active consumer of the reserved pins. Fresh actual-code, real-MMU,
 RAM-PID1 and package qualification passed, followed by independent exact-artifact
-PASS_GO and one successful fixed preapproval D0. The seven raw health captures
-rederive through the actual consumer. No grant or experimental effect is armed;
-exact returned approval and attendance remain required. Firmware analysis found
-hardware watchdog control paths below Linux, without establishing candidate
-arming or expiry. That result does not diagnose ML011 or delay this correction.
+PASS_GO and fixed preapproval D0. Its separately approved
+[run](docs/reports/S22PLUS_MAINLINE_ML012_RUN_2026-10-31.md) is now consumed and
+closed healthy: USB stayed absent and the complete returned log contains no
+V9 record. N and A each transferred once; one health-only continuation completed
+final health after ADB disappearance. The abandoned property prefix had no boot
+ID, so an extra Android boot or its effect on retention cannot be established.
+The source-supported board reservation is retained without a claimed physical
+benefit. No successor or grant is armed.
+
+The next bounded H0 question is useful positive evidence and return/retention
+continuity after ML012. Its missing frames do not identify an early kernel
+failure or a TLMM outcome. Hardware/firmware watchdog control paths below Linux
+are confirmed in retained code, but candidate arming and expiry are unproved;
+the operator's same-interval observation is not a causal measurement. This
+state selects no new image, timer intervention or device action.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
