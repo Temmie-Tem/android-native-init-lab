@@ -1,6 +1,11 @@
 # S22+ ML011: bounded deferred-probe observations
 
-Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+Preparation checkpoint: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
+The subsequently approved [ML011 run](S22PLUS_MAINLINE_ML011_RUN_2026-10-31.md)
+is consumed and closed healthy. It records the first deferred-probe phase and
+the TLMM-associated pre-callback point; callback return and physical USB remain
+unproved. The preparation statements below, including absence of a grant,
+describe the historical checkpoint before execution.
 No ML011 grant or experimental operation exists. ML010 remains consumed and closed
 healthy; its absent return record identifies no culprit. A90 and S20+ are
 untouched.

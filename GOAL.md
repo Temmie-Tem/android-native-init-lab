@@ -30,12 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML010 demonstrates regular-initcall progress to the point before late
-  `deferred_probe_initcall` dispatch.** Its complete trace recovers entry/return
-  records for the preceding 1,793 dispatches and the next entry point, with
-  healthy original-A return. That callback's body/return and later milestones
-  remain unproved; missing records locate no failure or reset cause. Returned
-  dispatches are not driver/probe success. Earlier candidates retain their
+- **ML011 demonstrates execution inside `deferred_probe_initcall` and its first
+  worker phase.** It records multiple OF-associated callback returns and the
+  TLMM-associated pre-callback point, without a TLMM callback/bus return record.
+  Its [run](docs/reports/S22PLUS_MAINLINE_ML011_RUN_2026-10-31.md) is consumed and
+  closed healthy after one N and one original-A transfer. Missing records locate
+  no failure or reset cause, and returned calls are not driver/probe success.
+  ML010 retains its earlier full-initcall evidence. Earlier candidates retain their
   own evidence; no shared-boot or historical progress transfer is inferred.
   A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
@@ -397,12 +398,15 @@ is the selected H0 successor: 3,914 bounded events combine sparse initcall
 progress, both deferred-initcall phases and worker/preparation/callback points
 associated with a fixed 379-node DT catalog. Actual ARM64 writer/hook, real
 EL1/EL2 PID1/worker, RAM-userspace-PID1 and boot-only package checks pass.
-Final independent review is PASS_GO, production admission passes and the
-first fixed seven-read readiness is healthy. No ML011 grant or experimental
-operation exists; stale readiness is refreshed before grant opening. The scope remains positive
-reachability, with explicit unknown nodes, incomplete repeated retries and no
-same-boot pairing or missing-record causal inference. The separately returned
-exact attended approval and original-A recovery remain required.
+Its separately approved [physical run](docs/reports/S22PLUS_MAINLINE_ML011_RUN_2026-10-31.md)
+is now consumed and closed healthy. The retained log has 284 intact records
+across 82 events: first-trigger return and worker entry, nine named associations
+with all five points, an unlisted-OF bucket with all five, and the TLMM association
+with three pre-points but no callback/bus return. No first-flush return or phase-2
+point was accepted. All 114 USB snapshots show actual absence. The next useful
+H0 scope is the TLMM-associated callback path, without attributing a failure
+cause or assuming the driver body was entered. No successor is armed; explicit
+unknown nodes, incomplete retries and no same-boot pairing remain limitations.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
