@@ -449,12 +449,17 @@ adds pre-FDT/post-setup/PID1-entry points and token-scoped TLMM structural and
 return-class observations, while retaining the sparse initcall/node catalog.
 Its 3,968 frames remain within the existing write ceiling. Fresh actual-code,
 independent hook, fourteen real-MMU, RAM-PID1 and repeated packaging checks
-pass. Final independent review is PASS_GO with no findings; V10 capability,
-V21 backend publication and the fixed current preapproval health check passed.
-The GPIO correction and original-A recovery are retained. Earlier latch drift
-can suppress later records; no missing frame or return class grants failure
-localization, shared-boot pairing or correction causality. No ML013 grant or
-device experiment has occurred.
+pass, followed by independent PASS_GO and V10/V21 publication. Its separately
+approved [run](docs/reports/S22PLUS_MAINLINE_ML013_RUN_2026-10-31.md) is now
+consumed and closed healthy: all 114 USB snapshots show absence, and the
+complete returned log contains zero V10 records. N and A each transferred
+once. One health-only continuation completed final health after an ADB read
+failure; the abandoned prefix contained only model/device and no boot ID.
+An extra return boot and its effect on retention remain unproved. The GPIO
+correction is retained without a physical benefit claim. Earlier latch drift
+can suppress later records; no missing frame supplies failure localization.
+The next bounded H0 question remains return/retention continuity. No successor
+or grant is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

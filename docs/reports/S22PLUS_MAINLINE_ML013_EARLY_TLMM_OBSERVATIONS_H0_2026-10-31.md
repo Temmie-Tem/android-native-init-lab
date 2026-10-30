@@ -1,8 +1,11 @@
 # S22+ ML013: earlier retained evidence and bounded TLMM observations
 
 Status: **READY_H0_AND_CURRENT_D0_NO_EXPERIMENT**.
-No ML013 grant or experimental device action has occurred. ML012 remains
-consumed and closed healthy. A90 and S20+ are untouched.
+The separately approved [ML013 run](S22PLUS_MAINLINE_ML013_RUN_2026-10-31.md)
+is now consumed and closed healthy. It supplied no USB or retained V10 proof.
+One health-only continuation completed final health after ADB disappearance,
+without another transfer. Readiness and no-grant statements below describe
+the historical preparation checkpoint. A90 and S20+ were untouched.
 
 ## Selected bounded change
 
