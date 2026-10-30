@@ -29,20 +29,28 @@ def marker_provenance(prepared_dir,kernel):
     marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
     require(text==instrumented_head(Path(value['original_head']['path']).read_text(),cfg),'complete marker source differs')
     if marker.c_stages(cfg):
-        header=(kernel/marker.c_source(cfg)).parent/'s22-retained-early-c.h'
+        header=(kernel/marker.c_source(cfg)).parent/('s22-retained-probe.h' if marker.version(cfg)==9 else 's22-retained-early-c.h')
         for key in ('original_setup','instrumented_setup','generated_header'):
             row=value[key];p=Path(row['path'])
             require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'early C source changed: '+key)
         require(Path(value['instrumented_setup']['path'])==setup and Path(value['generated_header']['path'])==header and
             setup.read_text()==instrumented_setup(Path(value['original_setup']['path']).read_text(),cfg) and
             header.read_text()==marker.render_c(cfg),'complete early C source differs')
-        if marker.version(cfg) in (4,5,6,7,8):
+        if marker.version(cfg) in (4,5,6,7,8,9):
             for key in ('original_main','instrumented_main'):
                 row=value[key];p=Path(row['path'])
                 require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'start_kernel source changed: '+key)
             require(Path(value['instrumented_main']['path'])==main and
                     main.read_text()==instrumented_main(Path(value['original_main']['path']).read_text(),cfg) and
                     not (setup.parent/'s22-retained-early-c.h').exists(),'complete main.c marker source differs')
+            if marker.version(cfg)==9:
+                dd=kernel/'drivers/base/dd.c'
+                for key in ('original_dd','instrumented_dd'):
+                    row=value[key];p=Path(row['path'])
+                    require(p.stat().st_size==row['size'] and digest(p)==row['sha256'],'probe core source changed: '+key)
+                require(Path(value['instrumented_dd']['path'])==dd and
+                        dd.read_text()==marker.probe.instrument_dd(Path(value['original_dd']['path']).read_text()),
+                        'complete probe core source differs')
         else:
             require(not (main.parent/'s22-retained-early-c.h').exists() and
                     (not main.exists() or ('s22_retained_' not in main.read_text() and

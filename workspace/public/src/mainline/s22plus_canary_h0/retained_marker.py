@@ -7,8 +7,10 @@ import re
 import struct
 try:
     from . import retained_trace as trace
+    from . import retained_probe as probe
 except ImportError:
     import retained_trace as trace
+    import retained_probe as probe
 
 HERE=Path(__file__).resolve().parent
 BASE=0x800200000
@@ -43,6 +45,8 @@ FORMATS={
            stages={13:'pre-basic-setup',14:'post-basic-setup'},names={13:'pre_basic_setup',14:'post_basic_setup'}),
     8:dict(schema=trace.SCHEMA,magic=trace.MAGIC,domain=trace.DOMAIN,
            stages={},names={}),
+    9:dict(schema=probe.SCHEMA,magic=probe.MAGIC,domain=probe.DOMAIN,
+           stages={},names={}),
 }
 
 def require(condition,message):
@@ -70,8 +74,10 @@ def frame(candidate,key,stage,*,version=1):
     prefix=fmt['magic']+struct.pack('<II',version,stage)+bytes.fromhex(candidate)+bytes(48)
     return prefix+hmac.digest(key,fmt['domain']+prefix,'sha256')
 
-def configuration(candidate,key,*,version=1,initcall_count=None):
+def configuration(candidate,key,*,version=1,initcall_count=None,initcall_ordinals=None,node_paths=None):
     require(version in FORMATS,'unknown retained marker version')
+    if version==9:return probe.configuration(candidate,key,initcall_count,initcall_ordinals,node_paths)
+    require(initcall_ordinals is None and node_paths is None,'legacy marker has no probe catalog')
     if version==8:return trace.configuration(candidate,key,initcall_count)
     require(initcall_count is None,'legacy marker has no initcall count')
     return dict(schema=FORMATS[version]['schema'],candidate_id=candidate,
@@ -79,6 +85,7 @@ def configuration(candidate,key,*,version=1,initcall_count=None):
         frames={str(s):frame(candidate,key,s,version=version).hex() for s in FORMATS[version]['stages']})
 
 def validate(config,candidate,key):
+    if version(config)==9:return probe.validate(config,candidate,key)
     if version(config)==8:return trace.validate(config,candidate,key)
     require(config==configuration(candidate,key,version=version(config)),'retained marker configuration differs')
     return config
@@ -94,14 +101,18 @@ def render(config,stage):
 
 def c_stages(config):
     v=version(config)
-    if v==8:return (0,5)
+    if v in (8,9):return (0,5)
     return (4,) if v==2 else tuple(FORMATS[v]['stages']) if v in (3,4,5,6,7) else ()
 
 def c_source(config):
     require(c_stages(config),'selected format has no C source')
+    if version(config)==9:return 'drivers/base/dd.c'
     return 'init/main.c' if version(config) in (4,5,6,7,8) else 'arch/arm64/kernel/setup.c'
 
 def render_c(config,stage=None):
+    if version(config)==9:
+        require(stage is None,'probe uses one parameterized writer')
+        return probe.render(config)
     if version(config)==8:
         require(stage is None,'trace uses one parameterized writer')
         return trace.render(config)
@@ -114,6 +125,7 @@ def render_c(config,stage=None):
     return (HERE/'retained-early-c.h').read_text().replace('@FRAME@',rows).replace('@NAME@',name(config,stage)).replace('@SLOT@',str(slot(config,stage)))
 
 def decode(data,candidate,key,*,version=1,config=None):
+    if version==9:return probe.decode(data,candidate,key,config)
     if version==8:return trace.decode(data,candidate,key,config)
     require(type(data) is bytes and len(data)<=4*1024*1024,'retained capture exceeds bound')
     require(version in FORMATS,'unknown retained marker version');fmt=FORMATS[version]

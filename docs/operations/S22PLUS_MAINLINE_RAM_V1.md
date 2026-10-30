@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v8_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v9_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -99,9 +99,10 @@ only the reviewed `s22plus-mainline-retained-marker-v1`,
 `s22plus-mainline-retained-marker-v2`, `s22plus-mainline-retained-marker-v3` or
 `s22plus-mainline-retained-marker-v4`, `s22plus-mainline-retained-marker-v5` or
 `s22plus-mainline-retained-marker-v6`, `s22plus-mainline-retained-marker-v7` or
-`s22plus-mainline-retained-initcall-trace-v8` diagnostic writer. These formats
+`s22plus-mainline-retained-initcall-trace-v8` or
+`s22plus-mainline-retained-deferred-probe-v9` diagnostic writer. These formats
 are mutually exclusive in one candidate. V2–V7 replace both preceding sites;
-V8 replaces the pair with its finite trace defined below.
+V8 and V9 replace the pair with their finite traces defined below.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
 instrumented loader/kernel marker bytes. The immutable qualification joins the
 actual linked loader and kernel entry, candidate identity, generated frames,
@@ -450,6 +451,107 @@ function, last attempt or reset cause; grouped offsets and record counts do
 not establish shared boots. The decoder groups duplicate offsets so a maximum
 bounded capture fits the existing durable-record limit. Original raw evidence,
 the final ordinal table, USB proof, original-A recovery and health stay separate.
+
+### V9 deferred-probe observations
+
+V9 replaces V8's complete regular-initcall trace with six unchanged fixed
+PID1 milestones, a sparse final-table selection and bounded observations
+inside `deferred_probe_initcall`. It preserves the exact RAM slice, unchanged
+header, latched contiguous window, prefix invalidation/body/prefix-last stores,
+barriers, two temporary Normal-NC/XN mappings and reverse cleanup. It permits
+at most 4,096 128-byte slots, 512 KiB of distinct payload and 557,056 log byte
+stores per kernel-init attempt. Each event is attempted at most once, with its
+seen bit consumed before mapping, including failed or skipped writes. Header
+drift disables remaining writes without obstructing lifetime closure.
+
+The fresh final ELF supplies every regular PREL32 entry and level boundary.
+The sparse selection is the first entry of each nonempty level and every entry
+from `boot_wait_for_devices` through the final regular entry. That anchor must
+be unique and followed by `sync_state_resume_initcall` and
+`deferred_probe_initcall`; overlapping ordinals are deduplicated. Generated
+selection arrays, frames and original dispatch order are checked against the
+final linked code. Earlier candidates' tables do not qualify a new Image.
+
+The exact candidate DTB supplies all nodes with `compatible` or `reg` and all
+their ancestors, regardless of status. Before basic setup, PID1 resolves those
+absolute paths and holds node references. Lookup and reference release run
+outside preemption exclusion. NULL lookup entries never match a NULL device
+node. No-OF and unlisted-OF observations have separate fallback buckets;
+there is no nearest-parent substitution. A match identifies only an OF-node
+association: multiple devices or drivers can share one node. Missing lookups
+and noncatalog devices do not gain an inferred identity.
+
+Persistent device hooks are armed at the first statement of
+`deferred_probe_initcall`, preventing earlier probes from consuming their
+events. Phase 1 begins there; PID1 sets phase 2 immediately before the second
+trigger. The phase describes what an entry hook observed, not which trigger
+caused an asynchronous callback. Per phase/node, the five points are before
+the worker's PM-list move and `bus_probe_device`, after that bus call returns,
+before `device_set_driver` after supplier checks, and directly before/after
+the selected bus or driver probe callback. Neither callback branch means no
+callback event. The setup point does not prove subsequent pinctrl, DMA or
+power-domain preparation completed; a bus return can merely queue async work.
+
+Only the first admitted entry attempt for a phase/node/point receives a local
+return token, including when its mapping fails. The return uses that token's
+original phase and node without rereading either. Nested or later entries
+sharing an event receive no token. The worker entry/return pair follows the
+same rule. This avoids a nested invocation filling the first invocation's
+return slot within an attempt; it does not establish paired records across
+firmware attempts or complete retry history.
+
+Ten body milestones cover function entry, debugfs-call return, both trigger
+and flush boundaries, the return from the optional timeout scheduling call,
+and the point before final exit. The scheduling marker does not inspect the
+boolean queueing result. The timeout worker and any callback beginning after
+disarm are outside this observation window. Their absence from records is not
+evidence that they did not run. No heartbeat, new workqueue, timeout change,
+driver suppression, callback return-code interpretation or runtime crypto is
+added.
+
+PID1 and worker writes share the same state under preemption exclusion on the
+sole online boot CPU. The persistent wrapper first rejects non-task contexts
+and, under exclusion, rejects multiple online CPUs or the wrong CPU before
+reading its live dispatcher pointer. The exact forced `maxcpus=1` command
+line, delivered DTB and enabled-caller closure must exclude CPU onlining and
+competing IRQ/softirq/NMI early-map users throughout the window. A runtime CPU
+check alone is not that proof. Interrupt masking and ordinary driver/workqueue
+behavior remain unchanged; the mapping path must not sleep or allocate.
+
+The pointer is NULL before preparation. Under the same exclusion, the sole
+deferred-initcall exit clears it even if recording has already failed. Thus
+no worker can still execute or re-enter init code through this hook when PID1
+leaves that function.
+Persistent hooks thereafter are inert. Direct `__init` PID1 markers continue
+through the post-async milestone; final cleanup clears the pointer and drops
+held references before init-memory freeing. An async flush is not treated as
+a drain of every ordinary or delayed worker. No mapping survives a hook.
+
+Fresh qualification includes actual linked write bounds, seen-event behavior,
+failed maps, sticky drift and interrupted stores; the actual hook's guard,
+token, nested-node, phase-crossing, reference and post-free no-op paths; and
+real EL1/EL2 PID1/worker contexts with full init traversal, no linear alias,
+temporary mapping attributes and restored mapping state. A same-build layout
+probe binds task/device offsets. Mocked APIs remain explicitly distinguished
+from real MMU and scheduler evidence. QEMU catalog fixtures bind the DTB
+actually delivered at entry rather than assuming the requested DTB survives
+loader edits. Separate timing runs have no per-event counter breakpoints.
+
+These checks address shared-mapper, stale-init-pointer, wrong-node/token and
+expanded-evidence hazards only for V9. Changed sites, writer/gate, context,
+catalog rules, table selection, decoder, enabled callers or reservation trigger
+review. They retire when a reviewed successor removes those mechanisms or
+supplies equivalent evidence; they add no prerequisite to original-A recovery.
+The schema/domain, source-bound capability and exact artifact qualification
+are separate from older formats. Old grants and reviews do not authorize V9.
+
+Every accepted frame remains at-least-once evidence in this candidate's
+attempts. A pre-call point does not prove callback-body entry or the recording
+helper's subsequent return. A post-call point proves a return, not success.
+Missing frames cannot locate a failure or reset, and static records establish
+no same-boot sequence, last attempt, unique driver, retry count, userspace or
+USB. Physical execution still requires the exact finite attended grant and
+the unchanged original-A recovery/health path.
 
 ### Fixed post-closure retained-marker D0
 

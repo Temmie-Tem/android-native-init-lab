@@ -11,12 +11,13 @@ import subprocess
 from prepare import ROOT,digest,require
 import retained_marker as marker
 
-def qualify(qualification,gdb,output):
+def qualify(qualification,gdb,output,reuse_probe_vm=None):
     qualification,gdb,output=[p.resolve() for p in (qualification,gdb,output)]
     require(output.is_relative_to(ROOT/'workspace/private'),'private emulator output')
     record=json.loads((qualification/'result.json').read_text())
     require(record['status']=='PASS_H0_ACTUAL_RETAINED_MARKERS','marker producer tests absent')
     config=json.loads(Path(record['config']['path']).read_text())
+    require(reuse_probe_vm is None or marker.version(config)==9,'probe VM reuse needs V9')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     seed=output/'log-seed.bin'
     seed.write_bytes(struct.pack('<IIII',7,0x4d474f4c,marker.PAYLOAD+300,123)+b'\xa5'*marker.PAYLOAD)
@@ -94,15 +95,34 @@ quit
         qemu_sha256=digest(qemu),gdb_sha256=digest(gdb),cases=rows,
         physical_retention_proved=False,cache_coherency_proved=False,device_actions=0)
     if marker.c_stages(config):
-        if marker.version(config)==8:
+        if marker.version(config)==9:
+            from retained_probe_vm import qualify as qualify_kernel
+            if reuse_probe_vm is not None:
+                prior=Path(reuse_probe_vm).resolve();mapped=json.loads((prior/'result.json').read_text())
+                require(mapped['status']=='PASS_H0_ACTUAL_KERNEL_MMU_DEFERRED_PROBE' and
+                        mapped['source_sha256']==digest(marker.HERE/'retained_probe_vm.py') and
+                        mapped['kernel_sha256']==record['kernel_sha256'] and
+                        mapped['qemu_sha256']==digest(qemu) and mapped['gdb_sha256']==digest(gdb) and
+                        mapped['mapping_initramfs']==record['mmu_on']['mapping_initramfs'] and
+                        mapped['declared_span']==config['span'] and mapped['device_actions']==0,
+                        'retained V9 VM evidence inputs differ')
+                for case in mapped['cases']:
+                    folder=prior/case['case']
+                    require(json.loads((folder/'result.json').read_text())==case and
+                            (folder/'observed.bin').read_bytes()==(folder/'expected.bin').read_bytes(),
+                            'retained V9 VM raw/terminal differs')
+                result['mmu_on']=mapped
+                result['reused_kernel_vm']=dict(path=str(prior/'result.json'),sha256=digest(prior/'result.json'))
+        elif marker.version(config)==8:
             from retained_trace_vm import qualify as qualify_kernel
         else:
             from retained_kernel_vm import qualify as qualify_kernel
-        result['mmu_on']=qualify_kernel(record,gdb,output/'early-c-kernel')
+        if 'mmu_on' not in result:result['mmu_on']=qualify_kernel(record,gdb,output/'early-c-kernel')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=result['status'],cases=len(rows),device_actions=0)))
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('qualification','gdb','output'):p.add_argument('--'+name,type=Path,required=True)
-    a=p.parse_args();qualify(a.qualification,a.gdb,a.output)
+    p.add_argument('--reuse-probe-vm',type=Path)
+    a=p.parse_args();qualify(a.qualification,a.gdb,a.output,a.reuse_probe_vm)

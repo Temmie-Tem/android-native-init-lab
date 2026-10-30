@@ -107,6 +107,16 @@ cardinality, mapping/context and durable-result-size qualification is required.
 This format adds no driver-success, missing-frame localization, shared-boot,
 reset-cause, userspace or USB claim. Older reviews/grants cannot authorize it;
 the finite attended operation and original-A recovery remain unchanged.
+V9 replaces V8's full table trace with the policy's sparse final-table and
+deferred-probe observations, within the same 4,096-slot/512-KiB bound. A fixed
+DT-derived node catalog and two entry-observed phases distinguish worker,
+preparation and actual callback points. Persistent hooks use the reviewed
+single-CPU preemption exclusion and dispatcher lifetime boundary, first-entry
+tokens and explicit unknown-node buckets. Fresh actual-code, post-free and
+real-MMU PID1/worker qualification is required. These are OF associations and
+positive reachability, not unique driver identities, complete retries, paired
+boots or missing-frame causal evidence. The policy's exact reviewed scope,
+finite attended grant and original-A return/health remain mandatory.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

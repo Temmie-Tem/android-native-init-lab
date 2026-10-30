@@ -44,6 +44,7 @@ def source_paths(root,selected=profile):
         'workspace/public/src/mainline/s22plus_canary_h0/prepare.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
+        'workspace/public/src/mainline/s22plus_canary_h0/retained_probe.py',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/revalidation/device_action_f1_legacy_consumed_candidate_authority_v1.json']
     if selected is not profile:
@@ -75,6 +76,7 @@ def marker_only(path):
     # the marker codec is imported by the original-A recovery path.
     return path in ('workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
+                    'workspace/public/src/mainline/s22plus_canary_h0/retained_probe.py',
                     'workspace/public/src/scripts/revalidation/s22plus_mainline_retention_v1.py',
                     'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py')
 

@@ -392,11 +392,17 @@ record counts are not boot counts. All 114 USB snapshots show actual absence.
 N and A each transferred once and first final health passed without a health-only
 continuation. USB/userspace PID1 remains NO_PROOF, and no successor is armed.
 
-The next bounded H0 question is useful positive evidence around the exact
-deferred-probe dispatch/work and dependency paths. The current trace does not
-prove entry into that callback body or select a failed flush, probe or timeout.
-Source analysis and any proposed observer must preserve async-context and
-record-retention limits. No successor image or device action is selected.
+[ML011](docs/reports/S22PLUS_MAINLINE_ML011_DEFERRED_PROBE_H0_2026-10-30.md)
+is the selected H0 successor: 3,914 bounded events combine sparse initcall
+progress, both deferred-initcall phases and worker/preparation/callback points
+associated with a fixed 379-node DT catalog. Actual ARM64 writer/hook, real
+EL1/EL2 PID1/worker, RAM-userspace-PID1 and boot-only package checks pass.
+Final independent review is PASS_GO, production admission passes and the
+first fixed seven-read readiness is healthy. No ML011 grant or experimental
+operation exists; stale readiness is refreshed before grant opening. The scope remains positive
+reachability, with explicit unknown nodes, incomplete repeated retries and no
+same-boot pairing or missing-record causal inference. The separately returned
+exact attended approval and original-A recovery remain required.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

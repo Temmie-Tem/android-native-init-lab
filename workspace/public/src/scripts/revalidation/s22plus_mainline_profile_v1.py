@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v8_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v9_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -79,7 +79,9 @@ def image_binding(image,*,artifact_bytes=False):
             'instrumented loader lacks its marker admission')
     if 'retained_marker' in image:
         marked=marker_binding(image,manifest,loader)
-        for receipt in (image['retained_marker'],marked['config'],marked['tests'],marked['entry_vm']):
+        receipts=[image['retained_marker'],marked['config'],marked['tests'],marked['entry_vm']]
+        if 'hook_tests' in marked:receipts.append(marked['hook_tests'])
+        for receipt in receipts:
             path=str(Path(receipt['path']).relative_to(ROOT))
             require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
                     'retained marker evidence lacks exact independent coverage')
@@ -116,12 +118,16 @@ def marker_codec():
 def marker_binding(image,manifest,loader):
     marker=marker_codec()
     value=read(unchanged(image['retained_marker']))
-    require(set(value)=={'schema','status','config','tests','entry_vm','device_actions'} and
+    fields={'schema','status','config','tests','entry_vm','device_actions'}
+    require(set(value) in (fields,fields|{'hook_tests'}),'marker qualification fields differ')
+    config=read(unchanged(value['config']))
+    if marker.version(config)==9:fields.add('hook_tests')
+    require(set(value)==fields and
             value['schema']=='s22plus-mainline-marker-qualification-v1' and
             value['status']=='PASS_H0_MAINLINE_RETAINED_MARKER' and value['device_actions']==0,
             'marker qualification shape differs')
     require(value['config']==loader['retained_marker']['config'],'loader marker config differs')
-    config=read(unchanged(value['config']));key=unchanged(image['key'],32).read_bytes()
+    key=unchanged(image['key'],32).read_bytes()
     marker.validate(config,manifest['candidate_id'],key)
     tests=read(unchanged(value['tests']));vm=read(unchanged(value['entry_vm']))
     for result,status in ((tests,'PASS_H0_ACTUAL_RETAINED_MARKERS'),(vm,'PASS_H0_ACTUAL_EL_RETAINED_MARKERS')):
@@ -131,7 +137,9 @@ def marker_binding(image,manifest,loader):
                 result['device_actions']==0 and result['physical_retention_proved'] is False,
                 'actual marker artifact tests differ')
     require(vm['qualification_sha256']==value['tests']['sha256'],'marker actual EL test input differs')
-    if marker.version(config)==8:
+    if marker.version(config)==9:
+        probe_binding(config,tests,vm,image,value['hook_tests'])
+    elif marker.version(config)==8:
         trace_binding(config,tests,vm,image)
     elif marker.c_stages(config):
         require(tests.get('mmu_on',{}).get('status')=='PASS_H0_ACTUAL_EARLY_C' and
@@ -185,6 +193,117 @@ def marker_binding(image,manifest,loader):
     require(source['config']==value['config'] and source['init_manifest']['sha256']==
             pin(Path(loader['initramfs_manifest']))['sha256'],'kernel marker provenance differs')
     return value
+
+
+def probe_binding(config,tests,vm,image,hook_ref):
+    """V9 joins its finite catalog, worker MMU path and persistent-gate proof."""
+    actual=tests.get('mmu_on',{});mapped=vm.get('mmu_on',{})
+    total=len(config['frames']);required=list(range(20+2*len(config['initcall_ordinals'])))
+    require(actual.get('status')=='PASS_H0_ACTUAL_DEFERRED_PROBE_C' and
+            mapped.get('status')=='PASS_H0_ACTUAL_KERNEL_MMU_DEFERRED_PROBE' and
+            actual.get('kernel_sha256')==mapped.get('kernel_sha256')==image['runtime_sources']['kernel']['sha256'] and
+            actual.get('declared_slots')==mapped.get('declared_slots')==total and
+            actual.get('declared_span')==mapped.get('declared_span')==config['span'],
+            'V9 lacks its actual writer and real worker MMU qualification')
+    table=read(unchanged(actual['table']));entries=table.get('entries',[]);bounds=table.get('boundaries',[])
+    require(table.get('status')=='PASS_H0_FINAL_PROBE_TABLE' and
+            table.get('image')==image['runtime_sources']['kernel'] and
+            table.get('dtb')==image['runtime_sources']['dtb'] and
+            table.get('elf',{}).get('sha256')==actual.get('elf_sha256') and
+            table.get('frame_array_matches') is True and
+            table.get('regular_count')==len(entries)==config['initcall_count'] and
+            table.get('selected_ordinals')==config['initcall_ordinals'] and
+            table.get('node_paths')==config['node_paths'] and
+            [r.get('ordinal') for r in entries]==list(range(len(entries))) and
+            len(bounds)==9 and all(type(v) is int for v in bounds) and
+            bounds[-1]-bounds[0]==4*len(entries) and
+            table.get('counts_by_level')==[(b-a)//4 for a,b in zip(bounds,bounds[1:])],
+            'V9 final table/catalog artifact identity differs')
+    anchors=[r['ordinal'] for r in entries if 'boot_wait_for_devices' in r.get('functions',[])]
+    require(len(anchors)==1 and anchors[0]+2<len(entries) and
+            'sync_state_resume_initcall' in entries[anchors[0]+1]['functions'] and
+            'deferred_probe_initcall' in entries[anchors[0]+2]['functions'] and
+            config['initcall_ordinals']==sorted({(b-bounds[0])//4 for b in bounds[:-1]}|set(range(anchors[0],len(entries)))),
+            'V9 sparse selection lacks its final-table anchor')
+    layout=mapped.get('task_layout',{});compiler=actual.get('layout_compiler',{})
+    require(set(compiler)=={'path','sha256','version'} and
+            layout.get('status')=='PASS_H0_SAME_BUILD_TASK_LAYOUT' and
+            layout.get('config_sha256')==actual.get('layout_config_sha256') and
+            layout.get('command',{}).get('compiler')=={k:compiler[k] for k in ('path','sha256')} and
+            mapped.get('mapping_initramfs')==actual.get('mapping_initramfs')==image['runtime_sources']['initramfs'] and
+            mapped.get('post_paging_no_linear_alias_proved') is True and
+            mapped.get('late_fixmap_proved') is True and mapped.get('pid1_and_worker_context_proved') is True,
+            'V9 layout, physical initramfs or mapping context differs')
+    cases=mapped.get('cases',[]);names={r.get('case') for r in cases}
+    expected={'normal-el1','normal-el2','page-crossing','short-history','bad-header','header-map-full',
+              'slot-map-full','drift-before','drift-commit','timing-el1','timing-el2'}
+    require(names==expected and len(cases)==len(expected),'V9 real-MMU case set incomplete')
+    attributes={'normal-el1':[0,16,5],'normal-el2':[0,16,5],'page-crossing':[0,16,5],
+        'short-history':[0,5],'bad-header':[],'header-map-full':[16,5],'slot-map-full':[16,5],
+        'drift-before':[0],'drift-commit':[0,16],'timing-el1':[],'timing-el2':[]}
+    for case in cases:
+        timing=case['case'].startswith('timing-');drift=case['case'].startswith('drift-')
+        require(all(case.get(k) is True for k in ('real_mmu_boot','real_mapping_api','full_pre_free_init_traversal',
+                'worker_dispatch_closed','catalog_refs_released','mapping_slots_restored',
+                'header_and_outside_window_preserved','post_paging_no_linear_alias_proved',
+                'incoming_fdt_captured_before_c_setup')) and case.get('physical_timing_proved') is False and
+                case.get('counter_breakpoints_used') is (not timing) and
+                case.get('actual_c_el')==(1 if case['case'] in ('normal-el1','timing-el1') else 2) and
+                case.get('no_linear_alias_events')==([0,5] if timing else [0,16] if drift else [0,16,5]) and
+                case.get('temporary_mapping_attribute_events')==attributes[case['case']],
+                'V9 context/lifetime, actual EL/mapping or timing claim differs')
+        if timing:
+            require(case.get('per_event_counts') is None and case.get('event_order') is None and
+                    type(case.get('wall_seconds_between_boundaries')) in (int,float) and
+                    case['wall_seconds_between_boundaries']>0,'V9 timing uses counters or lacks duration')
+            continue
+        counts=case.get('per_event_counts',[]);order=case.get('event_order',[])
+        require(len(counts)==total and all(type(n) is int and n in (0,1) for n in counts) and
+                len(order)==sum(counts) and len(set(order))==len(order) and
+                set(order)=={i for i,n in enumerate(counts) if n}, 'V9 write cardinality differs')
+        if not drift:
+            require(all(counts[i]==1 for i in required) and
+                    [e for e in order if 20<=e<len(required)]==list(range(20,len(required))),
+                    'V9 body/worker/sparse traversal incomplete')
+        else:
+            require(counts[0]==counts[16]==1 and not any(counts[e] for e in (3,4,5)),
+                    'V9 drift did not close subsequent writer calls')
+        missing=case.get('fixture_catalog_unresolved',[])
+        require(type(missing) is list and len(set(missing))==len(missing) and
+                all(p in config['node_paths'] and p.startswith('/memory@') and p.count('/')==1 for p in missing) and
+                case.get('fixture_catalog_resolved')==len(config['node_paths'])-len(missing),
+                'V9 fixture catalog lacks actual incoming-DTB lookup accounting')
+        contexts=case.get('writer_contexts',[]);events=[0,16] if drift else [0,16,5]
+        require([(r.get('event'),r.get('phase')) for r in contexts]==[(e,p) for e in events for p in ('entry','return')] and
+                all(r.get('boot_cpu')==0 and r.get('online_cpus')==1 and r.get('preempt_count_low32')==1 and
+                    r.get('irq_masked') is False and r.get('system_state')==1 and r.get('late_selector')==1 and
+                    ((r.get('pid',0)>2 and r.get('initial_namespace_reaper') is False) if r['event']==16 else
+                     (r.get('pid')==1 and r.get('initial_namespace_reaper') is True)) for r in contexts),
+                'V9 lacks calibrated PID1/worker entry-return contexts')
+    hooks=read(unchanged(hook_ref));hook_cases={r.get('name') for r in hooks.get('cases',[])}
+    required_hooks={'preprepare-all-ops-inert','prepare-owned-once-and-held-refs',
+        'context-hardirq-reject-before-dispatch','context-softirq-reject-before-dispatch',
+        'context-nmi-reject-before-dispatch','context-multi-online-cpu-reject-before-dispatch',
+        'context-wrong-cpu-reject-before-dispatch','first-entry-token-nested-retry-and-cross-phase-return',
+        'null-missing-node-and-unknown-buckets','mapping-failure-consumes-entry-attempt',
+        'disabled-recorder-owner-disarm-clears-gate','finish-balanced-references-after-disarm-outside-preempt',
+        'postfree-real-init-range-unmapped-all-ops-noop','finish-without-arm-clears-prepared-gate',
+        'normal-disarm-preserves-direct-pid1-later-milestones','setup-marker-once-no-token'}
+    require(hooks.get('schema')=='s22plus-mainline-v9-independent-hook-instruction-review-v1' and
+            hooks.get('status')=='PASS_H0_ACTUAL_LINKED_HOOK_LIFETIME_TOKENS' and
+            hook_cases==required_hooks and len(hooks['cases'])==len(required_hooks) and
+            all(hooks.get(k) is True for k in ('actual_kernel_instructions','preemption_count_restored_in_all_cases',
+                                             'postfree_init_region_unmapped','cpu_state_mocked',
+                                             'of_lookup_and_reference_apis_mocked','mapping_apis_mocked')) and
+            hooks.get('real_mmu_translation_proved') is False and hooks.get('device_actions')==0,
+            'V9 persistent hook/lifetime qualification incomplete')
+    pins=hooks.get('input_pins',[])
+    require(image['runtime_sources']['kernel'] in pins and table['elf'] in pins and
+            any(p.get('sha256')==actual['layout_config_sha256'] and Path(p['path']).name=='.config' for p in pins),
+            'V9 hook fixture used another kernel/layout')
+    for receipt in pins:unchanged(receipt)
+    for receipt in hooks['layout'].values():
+        if type(receipt) is dict and set(receipt)=={'path','size','sha256'}:unchanged(receipt)
 
 
 def trace_binding(config,tests,vm,image):
