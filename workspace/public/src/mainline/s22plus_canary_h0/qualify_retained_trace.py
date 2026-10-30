@@ -187,7 +187,7 @@ class Machine:
         self.event, self.el, self.state = event, el, state
         self.fail, self.change, self.cut = fail, change, cut
         self.calls, self.writes = [], []
-        self.target_slot = trace.BASE + 16 + self.window + event * 128
+        self.target_slot = trace.BASE + 16 + self.window + self.event_offset(event)
         u = self.u
         u.reg_write(regs.UC_ARM64_REG_SP, self.stop - 16)
         u.reg_write(regs.UC_ARM64_REG_LR, self.stop)
@@ -203,6 +203,9 @@ class Machine:
             require(all(u.reg_read(getattr(regs, 'UC_ARM64_REG_X' + str(i))) == value for i, value in protected.items()),
                     'trace changed callee-saved register')
         return bytes(u.mem_read(trace.BASE, trace.REGION))
+
+    def event_offset(self, event):
+        return event * 128
 
 
 def qualify(record, config, output):

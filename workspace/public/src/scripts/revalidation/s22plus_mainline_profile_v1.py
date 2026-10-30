@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v9_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_retained_v10_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -121,7 +121,7 @@ def marker_binding(image,manifest,loader):
     fields={'schema','status','config','tests','entry_vm','device_actions'}
     require(set(value) in (fields,fields|{'hook_tests'}),'marker qualification fields differ')
     config=read(unchanged(value['config']))
-    if marker.version(config)==9:fields.add('hook_tests')
+    if marker.version(config) in (9,10):fields.add('hook_tests')
     require(set(value)==fields and
             value['schema']=='s22plus-mainline-marker-qualification-v1' and
             value['status']=='PASS_H0_MAINLINE_RETAINED_MARKER' and value['device_actions']==0,
@@ -137,7 +137,7 @@ def marker_binding(image,manifest,loader):
                 result['device_actions']==0 and result['physical_retention_proved'] is False,
                 'actual marker artifact tests differ')
     require(vm['qualification_sha256']==value['tests']['sha256'],'marker actual EL test input differs')
-    if marker.version(config)==9:
+    if marker.version(config) in (9,10):
         probe_binding(config,tests,vm,image,value['hook_tests'])
     elif marker.version(config)==8:
         trace_binding(config,tests,vm,image)
@@ -196,9 +196,17 @@ def marker_binding(image,manifest,loader):
 
 
 def probe_binding(config,tests,vm,image,hook_ref):
-    """V9 joins its finite catalog, worker MMU path and persistent-gate proof."""
+    """Join the selected probe's catalog, contexts and persistent-gate proof."""
+    from mainline.s22plus_canary_h0 import retained_probe_v10 as priority
+    is_v10=config['schema']==priority.SCHEMA
+    fixed=len(priority.FIXED) if is_v10 else 20
+    sparse=priority.SPARSE_BASE if is_v10 else 20
+    first=priority.FIXED.index('pre-basic-setup') if is_v10 else 0
+    worker=priority.FIXED.index('phase-1-worker-enter') if is_v10 else 16
+    last=priority.FIXED.index('post-async-sync') if is_v10 else 5
     actual=tests.get('mmu_on',{});mapped=vm.get('mmu_on',{})
-    total=len(config['frames']);required=list(range(20+2*len(config['initcall_ordinals'])))
+    total=len(config['frames']);sparse_end=sparse+2*len(config['initcall_ordinals'])
+    required=list(range(fixed))+list(range(sparse,sparse_end))
     require(actual.get('status')=='PASS_H0_ACTUAL_DEFERRED_PROBE_C' and
             mapped.get('status')=='PASS_H0_ACTUAL_KERNEL_MMU_DEFERRED_PROBE' and
             actual.get('kernel_sha256')==mapped.get('kernel_sha256')==image['runtime_sources']['kernel']['sha256'] and
@@ -207,6 +215,7 @@ def probe_binding(config,tests,vm,image,hook_ref):
             'V9 lacks its actual writer and real worker MMU qualification')
     table=read(unchanged(actual['table']));entries=table.get('entries',[]);bounds=table.get('boundaries',[])
     require(table.get('status')=='PASS_H0_FINAL_PROBE_TABLE' and
+            table.get('schema')=='s22plus-mainline-probe-table-v'+('10' if is_v10 else '9') and
             table.get('image')==image['runtime_sources']['kernel'] and
             table.get('dtb')==image['runtime_sources']['dtb'] and
             table.get('elf',{}).get('sha256')==actual.get('elf_sha256') and
@@ -237,19 +246,27 @@ def probe_binding(config,tests,vm,image,hook_ref):
     cases=mapped.get('cases',[]);names={r.get('case') for r in cases}
     expected={'normal-el1','normal-el2','page-crossing','short-history','bad-header','header-map-full',
               'slot-map-full','drift-before','drift-commit','timing-el1','timing-el2'}
-    require(names==expected and len(cases)==len(expected),'V9 real-MMU case set incomplete')
-    attributes={'normal-el1':[0,16,5],'normal-el2':[0,16,5],'page-crossing':[0,16,5],
-        'short-history':[0,5],'bad-header':[],'header-map-full':[16,5],'slot-map-full':[16,5],
-        'drift-before':[0],'drift-commit':[0,16],'timing-el1':[],'timing-el2':[]}
+    if is_v10:expected|={'earliest-only-short-history','early-drift-before','early-drift-commit'}
+    require(names==expected and len(cases)==len(expected),'probe real-MMU case set incomplete')
+    samples=([0,1] if is_v10 else [])+[first,worker,last]
+    attributes={'normal-el1':samples,'normal-el2':samples,'page-crossing':samples,
+        'short-history':[0,1,first] if is_v10 else [0,5],
+        'bad-header':[],'header-map-full':samples[1:],'slot-map-full':samples[1:],
+        'drift-before':samples[:-2],'drift-commit':samples[:-1],'timing-el1':[],'timing-el2':[]}
+    if is_v10:
+        attributes.update({'earliest-only-short-history':[0],'early-drift-before':[0],
+                           'early-drift-commit':[0,1]})
     for case in cases:
-        timing=case['case'].startswith('timing-');drift=case['case'].startswith('drift-')
+        timing=case['case'].startswith('timing-');early_drift=case['case'].startswith('early-drift-')
+        drift=case['case'].startswith('drift-') or early_drift
+        events=[0,1] if early_drift else samples[:-1] if drift else samples
         require(all(case.get(k) is True for k in ('real_mmu_boot','real_mapping_api','full_pre_free_init_traversal',
                 'worker_dispatch_closed','catalog_refs_released','mapping_slots_restored',
                 'header_and_outside_window_preserved','post_paging_no_linear_alias_proved',
                 'incoming_fdt_captured_before_c_setup')) and case.get('physical_timing_proved') is False and
                 case.get('counter_breakpoints_used') is (not timing) and
                 case.get('actual_c_el')==(1 if case['case'] in ('normal-el1','timing-el1') else 2) and
-                case.get('no_linear_alias_events')==([0,5] if timing else [0,16] if drift else [0,16,5]) and
+                case.get('no_linear_alias_events')==([first,last] if timing else events) and
                 case.get('temporary_mapping_attribute_events')==attributes[case['case']],
                 'V9 context/lifetime, actual EL/mapping or timing claim differs')
         if timing:
@@ -263,22 +280,41 @@ def probe_binding(config,tests,vm,image,hook_ref):
                 set(order)=={i for i,n in enumerate(counts) if n}, 'V9 write cardinality differs')
         if not drift:
             require(all(counts[i]==1 for i in required) and
-                    [e for e in order if 20<=e<len(required)]==list(range(20,len(required))),
+                    [e for e in order if sparse<=e<sparse_end]==list(range(sparse,sparse_end)),
                     'V9 body/worker/sparse traversal incomplete')
         else:
-            require(counts[0]==counts[16]==1 and not any(counts[e] for e in (3,4,5)),
+            require(counts[0]==counts[1 if early_drift else worker]==1 and
+                    not any(counts[e] for e in (last-2,last-1,last)),
                     'V9 drift did not close subsequent writer calls')
+            if early_drift:require(sum(counts)==2,'early drift did not stop later direct/worker recording')
         missing=case.get('fixture_catalog_unresolved',[])
         require(type(missing) is list and len(set(missing))==len(missing) and
                 all(p in config['node_paths'] and p.startswith('/memory@') and p.count('/')==1 for p in missing) and
-                case.get('fixture_catalog_resolved')==len(config['node_paths'])-len(missing),
+                case.get('fixture_catalog_resolved')==(None if early_drift else len(config['node_paths'])-len(missing)),
                 'V9 fixture catalog lacks actual incoming-DTB lookup accounting')
-        contexts=case.get('writer_contexts',[]);events=[0,16] if drift else [0,16,5]
+        if is_v10:
+            require(case.get('catalog_lookup_checked') is (not early_drift),
+                    'V10 fixture overclaims an unchecked catalog')
+            require(case.get('bootstrap_mark_returns')==[
+                        dict(event=e,initial_task=True,preempt_count_low32=1,irq_masked=True) for e in (0,1)] and
+                    len(case.get('early_no_alias_page_tables',[]))==1 and
+                    all(type(r.get('walked_tables')) is int and 0<r['walked_tables']<4096 and
+                        type(r.get('roots')) is list and len(r['roots'])==2 and
+                        type(r.get('tcr')) is int and r['tcr']&63==r.get('lower_t0sz')==16 and
+                        (r['tcr']>>14)&3==r.get('lower_tg0')==0
+                        for r in case['early_no_alias_page_tables']),
+                    'V10 bootstrap return or complete early-table alias proof missing')
+        contexts=case.get('writer_contexts',[])
         require([(r.get('event'),r.get('phase')) for r in contexts]==[(e,p) for e in events for p in ('entry','return')] and
-                all(r.get('boot_cpu')==0 and r.get('online_cpus')==1 and r.get('preempt_count_low32')==1 and
-                    r.get('irq_masked') is False and r.get('system_state')==1 and r.get('late_selector')==1 and
-                    ((r.get('pid',0)>2 and r.get('initial_namespace_reaper') is False) if r['event']==16 else
-                     (r.get('pid')==1 and r.get('initial_namespace_reaper') is True)) for r in contexts),
+                all(r.get('boot_cpu')==0 and r.get('online_cpus')==1 and
+                    (r.get('preempt_count_low32')==2 and r.get('irq_masked') is True and
+                     r.get('system_state')==0 and r.get('late_selector')==r['event'] and
+                     r.get('pid')==0 and r.get('initial_task') is True
+                     if is_v10 and r['event'] in (0,1) else
+                     r.get('preempt_count_low32')==1 and r.get('irq_masked') is False and
+                     r.get('system_state')==1 and r.get('late_selector')==1 and
+                     ((r.get('pid',0)>2 and r.get('initial_namespace_reaper') is False) if r['event']==worker else
+                      (r.get('pid')==1 and r.get('initial_namespace_reaper') is True))) for r in contexts),
                 'V9 lacks calibrated PID1/worker entry-return contexts')
     hooks=read(unchanged(hook_ref));hook_cases={r.get('name') for r in hooks.get('cases',[])}
     required_hooks={'preprepare-all-ops-inert','prepare-owned-once-and-held-refs',
@@ -289,7 +325,18 @@ def probe_binding(config,tests,vm,image,hook_ref):
         'disabled-recorder-owner-disarm-clears-gate','finish-balanced-references-after-disarm-outside-preempt',
         'postfree-real-init-range-unmapped-all-ops-noop','finish-without-arm-clears-prepared-gate',
         'normal-disarm-preserves-direct-pid1-later-milestones','setup-marker-once-no-token'}
-    require(hooks.get('schema')=='s22plus-mainline-v9-independent-hook-instruction-review-v1' and
+    if is_v10:
+        required_hooks|={'bootstrap-mark-restores-pre-scheduler-count',
+            'early-late-marks-share-latch-and-priority-layout','early-header-drift-keeps-late-dispatch-closed',
+            'tlmm-three-entry-observed-groups-and-first-owner','tlmm-exact-of-and-unresolved-catalog-rejection',
+            'tlmm-first-entry-failed-map-is-consumed','tlmm-nested-entry-zero-token-no-donation',
+            'tlmm-token-owner-and-encoding-rejection','tlmm-entry-phase-token-survives-phase-changes',
+            'tlmm-classified-return-closes-group-no-future-marks','tlmm-inconsistent-global-phase-rejection',
+            'tlmm-preprepare-postdisarm-postfree-inert','wrapper-return-class-and-ret-preservation',
+            'wrapper-null-token-preserves-return-no-writes'}
+        require(hooks.get('wrapper_inner_body_mocked_for_return_abi_cases') is True,
+                'V10 wrapper mock boundary is not explicit')
+    require(hooks.get('schema')=='s22plus-mainline-v'+('10' if is_v10 else '9')+'-independent-hook-instruction-review-v1' and
             hooks.get('status')=='PASS_H0_ACTUAL_LINKED_HOOK_LIFETIME_TOKENS' and
             hook_cases==required_hooks and len(hooks['cases'])==len(required_hooks) and
             all(hooks.get(k) is True for k in ('actual_kernel_instructions','preemption_count_restored_in_all_cases',

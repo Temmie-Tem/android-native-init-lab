@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v9_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v10_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -100,9 +100,10 @@ only the reviewed `s22plus-mainline-retained-marker-v1`,
 `s22plus-mainline-retained-marker-v4`, `s22plus-mainline-retained-marker-v5` or
 `s22plus-mainline-retained-marker-v6`, `s22plus-mainline-retained-marker-v7` or
 `s22plus-mainline-retained-initcall-trace-v8` or
-`s22plus-mainline-retained-deferred-probe-v9` diagnostic writer. These formats
+`s22plus-mainline-retained-deferred-probe-v9` or
+`s22plus-mainline-retained-deferred-probe-v10` diagnostic writer. These formats
 are mutually exclusive in one candidate. V2–V7 replace both preceding sites;
-V8 and V9 replace the pair with their finite traces defined below.
+V8–V10 replace the pair with their finite observations defined below.
 Absent that receipt, the image remains the RAM/USB variant and may not contain
 instrumented loader/kernel marker bytes. The immutable qualification joins the
 actual linked loader and kernel entry, candidate identity, generated frames,
@@ -552,6 +553,94 @@ Missing frames cannot locate a failure or reset, and static records establish
 no same-boot sequence, last attempt, unique driver, retry count, userspace or
 USB. Physical execution still requires the exact finite attended grant and
 the unchanged original-A recovery/health path.
+
+### V10 early and TLMM observations
+
+V10 retains V9's sparse final-table selection, exact DT-derived node catalog,
+generic deferred-probe hooks and finite write/lifetime boundaries. It uses
+one C writer and one shared latch. It adds direct `__init` calls immediately
+after `early_ioremap_init` and before `setup_machine_fdt`, immediately after
+`setup_arch` returns, and on entry to `kernel_init_freeable`. These precede
+the existing twenty fixed points. No assembly marker or second window is
+combined with this format.
+
+The effective span and contiguous window retain V9's formula. A complete
+eligible event e uses `window + effective_span - 128*(e+1)` only after checking
+`128*(e+1) <= effective_span`. Lower event IDs therefore occupy the newest end
+of this window, including short history. This is a placement property, not
+proof of improved physical retention. The first distinct event that reads a
+valid header and an index of at least 128 latches all four header words and
+the window; its own slot eligibility is checked afterward. An earlier
+failed/skipped event never retries. An early latch extends the interval over which header equality
+is required. Any observed drift still disables later writes permanently and
+does not obstruct disarm or final cleanup. No relatching or recovery writer
+is added.
+
+The early call requires the actual bootstrap task/stack, sole boot CPU and
+pre-scheduler preemption state, live early fixmap tables, current-EL MMU-on
+and little-endian guards. Qualification verifies its complete preemption
+restoration, masked IRQ state, Normal-NC/XN mapping attributes and absence of
+another mapping over the log slice in the live early translation tables.
+The post-setup point additionally qualifies the transition to the late
+fixmap selector and no linear alias. Neither call resolves OF nodes or
+publishes the persistent dispatcher. Existing PID1 preparation does so before
+regular initcalls, and remains responsible for held references.
+
+V10 adds one exact OF association, `/soc@0/pinctrl@f100000`, to a token-scoped
+`msm_pinctrl_probe` observation. Three groups describe the phase sampled on
+entry: prepared but not yet armed, deferred phase 1, and deferred phase 2.
+They are not retry ordinals or trigger provenance. Each group's first admitted
+entry receives one local token even if its recording fails. Repeated or nested
+entries in that group receive no token. All later points use that token's
+original group and task owner, never a newly sampled phase. Only exact token
+encodings and declared point IDs are accepted; a classified return closes
+that group's active token. Generic device hooks retain their V9 arm boundary.
+
+The seventeen TLMM points are entry, resource-mapping return, before/after
+IRQ lookup, before/after pinctrl registration, after the pinfunction loop and
+before pinctrl enable, after pinctrl enable, GPIO helper entry, after its
+wakeup-parent branch, before/after gpiochip addition, after the GPIO-ranges
+branch, GPIO helper return, and three distinct final return classes: zero,
+`-EPROBE_DEFER`, or another value. Post-call points precede the existing error
+checks and prove return only. A wrapper preserves the original exported
+signature, calls the original body once, records its return class and returns
+the unchanged value. Its sole GPIO helper receives the local token. Existing
+conditions, error side effects and ordinary driver calls remain unchanged.
+No per-GPIO, IRQ-handler or locked callback instrumentation is added.
+
+Persistent TLMM helpers reach init memory only through the same task-only,
+sole-CPU, preemption-protected dispatcher. Before preparation and after the
+deferred-initcall exit they are inert. Original direct init markers continue
+through the pre-free async return; final cleanup releases the OF references.
+No mapping spans a hook or driver call. No extra MMIO, storage, watchdog,
+interrupt-mask change, workqueue or runtime cryptography is permitted.
+
+The catalog places the twenty-three fixed events first, then the three
+seventeen-point TLMM groups, sparse initcall pairs and generic node events.
+Frame IDs and C constants derive from this single declaration. The same
+4,096-slot, 512-KiB payload and 557,056-byte-store ceilings apply. A fresh
+final ELF/DTB inventory binds the actual count, linked hooks, catalog, frames
+and init/persistent sections. Old V9 artifacts and decoders retain their
+original identities and interpretation.
+
+Fresh qualification covers early-to-late latch continuity, reversed bounds
+and short history, early and later mapping failures/drift, actual bootstrap
+and PID1/worker contexts, token/owner/nesting/phase/return behavior, preserved
+driver-body semantics and inert post-free hooks. These V10 checks address
+early mapper/context, event-label, token and init-lifetime hazards in this
+format; changed inputs trigger review, and a reviewed successor may retire
+them only by removing the mechanism or providing equivalent evidence. They
+add no prerequisite to original-A recovery.
+
+Every positive remains at-least-once occurrence in this candidate's attempts.
+A return-class record proves that class occurred; it establishes neither
+successful overall boot nor causality of a board-data correction. Records
+from a group need not share a boot or invocation in the retained payload.
+Missing later/high-numbered records prove neither failure localization nor
+overwrite, short initial history or non-execution. Earlier latch drift and
+unresolved return/retention continuity remain possible limitations. USB/PID1,
+original-A return, final health and physical retention coverage stay separate.
+The existing exact finite attended grant and recovery graph are unchanged.
 
 ### Fixed post-closure retained-marker D0
 

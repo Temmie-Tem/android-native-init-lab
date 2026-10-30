@@ -66,7 +66,8 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
                 's22plus-mainline-retained-marker-v3','s22plus-mainline-retained-marker-v4',
                 's22plus-mainline-retained-marker-v5','s22plus-mainline-retained-marker-v6',
                 's22plus-mainline-retained-marker-v7','s22plus-mainline-retained-initcall-trace-v8',
-                's22plus-mainline-retained-deferred-probe-v9'):
+                's22plus-mainline-retained-deferred-probe-v9',
+                's22plus-mainline-retained-deferred-probe-v10'):
             from retained_kernel_vm import nomap_fixture
             fixture=nomap_fixture(qemu,env,output,'off')
             command+=['-dtb',str(fixture)]

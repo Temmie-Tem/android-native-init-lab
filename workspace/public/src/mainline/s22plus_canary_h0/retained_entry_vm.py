@@ -17,7 +17,7 @@ def qualify(qualification,gdb,output,reuse_probe_vm=None):
     record=json.loads((qualification/'result.json').read_text())
     require(record['status']=='PASS_H0_ACTUAL_RETAINED_MARKERS','marker producer tests absent')
     config=json.loads(Path(record['config']['path']).read_text())
-    require(reuse_probe_vm is None or marker.version(config)==9,'probe VM reuse needs V9')
+    require(reuse_probe_vm is None or marker.version(config) in (9,10),'probe VM reuse needs a probe format')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     seed=output/'log-seed.bin'
     seed.write_bytes(struct.pack('<IIII',7,0x4d474f4c,marker.PAYLOAD+300,123)+b'\xa5'*marker.PAYLOAD)
@@ -95,7 +95,7 @@ quit
         qemu_sha256=digest(qemu),gdb_sha256=digest(gdb),cases=rows,
         physical_retention_proved=False,cache_coherency_proved=False,device_actions=0)
     if marker.c_stages(config):
-        if marker.version(config)==9:
+        if marker.version(config) in (9,10):
             from retained_probe_vm import qualify as qualify_kernel
             if reuse_probe_vm is not None:
                 prior=Path(reuse_probe_vm).resolve();mapped=json.loads((prior/'result.json').read_text())

@@ -11,9 +11,11 @@ from prepare import digest, nodes, require
 from qualify_retained import symbols
 from qualify_retained_trace import Machine as TraceMachine, pin
 import retained_probe as probe
+import retained_probe_v10 as priority
 
 
 def inventory(image, elf, config, dtb):
+    is_v10 = config['schema'] == priority.SCHEMA
     raw = image.read_bytes(); syms = symbols(elf)
     with elf.open('rb') as stream:
         entries = [(s.name, s['st_value'], s['st_size'], s['st_info']['type'])
@@ -60,20 +62,26 @@ def inventory(image, elf, config, dtb):
                   'header', 'window', 'span', 'phase', 'latched', 'disabled', 'armed', 'prepared', 'handle')]
     init_names += ['s22_retained_probe_' + n for n in ('write', 'mark', 'prepare', 'finish', 'initcall')]
     init_names += ['prev_map', 'prev_size', 'slot_virt', 'after_paging_init']
+    if is_v10:
+        init_names += ['s22_probe_tlmm_owner', 's22_probe_tlmm_active']
     require(all(syms['__init_begin'] <= syms[name] < syms['__init_end'] for name in init_names),
             'probe init lifetime extent differs')
+    persistent = ['s22_probe_hook', 's22_probe_dispatch']
+    if is_v10:
+        persistent += ['s22_retained_probe_tlmm_begin', 's22_retained_probe_tlmm_point']
     require(all(not syms['__init_begin'] <= syms[n] < syms['__init_end']
-                for n in ('s22_probe_hook', 's22_probe_dispatch')), 'persistent gate is in init memory')
-    return dict(schema='s22plus-mainline-probe-table-v9', status='PASS_H0_FINAL_PROBE_TABLE',
+                for n in persistent), 'persistent gate is in init memory')
+    return dict(schema='s22plus-mainline-probe-table-v10' if is_v10 else 's22plus-mainline-probe-table-v9', status='PASS_H0_FINAL_PROBE_TABLE',
                 image=pin(image), elf=pin(elf), dtb=pin(dtb), regular_count=len(rows),
                 counts_by_level=[(b-a)//4 for a,b in zip(boundaries,boundaries[1:])],
                 entries=rows, boundaries=boundaries, selected_ordinals=selected,
                 node_paths=config['node_paths'], frame_array_matches=True,
-                init_lifetime_symbols=init_names, persistent_gate_symbols=['s22_probe_hook','s22_probe_dispatch'],
+                init_lifetime_symbols=init_names, persistent_gate_symbols=persistent,
                 device_actions=0), syms, sizes
 
 
-def placement(raw, syms, sizes):
+def placement(raw, syms, sizes, config=None):
+    is_v10 = config is not None and config['schema'] == priority.SCHEMA
     def word(pc): return struct.unpack_from('<I', raw, pc - syms['_text'])[0]
     def calls(name):
         result = []
@@ -91,8 +99,35 @@ def placement(raw, syms, sizes):
     freeable = calls('kernel_init_freeable'); parent = calls('kernel_init')
     direct = [pc for pc, target in freeable if target == syms['s22_retained_probe_mark']]
     tail = unique(parent, 's22_retained_probe_mark')
-    require(len(direct) == 5 and all(word(pc - 4) == 0x52800000 | (i << 5) for i,pc in enumerate(direct)) and
-            word(tail - 4) == 0x528000a0, 'fixed probe milestone arguments differ')
+    first_event = 2 if is_v10 else 0
+    require(len(direct) == (6 if is_v10 else 5) and
+            all(word(pc - 4) == 0x52800000 | ((first_event + i) << 5)
+                for i,pc in enumerate(direct) if not(is_v10 and i == 0)) and
+            word(tail - 4) == 0x52800000 | ((8 if is_v10 else 5) << 5), 'fixed probe milestone arguments differ')
+    extra = {}
+    if is_v10:
+        # GCC schedules the entry argument among the prologue saves. Execute
+        # that exact straight-line prefix instead of assuming a MOV at BL-4.
+        engine = Machine(raw, syms, sizes, config, probe.REGION + config['span'])
+        engine.u.reg_write(regs.UC_ARM64_REG_SP, engine.stop - 16)
+        engine.u.reg_write(regs.UC_ARM64_REG_LR, engine.stop)
+        engine.u.emu_start(syms['kernel_init_freeable'], direct[0], count=100)
+        require(engine.u.reg_read(regs.UC_ARM64_REG_PC) == direct[0] and
+                engine.u.reg_read(regs.UC_ARM64_REG_X0) == first_event,
+                'V10 actual entry prologue does not supply its declared event')
+        early = calls('setup_arch'); bootstrap = calls('start_kernel')
+        early_call = unique(early, 's22_retained_probe_mark')
+        after_arch = unique(bootstrap, 's22_retained_probe_mark')
+        fdt_calls = [pc for pc,t in early if t == syms['fixmap_remap_fdt']]
+        require(word(early_call - 4) == 0x52800000 and
+                unique(early, 'early_ioremap_init') < early_call < min(fdt_calls) and
+                word(after_arch - 4) == 0x52800020 and
+                unique(bootstrap, 'setup_arch') < after_arch < unique(bootstrap, 'mm_core_init_early'),
+                'V10 pre-FDT/post-setup linked anchors differ')
+        require(direct[0] < unique(freeable, 'smp_prepare_cpus'), 'V10 PID1 entry anchor moved')
+        extra = dict(early_c_call=early_call, post_setup_call=after_arch,
+                     kernel_init_entry_call=direct[0])
+        direct = direct[1:]
     prepare = unique(freeable, 's22_retained_probe_prepare')
     finish = unique(parent, 's22_retained_probe_finish')
     wrappers = [pc for pc,t in freeable if t == syms['s22_retained_probe_initcall']]
@@ -114,7 +149,7 @@ def placement(raw, syms, sizes):
     return dict(fixed_calls=direct+[tail], prepare_call=prepare, finish_call=finish,
                 final_return_pc=finish+4, initcall_wrapper_calls=wrappers,
                 early_dispatch_call=dispatches[0], regular_dispatch_call=dispatches[1],
-                init_memory_free_call=unique(parent,'free_initmem'))
+                init_memory_free_call=unique(parent,'free_initmem'), **extra)
 
 
 class Machine(TraceMachine):
@@ -131,6 +166,9 @@ class Machine(TraceMachine):
         super().__init__(raw,names,lengths,config,idx,magic)
         self.state_ranges.append((syms['s22_probe_seen'],syms['s22_probe_seen']+sizes['s22_probe_seen']))
 
+    def event_offset(self, event):
+        return self.span - (event + 1) * 128 if self.config['schema'] == priority.SCHEMA else event * 128
+
 
 def qualify(record, config, output):
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -142,11 +180,16 @@ def qualify(record, config, output):
             'probe DTB changed')
     table,syms,sizes=inventory(image,elf,config,dtb)
     (output/'initcall-table.json').write_text(json.dumps(table,indent=2)+'\n')
-    raw=image.read_bytes();sites=placement(raw,syms,sizes)
+    raw=image.read_bytes();sites=placement(raw,syms,sizes,config)
     names=('kernel_init_freeable','kernel_init','deferred_probe_initcall','deferred_probe_work_func',
            'really_probe','call_driver_probe','s22_probe_hook','s22_probe_handle',
            's22_retained_probe_write','s22_retained_probe_prepare','s22_retained_probe_finish',
            's22_retained_probe_initcall','__set_fixmap')
+    is_v10 = config['schema'] == priority.SCHEMA
+    if is_v10:
+        names += ('setup_arch', 'start_kernel', 's22_retained_probe_mark',
+                  's22_retained_probe_tlmm_begin', 's22_retained_probe_tlmm_point',
+                  'msm_pinctrl_probe', 's22_msm_pinctrl_probe')
     for name in names:
         text=subprocess.check_output(['aarch64-linux-gnu-objdump','-d','--disassemble='+name,elf],text=True)
         (output/(name+'.txt')).write_text(text)
@@ -171,7 +214,8 @@ def qualify(record, config, output):
             require(after==expected,'actual probe bytes/header/outside-window differ')
             if not eligible:require(not m.writes,'ineligible probe wrote payload')
         rows.append(dict(event=event,idx=idx,**kwargs,slot_writes=len(m.writes),map_calls=len(m.calls)))
-    for event in (0,5,20+2*len(config['initcall_ordinals']),total//2,total-1):
+    sparse_base = priority.SPARSE_BASE if is_v10 else 20
+    for event in (0,8 if is_v10 else 5,sparse_base+2*len(config['initcall_ordinals']),total//2,total-1):
         for idx in (0,127,128,255,768,config['span']-1,config['span'],payload-1,payload,payload+1,
                     payload+config['span']+4196,0xffffffff): exercise(event,idx)
     for el in (0,2,3):exercise(el=el)
@@ -187,7 +231,7 @@ def qualify(record, config, output):
         first=m.run(0,fail=fail)
         require(m.run(0)==first and not m.calls and not m.writes,'seen event was attempted twice')
         later=m.run(1)
-        offset=16+m.window+128
+        offset=16+m.window+m.event_offset(1)
         require(later[offset:offset+128]==bytes.fromhex(config['frames']['1']),'later distinct event failed')
         rows.append(dict(sequence='seen-once-including-failed-map',failed_mapping=fail))
     for change in (0,4,8,12):

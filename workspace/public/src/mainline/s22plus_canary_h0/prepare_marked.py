@@ -15,7 +15,7 @@ def pin(p):
 
 def instrumented_head(old,cfg):
     end='SYM_CODE_END(primary_entry)\n'
-    if marker.version(cfg) in (3,4,5,6,7,8,9):
+    if marker.version(cfg) in (3,4,5,6,7,8,9,10):
         require(old.count(end)==1 and 's22_retained_' not in old,'C-only format requires unmarked assembly entry')
         return old
     if marker.version(cfg)==2:
@@ -28,6 +28,7 @@ def instrumented_head(old,cfg):
 
 def instrumented_setup(old,cfg=None):
     declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
+    if cfg is not None and marker.version(cfg)==10:return marker.probe_v10.instrument_setup(old)
     if cfg is not None and marker.version(cfg) in (4,5,6,7,8,9):
         require(old.count(declaration)==1 and 's22_retained_' not in old and
                 's22-retained-early-c.h' not in old,'main.c format requires unmarked setup_arch')
@@ -43,6 +44,7 @@ def instrumented_setup(old,cfg=None):
     return result
 
 def instrumented_main(old,cfg):
+    if marker.version(cfg)==10:return marker.probe_v10.instrument_main(old,cfg)
     if marker.version(cfg)==9:return marker.probe.instrument_main(old,cfg)
     if marker.version(cfg)==8:return marker.trace.instrument_main(old,cfg)
     require(marker.version(cfg) in (4,5,6,7),'selected format does not mark main.c')
@@ -110,7 +112,7 @@ def instrument(prepared,init,*,version=1,initcall_count=None,initcall_ordinals=N
     value=json.loads((prepared/'prepared.json').read_text());manifest=json.loads((init/'result.json').read_text())
     require(manifest['vm'] is False,'physical marker must use physical candidate identity')
     key=Path(manifest['key_path']).read_bytes()
-    node_paths=marker.probe.catalog(nodes(prepared/'sm8450-samsung-g0q-ram.dtb')) if version==9 else None
+    node_paths=marker.probe.catalog(nodes(prepared/'sm8450-samsung-g0q-ram.dtb')) if version in (9,10) else None
     cfg=marker.configuration(manifest['candidate_id'],key,version=version,initcall_count=initcall_count,
                              initcall_ordinals=initcall_ordinals,node_paths=node_paths)
     cfgpath=prepared/'retained-marker.json';require(not cfgpath.exists(),'marker already prepared')
@@ -127,23 +129,30 @@ def instrument(prepared,init,*,version=1,initcall_count=None,initcall_ordinals=N
         setup=Path(value['kernel'])/'arch/arm64/kernel/setup.c';original=prepared/'original-setup.c'
         original.write_bytes(setup.read_bytes());setup.write_text(instrumented_setup(original.read_text(),cfg))
         source=Path(value['kernel'])/marker.c_source(cfg)
-        header=source.parent/('s22-retained-probe.h' if version==9 else 's22-retained-early-c.h')
+        header=source.parent/('s22-retained-probe.h' if version in (9,10) else 's22-retained-early-c.h')
         require(not header.exists(),'early C header already present')
         header.write_text(marker.render_c(cfg))
         receipt.update(schema='s22plus-mainline-marker-kernel-source-v'+str(version),original_setup=pin(original),
             instrumented_setup=pin(setup),generated_header=pin(header))
-        if version in (4,5,6,7,8,9):
+        if version in (4,5,6,7,8,9,10):
             main=Path(value['kernel'])/'init/main.c'
             original_main=prepared/'original-main.c';original_main.write_bytes(main.read_bytes())
             main.write_text(instrumented_main(original_main.read_text(),cfg))
             receipt.update(original_main=pin(original_main),instrumented_main=pin(main))
-        if version==9:
+        if version in (9,10):
             original_dd=prepared/'original-dd.c';original_dd.write_bytes(source.read_bytes())
-            source.write_text(marker.probe.instrument_dd(original_dd.read_text()))
+            probe=marker.probe_v10 if version==10 else marker.probe
+            source.write_text(probe.instrument_dd(original_dd.read_text()))
             receipt.update(original_dd=pin(original_dd),instrumented_dd=pin(source))
-        receipt['sources'].append(pin(HERE/({8:'retained-trace-c.h',9:'retained-probe-c.h'}.get(version,'retained-early-c.h'))))
+            if version==10:
+                tlmm=Path(value['kernel'])/'drivers/pinctrl/qcom/pinctrl-msm.c'
+                original_tlmm=prepared/'original-pinctrl-msm.c';original_tlmm.write_bytes(tlmm.read_bytes())
+                tlmm.write_text(probe.instrument_tlmm(original_tlmm.read_text()))
+                receipt.update(original_tlmm=pin(original_tlmm),instrumented_tlmm=pin(tlmm))
+        receipt['sources'].append(pin(HERE/({8:'retained-trace-c.h',9:'retained-probe-c.h',10:'retained-probe-v10-c.h'}.get(version,'retained-early-c.h'))))
         if version==8:receipt['sources'].append(pin(HERE/'retained_trace.py'))
-        if version==9:receipt['sources'].append(pin(HERE/'retained_probe.py'))
+        if version in (9,10):receipt['sources'].append(pin(HERE/'retained_probe.py'))
+        if version==10:receipt['sources'].append(pin(HERE/'retained_probe_v10.py'))
     (prepared/'marker-source.json').write_text(json.dumps(receipt,indent=2)+'\n')
     return receipt
 

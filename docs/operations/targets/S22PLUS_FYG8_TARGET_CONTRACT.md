@@ -117,6 +117,16 @@ real-MMU PID1/worker qualification is required. These are OF associations and
 positive reachability, not unique driver identities, complete retries, paired
 boots or missing-frame causal evidence. The policy's exact reviewed scope,
 finite attended grant and original-A return/health remain mandatory.
+V10 retains that catalog and generic deferred observation while adding three
+early C points and the policy's exact seventeen-point TLMM observation in three
+entry-observed groups. A single latch places priority events at the newest end
+of its effective window. First-invocation tokens preserve group/task ownership;
+the original driver body and returned values are preserved. Fresh early/late
+mapping, bootstrap context, event identity, token and post-free qualification
+is required within the unchanged slot/store ceilings. Positive return classes
+add no GPIO-correction causality, same-boot pairing, missing-frame localization
+or retention-coverage claim. Original-A recovery and finite attended authority
+remain unchanged; earlier artifacts retain their original provenance.
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

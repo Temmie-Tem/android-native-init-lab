@@ -110,7 +110,7 @@ def qualify(loader,output):
     if marker.version(config)==2:
         specs=((3,Path(record['kernel']['image']),Path(record['kernel']['image']).parents[3]/'vmlinux',None,
                 record['extents']['kernel-runtime'][0],'s22_retained_pre_mmu'),)
-    elif marker.version(config) in (3,4,5,6,7,8,9):specs=()
+    elif marker.version(config) in (3,4,5,6,7,8,9,10):specs=()
     for stage,blob,elf,linkbase,physical,name in specs:
         raw=blob.read_bytes();syms=symbols(elf);linkbase=linkbase if linkbase is not None else syms['_text']
         require(digest(blob)==(record['loader']['sha256'] if stage==1 else record['kernel']['sha256']),'actual marker artifact changed')
@@ -142,6 +142,8 @@ def qualify(loader,output):
                      sorted(marker.FORMATS[marker.version(config)]['stages'].values()))
     if marker.version(config)==9:
         expected_stages=list(marker.probe.stages(config['initcall_count'],config['initcall_ordinals'],config['node_paths']).values())
+    if marker.version(config)==10:
+        expected_stages=list(marker.probe_v10.stages(config['initcall_count'],config['initcall_ordinals'],config['node_paths']).values())
     require(decoded['observed_stages']==expected_stages,
             'producer/snapshot/decoder join differs')
     result=dict(schema='s22plus-mainline-marker-tests-v1',status='PASS_H0_ACTUAL_RETAINED_MARKERS',
@@ -149,7 +151,7 @@ def qualify(loader,output):
         source_sha256=digest(__file__),codec_sha256=digest(marker.__file__),assembly_sha256=digest(marker.HERE/'retained-marker.S'),
         cases=rows,routines=routines,producer_consumer=decoded,physical_retention_proved=False,device_actions=0)
     if marker.c_stages(config):
-        if marker.version(config)==9:
+        if marker.version(config) in (9,10):
             from qualify_retained_probe import qualify as qualify_c
         elif marker.version(config)==8:
             from qualify_retained_trace import qualify as qualify_c

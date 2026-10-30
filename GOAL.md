@@ -439,8 +439,22 @@ The next bounded H0 question is useful positive evidence and return/retention
 continuity after ML012. Its missing frames do not identify an early kernel
 failure or a TLMM outcome. Hardware/firmware watchdog control paths below Linux
 are confirmed in retained code, but candidate arming and expiry are unproved;
-the operator's same-interval observation is not a causal measurement. This
-state selects no new image, timer intervention or device action.
+the operator's same-interval observation is not a causal measurement. Those
+observations alone justify no timer intervention or device action.
+
+[ML013](docs/reports/S22PLUS_MAINLINE_ML013_EARLY_TLMM_OBSERVATIONS_H0_2026-10-31.md)
+now selects a bounded V10 observation successor after two-round external
+discussion. One shared C latch places priority records at the newest end,
+adds pre-FDT/post-setup/PID1-entry points and token-scoped TLMM structural and
+return-class observations, while retaining the sparse initcall/node catalog.
+Its 3,968 frames remain within the existing write ceiling. Fresh actual-code,
+independent hook, fourteen real-MMU, RAM-PID1 and repeated packaging checks
+pass. Final independent review is PASS_GO with no findings; V10 capability,
+V21 backend publication and the fixed current preapproval health check passed.
+The GPIO correction and original-A recovery are retained. Earlier latch drift
+can suppress later records; no missing frame or return class grants failure
+localization, shared-boot pairing or correction causality. No ML013 grant or
+device experiment has occurred.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
