@@ -30,6 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML012 is prepared and ready for its exact attended approval.** Two-round
+  Claude/Argon discussion selected the exact FYG8 board GPIO reservations:
+  add GPIO50/93 to the existing 36–39 exclusion. The compiled DT differs in
+  that property only; V9 hooks and all 3,914 events remain unchanged.
+  New actual-code/MMU/VM/package checks, independent exact-artifact PASS_GO
+  and fixed preapproval Android health pass. Existing capability and terminal
+  backend reviews remain current; no grant or experimental effect is armed.
+  Separate H0 analysis confirms hardware/firmware watchdog control paths below
+  Linux, but current arming, expiry and the candidate reset cause are unproved.
+  [ML012 preparation](docs/reports/S22PLUS_MAINLINE_ML012_GPIO_RESERVATIONS_H0_2026-10-31.md).
 - **ML011 demonstrates execution inside `deferred_probe_initcall` and its first
   worker phase.** It records multiple OF-associated callback returns and the
   TLMM-associated pre-callback point, without a TLMM callback/bus return record.
@@ -243,7 +253,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 progress through basic setup
+## Next bounded unit: ML012 exact board GPIO reservations
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -394,7 +404,7 @@ N and A each transferred once and first final health passed without a health-onl
 continuation. USB/userspace PID1 remains NO_PROOF, and no successor is armed.
 
 [ML011](docs/reports/S22PLUS_MAINLINE_ML011_DEFERRED_PROBE_H0_2026-10-30.md)
-is the selected H0 successor: 3,914 bounded events combine sparse initcall
+used 3,914 bounded events combining sparse initcall
 progress, both deferred-initcall phases and worker/preparation/callback points
 associated with a fixed 379-node DT catalog. Actual ARM64 writer/hook, real
 EL1/EL2 PID1/worker, RAM-userspace-PID1 and boot-only package checks pass.
@@ -403,10 +413,22 @@ is now consumed and closed healthy. The retained log has 284 intact records
 across 82 events: first-trigger return and worker entry, nine named associations
 with all five points, an unlisted-OF bucket with all five, and the TLMM association
 with three pre-points but no callback/bus return. No first-flush return or phase-2
-point was accepted. All 114 USB snapshots show actual absence. The next useful
-H0 scope is the TLMM-associated callback path, without attributing a failure
-cause or assuming the driver body was entered. No successor is armed; explicit
-unknown nodes, incomplete retries and no same-boot pairing remain limitations.
+point was accepted. All 114 USB snapshots show actual absence. Explicit unknown
+nodes, incomplete retries and no same-boot pairing remain limitations.
+
+The subsequent exact-source comparison found GPIO50/93 reserved in the retained
+FYG8 live FDT but omitted from the mainline board data. Two-round Claude/Argon
+discussion selected [ML012](docs/reports/S22PLUS_MAINLINE_ML012_GPIO_RESERVATIONS_H0_2026-10-31.md)
+to restore those reservations while retaining V9 observation. The correction
+removes the two indices from GPIO registration-time direction reads; it is not
+a blanket MMIO prohibition or a diagnosis of ML011. Independent static checks
+find no active consumer of the reserved pins. Fresh actual-code, real-MMU,
+RAM-PID1 and package qualification passed, followed by independent exact-artifact
+PASS_GO and one successful fixed preapproval D0. The seven raw health captures
+rederive through the actual consumer. No grant or experimental effect is armed;
+exact returned approval and attendance remain required. Firmware analysis found
+hardware watchdog control paths below Linux, without establishing candidate
+arming or expiry. That result does not diagnose ML011 or delay this correction.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
