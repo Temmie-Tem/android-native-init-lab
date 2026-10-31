@@ -782,7 +782,11 @@ class Adapter:
         if (base/'result.json').exists() or any(base.glob('attempt-*/health.json')):
             return self.recover_step_result(step,request)
         folder=base/('attempt-'+uuid.uuid4().hex); folder.mkdir(mode=0o700)
-        client=self.android(request,folder,guard)
+        if request.get('operation')=='mainline-ram':
+            task=self.configuration(request)
+            client=target.MainlineReturnAndroid(task['adb'],task['target'],request['A'],folder,guard=guard)
+        else:
+            client=self.android(request,folder,guard)
         client.wait_ready(deadline_ns=clock()+180_000_000_000)
         client.health()
         value=dict(action='health',health=pin(folder/'health.json'))

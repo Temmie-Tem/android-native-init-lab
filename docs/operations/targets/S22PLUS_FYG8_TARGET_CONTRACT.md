@@ -50,6 +50,11 @@ The scope is RAM PID1 and authenticated USB2 evidence followed by physical
 Download and original-A return/health. It grants no native baseline admission,
 Linux storage access, installed-root execution or automatic recovery claim.
 Preparation and this adoption text alone perform no device action.
+Its original-A return health, including the existing health-only continuation,
+uses the policy's fixed boot-ID-first readiness and properties reads. Command
+counts, deadlines and complete seven-read health acceptance are unchanged.
+Raw diagnostic boot identity supplies no health, recovery or replay authority;
+preapproval/preflight, post-closure D0 and other profiles retain their commands.
 Its named preapproval `ready` D0 entry is bound to the current foreground
 S22+ research task without physical attendance or a per-read request. It reads
 only fixed identity/root/partition-digest health and host/lane evidence, refuses

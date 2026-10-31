@@ -461,6 +461,17 @@ can suppress later records; no missing frame supplies failure localization.
 The next bounded H0 question remains return/retention continuity. No successor
 or grant is armed.
 
+[ML014](docs/reports/S22PLUS_MAINLINE_ML014_RETURN_BOOT_IDENTITY_H0_2026-10-31.md)
+is now prepared after two-round Claude/Argon discussion. It keeps V10
+runtime observation and the source-supported GPIO reservations, with a fresh
+candidate/key. Mainline original-A return reads now capture boot ID first in
+the existing readiness/properties commands. The bounded wait and complete
+health requirements are unchanged; a diagnostic prefix is never health.
+Fresh artifact qualification, final independent review and fixed preapproval
+D0 pass. The return-identity capability and backend V22 receipts are published
+without changing the stable worker. Exact finite attended approval remains
+pending; no new grant is open, and ML013 remains consumed and closed healthy.
+
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
 host USB event diagnostics remain possible observations, not already qualified

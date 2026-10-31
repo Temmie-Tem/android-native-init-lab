@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_retained_v10_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_return_identity_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -674,6 +674,35 @@ candidate step before recovery; the existing owner, target, A, transfer and
 raw-health checks remain mandatory.
 
 ## Return, interruption and evidence
+
+Only the mainline original-A return-health path selects
+`MainlineReturnAndroid`, including a later permitted health-only continuation.
+Its existing readiness shell read prints the Android boot ID before
+`boot_completed`; its existing properties read prints the same nine fields with
+the boot ID first. It adds no connected command or snapshot read. Readiness
+still uses the original deadline, at most 256 inventory iterations and the
+existing 0.5-second interval. Successful EOF-truncated outputs that are lexical
+prefixes of the fixed readiness grammar remain not-ready; only a complete
+UUID and `boot_completed=1` establish readiness. Malformed non-prefix output,
+unexpected producer failure, diagnostics, overflow or source/owner failure
+retain the existing stop behavior. The fixed seven-read health bracket,
+same-boot target/partition checks and full-health acceptance remain unchanged.
+Preapproval, preflight, post-closure D0 and other profiles retain their existing
+commands. This class does not select the separate native in-call root-read
+reobservation exception.
+
+Existing raw receipts preserve observed boot IDs for offline return-continuity
+analysis. A readiness observation has only its exact inventory/serial binding;
+it does not inherit a missing topology observation or constitute health.
+An abandoned property prefix is likewise not a complete health bracket.
+Diagnostic ID agreement or disagreement never gates original-A recovery or
+final health and never reuses a prefix in a new health attempt. Earliest
+observed identity is not earliest actual boot; different observed identities
+do not establish that candidate frames existed or were erased, and equal IDs
+do not diagnose the mechanism of an ADB disappearance. These checks address
+the ML012/ML013 missing-return-identity observation gap. Changes to the command
+grammar, scope or acceptance trigger review; a reviewed successor may retire
+them by replacing the observation with equivalent evidence or removing it.
 
 After complete observation the owner asks for physical Download, within ten
 minutes and the original grant. The normal A dispatch uses that return

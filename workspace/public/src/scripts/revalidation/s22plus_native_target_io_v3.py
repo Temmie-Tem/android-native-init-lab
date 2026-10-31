@@ -101,6 +101,7 @@ def health_projection(captures, target, android, *, loader_marker_sha256=None):
 
 class Android:
     ROOT_COMMAND=ROOT_HEALTH
+    PROPERTIES_COMMAND=PROPERTIES
     READY_COMMAND='getprop sys.boot_completed'
     READY_MAXIMUM=16
     def __init__(self, tool, target, android, directory, *, guard):
@@ -181,7 +182,7 @@ class Android:
 
     def _health_attempt(self, captures, *, deadline_ns):
         serial=self.target['serial']
-        properties=['-s',serial,'shell','sh -c '+shlex.quote(PROPERTIES)]
+        properties=['-s',serial,'shell','sh -c '+shlex.quote(self.PROPERTIES_COMMAND)]
         health=['-s',serial,'shell','su -c '+shlex.quote(self.ROOT_COMMAND)]
         commands=[(['devices','-l'],10),(['-s',serial,'get-devpath'],10),(properties,20),(health,180),
             (['devices','-l'],10),(['-s',serial,'get-devpath'],10),(properties,20)]
@@ -270,6 +271,45 @@ class Android:
             require(index<256,'Android readiness inventory exceeds bound')
             time.sleep(.5)
         raise TimeoutError('Android readiness did not complete')
+
+
+class MainlineReturnAndroid(Android):
+    """Keep observed return-boot identity in the existing fixed reads.
+
+    Only the mainline original-A health path selects this class. Readiness is
+    still separate from the complete seven-read health bracket. Raw captures
+    retain partial reads; no diagnostic boot history gates recovery or health.
+    """
+    BOOT_ID_COMMAND="printf 'boot_id='; cat /proc/sys/kernel/random/boot_id"
+    READY_COMMAND=BOOT_ID_COMMAND+"; printf 'boot_completed='; getprop sys.boot_completed"
+    READY_MAXIMUM=96
+    PROPERTIES_COMMAND=BOOT_ID_COMMAND+'\n'+'\n'.join(
+        line for line in PROPERTIES.splitlines() if not line.startswith("printf 'boot_id='"))
+
+    def health(self, *, reobserve_root_disappearance=False, deadline_ns=None):
+        require(not reobserve_root_disappearance,
+            'mainline return does not select the native in-call reobservation profile')
+        return super().health(deadline_ns=deadline_ns)
+
+    def readiness_complete(self,value):
+        # A successful ADB producer may still return an EOF-truncated script.
+        # Only lexical prefixes of this fixed grammar may keep waiting, under
+        # the inherited deadline/poll limit. A partial UUID is never identity.
+        key='boot_id='
+        if key.startswith(value):return False
+        require(value.startswith(key),'mainline readiness boot-ID field differs')
+        boot_id,separator,tail=value[len(key):].partition('\n')
+        if not separator:
+            require(len(boot_id)<=36 and all(
+                char=='-' if index in (8,13,18,23) else char in '0123456789abcdef'
+                for index,char in enumerate(boot_id)),
+                'mainline readiness UUID prefix is malformed')
+            return False
+        require(UUID.fullmatch(boot_id),'mainline readiness UUID is malformed')
+        state='boot_completed='
+        if state.startswith(tail):return False
+        require(tail in (state+'0',state+'1'),'mainline readiness completion field differs')
+        return tail==state+'1'
 
 
 def sysfs_field(node, name, *, optional=False):
