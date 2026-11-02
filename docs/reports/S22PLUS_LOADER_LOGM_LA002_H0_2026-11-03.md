@@ -1,7 +1,8 @@
 # S22+ LA002: loader LOGM write/read control
 
-Status: **Qualified and independently reviewed; fixed preapproval D0 passed;
-awaiting exact finite attended approval**.
+Status: **H0 preparation completed; the separately approved
+[LA002 run](S22PLUS_LOADER_LOGM_LA002_RUN_2026-11-03.md) subsequently closed
+healthy with positive write/read observations**.
 
 After ML015 returned no V2 markers, the operator selected a positive-control
 successor to the healthy LA001 loader-to-Android path. This control observes
@@ -101,8 +102,9 @@ worker and its invariant policy are unchanged. The H0 task is prepared.
 
 One fixed preapproval D0 invocation passed the complete seven-read rooted
 original-A health bracket, raw producer checks and exact-task freshness.
-No F1 owner or grant is open. Only the generated exact approval and actual
-attendance with usable physical Download recovery remain before execution.
+At preparation close, no F1 owner or grant was open. The generated exact
+approval and actual attendance with usable physical Download recovery were
+still required before execution; the later run is reported separately.
 
 Applicable past-failure checklist rows are ABI (aligned accesses and C/jump
 arguments), SEMANTIC (current FDT versus static frame evidence), IO/WIRE
@@ -115,6 +117,6 @@ Private evidence is retained under
 `workspace/private/outputs/s22plus-loader-logm-control-h0-20261103-1/`, including
 the advisory prompts/results, separate before/after quota and token accounting,
 original producer source, builds, raw test logs and independent review records.
-No new grant, candidate transfer or device control has occurred. The completed
-D0 is readiness, not execution authority. A90 and S20+
+This H0 preparation made no grant, candidate transfer or device control. The
+completed D0 was readiness, not execution authority. A90 and S20+
 are untouched; existing unrelated work remains separate.

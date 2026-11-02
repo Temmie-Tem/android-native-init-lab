@@ -502,18 +502,20 @@ Positive records would establish occurrence only in this candidate, without
 isolating past V10 causes or assigning meaning to a missing companion record.
 No successor or new grant is armed.
 
-[LA002](docs/reports/S22PLUS_LOADER_LOGM_LA002_H0_2026-11-03.md) is prepared
-as a bounded LOGM write/read control on the previously successful LA001
-loader-to-Android path. One small header-preserving frame is accompanied by
-its current-FDT eligibility/readback report; the candidate Android snapshot is
-collected before original-A return. Two-round external discussion and initial
-independent design review support this direction. Actual-code, actual-EL,
-producer/consumer and package qualification pass. Final independent review is
-`PASS_GO`; the new capability/backend receipts and fixed preapproval D0 pass.
-The stable worker is unchanged. Exact finite attended approval remains pending
-and no grant is open.
-Current-FDT writer observations and static candidate-frame occurrence remain
-separate, with no same-attempt, reset-retention or historical-cause claim.
+[LA002](docs/reports/S22PLUS_LOADER_LOGM_LA002_RUN_2026-11-03.md) is consumed
+and closed healthy with a positive LOGM write/read control on the previously
+successful LA001 loader-to-Android path. Its current FDT reports eligible EL1
+state, three equal header samples and zero readback mismatches; the candidate
+Android snapshot contains one exact authenticated frame. All three complete
+candidate health brackets share one observed boot before normal Download/A
+return. N and A each transferred once. One health-only continuation completed
+after an ADB disappearance; the initial properties capture was empty, so it
+supplies no return-ID continuity. The
+[qualified capability](docs/reports/S22PLUS_LOADER_LOGM_LA002_H0_2026-11-03.md),
+backend and stable worker were unchanged during execution. Current-FDT writer
+observations and static candidate-frame occurrence remain separate: no shared
+attempt, reset retention, historical failure cause or mainline boot is proved.
+LA002's operation and grant are consumed; no F1 owner or successor is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
