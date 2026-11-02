@@ -482,6 +482,18 @@ marker-loss mechanism. Marker eligibility and retention before the earliest
 Android observation remain open H0 questions. No successor or new grant is
 armed; ML013 retains its earlier consumed healthy closure.
 
+[ML015](docs/reports/S22PLUS_MAINLINE_ML015_V2_CALIBRATION_H0_2026-11-03.md)
+is prepared as a fresh existing-V2 calibration after two-round external
+discussion. It retains the corrected GPIO DTB, configuration and ML014 return
+observer, while replacing V10 instrumentation with the previously qualified
+pre-MMU and early-C sites. Unchanged capability/backend reviews are reused;
+fresh exact artifact qualification and independent entry review pass. Fixed
+preapproval D0 also passes. Exact finite attended approval remains pending;
+the existing capability/backend and worker are unchanged.
+Positive records would establish occurrence only in this candidate, without
+isolating past V10 causes or assigning meaning to a missing companion record.
+No new grant or device effect is authorized by this preparation.
+
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
 host USB event diagnostics remain possible observations, not already qualified
