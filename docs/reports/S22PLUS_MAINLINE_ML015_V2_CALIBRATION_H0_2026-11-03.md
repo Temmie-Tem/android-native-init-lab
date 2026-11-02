@@ -1,7 +1,12 @@
 # S22+ ML015 existing V2 early-marker calibration
 
 Status: **Qualified and independently reviewed; fixed preapproval D0 passed;
-awaiting exact finite attended approval**.
+the separately approved physical run is consumed and closed healthy**.
+
+The [ML015 run](S22PLUS_MAINLINE_ML015_RUN_2026-11-03.md) recovered neither V2
+record and no USB/PID1 proof. Observed return boot IDs agree; one health-only
+continuation closed after a readiness-read failure. This preparation and the
+reused capability/backend records retain their original provenance.
 
 ML014 returned no V10 records while its observed Android boot IDs agreed
 across the return-health ADB disappearance. That closes an observation gap
@@ -75,7 +80,8 @@ selected linked functions match ML004 in bytes, address and size.
 Private production admission reused the existing capability/backend receipts
 without modifying them or the worker. One fixed preapproval D0 attempt
 completed the required seven-read rooted Android health and fresh task
-binding. No experiment grant, candidate control or partition transfer is open.
+binding. At preparation close, no experiment grant, candidate control or
+partition transfer had occurred; the later approved run is recorded above.
 
 The retained ML011/ML012 layout comparison found unchanged kernel/DTB
 destinations and entry-related symbols, with small payload-size and trailing

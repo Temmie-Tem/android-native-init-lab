@@ -488,11 +488,19 @@ discussion. It retains the corrected GPIO DTB, configuration and ML014 return
 observer, while replacing V10 instrumentation with the previously qualified
 pre-MMU and early-C sites. Unchanged capability/backend reviews are reused;
 fresh exact artifact qualification and independent entry review pass. Fixed
-preapproval D0 also passes. Exact finite attended approval remains pending;
-the existing capability/backend and worker are unchanged.
+preapproval D0 also passes; the existing capability/backend and worker are
+unchanged. Its separately approved
+[physical run](docs/reports/S22PLUS_MAINLINE_ML015_RUN_2026-11-03.md) is now
+consumed and closed healthy: N and A each transferred once, all 116 USB
+snapshots showed absence, and neither V2 record was recovered from the complete
+returned log. One health-only continuation closed after `wait-077-boot`
+returned `error: closed` before full health started. Ten successful return
+identity observations share one Android boot ID; earlier unseen boots,
+header eligibility and retention loss remain unproved. This candidate lacks
+V10 instrumentation, but its zero does not explain the older V10 results.
 Positive records would establish occurrence only in this candidate, without
 isolating past V10 causes or assigning meaning to a missing companion record.
-No new grant or device effect is authorized by this preparation.
+No successor or new grant is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
