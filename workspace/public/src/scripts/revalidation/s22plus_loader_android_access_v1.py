@@ -1,11 +1,17 @@
 """Fixed raw-first Android proof for one current uniLoader control boot."""
 from pathlib import Path
+import shlex
 
+import device_action_raw_capture_v1 as raw
+import s22plus_boot_only_f1_transport as transport
+import s22plus_native_android_storage_v1 as census
 import s22plus_loader_android_profile_v1 as profile
 import s22plus_native_target_io_v3 as target
 from s22plus_native_records_v3 import clock,host_boot,pin,publish,read,require,verify
 
 MARKER_READ="printf 'loader_marker='; sha256sum /sys/firmware/devicetree/base/chosen/codex,uniloader-android-v1 | cut -d' ' -f1"
+LOGM_READS=(('report','cat /sys/firmware/devicetree/base/chosen/codex,uniloader-logm-v1',128),
+            ('last-kmsg','cat /proc/last_kmsg',4*1024*1024))
 
 
 def candidate_artifact(task):
@@ -101,16 +107,86 @@ def rederive(adapter,request):
     health=rederive_health(adapter,request,receipt,window)
     initial=read(adapter.folder('preflight')/'health.json')
     require(health['boot_id_sha256']!=initial['boot_id_sha256'],'candidate proof reused initial Android boot')
-    return dict(action=profile.SELECTION,status='PASS_LOADER_FYG8_ANDROID',health=health,
+    value=dict(action=profile.SELECTION,status='PASS_LOADER_FYG8_ANDROID',health=health,
         proof=receipt,window=pin(folder/'window.json'),kernel_release=request['N']['kernel_release'],
         loader_marker_sha256=request['N']['marker_sha256'])
+    if 'logm_control' in request['N']:
+        value['logm_control']=rederive_logm(adapter,request,receipt,window)
+    return value
+
+
+def rederive_logm(adapter,request,first_receipt,window):
+    folder=adapter.folder(profile.SELECTION)/'logm'
+    attempt=read(folder/'attempt.json');complete=read(folder/'complete.json')
+    require(set(attempt)=={'schema','window','before','usb_before','started_ns'} and
+        attempt['schema']=='s22plus-loader-logm-capture-attempt-v1' and
+        attempt['window']==window and attempt['before']==first_receipt and
+        set(complete)=={'schema','attempt','features','captures','after','finished_ns'} and
+        complete['schema']=='s22plus-loader-logm-capture-v1' and
+        complete['attempt']==pin(folder/'attempt.json') and
+        complete['features']==pin(folder/'features.capture.json') and
+        complete['captures']=={name:pin(folder/(name+'.capture.json')) for name,_,_ in LOGM_READS} and
+        complete['after']==pin(folder/'after/complete.json'),'LOGM raw capture belongs to another attempt')
+    first=rederive_health(adapter,request,first_receipt,window)
+    last=rederive_health(adapter,request,complete['after'],window)
+    first_complete=read(verify(first_receipt));last_complete=read(verify(complete['after']))
+    last_attempt=read(verify(last_complete['attempt']))
+    require(first['properties']==last['properties'] and first['boot_id_sha256']==last['boot_id_sha256'] and
+        first_complete['usb_after']['identity']==attempt['usb_before']['identity']==last_attempt['usb_before']['identity'] and
+        attempt['usb_before']['topology']==target.lane.SOURCE_TOPOLOGY and
+        first_complete['finished_ns']<=attempt['usb_before']['boottime_ns']<=attempt['started_ns']<
+        last_attempt['started_ns']<last_complete['finished_ns']<=complete['finished_ns']<window['deadline_ns'],
+        'LOGM capture has no complete same-candidate-boot/time/USB bracket')
+    census.require_shell_v2(complete['features'])
+    data={}
+    for name,_,maximum in LOGM_READS:
+        handle=raw.load_handle(verify(complete['captures'][name]));raw.require_success(handle)
+        require(not raw.read_stderr(handle,maximum=16384),'LOGM fixed read returned diagnostics')
+        data[name]=raw.read_stdout(handle,maximum=maximum)
+    result=profile.logm_projection(data['report'],data['last-kmsg'],request['N']['logm_control']['configuration'])
+    result.update(capture=pin(folder/'complete.json'),before=first_receipt,after=complete['after'],
+                  same_candidate_android_boot=True)
+    return result
+
+
+def capture_logm(adapter,request,first_receipt,guard,window):
+    task=adapter.configuration(request);folder=adapter.folder(profile.SELECTION)/'logm';folder.mkdir(mode=0o700)
+    def bound_guard():
+        guard();require(window['host_boot']==host_boot() and clock()<window['deadline_ns'],
+                        'original LOGM observation window expired or host boot changed')
+    bound_guard();usb=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
+    require(usb['identity']==read(verify(first_receipt))['usb_after']['identity'],
+            'candidate USB changed before LOGM capture')
+    attempt=publish(folder/'attempt.json',dict(schema='s22plus-loader-logm-capture-attempt-v1',
+        window=window,before=first_receipt,usb_before=usb,started_ns=clock()))
+    client=CandidateAndroid(task,folder,guard=bound_guard)
+    features=client.command(['-s',task['target']['serial'],'features'],'features',
+        timeout=min(10,(window['deadline_ns']-clock())/1e9),before_launch=bound_guard)
+    census.require_shell_v2(pin(features.receipt_path));captures={}
+    for name,command,maximum in LOGM_READS:
+        bound_guard()
+        with transport.pin_regular_file(Path(task['adb']['path']),label='loader LOGM ADB',
+                expected_size=task['adb']['size'],expected_sha256=task['adb']['sha256']) as adb:
+            handle=raw.acquire_command([str(adb.path),'-s',task['target']['serial'],'shell','-T',
+                'su -c '+shlex.quote(command)],folder,name,
+                timeout=min(30,(window['deadline_ns']-clock())/1e9),stdout_maximum=maximum,
+                stderr_maximum=16384,before_spawn=bound_guard)
+        raw.require_success(handle)
+        require(not raw.read_stderr(handle,maximum=16384),'LOGM fixed read returned diagnostics')
+        captures[name]=pin(handle.receipt_path)
+    after=capture_health(adapter,request,folder/'after',bound_guard,window,wait=False)
+    bound_guard()
+    publish(folder/'complete.json',dict(schema='s22plus-loader-logm-capture-v1',attempt=attempt,
+        features=pin(features.receipt_path),captures=captures,after=after,finished_ns=clock()))
+    return rederive_logm(adapter,request,first_receipt,window)
 
 
 def observe(adapter,request,guard):
     profile.image_binding(request['N'])
     folder=adapter.folder(profile.SELECTION,create=True);window=window_for(adapter,request)
     publish(folder/'window.json',window)
-    capture_health(adapter,request,folder/'proof',guard,window,wait=True)
+    first=capture_health(adapter,request,folder/'proof',guard,window,wait=True)
+    if 'logm_control' in request['N']:capture_logm(adapter,request,first,guard,window)
     value=rederive(adapter,request)
     publish(folder/'result.json',value)
     return value

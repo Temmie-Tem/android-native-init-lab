@@ -22,6 +22,7 @@ from prepare import config_values, digest, fixed_reservations, memreserve, nodes
 from build_loader import DTB, PAYLOAD, TEXT, range_include
 sys.path.insert(0, str(ROOT / 'workspace/public/src/scripts/revalidation'))
 import s22plus_boot_verify as boot
+import s22plus_loader_android_profile_v1 as profile
 
 FDT_CAPACITY = 2 * 1024 * 1024
 MARKER_PROPERTY = 'codex,uniloader-android-v1'
@@ -72,7 +73,7 @@ def guard_instructions(elf, syms, output):
                 source_page_alignment=4096, relocation_types=sorted(set(types)))
 
 
-def build(base, prepared, output):
+def build(base, prepared, output, *, logm_control=False):
     base, prepared, output = [Path(p).resolve() for p in (base, prepared, output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),
             'fresh private build directory required')
@@ -110,6 +111,11 @@ def build(base, prepared, output):
     output.mkdir(mode=0o700, parents=True)
     marker = secrets.token_hex(32)
     (output/'marker.txt').write_text(marker)
+    logm = None
+    if logm_control:
+        key = secrets.token_bytes(32)
+        (output/'logm-key.bin').write_bytes(key)
+        logm = dict(configuration=profile.logm_configuration(marker,key),key=pin(output/'logm-key.bin'))
     source = output/'source'
     shutil.copytree(upstream, source)
     patches = [port_patch, COMMON/'uniloader-g0q-entry.patch', HERE/'uniloader-android.patch']
@@ -118,9 +124,16 @@ def build(base, prepared, output):
         run(['patch','--batch','--fuzz=0','-p1','-i',patch],log,cwd=source)
         require('fuzz' not in log.read_text().lower(), 'fuzzy patch application')
     (source/'arch/aarch64/g0q-source-ram.inc').write_text(range_include(banks))
-    (source/'arch/aarch64/g0q-android-marker.h').write_text(
-        f'#define G0Q_VENDOR_RUNTIME {runtime}\n#define G0Q_ANDROID_MARKER "{marker}"\n')
+    generated=f'#define G0Q_VENDOR_RUNTIME {runtime}\n#define G0Q_ANDROID_MARKER "{marker}"\n'
+    if logm:
+        generated+='#define G0Q_LOGM_CONTROL 1\n'
+        for field,label in [('frame_hex','G0Q_LOGM_FRAME'),('report_seed_hex','G0Q_LOGM_REPORT_SEED')]:
+            generated+='#define '+label+' {'+','.join(str(x) for x in bytes.fromhex(logm['configuration'][field]))+'}\n'
+        generated+=''.join(f'#define G0Q_LOGM_{name} {value}\n' for name,value in profile.LOGM_STATES.items())
+    (source/'arch/aarch64/g0q-android-marker.h').write_text(generated)
     shutil.copyfile(HERE/'guard.c',source/'arch/aarch64/guard.c')
+    if logm:shutil.copyfile(HERE/'logm-control.c',source/'arch/aarch64/logm-control.c')
+    else:(source/'arch/aarch64/logm-control.c').write_text('/* LOGM control is not selected. */\n')
     config = (upstream/'configs/r0q_defconfig').read_text()
     settings = dict(CONFIG_TEXT_BASE=hex(TEXT), CONFIG_PAYLOAD_ENTRY=hex(PAYLOAD),
         CONFIG_DTB_RELOCATE='y',CONFIG_DTB_ENTRY=hex(DTB),CONFIG_FDT_BUF_SIZE=str(FDT_CAPACITY),
@@ -151,6 +164,12 @@ def build(base, prepared, output):
         '_g0q_source_ram_end','_g0q_guard_plan','_reloc_entry','_reloc_rejected',
         '_guard_passed','_reloc_branch','loader_guard','load_kernel_and_jump')
     require(all(k in syms for k in required), 'loader symbols incomplete')
+    if logm:
+        for symbol,field in [('g0q_logm_frame','frame_hex'),('g0q_logm_report_seed','report_seed_hex')]:
+            require(symbol in syms and syms[symbol][1]==128 and
+                raw[syms[symbol][0]-TEXT:syms[symbol][0]-TEXT+128]==bytes.fromhex(logm['configuration'][field]),
+                'linked LOGM frame/report seed differs')
+        require('g0q_logm_control' in syms,'LOGM writer missing')
     values = {k:syms[k][0] for k in required}
     require(values['_head'] == TEXT and values['_stub_end'] == values['_start'] and
         values['_file_end']-TEXT == len(raw) and
@@ -186,7 +205,7 @@ def build(base, prepared, output):
     run(['file',elf,blob,source/'blob/Image'],output/'file.log')
     run(['aarch64-linux-gnu-readelf','-h','-l','-r',elf],output/'elf.log')
     run(['aarch64-linux-gnu-objdump','-d',elf],output/'disassembly.txt')
-    sources = [HERE/'build.py',HERE/'guard.c',*patches,COMMON/'sources.json',
+    sources = [HERE/'build.py',HERE/'guard.c',HERE/'logm-control.c',Path(profile.__file__),*patches,COMMON/'sources.json',
                COMMON/'prepare.py',COMMON/'build_loader.py']
     result = dict(status=STATUS,loader=pin(blob),elf=pin(elf),kernel=pin(source/'blob/Image'),
         original_a=pin(baseline),retained_fdt=pin(live_path),retained_preparation=pin(prepared/'prepared.json'),
@@ -197,6 +216,7 @@ def build(base, prepared, output):
         kernel_header=dict(text_offset=offset,image_size=runtime,flags=flags,file_size=len(kernel)),
         loader_image_header=dict(text_offset=image_offset,image_size=image_size,flags=image_flags,file_size=len(raw)),
         retained_initrd_preserved=True,device_actions=0,activation=False)
+    if logm:result['logm_control']=logm
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=STATUS,loader_bytes=len(raw),kernel_bytes=len(kernel),
                          guard_instructions=guard['instruction_count'],device_actions=0)))
@@ -205,4 +225,5 @@ def build(base, prepared, output):
 if __name__ == '__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('base','prepared','output'): p.add_argument('--'+name,type=Path,required=True)
-    a=p.parse_args();build(a.base,a.prepared,a.output)
+    p.add_argument('--logm-control',action='store_true')
+    a=p.parse_args();build(a.base,a.prepared,a.output,logm_control=a.logm_control)

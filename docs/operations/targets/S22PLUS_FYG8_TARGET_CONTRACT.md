@@ -39,6 +39,16 @@ The same named mainline foreground preapproval D0 and `ready` CLI are adopted
 for this schema-exact comparison task, with unchanged fixed original-A reads,
 owner exclusion and freshness. Preparation/review alone performs no effect.
 
+Its optional schema-exact LOGM control adopts only the linked policy's one
+128-byte header-preserving diagnostic slot and preallocated 128-byte final-FDT
+report. Exact live region/CPU guards, actual-code/EL qualification and current
+independent review are required. Fixed raw FDT/last_kmsg reads occur between
+complete proofs of the same candidate Android boot before ordinary return,
+within the original window. Diagnostic negatives do not replace health or
+imply a failure cause; acquisition failures retain the stopped original owner.
+Static candidate frames do not prove same-attempt or reset retention. The
+finite attended grant and original-A/no-replay rules remain unchanged.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

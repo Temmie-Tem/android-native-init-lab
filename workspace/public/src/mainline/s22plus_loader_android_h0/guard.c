@@ -5,9 +5,16 @@
  */
 #include <stdint.h>
 #include <stddef.h>
+#include "g0q-android-marker.h"
 
 #define INLINE static __attribute__((always_inline)) inline
+#ifdef G0Q_LOGM_CONTROL
+#define FDT_MAX (2U * 1024U * 1024U - 512U)
+#define LOG_BASE 0x800200000ULL
+#define LOG_END 0x800400000ULL
+#else
 #define FDT_MAX (2U * 1024U * 1024U - 256U)
+#endif
 #define BANKS 5
 #define WRITES 3
 
@@ -77,6 +84,12 @@ int loader_guard(const unsigned char *f, const struct guard_plan *p,
         overlap(pos, pos + struct_size, strings, strings + string_size) ||
         reserve < 40 || (reserve & 7) || reserve >= pos || reserve >= strings)
         return 0;
+#ifdef G0Q_LOGM_CONTROL
+    if (!covered(p, LOG_BASE, LOG_END - LOG_BASE) ||
+        !protected(p, LOG_BASE, LOG_END - LOG_BASE) ||
+        overlap(LOG_BASE, LOG_END, address, address + total) ||
+        overlap(LOG_BASE, LOG_END, source, source_end)) return 0;
+#endif
     uint32_t reserve_limit = pos < strings ? pos : strings;
     for (;;) {
         if (reserve > reserve_limit || reserve_limit - reserve < 16) return 0;
@@ -150,6 +163,9 @@ int loader_guard(const unsigned char *f, const struct guard_plan *p,
             }
             if (section == 1 && depth == 2) {
                 if (equal(name, length, "codex,uniloader-android-v1")) return 0;
+#ifdef G0Q_LOGM_CONTROL
+                if (equal(name, length, "codex,uniloader-logm-v1")) return 0;
+#endif
                 if (equal(name, length, "linux,initrd-start")) {
                     if (size != 8) return 0;
                     initrd_start = be64(f + pos); bit = 1U << 8;
@@ -198,6 +214,9 @@ int loader_guard(const unsigned char *f, const struct guard_plan *p,
                              "adrp %1, _file_end\n\tadd %1, %1, :lo12:_file_end"
                              : "=&r"(live_start), "=&r"(live_end));
             if (overlap(initrd_start, initrd_end, live_start, live_end)) return 0;
+#ifdef G0Q_LOGM_CONTROL
+            if (overlap(LOG_BASE, LOG_END, initrd_start, initrd_end)) return 0;
+#endif
             return 1;
         } else return 0;
     }

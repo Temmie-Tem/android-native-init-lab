@@ -25,9 +25,10 @@ destination. Its current compiled code and source-relative references must
 pass the instruction checks. Unsupported entry state, source alignment or
 input shape stops before stores; no speculative write follows rejection.
 
-The full incoming tree is cloned, with only one fresh candidate-bound
-`/chosen/codex,uniloader-android-v1` marker added. A preexisting marker is
-rejected. Existing properties, memory reservations, initrd/bootconfig span,
+The full incoming tree is cloned, with one fresh candidate-bound
+`/chosen/codex,uniloader-android-v1` marker added. The optional LOGM control
+below adds its one fixed report property. A preexisting selected marker or
+report is rejected. Existing properties, memory reservations, initrd/bootconfig span,
 boot arguments, version and boot CPU are preserved. The inherited initrd is
 neither rewritten nor copied. The exact embedded vendor kernel is copied and
 entered through the reviewed loader synchronization/jump path. No new
@@ -43,6 +44,87 @@ and deterministic boot-only packaging. These are H0 evidence, not physical
 boot, cache coherence or automatic recovery. The independently reviewed
 capability closure includes the reachable observer/owner/return machinery;
 artifact provenance and current host-source provenance remain separate.
+
+### Optional LOGM write/read control
+
+Only an image with the schema-exact `s22plus-loader-logm-control-v1`
+`logm_control` descriptor and complete actual-code/actual-EL qualification may
+select this diagnostic. The absent-descriptor variant retains its original
+behavior. The family namespace/version remain unchanged; the fresh marker,
+run identity, descriptor and exact artifact distinguish a candidate. Earlier
+approvals and reviews do not authorize the changed capability.
+
+After all kernel and FDT copies, immediately before the existing synchronized
+kernel jump, one ordinary C call may inspect the fixed Samsung log slice at
+`0x800200000`, size `0x200000`. The four aligned little-endian header words
+remain unchanged. The entry guard keeps the whole slice inside the retained
+RAM banks and disjoint from the incoming FDT, loader source, inherited initrd,
+staging/stack, kernel and final FDT. It remains separate from the three ordinary
+loader destinations; it is not treated as unreserved RAM.
+
+Before any LOGM access, the call requires EL1/EL2, little-endian data, MMU and
+data cache off, and the exact active live-FDT `samsung,kernel_log_buf` node,
+partial slice, strategy 3, zstd snapshot selection and its unique phandle link
+to the retained non-reusable, mapped Samsung log reservation. Ambiguous node
+identity, changed region or unsuitable CPU state skips all LOGM access and
+records the diagnostic outcome. It does not change mappings, cache controls,
+watchdogs, peripheral registers, storage or the logger.
+
+Valid magic and `idx >= 256` admit one 128-byte slot in the first half of the
+existing 256-byte span. With `S = 0x200000 - 16` and `c = idx % S`, the span
+starts at `c - 256` when `c >= 256`, otherwise at `S - 256`. The writer zeros
+the eight-byte commit prefix, writes the remaining 120 bytes, rechecks all
+four header words, and commits the eight-byte prefix only if they match.
+Byte stores and completion barriers bound the total to 136 payload stores;
+no second slot or header is written. A header mismatch after body stores
+records an incomplete write, not a no-write skip. A committed frame gets one
+128-byte readback and one final four-word header sample. No retry, header
+initialization or cache-clean operation is added.
+
+Before any LOGM write, tree construction allocates and packs exactly one
+128-byte `/chosen/codex,uniloader-logm-v1` report. This variant reserves 512
+bytes of input-tree headroom; the absent variant retains 256. After the final
+FDT copy the writer resolves that property in the final tree and updates only
+its existing bytes. No allocation or property relocation follows LOGM stores.
+The fixed big-endian report binds the fresh candidate, observed EL/SCTLR,
+final reason, valid/attempt flags, slot offset, readback mismatch count and
+three numeric header samples. Missing or unfinalized reports cannot be
+interpreted as evidence that no write occurred. The LOGM frame uses its own
+candidate-bound HMAC magic/domain; it is static across attempts of that image.
+
+For this descriptor, observation first obtains the existing complete candidate
+Android proof. It then checks shell-v2, reads the fixed FDT report once (128-byte
+maximum) and `/proc/last_kmsg` once (4 MiB maximum), and obtains another complete
+candidate proof. These are fixed pinned-ADB `shell -T` privileged reads; raw
+stdout/stderr and producer outcome are sealed before interpretation. Each data
+read has at most 30 seconds and remains inside the original 240-second launch
+window and grant. The complete proofs must share candidate boot identity and
+USB generation across collection. The ordinary fresh pre-Download proof is
+still required. No post-closure reader, general shell or read retry is adopted.
+
+Structurally valid guard skips, header drift, readback mismatch and absent
+frames are diagnostic outcomes and permit the unchanged normal return after
+its current proof. Failed, partial, oversize or malformed acquisition stops
+through the existing owner; original-A recovery remains independent of these
+files. Diagnostics never replace or weaken either Android health bracket.
+
+Qualification exercises the actual compiled writer, alignment and ABI, exact
+store/read extents, guard negatives, all header-word changes, interrupted
+commit/readback and the fixed Samsung snapshot consumer. Actual EL fixtures
+cover full handoff and preservation of the final FDT and original kernel.
+These fixtures do not prove physical cache coherence or reset retention.
+Generated candidate data retains its original producer provenance; current
+checkers and independent artifact review must join the actual frame, seed,
+selection/enum declarations, ELF, boot/AP and raw qualification results.
+
+The current FDT reports the observed boot's loader outcome. An exact frame
+anywhere in its acquired snapshot proves candidate occurrence. The static
+frame alone does not join that occurrence to the same attempt, exclude earlier
+unseen boots, prove lack of intervening writes, or explain a missing frame.
+Matching readback and a snapshot frame are reported as separate observations;
+neither establishes mainline execution, historical failure cause, reset/
+Download retention or automatic recovery. Original-A return and health retain
+their independent requirements.
 
 ## Finite entry and observation
 

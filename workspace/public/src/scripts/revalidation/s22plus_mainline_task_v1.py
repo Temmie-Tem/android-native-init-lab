@@ -55,7 +55,7 @@ def source_paths(root,selected=profile):
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_access_v1.py',
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_session_v1.py']
         paths += ['workspace/public/src/mainline/s22plus_loader_android_h0/'+name for name in
-                  ('build.py','guard.c','uniloader-android.patch','qualify.py','entry_vm.py')]
+                  ('build.py','guard.c','logm-control.c','uniloader-android.patch','qualify.py','entry_vm.py')]
         paths += ['workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
                   ('build_loader.py','package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
     return tuple(root/path for path in sorted(set(paths)))

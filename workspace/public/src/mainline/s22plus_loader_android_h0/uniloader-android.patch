@@ -77,22 +77,27 @@
  obj-y += aarch64/start.o aarch64/load-kernel.o aarch64/memcpy.o
 +
 +# This leaf is called before any stack exists. All other C keeps the normal ABI.
-+obj-y += aarch64/guard.o
++obj-y += aarch64/guard.o aarch64/logm-control.o
 +CFLAGS_guard.o += -O2 -fpie -fno-stack-protector -fomit-frame-pointer -fno-jump-tables -ffixed-x28 -ffixed-x29 -ffixed-x30 -fcall-used-x19 -fcall-used-x20 -fcall-used-x21 -fcall-used-x22 -fcall-used-x23 -fcall-used-x24 -fcall-used-x25 -fcall-used-x26 -fcall-used-x27
 --- a/drivers/ramdisk-handler.c
 +++ b/drivers/ramdisk-handler.c
-@@ -1,55 +1,21 @@
+@@ -1,55 +1,33 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -/*
 - * Copyright (c) 2025, Victor Paul <vipollmail@gmail.com>
 - */
--
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/* Loader Android control: preserve the actual ABL tree and assembled initrd. */
- #include <drivers/ramdisk-handler.h>
--#include <lib/debug.h>
- #include <lib/libfdt/libfdt.h>
++#include <drivers/ramdisk-handler.h>
++#include <lib/libfdt/libfdt.h>
 +#include "../arch/aarch64/g0q-android-marker.h"
+ 
+-#include <drivers/ramdisk-handler.h>
+-#include <lib/debug.h>
+-#include <lib/libfdt/libfdt.h>
++#ifdef G0Q_LOGM_CONTROL
++extern const unsigned char g0q_logm_report_seed[128];
++#endif
  
  int ramdisk_handler_patch_dtb(const void *fdt, void *buf, int bufsize)
  {
@@ -101,7 +106,14 @@
 -	void *ramdisk_end = (void*)CONFIG_RAMDISK_ENTRY + (unsigned long)&ramdisk_size;
 -#elif __arm__
 -	void *ramdisk_end = (void*)CONFIG_RAMDISK_ENTRY + ramdisk_size;
--#endif
++    int length, chosen = fdt_path_offset(fdt, "/chosen");
++    if (chosen < 0) return chosen;
++    if (fdt_getprop(fdt, chosen, "codex,uniloader-android-v1", &length) ||
++        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
++#ifdef G0Q_LOGM_CONTROL
++    if (fdt_getprop(fdt, chosen, "codex,uniloader-logm-v1", &length) ||
++        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
+ #endif
 -
 -	printk(KERN_INFO, "trying to open fdt...\n");
 -	ret = fdt_open_into(fdt, buf, bufsize);
@@ -121,7 +133,17 @@
 -	ret = fdt_setprop_u64(buf, dtb_chosen_offset, "linux,initrd-start", (uint64_t)CONFIG_RAMDISK_ENTRY);
 -#elif __arm__
 -	ret = fdt_setprop_u32(buf, dtb_chosen_offset, "linux,initrd-start", (uint32_t)CONFIG_RAMDISK_ENTRY);
--#endif
++    int ret = fdt_open_into(fdt, buf, bufsize);
++    if (ret) return ret;
++    chosen = fdt_path_offset(buf, "/chosen");
++    if (chosen < 0) return chosen;
++    ret = fdt_setprop(buf, chosen, "codex,uniloader-android-v1",
++                      G0Q_ANDROID_MARKER, sizeof(G0Q_ANDROID_MARKER) - 1);
++    if (ret) return ret;
++#ifdef G0Q_LOGM_CONTROL
++    ret = fdt_setprop(buf, chosen, "codex,uniloader-logm-v1", g0q_logm_report_seed, 128);
++    if (ret) return ret;
+ #endif
 -	if (ret < 0) {
 -		printk(KERN_ERR, "failed to add linux,initrd-start: %s\n", fdt_strerror(ret));
 -		return ret;
@@ -139,16 +161,27 @@
 -	}
 -
 -	return 0;
-+    int length, chosen = fdt_path_offset(fdt, "/chosen");
-+    if (chosen < 0) return chosen;
-+    if (fdt_getprop(fdt, chosen, "codex,uniloader-android-v1", &length) ||
-+        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
-+    int ret = fdt_open_into(fdt, buf, bufsize);
-+    if (ret) return ret;
-+    chosen = fdt_path_offset(buf, "/chosen");
-+    if (chosen < 0) return chosen;
-+    ret = fdt_setprop(buf, chosen, "codex,uniloader-android-v1",
-+                      G0Q_ANDROID_MARKER, sizeof(G0Q_ANDROID_MARKER) - 1);
-+    if (ret) return ret;
 +    return fdt_pack(buf);
+ }
+--- a/arch/aarch64/load-kernel.c
++++ b/arch/aarch64/load-kernel.c
+@@ -6,6 +6,10 @@
+ 
+ #include <main/boot.h>
+ #include <string.h>
++#include "g0q-android-marker.h"
++#ifdef G0Q_LOGM_CONTROL
++void g0q_logm_control(void *fdt);
++#endif
+ 
+ void arch_load_kernel(void* kernel, void* dt, void* ramdisk)
+ {
+@@ -25,5 +29,8 @@
+ #ifndef CONFIG_RAMDISK_NO_COPY
+ 	__optimized_memcpy((void*)CONFIG_RAMDISK_ENTRY, ramdisk, (unsigned long) &ramdisk_size);
+ #endif
++#ifdef G0Q_LOGM_CONTROL
++	g0q_logm_control(dt);
++#endif
+ 	load_kernel_and_jump(dt, 0, 0, 0, (void*)CONFIG_PAYLOAD_ENTRY);
  }

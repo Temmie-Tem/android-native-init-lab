@@ -502,6 +502,19 @@ Positive records would establish occurrence only in this candidate, without
 isolating past V10 causes or assigning meaning to a missing companion record.
 No successor or new grant is armed.
 
+[LA002](docs/reports/S22PLUS_LOADER_LOGM_LA002_H0_2026-11-03.md) is prepared
+as a bounded LOGM write/read control on the previously successful LA001
+loader-to-Android path. One small header-preserving frame is accompanied by
+its current-FDT eligibility/readback report; the candidate Android snapshot is
+collected before original-A return. Two-round external discussion and initial
+independent design review support this direction. Actual-code, actual-EL,
+producer/consumer and package qualification pass. Final independent review is
+`PASS_GO`; the new capability/backend receipts and fixed preapproval D0 pass.
+The stable worker is unchanged. Exact finite attended approval remains pending
+and no grant is open.
+Current-FDT writer observations and static candidate-frame occurrence remain
+separate, with no same-attempt, reset-retention or historical-cause claim.
+
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
 host USB event diagnostics remain possible observations, not already qualified
