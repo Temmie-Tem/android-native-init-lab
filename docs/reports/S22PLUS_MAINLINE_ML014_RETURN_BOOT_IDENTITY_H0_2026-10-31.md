@@ -1,7 +1,12 @@
 # S22+ ML014 return-boot identity H0
 
 Status: **Qualified and independently reviewed; fixed preapproval D0 passed;
-awaiting exact finite attended approval**.
+the separately approved physical run is now consumed and closed healthy**.
+
+The [2026-11-03 run](S22PLUS_MAINLINE_ML014_RUN_2026-11-03.md) returned no V10
+or USB/PID1 proof. Readiness captured the same Android boot ID before and after
+the return-health ADB disappearance; one health-only continuation closed
+healthy. This preparation's sources and qualification records are unchanged.
 
 ML012 and ML013 each returned a complete retained log with no candidate
 records, after an original-A health read lost ADB and a later health-only
@@ -72,7 +77,8 @@ The new return-identity capability and backend V22 receipts are published;
 earlier reviews and consumed owners retain their original pins. The connected
 stable terminal worker is unchanged. One fixed preapproval D0 attempt passed
 the complete seven-read rooted Android health transcript and task freshness
-validation. No candidate control, partition transfer or grant has occurred.
+validation. At preparation close, no candidate control, partition transfer or
+grant had occurred; the later approved run is recorded separately above.
 The applicable past-failure checklist rows are ARTIFACT, HOST, RETURN and
 AUDIT: fresh producer/consumer binding, actual raw producer status, original-A
 closure without replay, and bounded evidence interpretation. Unrelated

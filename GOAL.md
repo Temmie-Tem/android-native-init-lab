@@ -469,8 +469,18 @@ the existing readiness/properties commands. The bounded wait and complete
 health requirements are unchanged; a diagnostic prefix is never health.
 Fresh artifact qualification, final independent review and fixed preapproval
 D0 pass. The return-identity capability and backend V22 receipts are published
-without changing the stable worker. Exact finite attended approval remains
-pending; no new grant is open, and ML013 remains consumed and closed healthy.
+without changing the stable worker. Its separately approved
+[2026-11-03 run](docs/reports/S22PLUS_MAINLINE_ML014_RUN_2026-11-03.md) is now
+consumed and closed healthy: N and A each transferred once, all 114 USB
+snapshots showed absence, and the complete returned log contained zero V10
+records. One health-only continuation closed after an ADB disappearance.
+Five earlier readiness IDs, continuation readiness, final health and the
+post-closure read all share one observed Android boot ID. The abandoned
+properties prefix was only `boot_id=` and supplied no UUID itself. These
+observations identify no transport-failure cause, earlier unseen boot or
+marker-loss mechanism. Marker eligibility and retention before the earliest
+Android observation remain open H0 questions. No successor or new grant is
+armed; ML013 retains its earlier consumed healthy closure.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
