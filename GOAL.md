@@ -517,6 +517,19 @@ observations and static candidate-frame occurrence remain separate: no shared
 attempt, reset retention, historical failure cause or mainline boot is proved.
 LA002's operation and grant are consumed; no F1 owner or successor is armed.
 
+[ML016](docs/reports/S22PLUS_MAINLINE_ML016_V1_CALIBRATION_H0_2026-11-03.md)
+is H0-qualified after two-round Claude/Argon discussion.
+It uses the existing V1 loader-handoff and kernel-entry records, with ML015's
+exact corrected DTB/config and fresh candidate identity. Retained actual-code
+checks pass using LA002's observed header as a fixture; this does not establish
+ML016's physical state. No unsupported regulator, thermal or driver change is
+selected. New mainline/backend review receipts reconcile LA002's
+loader-only closure changes without altering recovery or the stable worker.
+Fresh artifact qualification, final independent review and fixed preapproval
+D0 pass. Static positives would prove occurrence only, with no
+shared-boot, missing-frame localization or ML015 causal claim. No new grant or
+candidate device effect is armed.
+
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
 host USB event diagnostics remain possible observations, not already qualified
