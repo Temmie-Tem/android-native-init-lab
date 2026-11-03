@@ -36,6 +36,15 @@ identities, goals, artifacts and authority remain separate.
   attribution and new observation tools are optional unless required for safe
   execution or that functional result. Existing target, authority, recovery
   and no-replay requirements remain binding.
+- **Post-ML020 watchdog compatibility H0 is complete; no new candidate was selected.**
+  Exact vendor/firmware instructions confirm active vendor arming, same-state
+  control rejection and STATUS/PET limits. Current watchdog-core registration
+  rejects the proposed ping-only shape. Mainline handoff arming and its timer
+  deadline remain unknown; vendor settings do not supply them. Two discussion
+  rounds corrected overclaims. A bounded USB source/DT/config follow-up found
+  no missing VBUS branch or selected built-in driver setting. No device action,
+  new grant or owner was created, and no watchdog cause was proved or excluded.
+  [Findings and limits](docs/reports/S22PLUS_MAINLINE_POST_ML020_WATCHDOG_FIT_H0_2026-11-04.md).
 - **ML020 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.** The candidate with
   only `cpuidle.off=1` added produced no USB evidence in 116 snapshots and no
   V1 loader/entry records in the complete returned log. Physical parameter
