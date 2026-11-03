@@ -1,7 +1,8 @@
 # ML020: retain power-domain providers and exclude CPUidle entry
 
-Status: **H0 qualified, independently reviewed and fixed preapproval D0
-healthy; exact attended approval pending; no ML020 grant or device control**.
+Status: **H0 qualified and independently reviewed; separately approved
+[physical run](S22PLUS_MAINLINE_ML020_RUN_2026-11-04.md) consumed `NO_PROOF`
+and closed original A healthy**.
 
 After [ML019 closed without USB or retained-entry proof](S22PLUS_MAINLINE_ML019_RUN_2026-11-04.md),
 two rounds with Claude Opus 5.5 and Gemini 4 Argon High selected one functional
@@ -92,10 +93,14 @@ These H0 results do not prove physical boot, USB, standby or automatic recovery.
 Unmocked production image/task consumers and the connector binding pass. The
 new task uses closed ML019's exact original-A recovery evidence. The connected
 worker retains V27 and its unchanged stable sources. One fixed preapproval D0
-completed; all seven successful, complete raw captures rederive current exact
-original-A health. No unresolved F1 owner, operator approval record, grant or
-candidate dispatch exists. Fresh effect-time checks and the exact finite
-attended approval remain required before transfer.
+completed; all seven successful, complete raw captures rederived exact
+original-A health before approval. The operator then returned the exact finite
+approval with attendance and usable Download recovery. N and A each transferred
+once. No USB or V1 record proof was obtained; the first recovery-health procedure
+closed original A healthy without a health-only continuation. The approval and
+grant are consumed, and no F1 owner remains. The linked run report records the
+separate physical result; H0 qualification did not supply its authority or
+permit replay.
 
 An authenticated response would establish the RAM PID1/USB milestone under
 this configuration, without proving idle was historically causal. Endpoint
