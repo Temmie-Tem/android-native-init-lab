@@ -30,6 +30,22 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **The next development objective is usable RAM PID1 and authenticated USB.**
+  The completed early-park experiment does not start another instrumentation
+  ladder. Functional boot changes take priority; detailed historical fault
+  attribution and new observation tools are optional unless required for safe
+  execution or that functional result. Existing target, authority, recovery
+  and no-replay requirements remain binding.
+- **ML019 is prepared, independently reviewed and fixed-D0 healthy; approval is pending.**
+  The ordinary unparked V1 candidate corrects the reachable USB2 PHY reference-
+  clock mask/value order and nine supported FYG8 tuning fields. Kernel config,
+  TLMM exclusion, GPIO reservations and recovery remain unchanged. Actual C
+  host/ARM64 tests, full kernel build, RAM PID1 VM/raw recheck and exact loader/
+  package checks pass. Current original-A health rederives from seven complete
+  raw reads. The unchanged mainline capability and V27 backend reviews are
+  reused. Physical boot/USB remains unproved; no grant or dispatch is open.
+  [Scope and evidence](docs/reports/S22PLUS_MAINLINE_ML019_USB_PHY_H0_2026-11-04.md).
+
 - **ML018 is consumed: loader-handoff and kernel-entry observed /
   ANDROID_CLOSED_HEALTHY.** Both fresh V1 frames are present in the complete
   returned log and independently authenticated. The ordinary-route early park

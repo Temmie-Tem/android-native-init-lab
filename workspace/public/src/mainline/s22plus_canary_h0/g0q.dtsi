@@ -44,3 +44,18 @@
  * Fixed peripheral USB2 is already selected by the r0q base DTS.
  */
 &usb_1 { dr_mode = "peripheral"; maximum-speed = "high-speed"; };
+
+/* FYG8 normal device-mode HS-PHY override fields, expressed through the
+ * selected mainline driver's supported mappings. Preserve all other bits.
+ */
+&usb_1_hsphy {
+    qcom,hs-disconnect-bp = <2156>;
+    qcom,squelch-detector-bp = <(-2090)>;
+    qcom,hs-amplitude-bp = <2670>;
+    qcom,pre-emphasis-duration-bp = <20000>;
+    qcom,pre-emphasis-amplitude-bp = <40000>;
+    qcom,hs-rise-fall-time-bp = <(-4100)>;
+    qcom,hs-crossover-voltage-microvolt = <0>;
+    qcom,hs-output-impedance-micro-ohms = <0>;
+    qcom,ls-fs-output-impedance-bp = <0>;
+};

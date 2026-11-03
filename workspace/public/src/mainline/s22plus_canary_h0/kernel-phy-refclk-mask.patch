@@ -1,0 +1,21 @@
+Subject: [H0 g0q] Correct the reachable HS-PHY REFCLK mask/value order
+
+The helper takes mask, value. Select the intended two-bit value without
+preserving an unknown low bit. The normal FYG8 vendor consumer uses mask 3,
+value 2. The same correction appears in Qualcomm's 2026-10-06 v5 4/6 patch:
+https://lkml.iu.edu/2610.0/09839.html
+
+Only the fixed-peripheral init path is changed. The unrelated host-only
+AUTO_RESUME hunk is outside this candidate. This patch proves no device cause.
+
+--- a/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
++++ b/drivers/phy/qualcomm/phy-qcom-snps-femto-v2.c
+@@ -429,7 +429,7 @@ static int qcom_snps_hsphy_init(struct phy *phy)
+ 					USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON1,
+ 					PLLBTUNE, PLLBTUNE);
+ 	qcom_snps_hsphy_write_mask(hsphy->base, USB2_PHY_USB_PHY_REFCLK_CTRL,
+-					REFCLK_SEL_DEFAULT, REFCLK_SEL_MASK);
++					REFCLK_SEL_MASK, REFCLK_SEL_DEFAULT);
+ 	qcom_snps_hsphy_write_mask(hsphy->base,
+ 					USB2_PHY_USB_PHY_HS_PHY_CTRL_COMMON1,
+ 					VBUSVLDEXTSEL0, VBUSVLDEXTSEL0);
