@@ -1,7 +1,8 @@
 # ML021: one physical USB attach change on the existing RAM baseline
 
-Status: **H0 qualified, independently reviewed and fixed preapproval D0 healthy;
-exact attended approval pending; no grant or device control**.
+Status: **H0 qualified and independently reviewed; separately approved
+[physical run](S22PLUS_MAINLINE_ML021_RUN_2026-11-04.md) consumed
+`PASS_MAINLINE_RAM_USB` and closed original A healthy**.
 
 ML021 is a fresh prospective candidate after consumed, healthy-closed
 [ML020](S22PLUS_MAINLINE_ML020_RUN_2026-11-04.md). Its bounded question is whether
@@ -95,10 +96,13 @@ checks retain their original artifact provenance and complete raw evidence,
 joined to new source/config/object equality. Independent exact-artifact and
 procedure review is `PASS_GO` with no findings, binding 100 source pins and 480
 artifact/raw pins. The unchanged mainline capability, V27 backend and stable
-worker reviews are reused. Fixed preapproval D0 completed: seven successful,
-complete raw captures rederive current exact original-A health. No unresolved
-F1 owner, operator approval, grant or candidate dispatch exists. Fresh effect-time
-checks and the exact finite attended approval remain required before transfer.
+worker reviews were reused. Fixed preapproval D0 completed: seven successful,
+complete raw captures rederived exact original-A health and remained fresh at
+grant opening. The operator then returned the exact approval with attendance
+and usable Download recovery. One N transfer produced authenticated RAM PID1/USB
+evidence. One A transfer and a health-only continuation after an ADB read closed
+proved final original-A health. The grant/candidate are consumed, no F1 owner
+remains, and the linked run report records the separate physical result.
 
 Applicable past-failure checks are ARTIFACT and ROUTE — confirmed for H0 by
 actual package/loader/init identity joins and the unchanged real observer;
@@ -106,8 +110,8 @@ WIRE and IO — confirmed for the tested partial-response and disconnect paths,
 with sealed failed raw bytes and no retry; SEMANTIC — confirmed by separating
 USB absence, physical-action timing, authenticated evidence and recovery;
 PERSIST — confirmed for the exercised raw publication/reopen paths, with
-failed fixtures retained; RETURN — unchanged original-owner recovery, with
-physical return and final health still unconfirmed for this candidate. ABI and
+failed fixtures retained; RETURN — confirmed by the separate original-owner
+physical return and final health, with no repeated transfer. ABI and
 DISPLAY changes are inapplicable: no new syscall/register or display behavior.
 HOST — confirmed for the reviewed V27 worker and current preapproval checks.
 
