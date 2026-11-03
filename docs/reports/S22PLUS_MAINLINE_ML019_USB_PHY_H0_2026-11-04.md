@@ -1,7 +1,8 @@
 # ML019: resume full RAM boot with corrected USB2 PHY setup
 
-Status: **H0 qualified, independently reviewed and fixed preapproval D0
-healthy; exact attended approval pending; no ML019 grant or device control**.
+Status: **H0 qualified and independently reviewed; separately approved
+[physical run](S22PLUS_MAINLINE_ML019_RUN_2026-11-04.md) consumed `NO_PROOF`
+and closed original A healthy**.
 
 After the completed [ML018 entry-park experiment](S22PLUS_MAINLINE_ML018_RUN_2026-11-04.md),
 two rounds with Claude Opus 5.5 and Gemini 4 Argon High selected one functional
@@ -115,9 +116,13 @@ The unmocked production image/task consumers and connector binding pass.
 The new task inherits only the exact original-A recovery evidence from closed
 ML018. The connected worker reports the same V27 backend and unchanged stable
 worker sources. One fixed preapproval D0 completed; all seven complete,
-successful raw captures rederive exact current original-A health. No F1 owner,
-operator approval record, grant or candidate dispatch exists. Fresh effect-time
-checks and the exact finite attended approval remain required before transfer.
+successful raw captures rederived exact original-A health before approval.
+The operator then returned the exact finite approval and confirmed attendance
+and usable Download recovery. N and A each transferred once. No USB or V1
+record proof was obtained; one health-only continuation after a preserved ADB
+read failure closed original A healthy. The approval and grant are consumed,
+and no F1 owner remains. The linked run report records the separate physical
+result; H0 qualification did not supply its authority or permit replay.
 
 Applicable past-failure rows are ARTIFACT, SEMANTIC, WIRE, ROUTE, PERSIST and
 RETURN: exact producer/package joins, limited interpretation of static markers,
