@@ -527,8 +527,16 @@ selected. New mainline/backend review receipts reconcile LA002's
 loader-only closure changes without altering recovery or the stable worker.
 Fresh artifact qualification, final independent review and fixed preapproval
 D0 pass. Static positives would prove occurrence only, with no
-shared-boot, missing-frame localization or ML015 causal claim. No new grant or
-candidate device effect is armed.
+shared-boot, missing-frame localization or ML015 causal claim. Its separately
+approved [physical run](docs/reports/S22PLUS_MAINLINE_ML016_RUN_2026-11-03.md)
+is now consumed and closed healthy: N and A each transferred once, all 116 USB
+snapshots showed absence, and the complete returned log contains neither V1
+record under both decoders. First-attempt final health passed without a
+health-only continuation. Ten accepted return/health/log-read observations
+share one Android boot ID; an incomplete successful readiness prefix supplied
+no identity. Loader/kernel occurrence, physical recording eligibility and
+retention remain unproved. This zero supplies no causal explanation or basis
+for an unchanged repeat. No successor or new grant is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

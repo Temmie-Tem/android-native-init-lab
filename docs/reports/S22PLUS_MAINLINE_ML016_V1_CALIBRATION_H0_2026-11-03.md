@@ -1,7 +1,8 @@
 # S22+ ML016: fresh loader and kernel-entry calibration
 
-Status: **H0 qualified, independently reviewed and fixed preapproval D0 passed;
-exact finite attended approval pending**.
+Status: **H0 qualified and independently reviewed; separately approved physical
+run consumed `NO_PROOF` and closed healthy**. This document retains the
+preparation-time evidence; see the [run report](S22PLUS_MAINLINE_ML016_RUN_2026-11-03.md).
 
 The next bounded candidate reuses the existing V1 format: one 128-byte
 header-preserving record at loader handoff and one at mainline `primary_entry`,
@@ -103,12 +104,13 @@ device. The final receipt SHA-256 is
 The unmocked production image/task consumer passes. Backend V24 is selected
 and the connected stable worker accepts its unchanged worker-source subset.
 A preceding status request correctly rejected the then-stale backend source
-binding without device access. One fixed preapproval D0 passed: all seven raw
+binding without device access. One preparation-time fixed preapproval D0 passed: all seven raw
 health reads rederive exact healthy original A, current identity/digests and
-task readiness, with no unresolved F1 owner. No approval, grant, candidate
-control or partition transfer has occurred. The generated exact one-operation
-approval, attendance through recovery/final health and usable physical Download
-remain required. A later grant must still pass readiness freshness.
+task readiness, with no unresolved F1 owner. At that checkpoint no approval,
+grant, candidate control or partition transfer had occurred. The operator
+subsequently returned the exact one-operation approval and attendance/recovery
+statement. Fresh preapproval health passed before the separately documented
+run, which is now consumed and closed healthy. No successor grant is armed.
 Applicable past-failure rows are ABI, ARTIFACT, WIRE, SEMANTIC and RETURN:
 actual call-site/register behavior, fresh producer/consumer identity,
 positive-only interpretation and independent original-A closure.
