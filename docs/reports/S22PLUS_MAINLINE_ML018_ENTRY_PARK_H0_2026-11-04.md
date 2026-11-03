@@ -2,9 +2,10 @@
 
 Target: Samsung S22+ `SM-S906N/g0q/S906NKSS7FYG8` only.
 
-Status: **PASS_GO; production preparation and fixed preapproval D0 pass.
-No new F1 approval or grant.**
-ML017 remains consumed and closed original Android healthy. A90 and S20+ are
+Status: **PASS_GO; production preparation and fixed preapproval D0 passed.**
+The subsequent separately approved [ML018 run](S22PLUS_MAINLINE_ML018_RUN_2026-11-04.md)
+is consumed, with both V1 records observed and original Android closed healthy.
+ML017 retains its own consumed closed result. A90 and S20+ are
 untouched. Existing unrelated edits and all consumed artifacts are preserved.
 
 ## Selection and question
@@ -119,9 +120,10 @@ published; the stable worker is unchanged. The distinct loader-Android
 capability is not renewed by this mainline review. Unmocked production image
 qualification, task preparation and the named fixed seven-read preapproval
 D0 pass. Readiness is rederived from its sealed raw health and durable journal;
-process exit alone is not its proof. No candidate control, partition transfer,
-approval record or grant exists. Fresh machine binding and the exact returned
-attended approval remain required before any prospective F1.
+process exit alone is not its proof. At preparation close there was no candidate
+control, partition transfer, approval record or grant. The subsequent run used
+its separately returned exact attended approval and is now consumed; it grants
+no successor effect.
 
 Past-failure checklist applicability: ARM64/ABI and ARTIFACT apply to the actual
 entry instructions, EL, full Image and package identity; ROUTE and PERSIST apply
