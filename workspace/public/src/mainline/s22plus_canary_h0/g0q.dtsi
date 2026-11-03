@@ -20,7 +20,11 @@
 /* Match the retained FYG8 g0q TLMM GPIO reservations. The r0q base covers
  * only 36--39; GPIO 50 and 93 are also reserved on this board.
  */
-&tlmm { gpio-reserved-ranges = <36 4>, <50 1>, <93 1>; };
+&tlmm {
+    gpio-reserved-ranges = <36 4>, <50 1>, <93 1>;
+    /* The bounded RAM/USB2 canary has no active TLMM consumers. */
+    status = "disabled";
+};
 
 /* Keep inherited reservation nodes even for disabled peripherals. */
 &ufs_mem_hc { status = "disabled"; };

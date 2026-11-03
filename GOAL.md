@@ -556,7 +556,24 @@ transferred once, and both normal Download controls completed. An empty
 `error: closed` properties read
 stopped initial final health; one health-only continuation then passed without
 another transfer/control. The separate mainline capability is not renewed by
-this selected loader-operation review. No successor or new grant is armed.
+this selected loader-operation review. No successor or new grant was armed
+at that closure.
+
+[ML017](docs/reports/S22PLUS_MAINLINE_ML017_TLMM_EXCLUSION_H0_2026-11-04.md)
+is the next bounded mainline RAM/USB2 candidate after two-round Claude/Argon
+discussion. It disables only the unused TLMM DT node, preserving the corrected
+GPIO reservations and existing V1 writers/configuration. Complete active-DT
+consumer checks found no TLMM dependency in this configuration; the compiled
+DT differs only in that status property. The fresh kernel differs from ML016
+only in its candidate frame and build ID, with unchanged symbol layout.
+Actual V1/EL/loader tests, RAM PID1 VM, matching boot/AP packages and 82
+host/terminal tests pass. Final independent current-source/artifact review is
+`PASS_GO` with no findings; the new mainline and backend V26 receipts are
+published with the stable worker unchanged. The actual production preparation
+and fixed seven-read preapproval D0 pass. No approval or grant exists. This candidate
+targets functional USB/PID1 progress, without a historical TLMM cause, physical
+electrical-independence or static-frame same-boot claim. A90 and S20+ remain
+untouched.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
