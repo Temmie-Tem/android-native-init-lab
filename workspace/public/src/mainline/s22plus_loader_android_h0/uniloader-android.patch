@@ -1,10 +1,13 @@
 --- a/arch/aarch64/reloc.S
 +++ b/arch/aarch64/reloc.S
-@@ -2,12 +2,14 @@
+@@ -2,12 +2,17 @@
  /* g0q RAM canary: fixed staging, bounded file copy, no live-stub overwrite. */
  #include "asmdefs.h"
  #include "linux-kernel-image-header.h"
 +#include "g0q-android-marker.h"
++#ifndef G0Q_PREFIX_CONTROL
++#define G0Q_PAYLOAD_RUNTIME G0Q_VENDOR_RUNTIME
++#endif
  
  .section .head.text, "ax"
  ENTRY_ALIAS(_head)
@@ -15,7 +18,7 @@
  	/* Only the reviewed MMU/cache-off, little-endian EL1/EL2 path. */
  	mrs x9, CurrentEL
  ENTRY_ALIAS(_reloc_check_el); cmp x9, #4
-@@ -48,6 +50,23 @@
+@@ -48,6 +53,23 @@
  	cmp x7, x12
  	b.hi .Lrange
  
@@ -39,13 +42,13 @@
  	cmp x4, x5
  	b.eq .Lsync
  	b.hi .Lbelow
-@@ -85,6 +104,10 @@
+@@ -85,6 +107,10 @@
  .Ldestination: .quad _stub_end
  .Lcopy_size:   .quad _copy_size
  .Lentry:       .quad _start
 +ENTRY_ALIAS(_g0q_guard_plan)
 +	.quad _head, _stack_end
-+	.quad CONFIG_PAYLOAD_ENTRY, CONFIG_PAYLOAD_ENTRY + G0Q_VENDOR_RUNTIME
++	.quad CONFIG_PAYLOAD_ENTRY, CONFIG_PAYLOAD_ENTRY + G0Q_PAYLOAD_RUNTIME
 +	.quad CONFIG_DTB_ENTRY, CONFIG_DTB_ENTRY + CONFIG_FDT_BUF_SIZE
  ENTRY_ALIAS(_g0q_source_ram)
  #include "g0q-source-ram.inc"
@@ -77,11 +80,11 @@
  obj-y += aarch64/start.o aarch64/load-kernel.o aarch64/memcpy.o
 +
 +# This leaf is called before any stack exists. All other C keeps the normal ABI.
-+obj-y += aarch64/guard.o aarch64/logm-control.o
++obj-y += aarch64/guard.o aarch64/logm-control.o aarch64/prefix-control.o aarch64/prefix-entry.o
 +CFLAGS_guard.o += -O2 -fpie -fno-stack-protector -fomit-frame-pointer -fno-jump-tables -ffixed-x28 -ffixed-x29 -ffixed-x30 -fcall-used-x19 -fcall-used-x20 -fcall-used-x21 -fcall-used-x22 -fcall-used-x23 -fcall-used-x24 -fcall-used-x25 -fcall-used-x26 -fcall-used-x27
 --- a/drivers/ramdisk-handler.c
 +++ b/drivers/ramdisk-handler.c
-@@ -1,55 +1,33 @@
+@@ -1,55 +1,44 @@
 -// SPDX-License-Identifier: GPL-2.0-only
 -/*
 - * Copyright (c) 2025, Victor Paul <vipollmail@gmail.com>
@@ -98,6 +101,9 @@
 +#ifdef G0Q_LOGM_CONTROL
 +extern const unsigned char g0q_logm_report_seed[128];
 +#endif
++#ifdef G0Q_PREFIX_CONTROL
++extern const unsigned char g0q_prefix_report_seed[256];
++#endif
  
  int ramdisk_handler_patch_dtb(const void *fdt, void *buf, int bufsize)
  {
@@ -112,6 +118,10 @@
 +        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
 +#ifdef G0Q_LOGM_CONTROL
 +    if (fdt_getprop(fdt, chosen, "codex,uniloader-logm-v1", &length) ||
++        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
++#endif
++#ifdef G0Q_PREFIX_CONTROL
++    if (fdt_getprop(fdt, chosen, "codex,uniloader-prefix-v1", &length) ||
 +        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
  #endif
 -
@@ -143,6 +153,10 @@
 +#ifdef G0Q_LOGM_CONTROL
 +    ret = fdt_setprop(buf, chosen, "codex,uniloader-logm-v1", g0q_logm_report_seed, 128);
 +    if (ret) return ret;
++#endif
++#ifdef G0Q_PREFIX_CONTROL
++    ret = fdt_setprop(buf, chosen, "codex,uniloader-prefix-v1", g0q_prefix_report_seed, 256);
++    if (ret) return ret;
  #endif
 -	if (ret < 0) {
 -		printk(KERN_ERR, "failed to add linux,initrd-start: %s\n", fdt_strerror(ret));
@@ -165,7 +179,7 @@
  }
 --- a/arch/aarch64/load-kernel.c
 +++ b/arch/aarch64/load-kernel.c
-@@ -6,6 +6,10 @@
+@@ -6,10 +6,19 @@
  
  #include <main/boot.h>
  #include <string.h>
@@ -173,13 +187,26 @@
 +#ifdef G0Q_LOGM_CONTROL
 +void g0q_logm_control(void *fdt);
 +#endif
++#ifdef G0Q_PREFIX_CONTROL
++void g0q_prefix_control(void *fdt);
++#endif
  
  void arch_load_kernel(void* kernel, void* dt, void* ramdisk)
  {
-@@ -25,5 +29,8 @@
++#ifndef G0Q_PREFIX_CONTROL
+ 	memcpy((void*)CONFIG_PAYLOAD_ENTRY, kernel, (unsigned long) &kernel_size);
++#endif
+ #ifdef CONFIG_DTB_RELOCATE
+ 	{
+ 		/* FDT header: totalsize is a big-endian u32 at offset 4 */
+@@ -25,5 +34,12 @@
  #ifndef CONFIG_RAMDISK_NO_COPY
  	__optimized_memcpy((void*)CONFIG_RAMDISK_ENTRY, ramdisk, (unsigned long) &ramdisk_size);
  #endif
++#ifdef G0Q_PREFIX_CONTROL
++	g0q_prefix_control(dt);
++	memcpy((void*)CONFIG_PAYLOAD_ENTRY, kernel, (unsigned long) &kernel_size);
++#endif
 +#ifdef G0Q_LOGM_CONTROL
 +	g0q_logm_control(dt);
 +#endif

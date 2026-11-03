@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import struct
 import subprocess
+import sys
 
 from prepare import digest, require, run
 
@@ -77,7 +78,14 @@ def build(prepared_dir, deps, label, jobs):
     output = Path(data['kernel_build']); kernel = Path(data['kernel'])
     require(digest(output/'.config') == data['config_sha256'], 'prepared config changed')
     marker_source=prepared_dir/'marker-source.json'
-    marker_record=marker_provenance(prepared_dir,kernel)
+    prefix_record=None
+    if (prepared_dir/'prefix-source.json').exists():
+        require(not marker_source.exists(),'mutually exclusive kernel instrumentation')
+        sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'s22plus_loader_android_h0'))
+        import prefix_image
+        prefix_record=prefix_image.verify(prepared_dir)
+        marker_record=None
+    else:marker_record=marker_provenance(prepared_dir,kernel)
     if marker_record:
         head=marker_record['instrumented_head']
         require(Path(head['path'])==kernel/'arch/arm64/kernel/head.S' and digest(head['path'])==head['sha256'],
@@ -117,6 +125,9 @@ def build(prepared_dir, deps, label, jobs):
     if marker_record:
         require(marker_provenance(prepared_dir,kernel)==marker_record,'kernel marker changed during build')
         result['retained_marker']=dict(path=str(marker_source),size=marker_source.stat().st_size,sha256=digest(marker_source))
+    if prefix_record:
+        require(prefix_image.verify(prepared_dir)==prefix_record,'kernel prefix changed during build')
+        result['prefix_source']=prefix_image.pin(prepared_dir/'prefix-source.json')
     with (prepared_dir/(label+'-result.json')).open('x') as stream:
         json.dump(result,stream,indent=2);stream.write('\n')
     print(json.dumps({k:v for k,v in result.items() if k not in ['command','image']}))

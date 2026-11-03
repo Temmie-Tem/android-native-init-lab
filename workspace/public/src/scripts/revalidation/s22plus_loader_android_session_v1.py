@@ -55,6 +55,9 @@ def terminal(adapter,request,*,recovered):
         value=access.rederive(adapter,request)
         result.update(status='PASS_LOADER_FYG8_ANDROID',loader_handoff_proved=True,
                       vendor_android_proved=True,observation=value)
+        if 'prefix_control' in value:
+            result['mainline_prefix_return_proved']=value['prefix_control']['mainline_prefix_return_proved']
+            result['mainline_boot_proved']=False
         step=normal_steps()[3]
         observed=adapter.recover_step_result(step,request)
         adapter.validate_result(step,observed,request)

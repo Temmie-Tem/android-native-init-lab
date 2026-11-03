@@ -23,6 +23,7 @@ from build_loader import DTB, PAYLOAD, TEXT, range_include
 sys.path.insert(0, str(ROOT / 'workspace/public/src/scripts/revalidation'))
 import s22plus_boot_verify as boot
 import s22plus_loader_android_profile_v1 as profile
+import s22plus_loader_prefix_v1 as prefix
 
 FDT_CAPACITY = 2 * 1024 * 1024
 MARKER_PROPERTY = 'codex,uniloader-android-v1'
@@ -73,10 +74,29 @@ def guard_instructions(elf, syms, output):
                 source_page_alignment=4096, relocation_types=sorted(set(types)))
 
 
-def build(base, prepared, output, *, logm_control=False):
+def build(base, prepared, output, *, logm_control=False, prefix_kernel=None):
     base, prepared, output = [Path(p).resolve() for p in (base, prepared, output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),
             'fresh private build directory required')
+    require(not (logm_control and prefix_kernel), 'mutually exclusive loader diagnostics')
+    prefix_control=None
+    if prefix_kernel:
+        from prefix_image import verify as verify_prefix
+        prefix_kernel=Path(prefix_kernel).resolve(strict=True)
+        built=json.loads(prefix_kernel.read_text());provenance=verify_prefix(prefix_kernel.parent)
+        require(built['status']=='H0_KERNEL_BUILT_NOT_DEVICE_AUTHORITY' and
+            built['device_actions']==0 and built['prefix_source']==pin(prefix_kernel.parent/'prefix-source.json') and
+            digest(built['image'])==built['sha256'],'prefix kernel build provenance differs')
+        image=Path(built['image']);header=image.read_bytes()[:64]
+        require(header[56:60]==b'ARMd' and struct.unpack_from('<QQQ',header,8)==
+            (0,built['runtime_size'],10) and built['runtime_size']>=image.stat().st_size,
+            'prefix Image geometry differs')
+        elf=Path(json.loads((prefix_kernel.parent/'prepared.json').read_text())['kernel_build'])/'vmlinux'
+        ps=symbols(elf);origin=ps['_text'][0]
+        prefix_control=dict(configuration=provenance['configuration'],key=provenance['key'],
+            kernel_build=pin(prefix_kernel),source=built['prefix_source'],image=pin(image),elf=pin(elf),
+            entry_offset=ps['primary_entry'][0]-origin,frame_offset=ps['s22_retained_kernel_frame'][0]-origin)
+    text_base=0xaa000000 if prefix_control else TEXT
     lock = json.loads((COMMON/'sources.json').read_text())
     upstream = base/'uniloader-upstream'
     head = subprocess.check_output(['git','-C',str(upstream),'rev-parse','HEAD'], text=True).strip()
@@ -109,7 +129,7 @@ def build(base, prepared, output, *, logm_control=False):
     require(len(releases) == 1, 'vendor kernel release is ambiguous')
     release = releases.pop().decode('ascii')
     output.mkdir(mode=0o700, parents=True)
-    marker = secrets.token_hex(32)
+    marker = prefix_control['configuration']['marker'] if prefix_control else secrets.token_hex(32)
     (output/'marker.txt').write_text(marker)
     logm = None
     if logm_control:
@@ -124,18 +144,33 @@ def build(base, prepared, output, *, logm_control=False):
         run(['patch','--batch','--fuzz=0','-p1','-i',patch],log,cwd=source)
         require('fuzz' not in log.read_text().lower(), 'fuzzy patch application')
     (source/'arch/aarch64/g0q-source-ram.inc').write_text(range_include(banks))
+    payload_runtime=max(runtime,built['runtime_size']) if prefix_control else runtime
     generated=f'#define G0Q_VENDOR_RUNTIME {runtime}\n#define G0Q_ANDROID_MARKER "{marker}"\n'
     if logm:
         generated+='#define G0Q_LOGM_CONTROL 1\n'
         for field,label in [('frame_hex','G0Q_LOGM_FRAME'),('report_seed_hex','G0Q_LOGM_REPORT_SEED')]:
             generated+='#define '+label+' {'+','.join(str(x) for x in bytes.fromhex(logm['configuration'][field]))+'}\n'
         generated+=''.join(f'#define G0Q_LOGM_{name} {value}\n' for name,value in profile.LOGM_STATES.items())
+    if prefix_control:
+        cfg=prefix_control['configuration']
+        generated+=f'#define G0Q_PREFIX_CONTROL 1\n#define G0Q_PAYLOAD_RUNTIME {payload_runtime}\n'
+        generated+='#define G0Q_PREFIX_REPORT_SEED {'+','.join(str(x) for x in bytes.fromhex(cfg['report_seed_hex']))+'}\n'
+        generated+=''.join(f'#define G0Q_PREFIX_{name} {value}\n' for name,value in prefix.STATES.items())
+        generated+=f'#define G0Q_PREFIX_COOKIE {prefix.COOKIE}\n'
+        generated+=f'#define G0Q_PREFIX_ENTRY_OFFSET {prefix_control["entry_offset"]}\n'
+        generated+=f'#define G0Q_PREFIX_FRAME_OFFSET {prefix_control["frame_offset"]}\n'
+        (source/'arch/aarch64/g0q-prefix-loader-writer.S').write_text(prefix.marker_module().render(cfg['retained_marker'],1))
+        shutil.copyfile(prefix_control['image']['path'],source/'blob/prefix-Image')
     (source/'arch/aarch64/g0q-android-marker.h').write_text(generated)
     shutil.copyfile(HERE/'guard.c',source/'arch/aarch64/guard.c')
+    shutil.copyfile(HERE/'logm-layout.h',source/'arch/aarch64/logm-layout.h')
     if logm:shutil.copyfile(HERE/'logm-control.c',source/'arch/aarch64/logm-control.c')
     else:(source/'arch/aarch64/logm-control.c').write_text('/* LOGM control is not selected. */\n')
+    for name in ('prefix-control.c','prefix-entry.S'):
+        if prefix_control:shutil.copyfile(HERE/name,source/'arch/aarch64'/name)
+        else:(source/'arch/aarch64'/name).write_text('/* Prefix control is not selected. */\n')
     config = (upstream/'configs/r0q_defconfig').read_text()
-    settings = dict(CONFIG_TEXT_BASE=hex(TEXT), CONFIG_PAYLOAD_ENTRY=hex(PAYLOAD),
+    settings = dict(CONFIG_TEXT_BASE=hex(text_base), CONFIG_PAYLOAD_ENTRY=hex(PAYLOAD),
         CONFIG_DTB_RELOCATE='y',CONFIG_DTB_ENTRY=hex(DTB),CONFIG_FDT_BUF_SIZE=str(FDT_CAPACITY),
         CONFIG_FDT_BUF_ADDR='0x0',CONFIG_RAMDISK_NO_COPY='y',CONFIG_SIMPLE_FB='n')
     for key, value in settings.items():
@@ -167,20 +202,30 @@ def build(base, prepared, output, *, logm_control=False):
     if logm:
         for symbol,field in [('g0q_logm_frame','frame_hex'),('g0q_logm_report_seed','report_seed_hex')]:
             require(symbol in syms and syms[symbol][1]==128 and
-                raw[syms[symbol][0]-TEXT:syms[symbol][0]-TEXT+128]==bytes.fromhex(logm['configuration'][field]),
+                raw[syms[symbol][0]-text_base:syms[symbol][0]-text_base+128]==bytes.fromhex(logm['configuration'][field]),
                 'linked LOGM frame/report seed differs')
         require('g0q_logm_control' in syms,'LOGM writer missing')
+    if prefix_control:
+        ps=syms['g0q_prefix_image'][0]-text_base
+        cfg=prefix_control['configuration']
+        require(raw[ps:ps+prefix_control['image']['size']]==Path(prefix_control['image']['path']).read_bytes() and
+            syms['g0q_prefix_image_end'][0]-syms['g0q_prefix_image'][0]==prefix_control['image']['size'],
+            'linked prefix Image differs')
+        for name,data in [('g0q_prefix_report_seed',bytes.fromhex(cfg['report_seed_hex'])),
+                          ('s22_retained_loader_frame',bytes.fromhex(cfg['retained_marker']['frames']['1']))]:
+            at=syms[name][0]-text_base
+            require(raw[at:at+len(data)]==data,'linked prefix generated bytes differ: '+name)
     values = {k:syms[k][0] for k in required}
-    require(values['_head'] == TEXT and values['_stub_end'] == values['_start'] and
-        values['_file_end']-TEXT == len(raw) and
+    require(values['_head'] == text_base and values['_stub_end'] == values['_start'] and
+        values['_file_end']-text_base == len(raw) and
         values['_copy_size'] == values['_file_end']-values['_stub_end'] and
         values['_copy_size'] % 16 == 0 and values['kernel_size'] == len(kernel) and
         values['_file_end'] <= values['__bss_start'] <= values['fdt_buf'] and
         values['fdt_buf']+FDT_CAPACITY <= values['__bss_end'] <= values['_stack_end'],
         'linked runtime geometry differs')
-    require(raw[values['kernel']-TEXT:values['kernel']-TEXT+len(kernel)] == kernel,
+    require(raw[values['kernel']-text_base:values['kernel']-text_base+len(kernel)] == kernel,
             'linked exact vendor Image differs')
-    extents = dict(staging=(TEXT,values['_stack_end']),kernel=(PAYLOAD,PAYLOAD+runtime),
+    extents = dict(staging=(text_base,values['_stack_end']),kernel=(PAYLOAD,PAYLOAD+payload_runtime),
                    fdt=(DTB,DTB+FDT_CAPACITY))
     reserved = fixed_reservations(live)+memreserve(live_path)
     for name,(a,b) in extents.items():
@@ -189,23 +234,23 @@ def build(base, prepared, output, *, logm_control=False):
     for i,(a,b) in enumerate(extents.values()):
         require(all(b <= c or d <= a for c,d in list(extents.values())[i+1:]),'write extents overlap')
     table = b''.join(struct.pack('<QQ',a,b) for a,b in [*extents.values(),*banks])
-    require(raw[values['_g0q_guard_plan']-TEXT:values['_g0q_source_ram_end']-TEXT] == table,
+    require(raw[values['_g0q_guard_plan']-text_base:values['_g0q_source_ram_end']-text_base] == table,
             'linked pre-store plan differs from qualified extents')
     image_offset,image_size,image_flags = struct.unpack_from('<QQQ',raw,8)
     require(raw[56:60] == b'ARMd' and image_offset == 0 and
-        image_size == values['_stack_end']-TEXT and image_flags == 10,'outer loader Image header differs')
+        image_size == values['_stack_end']-text_base and image_flags == 10,'outer loader Image header differs')
     with elf.open('rb') as stream:
         parsed_elf = ELFFile(stream)
         for sec in parsed_elf.iter_sections():
             if sec['sh_flags'] & 2 and sec['sh_size'] and sec['sh_type'] != 'SHT_NOBITS':
                 a,b=sec['sh_addr'],sec['sh_addr']+sec['sh_size']
-                require(TEXT <= a < b <= values['_file_end'] and raw[a-TEXT:b-TEXT] == sec.data(),
+                require(text_base <= a < b <= values['_file_end'] and raw[a-text_base:b-text_base] == sec.data(),
                         'ELF and raw section disagree: '+sec.name)
     guard = guard_instructions(elf,syms,output)
     run(['file',elf,blob,source/'blob/Image'],output/'file.log')
     run(['aarch64-linux-gnu-readelf','-h','-l','-r',elf],output/'elf.log')
     run(['aarch64-linux-gnu-objdump','-d',elf],output/'disassembly.txt')
-    sources = [HERE/'build.py',HERE/'guard.c',HERE/'logm-control.c',Path(profile.__file__),*patches,COMMON/'sources.json',
+    sources = [HERE/'build.py',HERE/'guard.c',HERE/'logm-control.c',HERE/'logm-layout.h',Path(profile.__file__),*patches,COMMON/'sources.json',
                COMMON/'prepare.py',COMMON/'build_loader.py']
     result = dict(status=STATUS,loader=pin(blob),elf=pin(elf),kernel=pin(source/'blob/Image'),
         original_a=pin(baseline),retained_fdt=pin(live_path),retained_preparation=pin(prepared/'prepared.json'),
@@ -217,6 +262,10 @@ def build(base, prepared, output, *, logm_control=False):
         loader_image_header=dict(text_offset=image_offset,image_size=image_size,flags=image_flags,file_size=len(raw)),
         retained_initrd_preserved=True,device_actions=0,activation=False)
     if logm:result['logm_control']=logm
+    if prefix_control:
+        result['prefix_control']=prefix_control
+        result['source_pins'] += [pin(HERE/name) for name in ('prefix-control.c','prefix-entry.S','prefix_image.py')]
+        result['source_pins'] += [pin(prefix.__file__),pin(COMMON/'retained-marker.S'),pin(COMMON/'retained_marker.py'),pin(COMMON/'build_kernel.py')]
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=STATUS,loader_bytes=len(raw),kernel_bytes=len(kernel),
                          guard_instructions=guard['instruction_count'],device_actions=0)))
@@ -226,4 +275,5 @@ if __name__ == '__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('base','prepared','output'): p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--logm-control',action='store_true')
-    a=p.parse_args();build(a.base,a.prepared,a.output,logm_control=a.logm_control)
+    p.add_argument('--prefix-kernel',type=Path)
+    a=p.parse_args();build(a.base,a.prepared,a.output,logm_control=a.logm_control,prefix_kernel=a.prefix_kernel)

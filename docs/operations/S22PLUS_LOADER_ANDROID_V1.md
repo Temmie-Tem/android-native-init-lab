@@ -26,7 +26,7 @@ pass the instruction checks. Unsupported entry state, source alignment or
 input shape stops before stores; no speculative write follows rejection.
 
 The full incoming tree is cloned, with one fresh candidate-bound
-`/chosen/codex,uniloader-android-v1` marker added. The optional LOGM control
+`/chosen/codex,uniloader-android-v1` marker added. Either optional diagnostic
 below adds its one fixed report property. A preexisting selected marker or
 report is rejected. Existing properties, memory reservations, initrd/bootconfig span,
 boot arguments, version and boot CPU are preserved. The inherited initrd is
@@ -125,6 +125,85 @@ Matching readback and a snapshot frame are reported as separate observations;
 neither establishes mainline execution, historical failure cause, reset/
 Download retention or automatic recovery. Original-A return and health retain
 their independent requirements.
+
+### Optional mainline prefix live witness
+
+Only the schema-exact `s22plus-loader-mainline-prefix-v1` `prefix_control`
+descriptor selects this variant. It is mutually exclusive with `logm_control`.
+The loader embeds both the exact original-A vendor Image and one fresh full
+mainline Image with the fixed returning `primary_entry` below. It uses a single
+payload destination sequentially: mainline copy and bounded prefix entry,
+return to resident loader code, exact vendor copy over the same destination,
+and the existing synchronized vendor handoff. This is an entry-prefix witness,
+not a mainline boot, RAM PID1, USB or installed-Debian experiment.
+
+Before any store, the existing placement guard covers the entire enlarged
+loader file/runtime, live FDT, inherited initrd and the union of both kernel
+runtime intervals. The selected loader staging starts at `0xaa000000`; other
+variants retain their original staging. Exact linked extents must fit retained
+RAM and avoid every fixed reservation and protected input. The live source's
+executing stub cannot be overwritten. Unsafe geometry parks without a fallback
+boot attempt. The unchanged original ramdisk and both Images must fit the
+original 96 MiB boot-v4 envelope and deterministic boot-only AP.
+
+One fresh 256-byte `/chosen/codex,uniloader-prefix-v1` report is allocated and
+packed before final FDT placement. This variant reserves 768 bytes of input
+headroom. No property allocation or relocation follows diagnostic access.
+Before any LOGM access or prefix entry, the same exact live-FDT LOGM layout
+checks as the preceding control must pass, with EL1/EL2, little-endian data,
+MMU, data cache and instruction cache off. An unsuitable sampled CPU state or
+live logger layout records its explicit skip and continues to the exact vendor
+Image without either marker writer or mainline entry.
+
+For eligible state/layout, the loader calls the unchanged V1 loader-handoff
+writer once, then enters the actual mainline Image header. Its fixed
+`primary_entry` saves the return address in x18, calls the unchanged V1
+kernel-entry writer once and returns to the resident loader before
+`record_mmu_state` or `preserve_boot_args`. Only the existing two distinct
+128-byte V1 slots within their fixed 256-byte LOGM span are writable; the
+four header words are never changed. Each writer's existing magic/index,
+header-recheck and eight-byte commit-prefix rules remain intact. The total
+maximum is 272 payload byte stores, with no retry or header initialization.
+
+The prefix returns its actual entry PC, CurrentEL, SCTLR and fixed cookie.
+The resident caller preserves its normal callee-saved registers, SP and LR,
+requires the exact PC/cookie and unchanged eligible CPU sample, and parks on a
+bad return. The prefix performs no MMU, cache-control, storage, peripheral,
+watchdog, SCM or reset mutation. The loader retains the existing synchronization
+sequence before each Image branch. There is no general kernel-context restore.
+Both Image calls receive the final live vendor FDT and x1–x3 zero; the prefix
+does not parse that tree. This differs from the historical mainline-DTB path.
+
+The report samples all four LOGM header words before and after each writer call.
+When an after-call sample has valid magic/index, it derives that sample's slot
+and compares exactly 128 bytes with the corresponding candidate frame. This
+is a post-call byte observation, not the writer's returned outcome: V1 returns
+no status. Header drift may make that derived slot different from the actual
+write slot. A matching static frame may predate the current attempt. Neither
+external header samples nor readback prove current-attempt stores, commits,
+absence of intervening writes, reset retention or past failure causes.
+
+The host obtains the existing complete candidate Android proof, checks
+shell-v2, reads exactly this fixed report once with a 256-byte maximum and
+30-second bound, then obtains another complete same-boot/USB-generation proof.
+All reads remain within the original 240-second window and grant, with raw
+stdout/stderr and producer outcomes sealed first. This variant adds no
+last_kmsg read, post-closure reader, general shell or retry. A valid skip or
+readback mismatch remains diagnostic and permits the unchanged normal return;
+failed, partial, oversized or malformed acquisition stops the original owner.
+Prefix-return proof and loader/vendor-Android proof are separate terminal facts.
+
+Qualification binds the actual full prefix Image, its exact source recipe,
+both unchanged V1 writers, generated declarations, enlarged loader/ELF and
+boot/AP. Actual instruction tests and actual EL1/EL2 fixtures must execute
+sequential full copies, the Image-header/prefix/return path and final exact
+vendor handoff, preserving existing FDT/initrd semantics. Negative tests cover
+guarded ranges, malformed/stale FDT, CPU/layout skips, header/index boundaries
+and drift, interrupted reports, bad returns and ABI sentinels. Synthetic
+fixtures do not prove physical coherence or a historical failure mechanism.
+One current independent review and fresh exact candidate qualification are
+required before the existing finite attended approval path. Failure recovery,
+the original one-shot A, terminal health and no replay remain unchanged.
 
 ## Finite entry and observation
 

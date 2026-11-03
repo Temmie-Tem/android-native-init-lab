@@ -8,8 +8,9 @@ import socket
 import struct
 import subprocess
 
-from build import ROOT, STATUS, digest, pin, require
+from build import ROOT, STATUS, digest, pin, require, symbols
 import s22plus_loader_android_profile_v1 as profile
+import s22plus_loader_prefix_v1 as prefix
 
 
 def qualify(loader,gdb,output):
@@ -20,9 +21,10 @@ def qualify(loader,gdb,output):
             pin(record['retained_fdt']['path'])==record['retained_fdt'],'QEMU input differs')
     blob=Path(record['loader']['path']);fdt=Path(record['retained_fdt']['path']);s=record['runtime_symbols']
     output.mkdir(mode=0o700,parents=True)
-    logm=record.get('logm_control')
-    if logm:
-        config=profile.logm_binding(logm,record['marker'])
+    pfx=record.get('prefix_control');logm=record.get('logm_control')
+    diagnostic=pfx or logm
+    if diagnostic:
+        config=profile.prefix_binding(pfx,record['marker']) if pfx else profile.logm_binding(logm,record['marker'])
         # Same sparse high-RAM fixture used by the existing mainline marker VM.
         sparse=output/'vm-memory.bin'
         with sparse.open('xb') as stream:stream.truncate(36*1024**3)
@@ -41,19 +43,19 @@ def qualify(loader,gdb,output):
                        (3,'virtualization=on,secure=on')]:
         work=output/f'el{el}';work.mkdir(mode=0o700)
         with socket.socket() as listener:listener.bind(('127.0.0.1',0));port=listener.getsockname()[1]
-        memory=(['-object',f'memory-backend-file,id=vmram,size=36G,mem-path={sparse},share=on,reserve=off,prealloc=off,dump=off'] if logm else [])
-        machine='virt,'+options+(',memory-backend=vmram' if logm else '')
-        command=[str(qemu),*memory,'-nodefaults','-machine',machine,'-cpu','cortex-a76','-smp','1','-m','36G' if logm else '3G',
+        memory=(['-object',f'memory-backend-file,id=vmram,size=36G,mem-path={sparse},share=on,reserve=off,prealloc=off,dump=off'] if diagnostic else [])
+        machine='virt,'+options+(',memory-backend=vmram' if diagnostic else '')
+        command=[str(qemu),*memory,'-nodefaults','-machine',machine,'-cpu','cortex-a76','-smp','1','-m','36G' if diagnostic else '3G',
             '-display','none','-monitor','none','-serial','none','-no-reboot','-S','-gdb',f'tcp:127.0.0.1:{port}',
             '-device',f'loader,file={blob},addr={source},force-raw=on',
             '-device',f'loader,file={fdt},addr={fdt_address},force-raw=on',
             '-device',f'loader,file={output/"fixture-entry.bin"},addr={entry},force-raw=on',
             '-device',f'loader,addr={entry},cpu-num=0']
-        if logm:command+=['-device',f'loader,file={output/"logm-seed.bin"},addr=0x800200000,force-raw=on']
-        success=record['extents']['kernel'][0] if logm else s['_start']
+        if diagnostic:command+=['-device',f'loader,file={output/"logm-seed.bin"},addr=0x800200000,force-raw=on']
+        success=record['extents']['kernel'][0] if diagnostic else s['_start']
         expected=success if el!=3 else source+s['_reloc_rejected']-s['_head']
         logm_check=''
-        if logm:
+        if diagnostic:
             logm_check=f'''
 import struct
 seed=open({str(output/'logm-seed.bin')!r},'rb').read()
@@ -69,10 +71,31 @@ else:
     assert 40<=length<={record['fdt_capacity']}, 'final FDT length exceeds buffer'
     final_fdt=bytes(gdb.selected_inferior().read_memory(dtaddr,length))
     open({str(work/'final.dtb')!r},'xb').write(final_fdt)
-    frame=bytes.fromhex({config['frame_hex']!r})
-    expected_ring=bytearray(seed);expected_ring[17:145]=frame
+    frames={list(config['retained_marker']['frames'].values()) if pfx else [config['frame_hex']]!r}
+    expected_ring=bytearray(seed)
+    for i,frame in enumerate(frames):expected_ring[17+i*128:145+i*128]=bytes.fromhex(frame)
     assert ring==expected_ring, 'actual EL writer changed header or escaped unaligned 128-byte slot'
 open({str(work/'logm.bin')!r},'xb').write(ring)
+'''
+        prefix_check=''
+        if pfx:
+            psyms=symbols(pfx['elf']['path']);lsyms=symbols(record['elf']['path'])
+            forbidden=record['extents']['kernel'][0]+psyms['record_mmu_state'][0]-psyms['_text'][0]
+            returned=lsyms['g0q_prefix_return'][0]
+            prefix_check=f'''
+python
+if {el}!=3:
+    assert int(gdb.parse_and_eval('$pc'))=={success}, 'prefix header was not entered'
+    expected=open({pfx['image']['path']!r},'rb').read()
+    assert bytes(gdb.selected_inferior().read_memory({success},len(expected)))==expected, 'first copy is not prefix Image'
+    assert [int(gdb.parse_and_eval('$x'+str(n))) for n in range(4)]==[{record['extents']['fdt'][0]},0,0,0], 'prefix handoff ABI differs'
+    gdb.execute('hbreak *{forbidden}')
+    gdb.execute('hbreak *{returned}')
+    gdb.execute('continue')
+    assert int(gdb.parse_and_eval('$pc'))=={returned}, 'prefix reached forbidden kernel state or failed return'
+    assert int(gdb.parse_and_eval('$x0'))=={success+pfx['entry_offset']} and int(gdb.parse_and_eval('$x1'))=={el*4} and int(gdb.parse_and_eval('$x3'))=={prefix.COOKIE}, 'actual prefix return facts differ'
+    gdb.execute('continue')
+end
 '''
         script=f'''set pagination off
 set confirm off
@@ -89,13 +112,14 @@ end
 hbreak *{success}
 hbreak *{source+s['_reloc_rejected']-s['_head']}
 continue
+{prefix_check}
 python
 pc=int(gdb.parse_and_eval('$pc'));cpsr=int(gdb.parse_and_eval('$cpsr'))
 assert pc=={expected}, 'wrong entry terminal'
 assert int(gdb.parse_and_eval('$x28'))=={fdt_address}, 'actual incoming x0 was lost'
 if {el}!=3:
     assert cpsr&0x3c0==0x3c0, 'DAIF masks missing'
-    if {not bool(logm)!r}:
+    if {not bool(diagnostic)!r}:
         raw=open({str(blob)!r},'rb').read()[{s['_start']-s['_head']}:]
         assert bytes(gdb.selected_inferior().read_memory({s['_start']},len(raw)))==raw, 'relocated bytes differ'
 assert bytes(gdb.selected_inferior().read_memory({fdt_address},{fdt.stat().st_size}))==open({str(fdt)!r},'rb').read(), 'input FDT changed'
@@ -118,18 +142,24 @@ quit
                                          stdout=log,stderr=subprocess.STDOUT,timeout=45)
                 require(check.returncode==0 and (work/'result.json').is_file(),'QEMU entry failed: '+str(work))
                 row=json.loads((work/'result.json').read_text());rows.append(row);print(json.dumps(row),flush=True)
-                if logm and el!=3:
+                if diagnostic and el!=3:
                     from prepare import nodes,memreserve
-                    tree=nodes(work/'final.dtb');report=tree['/chosen'].pop(profile.LOGM_PROPERTY)
+                    tree=nodes(work/'final.dtb');report=tree['/chosen'].pop(prefix.PROPERTY if pfx else profile.LOGM_PROPERTY)
                     require(tree['/chosen'].pop(record['marker_property'])==record['marker'].encode(),
                             'actual EL immutable loader marker differs')
                     require(tree==nodes(fdt) and memreserve(work/'final.dtb')==memreserve(fdt) and
                             (work/'final.dtb').read_bytes()[20:32]==fdt.read_bytes()[20:32],
                             'actual EL handoff changed existing FDT semantics')
-                    observed=profile.logm_report(report,config)
-                    require(observed['status']=='READBACK_MATCH' and observed['current_el']==el*4 and
-                            observed['slot_offset']==1,'actual EL LOGM report differs')
-                    row['logm_writer']=observed
+                    if pfx:
+                        observed=prefix.report(report,config,success+pfx['entry_offset'])
+                        require(observed['status']=='RETURNED' and observed['current_el']==el*4 and
+                            all(r['postcall_mismatch_count']==0 for r in observed['observations']), 'actual EL prefix report differs')
+                        row['prefix_return']=observed
+                    else:
+                        observed=profile.logm_report(report,config)
+                        require(observed['status']=='READBACK_MATCH' and observed['current_el']==el*4 and
+                                observed['slot_offset']==1,'actual EL LOGM report differs')
+                        row['logm_writer']=observed
             finally:
                 proc.terminate()
                 try:proc.wait(timeout=5)
@@ -138,6 +168,9 @@ quit
         source=pin(__file__),qemu=pin(qemu),gdb=pin(gdb),retained_fdt=record['retained_fdt'],
         fixture=pin(output/'fixture-entry.bin'),cases=rows,cache_coherency_proved=False,
         physical_entry_proved=False,device_actions=0)
+    if pfx:
+        result['prefix_control']=dict(status='PASS_H0_ACTUAL_EL_LOADER_PREFIX_CONTROL',configuration=config,
+            actual_dual_copy_and_prefix_return=True,final_fdt_and_header_preserved=True,actual_entry_els=[1,2],el3_rejected=True)
     if logm:
         result['logm_control']=dict(status='PASS_H0_ACTUAL_EL_LOADER_LOGM_CONTROL',configuration=config,
             final_fdt_and_header_preserved=True,unaligned_payload_slot=1,actual_entry_els=[1,2],el3_rejected=True)

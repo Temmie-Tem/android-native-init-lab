@@ -53,11 +53,14 @@ def source_paths(root,selected=profile):
         paths += [selected.POLICY,
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_profile_v1.py',
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_access_v1.py',
+            'workspace/public/src/scripts/revalidation/s22plus_loader_prefix_v1.py',
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_session_v1.py']
         paths += ['workspace/public/src/mainline/s22plus_loader_android_h0/'+name for name in
-                  ('build.py','guard.c','logm-control.c','uniloader-android.patch','qualify.py','entry_vm.py')]
+                  ('build.py','guard.c','logm-control.c','logm-layout.h','prefix-control.c','prefix-entry.S',
+                   'prefix_image.py','prefix_qualify.py','uniloader-android.patch','qualify.py','entry_vm.py')]
         paths += ['workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
-                  ('build_loader.py','package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
+                  ('build_loader.py','build_kernel.py','prepare_marked.py','retained-marker.S',
+                   'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
     return tuple(root/path for path in sorted(set(paths)))
 
 
@@ -69,7 +72,8 @@ def source_pins(root,selected=profile):
 def loader_build_only(path):
     return (path.startswith('workspace/public/src/mainline/s22plus_loader_android_h0/') or
         path in {'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
-            ('build_loader.py','package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')})
+            ('build_loader.py','build_kernel.py','prepare_marked.py','retained-marker.S',
+             'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')})
 
 
 def marker_only(path):

@@ -12,6 +12,7 @@ import time
 
 from build import COMMON, ROOT, STATUS, digest, pin, require, symbols
 import s22plus_loader_android_profile_v1 as profile
+import s22plus_loader_prefix_v1 as prefix
 sys.path.insert(0,str(COMMON))
 from prepare import nodes, memreserve
 import qualify_loader as shared
@@ -158,9 +159,9 @@ def machine(blob,record,syms,source,fdt,*,fdt_address=INPUT_FDT):
     s={k:v[0] for k,v in syms.items()}
     intervals=[(source,source+len(blob)),*map(tuple,record['extents'].values()),
                (fdt_address,fdt_address+max(4096,len(fdt)))]
-    if 'logm_control' in record:intervals.append((LOG_BASE,LOG_BASE+LOG_SIZE))
+    if 'logm_control' in record or 'prefix_control' in record:intervals.append((LOG_BASE,LOG_BASE+LOG_SIZE))
     u,_=shared.machine(intervals)
-    if 'logm_control' in record:u.mem_write(LOG_BASE,log_seed())
+    if 'logm_control' in record or 'prefix_control' in record:u.mem_write(LOG_BASE,log_seed())
     u.mem_write(source,blob);u.mem_write(fdt_address,fdt)
     u.reg_write(UC_ARM64_REG_X0,fdt_address)
     return u,s
@@ -193,7 +194,7 @@ def run_case(blob,record,syms,source,fdt,*,expected,full=False,fdt_address=INPUT
     def written(uc,kind,address,length,value,user):
         require(passed and full,'input rejected after memory stores')
         require(address%min(length,8)==0,'unaligned loader store')
-        log_write='logm_control' in record and LOG_BASE+16<=address and address+length<=LOG_BASE+LOG_SIZE
+        log_write=('logm_control' in record or 'prefix_control' in record) and LOG_BASE+16<=address and address+length<=LOG_BASE+LOG_SIZE
         if log_write:require(length==1,'LOGM write was not one byte')
         require(log_write or any(a<=address and address+length<=b for a,b in record['extents'].values()),
                 'loader wrote outside the pre-guarded extents')
@@ -226,13 +227,24 @@ def run_case(blob,record,syms,source,fdt,*,expected,full=False,fdt_address=INPUT
             require(not (address<b and a<address+length),'loader accessed inherited initrd')
         u.hook_add(UC_HOOK_MEM_READ|UC_HOOK_MEM_WRITE,check_access)
         target=record['extents']['kernel'][0]
-        u.hook_add(UC_HOOK_CODE,stop('kernel'),begin=target,end=target)
+        entered=[]
+        def image_entry(uc,address,length,user):
+            entered.append(True)
+            if 'prefix_control' in record and len(entered)==1:
+                require(bytes(uc.mem_read(target,record['prefix_control']['image']['size']))==
+                    Path(record['prefix_control']['image']['path']).read_bytes(),'mainline copy differs before prefix')
+                require([uc.reg_read(v) for v in (UC_ARM64_REG_X0,UC_ARM64_REG_X1,UC_ARM64_REG_X2,UC_ARM64_REG_X3)]==
+                    [record['extents']['fdt'][0],0,0,0],'prefix handoff arguments differ')
+                return
+            require(len(entered)==(2 if 'prefix_control' in record else 1),'unexpected Image entry count')
+            terminal.append('kernel');uc.emu_stop()
+        u.hook_add(UC_HOOK_CODE,image_entry,begin=target,end=target)
         jump=s['load_kernel_and_jump']
         sync_offset=blob[jump-head:jump-head+64].find(shared.SYNC)
         require(sync_offset>=0,'kernel sync differs')
         def at_sync(uc,address,length,user):sync.append(True)
         u.hook_add(UC_HOOK_CODE,at_sync,begin=jump+sync_offset,end=jump+sync_offset)
-    started=time.monotonic();u.emu_start(source,0,count=180_000_000)
+    started=time.monotonic();u.emu_start(source,0,count=300_000_000)
     require(terminal==[expected],'unexpected actual-loader terminal: '+str(terminal)+
         '; pc='+hex(u.reg_read(UC_ARM64_REG_PC))+'; nearest='+
         str(sorted(((v[0],k) for k,v in syms.items() if v[0]<=u.reg_read(UC_ARM64_REG_PC)),reverse=True)[:2]))
@@ -255,6 +267,16 @@ def run_case(blob,record,syms,source,fdt,*,expected,full=False,fdt_address=INPUT
             expected=bytearray(log_seed());at=16+report['slot_offset']
             expected[at:at+128]=bytes.fromhex(record['logm_control']['configuration']['frame_hex'])
             require(bytes(u.mem_read(LOG_BASE,LOG_SIZE))==expected,'full-loader LOGM write escaped exact slot/header')
+        if 'prefix_control' in record:
+            value=record['prefix_control'];pos,length,_=properties(cloned)[('/chosen',prefix.PROPERTY)]
+            observed=prefix.report(cloned[pos:pos+length],value['configuration'],target+value['entry_offset'])
+            require(observed['status']=='RETURNED','full loader did not return from prefix')
+            expected=bytearray(log_seed())
+            for i,row in enumerate(observed['observations']):
+                require(row['postcall_mismatch_count']==0,'full prefix readback differs')
+                at=16+row['postcall_slot_offset']
+                expected[at:at+128]=bytes.fromhex(value['configuration']['retained_marker']['frames'][str(i+1)])
+            require(bytes(u.mem_read(LOG_BASE,LOG_SIZE))==expected,'full prefix LOGM extent/header changed')
     else:cloned=None;require(writes[0]==0,'guard-only case wrote memory')
     row=dict(source=source,terminal=terminal[0],write_bytes=writes[0],entry_el=el,
         currentel_injected=el!=1,sctlr_injected=state,elapsed_seconds=round(time.monotonic()-started,3))
@@ -389,7 +411,8 @@ def logm_cases(blob,record,syms,cloned,output):
 
 
 def logm_fdt_capacity(blob,record,syms,fdt,output):
-    limit=record['fdt_capacity']-512
+    pfx='prefix_control' in record
+    limit=record['fdt_capacity']-(768 if pfx else 512)
     empty=set_property(fdt,'/chosen','codex,h0-padding',b'')
     count=(limit-len(empty))&~3
     require(count>0,'headroom fixture needs no padding')
@@ -425,8 +448,9 @@ def logm_fdt_capacity(blob,record,syms,fdt,output):
         if success:
             size=struct.unpack('>I',bytes(u.mem_read(buf+4,4)))[0]
             packed=bytes(u.mem_read(buf,size));props=properties(packed)
-            p,n,_=props[('/chosen',profile.LOGM_PROPERTY)]
-            require(n==128 and packed[p:p+n]==bytes.fromhex(record['logm_control']['configuration']['report_seed_hex']),
+            p,n,_=props[('/chosen',prefix.PROPERTY if pfx else profile.LOGM_PROPERTY)]
+            descriptor=record['prefix_control' if pfx else 'logm_control']
+            require(n==(256 if pfx else 128) and packed[p:p+n]==bytes.fromhex(descriptor['configuration']['report_seed_hex']),
                     'preallocated report did not fit at maximum input')
             (output/'maximum-packed.dtb').write_bytes(packed)
         rows.append(dict(name=name,buffer_capacity=capacity,input_bytes=limit,
@@ -484,9 +508,11 @@ def qualification(loader,output):
         ('preexisting-marker',set_property(fdt,'/chosen',record['marker_property'],record['marker'].encode()),'reject',{}),
         ('empty-preexisting-marker',set_property(fdt,'/chosen',record['marker_property'],b''),'reject',{}),
         ('reserve-overflow',add_reservation(fdt,2**64-4096,8192),'reject',{})])
-    if 'logm_control' in record:
+    if 'logm_control' in record or 'prefix_control' in record:
+        prop=prefix.PROPERTY if 'prefix_control' in record else profile.LOGM_PROPERTY
+        size=256 if 'prefix_control' in record else 128
         cases.extend([
-            ('preexisting-logm-report',set_property(fdt,'/chosen',profile.LOGM_PROPERTY,bytes(128)),'reject',{}),
+            ('preexisting-logm-report',set_property(fdt,'/chosen',prop,bytes(size)),'reject',{}),
             ('FDT-in-LOGM',fdt,'reject',{'fdt_address':LOG_BASE}),
             ('source-in-LOGM',fdt,'reject',{'source':LOG_BASE})])
         overlap=set_property(fdt,'/chosen','linux,initrd-start',struct.pack('>Q',LOG_BASE))
@@ -520,17 +546,20 @@ def qualification(loader,output):
         row,_=run_case(blob,record,syms,place,fdt,expected='guard')
         row.update(name='retained-source-'+str(ordinal));retain(row)
     full_fdt=fdt
-    if 'logm_control' in record:
+    if 'logm_control' in record or 'prefix_control' in record:
         full_fdt=reduced_fdt(fdt,lambda path:path in ('/','/chosen','/memory','/soc','/soc/samsung,kernel_log_buf') or
                             path.startswith('/reserved-memory'),output/'full-geometry-fixture')
+    forward=max(0xaf000000,(record['runtime_symbols']['_stack_end']+0x1fffff)&~0x1fffff)
     for label,place in [('normal-first',source),('normal-last',source+(63<<15)),
-                        ('same',record['runtime_symbols']['_head']),('forward',0xaf000000)]:
-        row,cloned=run_case(blob,record,syms,place,full_fdt,expected='kernel',full=True)
+                        ('same',record['runtime_symbols']['_head']),('forward',forward)]:
+        fdt_address=0xb5000000 if 'prefix_control' in record and label=='forward' else INPUT_FDT
+        row,cloned=run_case(blob,record,syms,place,full_fdt,expected='kernel',full=True,fdt_address=fdt_address)
         path=output/(label+'.dtb');path.write_bytes(cloned)
         tree=nodes(path)
         require(tree['/chosen'].pop(record['marker_property'])==record['marker'].encode(),'loader marker differs')
         if 'logm_control' in record:tree['/chosen'].pop(profile.LOGM_PROPERTY)
-        fixture_path=output/'full-geometry-fixture.dtb' if 'logm_control' in record else Path(record['retained_fdt']['path'])
+        if 'prefix_control' in record:tree['/chosen'].pop(prefix.PROPERTY)
+        fixture_path=output/'full-geometry-fixture.dtb' if 'logm_control' in record or 'prefix_control' in record else Path(record['retained_fdt']['path'])
         require(tree==nodes(fixture_path) and
                 memreserve(path)==memreserve(fixture_path) and cloned[20:32]==full_fdt[20:32],
                 'clone changed existing FDT properties, reservations, version or boot CPU')
@@ -544,7 +573,12 @@ def qualification(loader,output):
     if 'logm_control' in record:
         result['logm_control']=logm_cases(blob,record,syms,cloned,output)
         result['logm_control']['fdt_capacity_cases']=logm_fdt_capacity(blob,record,syms,fdt,output)
-    if 'logm_control' in record:result['full_copy_fixture']=pin(output/'full-geometry-fixture.dtb')
+    if 'prefix_control' in record:
+        from prefix_qualify import qualify as qualify_prefix
+        result['prefix_control']=qualify_prefix(blob,record,syms,cloned,output)
+        result['prefix_control']['fdt_capacity_cases']=logm_fdt_capacity(blob,record,syms,fdt,output)
+        result['source_pins'].append(pin(Path(__file__).with_name('prefix_qualify.py')))
+    if 'logm_control' in record or 'prefix_control' in record:result['full_copy_fixture']=pin(output/'full-geometry-fixture.dtb')
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=result['status'],cases=len(rows),copy_cases=copies)),flush=True)
 

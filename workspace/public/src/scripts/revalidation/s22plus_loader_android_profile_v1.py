@@ -9,6 +9,7 @@ from s22plus_native_records_v3 import pin,publish,read,require
 from s22plus_native_task_v3 import unchanged,android_artifact
 import s22plus_boot_only_f1_transport as transport
 import s22plus_boot_verify as boot
+import s22plus_loader_prefix_v1 as prefix
 
 ROOT=Path(__file__).resolve().parents[5]
 PROFILE='loader-android-v1'
@@ -16,7 +17,7 @@ OPERATION='loader-android'
 SELECTION='loader-android-evidence'
 RETURN='loader-android-download'
 POLICY='docs/operations/S22PLUS_LOADER_ANDROID_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_loader_logm_control_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_loader_prefix_v1_review.json'
 NAMESPACE='la001'
 VERSION='loader-android-1'
 SECONDS=1800
@@ -133,6 +134,47 @@ def logm_declarations(receipt,build):
     return config
 
 
+def prefix_binding(value,marker):
+    require(set(value)=={'configuration','key','kernel_build','source','image','elf','entry_offset','frame_offset'},
+            'prefix descriptor shape differs')
+    key=retained(value['key'],maximum=32).read_bytes()
+    require(value['configuration']==prefix.configuration(marker,key),'prefix candidate/key configuration differs')
+    built=read(retained(value['kernel_build']));source=read(retained(value['source']))
+    require(built['status']=='H0_KERNEL_BUILT_NOT_DEVICE_AUTHORITY' and built['device_actions']==0 and
+        built['prefix_source']==value['source'] and source['configuration']==value['configuration'] and
+        source['key']==value['key'] and source['device_actions']==0 and
+        built['sha256']==value['image']['sha256'] and built['file_size']==value['image']['size'],
+        'prefix build/source/image provenance differs')
+    data=retained(value['image']).read_bytes();retained(value['elf'])
+    require(data[56:60]==b'ARMd' and struct.unpack_from('<QQQ',data,8)==(0,built['runtime_size'],10),
+            'prefix raw Image header differs')
+    require(type(value['entry_offset']) is int and 64<=value['entry_offset']<len(data) and
+        value['entry_offset']%4==0 and type(value['frame_offset']) is int and
+        0<=value['frame_offset']<=len(data)-128 and
+        data[value['frame_offset']:value['frame_offset']+128]==
+        prefix.marker_module().frame(marker,key,2,version=1),'prefix actual embedded frame differs')
+    return value['configuration']
+
+
+def prefix_declarations(receipt,writer,build):
+    value=build['prefix_control'];cfg=prefix_binding(value,build['marker'])
+    macros={}
+    for line in retained(receipt,maximum=16384).read_text().splitlines():
+        match=re.fullmatch(r'#define (G0Q_[A-Z0-9_]+) (.+)',line)
+        require(match and match[1] not in macros,'prefix generated declaration malformed or duplicated')
+        macros[match[1]]=match[2]
+    expected={'G0Q_VENDOR_RUNTIME':str(build['kernel_header']['image_size']),
+        'G0Q_PAYLOAD_RUNTIME':str(build['extents']['kernel'][1]-build['extents']['kernel'][0]),
+        'G0Q_ANDROID_MARKER':'"'+build['marker']+'"','G0Q_PREFIX_CONTROL':'1',
+        'G0Q_PREFIX_COOKIE':str(prefix.COOKIE),'G0Q_PREFIX_ENTRY_OFFSET':str(value['entry_offset']),
+        'G0Q_PREFIX_FRAME_OFFSET':str(value['frame_offset']),
+        'G0Q_PREFIX_REPORT_SEED':'{'+','.join(str(x) for x in bytes.fromhex(cfg['report_seed_hex']))+'}'}
+    expected.update({'G0Q_PREFIX_'+name:str(number) for name,number in prefix.STATES.items()})
+    require(macros==expected and retained(writer,maximum=16384).read_text()==
+        prefix.marker_module().render(cfg['retained_marker'],1),'prefix generated header/writer differs')
+    return cfg
+
+
 def _source_review(build,tests,entry,package):
     """Current checker review and retained runtime source identity are distinct."""
     from s22plus_mainline_task_v1 import capability
@@ -145,7 +187,11 @@ def _source_review(build,tests,entry,package):
         # Generated frame/seed/enum declarations are checked against the actual
         # ELF and instruction/EL results. Retain their original producer pins;
         # later host-only checker changes do not replace runtime provenance.
-        runtime_suffixes+=('s22plus_loader_android_h0/logm-control.c',)
+        runtime_suffixes+=('s22plus_loader_android_h0/logm-control.c','s22plus_loader_android_h0/logm-layout.h')
+    if 'prefix_control' in build:
+        runtime_suffixes+=tuple('s22plus_loader_android_h0/'+name for name in
+            ('prefix-control.c','prefix-entry.S','prefix_image.py','logm-layout.h'))
+        runtime_suffixes+=('s22plus_canary_h0/retained-marker.S','s22plus_canary_h0/build_kernel.py')
     source_rows=[r for r in build['source_pins'] if any(r['path'].endswith(s) for s in runtime_suffixes)]
     require(len(source_rows)==len(runtime_suffixes),'retained loader runtime provenance incomplete')
     source_rows += tests['source_pins']+[entry['source']]
@@ -161,19 +207,25 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','qualification',
           'runtime_sources','marker_sha256','kernel_release','boot_sha256','original_a_sha256'}
     logm='logm_control' in image
+    pfx='prefix_control' in image
+    require(not(logm and pfx),'mutually exclusive loader diagnostics')
     if logm:keys.add('logm_control')
+    if pfx:keys.add('prefix_control')
     require(set(image)==keys and image['schema']=='s22plus-loader-android-image-v1' and
         image['profile']==PROFILE and image['namespace']==NAMESPACE and image['version']==VERSION and
         re.fullmatch('[0-9a-f]{32}',image['run_id_hex']),'loader Android image shape differs')
     q=read(retained(image['qualification']))
     qkeys={'schema','status','image','package','loader','loader_tests','entry_tests','device_actions'}
-    if logm:qkeys.add('generated_declarations')
+    if logm or pfx:qkeys.add('generated_declarations')
+    if pfx:qkeys.add('prefix_generated_writer')
     require(set(q)==qkeys and
         q['schema']=='s22plus-loader-android-qualification-v1' and
         q['status']=='PASS_H0_LOADER_ANDROID_CANDIDATE' and q['device_actions']==0 and
         q['image']=={k:v for k,v in image.items() if k!='qualification'},'loader qualification differs')
     package=read(retained(q['package']));build=read(retained(q['loader']))
     tests=read(retained(q['loader_tests']));entry=read(retained(q['entry_tests']))
+    runtime_sources={'loader':build['loader'],'kernel':build['kernel']}
+    if pfx:runtime_sources['prefix']=build['prefix_control']['image']
     require(build['status']=='H0_LOADER_ANDROID_BUILT_NOT_DEVICE_ADMITTED' and
         build['device_actions']==0 and build['activation'] is False and
         build['fdt_capacity']==2*1024*1024 and build['marker_property']==MARKER_PROPERTY and
@@ -181,7 +233,7 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
         image['run_id_hex']==build['marker'][:32] and
         image['marker_sha256']==build['marker_sha256']==hashlib.sha256(build['marker'].encode()).hexdigest() and
         image['kernel_release']==build['kernel_release'] and
-        image['runtime_sources']=={'loader':build['loader'],'kernel':build['kernel']},
+        image['runtime_sources']==runtime_sources,
         'loader runtime and marker binding differs')
     require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['profile']==PROFILE and
         package['activation'] is False and package['device_actions']==0 and
@@ -203,6 +255,7 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
         tests['physical_entry_proved'] is False and entry['physical_entry_proved'] is False,
         'emulated entry provenance differs')
     require(('logm_control' in build)==logm,'LOGM instrumentation receipt missing or spurious')
+    require(('prefix_control' in build)==pfx,'prefix instrumentation receipt missing or spurious')
     if logm:
         require(image['logm_control']==build['logm_control'],'LOGM build/image join differs')
         config=logm_binding(image['logm_control'],build['marker'])
@@ -211,6 +264,13 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
             tests['logm_control']['configuration']==config and
             entry.get('logm_control',{}).get('status')=='PASS_H0_ACTUAL_EL_LOADER_LOGM_CONTROL' and
             entry['logm_control']['configuration']==config,'LOGM actual-code/EL qualification missing')
+    if pfx:
+        require(image['prefix_control']==build['prefix_control'],'prefix build/image join differs')
+        config=prefix_declarations(q['generated_declarations'],q['prefix_generated_writer'],build)
+        require(tests.get('prefix_control',{}).get('status')=='PASS_H0_ACTUAL_LOADER_PREFIX_CONTROL' and
+            tests['prefix_control']['configuration']==config and
+            entry.get('prefix_control',{}).get('status')=='PASS_H0_ACTUAL_EL_LOADER_PREFIX_CONTROL' and
+            entry['prefix_control']['configuration']==config,'prefix actual-code/EL qualification missing')
     expected=read(ROOT/'workspace/public/src/device-action/profiles/s22plus_fyg8.json')['start_health']['boot_sha256']
     require(image['original_a_sha256']==expected,'control kernel is not from exact original A')
     for receipt in image['runtime_sources'].values():retained(receipt)
@@ -259,12 +319,17 @@ def qualify(package_dir,loader_dir,loader_tests,entry_tests,output):
         original_a_sha256=build['original_a']['sha256'])
     if 'logm_control' in build:
         image['logm_control']=build['logm_control']
+    if 'prefix_control' in build:
+        image['prefix_control']=build['prefix_control']
+        image['runtime_sources']['prefix']=build['prefix_control']['image']
     output.mkdir(mode=0o700,parents=True)
     q=dict(schema='s22plus-loader-android-qualification-v1',status='PASS_H0_LOADER_ANDROID_CANDIDATE',
         image=image,package=pin(package_dir/'result.json'),loader=pin(loader_dir/'result.json'),
         loader_tests=pin(loader_tests/'result.json'),entry_tests=pin(entry_tests/'result.json'),device_actions=0)
-    if 'logm_control' in build:
+    if 'logm_control' in build or 'prefix_control' in build:
         q['generated_declarations']=pin(Path(build['elf']['path']).parent/'arch/aarch64/g0q-android-marker.h')
+    if 'prefix_control' in build:
+        q['prefix_generated_writer']=pin(Path(build['elf']['path']).parent/'arch/aarch64/g0q-prefix-loader-writer.S')
     image=dict(image,qualification=publish(output/'qualification.json',q))
     # This producer has no device path. Task preparation and every normal
     # effect require the separate current source-bound capability review.

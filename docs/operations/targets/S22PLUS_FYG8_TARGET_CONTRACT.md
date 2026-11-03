@@ -49,6 +49,17 @@ imply a failure cause; acquisition failures retain the stopped original owner.
 Static candidate frames do not prove same-attempt or reset retention. The
 finite attended grant and original-A/no-replay rules remain unchanged.
 
+Its mutually exclusive schema-exact mainline-prefix witness adopts only the
+linked policy's sequential two-Image boot, fixed return before
+`record_mmu_state`, unchanged two-slot V1 writers and 256-byte live-FDT report.
+The enlarged loader uses independently qualified staging and union runtime
+guards. One fixed report read remains between complete candidate Android
+proofs inside the original window. Prefix execution/return, post-call static
+frame comparison and complete mainline boot are distinct claims. This variant
+adds no post-closure reader, reset, storage effect or automatic recovery.
+Fresh source review, exact qualification and the same returned finite attended
+grant are required; original-A recovery and consumed no-replay remain intact.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary
