@@ -560,8 +560,8 @@ this selected loader-operation review. No successor or new grant was armed
 at that closure.
 
 [ML017](docs/reports/S22PLUS_MAINLINE_ML017_TLMM_EXCLUSION_H0_2026-11-04.md)
-is the next bounded mainline RAM/USB2 candidate after two-round Claude/Argon
-discussion. It disables only the unused TLMM DT node, preserving the corrected
+was selected after two-round Claude/Argon discussion. It disables only the
+unused TLMM DT node, preserving the corrected
 GPIO reservations and existing V1 writers/configuration. Complete active-DT
 consumer checks found no TLMM dependency in this configuration; the compiled
 DT differs only in that status property. The fresh kernel differs from ML016
@@ -570,10 +570,16 @@ Actual V1/EL/loader tests, RAM PID1 VM, matching boot/AP packages and 82
 host/terminal tests pass. Final independent current-source/artifact review is
 `PASS_GO` with no findings; the new mainline and backend V26 receipts are
 published with the stable worker unchanged. The actual production preparation
-and fixed seven-read preapproval D0 pass. No approval or grant exists. This candidate
-targets functional USB/PID1 progress, without a historical TLMM cause, physical
-electrical-independence or static-frame same-boot claim. A90 and S20+ remain
-untouched.
+and fixed seven-read preapproval D0 pass. Its separately approved
+[physical run](docs/reports/S22PLUS_MAINLINE_ML017_RUN_2026-11-04.md) is consumed
+and closed original A healthy: all 116 USB snapshots show endpoint absence,
+and the complete returned log contains neither V1 record. N and A transferred
+once each. An ADB disappearance interrupted initial health; one health-only
+continuation passed. A complete UUID in the initial partial properties and
+the other accepted return/D0 observations share one observed Android boot,
+without proving earlier continuity or a failure cause. TLMM exclusion supplied
+no functional proof or historical diagnosis. No successor, new grant or F1
+owner remains. A90 and S20+ are untouched.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

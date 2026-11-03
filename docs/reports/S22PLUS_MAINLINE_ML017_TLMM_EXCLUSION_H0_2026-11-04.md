@@ -1,8 +1,8 @@
 # ML017: exclude unused TLMM from the RAM/USB2 canary
 
-Status: **H0 qualified, independently reviewed and fixed D0 ready**.
-Exact finite attended approval remains pending; no control or partition
-transfer has occurred.
+Status: **H0 qualified and independently reviewed; separately approved
+[physical run](S22PLUS_MAINLINE_ML017_RUN_2026-11-04.md) consumed `NO_PROOF`
+and closed original A healthy**.
 
 After [LA003](S22PLUS_LOADER_PREFIX_LA003_RUN_2026-11-04.md), two rounds of
 Claude Opus 5.5 and Gemini 4 Argon High discussion selected a functional
@@ -98,9 +98,11 @@ production image/task consumers pass. The connected ordinary-terminal worker
 reports V26 with its two stable source files unchanged. The new task uses
 closed LA003's original-A recovery evidence. One fixed preapproval D0 completed,
 and all seven complete, successful raw captures rederive exact original-A
-health. No experimental operation, approval, grant or unresolved F1 owner
-exists. Readiness is a snapshot and is refreshed through the same fixed profile
-if required before a later grant.
+health. Preparation opened no approval or grant. The operator subsequently
+returned the exact finite attended approval. The physical run transferred N
+and A once each, obtained no USB or V1 record proof, and closed original A
+healthy after one health-only continuation. Its approval and grant are consumed;
+no F1 owner remains.
 
 Old receipts, consumed tasks and grants retain their original pins. The
 separate loader-prefix capability is not renewed by this mainline review.
@@ -109,9 +111,9 @@ Applicable past-failure rows are ARTIFACT, SEMANTIC, WIRE, ROUTE, PERSIST and
 RETURN: exact DT/image/initramfs/package joins, marker proof limits, real raw
 consumers, selected capability/entry routing, durable outputs and original-owner
 recovery. No new device effect, reset mechanism or evidence-acceptance rule is
-introduced. The remaining execution prerequisite is the generated fresh finite
-attended approval and usable physical Download recovery; neither H0 checks,
-D0 health nor this report supplies that authority.
+introduced. The physical run used its separately returned finite attended
+approval and confirmed Download recovery; H0 checks, D0 health and this report
+did not supply that authority or permit replay.
 
 Private preparation is under
 `workspace/private/outputs/s22plus-mainline-ml017-h0-20261104-1/`; discussion and
