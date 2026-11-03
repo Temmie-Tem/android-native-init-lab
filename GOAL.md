@@ -36,7 +36,17 @@ identities, goals, artifacts and authority remain separate.
   attribution and new observation tools are optional unless required for safe
   execution or that functional result. Existing target, authority, recovery
   and no-replay requirements remain binding.
-- **Post-ML020 watchdog compatibility H0 is complete; no new candidate was selected.**
+- **ML021 is prepared, independently reviewed and fixed-D0 healthy; approval is pending.**
+  This fresh ordinary RAM/USB candidate keeps ML020's functional kernel, DT,
+  PHY and PID1 baseline, with new identity/key/frame bytes. One optional attended
+  phone-end cable replug tests the physical attach condition under the unchanged
+  observer and original deadlines. Fresh actual-artifact/VM/package checks and
+  four observer failure fixtures pass; retained PHY/CPUidle evidence remains
+  bound to its original provenance. Current original-A health rederives from
+  seven complete raw reads, with unchanged capability/V27 reviews reused.
+  No grant, candidate control or transfer
+  has occurred. [Scope and procedure](docs/reports/S22PLUS_MAINLINE_ML021_USB_ATTACH_H0_2026-11-04.md).
+- **Post-ML020 watchdog compatibility H0 is complete; that analysis selected no candidate.**
   Exact vendor/firmware instructions confirm active vendor arming, same-state
   control rejection and STATUS/PET limits. Current watchdog-core registration
   rejects the proposed ping-only shape. Mainline handoff arming and its timer
