@@ -1,7 +1,8 @@
 # LA003 mainline prefix live witness — H0 preparation
 
-Status: H0-qualified, independently reviewed and fixed preapproval D0 passed;
-fresh exact attended execution approval is pending.
+Status: H0-qualified and independently reviewed; the separately approved
+[November 4 run](S22PLUS_LOADER_PREFIX_LA003_RUN_2026-11-04.md) is consumed and
+closed healthy with positive current-boot prefix-return proof.
 Preparation began on November 3 and continued on November 4, 2026 (KST).
 
 After ML016 again returned no retained V1 frames, two rounds of independent
@@ -94,10 +95,12 @@ with its two stable sources unchanged; it required no restart.
 
 The fresh task binds the exact candidate, original A and the preceding closed
 ML016 recovery evidence. The named fixed preapproval D0 completed successfully;
-all seven raw health captures rederive current exact original-A health. No
-candidate control, partition transfer, opened grant or operator-approval record
-exists. One newly returned exact 1800-second, one-operation attended approval
-and usable physical Download recovery are still required before execution.
+all seven raw health captures rederived exact original-A health before approval.
+The operator subsequently returned the exact 1800-second, one-operation
+attended approval and confirmed usable physical Download recovery. N and A
+each transferred once. Current-FDT prefix-return proof passed; after one
+preserved ADB read failure, a health-only continuation proved final original-A
+health. That operation and grant are consumed and cannot be reused.
 
 Historical receipts and consumed tasks remain unchanged. The separate
 mainline capability has not been renewed for the changed shared source closure;

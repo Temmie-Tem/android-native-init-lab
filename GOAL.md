@@ -538,8 +538,8 @@ no identity. Loader/kernel occurrence, physical recording eligibility and
 retention remain unproved. This zero supplies no causal explanation or basis
 for an unchanged repeat. No successor or new grant is armed.
 
-[LA003](docs/reports/S22PLUS_LOADER_PREFIX_LA003_H0_2026-11-03.md) is now
-prepared as a different live observation after ML016. A fresh full mainline
+[LA003](docs/reports/S22PLUS_LOADER_PREFIX_LA003_RUN_2026-11-04.md) is consumed
+and closed healthy with positive current-boot prefix-return proof. A fresh full mainline
 Image executes only its fixed Image-header/primary-entry prefix, calls the
 unchanged V1 writer and returns before MMU preparation. The resident loader
 then copies and enters the exact original-A vendor Image at the same payload
@@ -548,10 +548,15 @@ separate post-call log-byte comparisons; it does not prove current-attempt
 stores, reset retention, historical failure cause or a full mainline boot.
 The enlarged layout, actual instruction/EL paths, deterministic boot/AP,
 raw producer/consumer, independent final review and fixed preapproval health
-all pass. The loader-prefix capability and backend V25 are published with the
-stable worker unchanged. A fresh exact finite attended approval is pending;
-no grant, candidate control or transfer has occurred. The separate mainline
-capability is not renewed by this selected loader-operation review.
+all pass. The loader-prefix capability and backend V25 remained unchanged
+during the separately approved run. The report confirms the exact entry PC,
+EL1 and unchanged CPU state; both post-call slot comparisons match, and three
+complete candidate health brackets share one observed boot. N and A each
+transferred once, and both normal Download controls completed. An empty
+`error: closed` properties read
+stopped initial final health; one health-only continuation then passed without
+another transfer/control. The separate mainline capability is not renewed by
+this selected loader-operation review. No successor or new grant is armed.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional
