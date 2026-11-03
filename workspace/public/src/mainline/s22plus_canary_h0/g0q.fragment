@@ -10,7 +10,8 @@ CONFIG_INET=y
 CONFIG_USB_GADGET=y
 CONFIG_USB_DWC3=y
 CONFIG_INITRAMFS_SOURCE=""
-CONFIG_CMDLINE="rdinit=/init maxcpus=1 clk_ignore_unused pd_ignore_unused ignore_loglevel console=tty0 panic=0 log_buf_len=4M"
+# Retain PSCI genpd providers needed by apps_rsc; exclude CPUidle entry only.
+CONFIG_CMDLINE="rdinit=/init maxcpus=1 clk_ignore_unused pd_ignore_unused ignore_loglevel console=tty0 panic=0 log_buf_len=4M cpuidle.off=1"
 CONFIG_CMDLINE_FORCE=y
 CONFIG_MODPROBE_PATH=""
 CONFIG_UEVENT_HELPER_PATH=""

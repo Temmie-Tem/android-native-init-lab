@@ -36,6 +36,15 @@ identities, goals, artifacts and authority remain separate.
   attribution and new observation tools are optional unless required for safe
   execution or that functional result. Existing target, authority, recovery
   and no-replay requirements remain binding.
+- **ML020 is prepared, independently reviewed and fixed-D0 healthy; approval is pending.**
+  The ordinary RAM/USB candidate appends only `cpuidle.off=1`, preserving the
+  PSCI power-domain providers required by `apps_rsc`, the complete DT and
+  ML019 PHY correction. Actual-kernel VM comparison confirms the parameter
+  and disabled CPUidle interface; normal RAM PID1/VM and package tests pass.
+  PSCI setup and RPMh/genpd activity remain. Current original-A health rederives
+  from seven complete raw reads, with unchanged capability/V27 reviews reused.
+  Physical boot and power/timing effects are unproved; no grant or dispatch is open.
+  [Scope and evidence](docs/reports/S22PLUS_MAINLINE_ML020_CPUIDLE_EXCLUSION_H0_2026-11-04.md).
 - **ML019 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.** The ordinary
   unparked V1 candidate with the USB2 PHY correction produced no USB evidence
   in 116 snapshots and no V1 loader/entry records in the complete returned log.
