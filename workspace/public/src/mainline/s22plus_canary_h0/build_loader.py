@@ -203,6 +203,12 @@ def build(base,prepared,init,output,reuse=False,kernel_label='kernel-1'):
     if marked:
         result['retained_marker']=dict(config=marker_source['config'],kernel_source=marked,
             source_sha256=digest(HERE/'retained-marker.S'),codec_sha256=digest(HERE/'retained_marker.py'))
+    require(('entry_park' in kr)==bool(marker_source and 'entry_park' in marker_source),
+            'entry-park declaration omitted')
+    if 'entry_park' in kr:
+        import entry_park
+        result['entry_park']=kr['entry_park']
+        entry_park.linked(result)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'loader_bytes':blob.stat().st_size,'fixed_reservation_overlap':False}))
 

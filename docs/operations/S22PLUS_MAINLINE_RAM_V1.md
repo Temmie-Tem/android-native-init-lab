@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_post_la003_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_entry_park_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -91,6 +91,42 @@ There is no reconnect or request retry after uncertainty. The protocol proves
 actual RAM PID1 identity, selected kernel release, live DT semantics and
 reservations, one CPU, no block devices, timer health and a fresh authenticated
 response. Descriptor visibility alone proves none of these.
+
+### Optional fixed entry park
+
+The schema-exact optional `entry_park` qualification admits one fixed diagnostic
+variant of V1: the actual Image executes `wfe` and a back-branch immediately
+after `s22_retained_kernel` returns in `primary_entry`, before
+`record_mmu_state`. This is an unconditional build-time source transformation,
+without a runtime or VM-specific escape. It adds no RAM write, MMIO, reset,
+storage effect or recovery command beyond the existing V1 writers and owner.
+The qualified Image intentionally does not reach RAM PID1 or USB; its expected
+USB absence is not a functional fault or a diagnostic stage observation.
+
+This diagnostic requires complete changed-Image/source and measured loader
+layout qualification, the existing actual-loader/marker guard tests, and the
+actual packaged loader and Image executing to the fixed park in QEMU at real
+EL1 and EL2. The exact receipt must prove preserved entry EL, the linked two
+loop instructions and a bounded PC trace remaining in the park, no
+`record_mmu_state` reach, unchanged header/outside-slot bytes,
+both fresh V1 frames on eligible inputs, and park reach after invalid-magic and
+short-index writer skips. A WFE that remains waiting does not prove execution
+of the back-branch; the fixture injects no wake event or execution-state change.
+An unparked Image's RAM-PID1 VM result cannot replace
+these checks. The optional source declaration, binary, raw cases and diagnostic
+receipt must join the image and its independent exact-artifact review; a
+missing declaration or qualification fails admission. The existing finite
+attended grant, fixed 120-second observation, physical Download/original-A
+recovery, health, no-replay and post-closure reader are unchanged.
+
+Positive returned frames retain V1's build-specific stage-occurrence meaning;
+they do not prove physical stop PC, continuous park, a unique attempt, a
+same-boot pair or the cause of any earlier result. Missing frames do not prove
+park reach, execution depth, skipped writes or retention loss. This diagnostic
+is optional research, never a prerequisite for RAM-PID1/USB admission. ML018
+selects one such candidate; its result does not authorize another park or an
+unchanged repeat. Further work must be selected from its bounded evidence and
+any concrete new source fact under the ordinary contract.
 
 ### Optional early retained markers
 

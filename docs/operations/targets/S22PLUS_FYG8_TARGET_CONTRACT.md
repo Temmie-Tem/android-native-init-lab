@@ -81,6 +81,17 @@ S22+ research task without physical attendance or a per-read request. It reads
 only fixed identity/root/partition-digest health and host/lane evidence, refuses
 an unresolved F1 owner, and grants no control, payload or run authority.
 
+The same policy's schema-exact optional `entry_park` diagnostic adopts only
+its unconditional V1 `primary_entry` WFE/back-branch before `record_mmu_state`.
+It intentionally cannot reach PID1/USB. Complete changed-Image/source/layout
+checks and actual-loader EL1/EL2 park and writer-skip fixtures replace any
+claim of RAM-PID1 VM success for this diagnostic; independent exact-artifact
+review remains required. Its existing two-slot writers, finite attended
+grant, fixed observation, original-A recovery/health and no-replay rules are
+unchanged. Returned static frames do not prove physical park, unique attempt,
+same-boot pairing or past failure cause; zeros prove no execution depth.
+This optional experiment creates no functional-admission prerequisite.
+
 The same policy's optional `retained_marker` qualification adopts only its
 versioned diagnostic RAM writes in the exact Samsung log slice, with unchanged
 header/no-map bounds, fresh artifact qualification and independent review.

@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_post_la003_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_entry_park_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -36,6 +36,7 @@ def unchanged(receipt,maximum=128*1024*1024):
 def image_binding(image,*,artifact_bytes=False):
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification','runtime_sources'}
     if 'retained_marker' in image:keys.add('retained_marker')
+    if 'entry_park' in image:keys.add('entry_park')
     require(set(image)==keys and image['schema']=='s22plus-mainline-image-v1' and image['profile']==PROFILE and
             image['namespace']==NAMESPACE and image['version']==VERSION and
             re.fullmatch('[0-9a-f]{32}',image['run_id_hex']),'mainline image shape differs')
@@ -85,6 +86,13 @@ def image_binding(image,*,artifact_bytes=False):
             path=str(Path(receipt['path']).relative_to(ROOT))
             require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
                     'retained marker evidence lacks exact independent coverage')
+    entry_park_presence(image,loader)
+    if 'entry_park' in image:
+        park=entry_park_binding(image,loader)
+        for receipt in (image['entry_park'],park['linked']['source'],park['linked']['elf'],park['checker']):
+            path=str(Path(receipt['path']).relative_to(ROOT))
+            require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
+                    'entry-park evidence lacks exact independent coverage')
     for receipt in image['runtime_sources'].values():unchanged(receipt)
     require(image['runtime_sources']=={
         'loader':dict(path=loader['loader']['path'],size=loader['loader']['size'],sha256=loader['loader']['sha256']),
@@ -99,6 +107,74 @@ def image_binding(image,*,artifact_bytes=False):
             require(transport.boot_only_member_receipt(ap,label='mainline RAM candidate')==image['member'],
                     'mainline AP member differs')
     return manifest
+
+
+def entry_park_presence(image,loader):
+    source_park=('retained_marker' in loader and
+                 'entry_park' in read(unchanged(loader['retained_marker']['kernel_source'])))
+    require(('entry_park' in image)==('entry_park' in loader)==('entry_park' in loader['kernel'])==source_park,
+            'entry-park candidate lacks diagnostic admission')
+
+
+def entry_park_binding(image,loader):
+    """Admit only the fixed diagnostic; its VM receipt never proves PID1."""
+    require('retained_marker' in image and loader['entry_park']==loader['kernel']['entry_park']==
+            loader['kernel']['retained_marker']==loader['retained_marker']['kernel_source'],
+            'entry-park source join differs')
+    source=read(unchanged(loader['entry_park']))
+    require(set(source.get('entry_park',{}))=={'schema','stop','source'} and
+            source['entry_park']['schema']=='s22plus-mainline-entry-park-source-v1' and
+            source['entry_park'].get('stop')=='after-v1-before-record_mmu_state',
+            'entry-park source is not the fixed V1 diagnostic')
+    unchanged(source['entry_park']['source'])
+    config=read(unchanged(source['config']))
+    require(config['schema']=='s22plus-mainline-retained-marker-v1','entry park requires V1')
+    value=read(unchanged(image['entry_park']))
+    require(set(value)=={'schema','status','loader','linked','checker','qemu','gdb','cases',
+                        'physical_entry_proved','physical_park_proved','pid1_proved','device_actions'} and
+            value['schema']=='s22plus-mainline-entry-park-qualification-v1' and
+            value['status']=='PASS_H0_ACTUAL_ENTRY_PARK' and value['device_actions']==0 and
+            all(value[k] is False for k in ('physical_entry_proved','physical_park_proved','pid1_proved')) and
+            value['loader']==loader['loader'] and value['linked']['source']==loader['entry_park'] and
+            value['linked']['kernel']==dict(path=loader['kernel']['image'],size=loader['kernel']['file_size'],
+                                          sha256=loader['kernel']['sha256']),
+            'entry-park exact artifact qualification differs')
+    linked=value['linked']
+    require(set(linked)=={'kernel','elf','source','entry_pc','park_pc','park_end_pc','record_mmu_state_pc','loop_bytes'} and
+            linked['park_pc']==linked['entry_pc']+4 and linked['park_end_pc']==linked['park_pc']+8 and
+            linked['loop_bytes']=='5f2003d5ffffff17','entry-park linked layout differs')
+    for receipt in (linked['elf'],value['checker']):unchanged(receipt)
+    # Emulator/debugger identities describe the completed H0 producer. They
+    # are not device-runtime inputs (the installed QEMU also has hardlinks).
+    for name in ('qemu','gdb'):
+        receipt=value[name]
+        require(set(receipt)=={'path','size','sha256'} and type(receipt['path']) is str and
+                type(receipt['size']) is int and receipt['size']>0 and
+                re.fullmatch('[0-9a-f]{64}',receipt['sha256']), 'park tool provenance differs')
+    expected=[(1,'valid'),(2,'valid'),(1,'bad-magic'),(1,'short-index')]
+    require([(x['actual_entry_el'],x['case']) for x in value['cases']]==expected,
+            'entry-park actual EL/skip cases differ')
+    for case in value['cases']:
+        require(set(case)=={'actual_entry_el','final_el','case','park_pc','record_mmu_state_reached',
+                           'park_wait_observed','park_pc_trace','sctlr','expected_frames_present','header_and_outside_slots_preserved',
+                           'whole_actual_image_copied','register_state_modified','raw'} and
+                case['final_el']==case['actual_entry_el'] and case['park_pc']==linked['park_pc'] and
+                type(case['sctlr']) is int and case['sctlr']&0x2001005==0 and
+                case['record_mmu_state_reached'] is False and case['register_state_modified'] is False and
+                case['expected_frames_present'] is (case['case']=='valid') and
+                len(case['park_pc_trace'])==3 and case['park_pc_trace'][0]==linked['park_pc'] and
+                all(pc in (linked['park_pc'],linked['park_pc']+4) for pc in case['park_pc_trace']) and
+                all((a,b) in ((linked['park_pc'],linked['park_pc']),
+                             (linked['park_pc'],linked['park_pc']+4),
+                             (linked['park_pc']+4,linked['park_pc']))
+                    for a,b in zip(case['park_pc_trace'],case['park_pc_trace'][1:])) and
+                all(case[k] is True for k in ('park_wait_observed','header_and_outside_slots_preserved',
+                                              'whole_actual_image_copied')) and len(case['raw'])==8,
+                'entry-park actual execution evidence differs')
+        for receipt in case['raw']:unchanged(receipt)
+        require(read(unchanged(case['raw'][0]))=={k:v for k,v in case.items() if k!='raw'},
+                'entry-park summary differs from its raw producer result')
+    return value
 
 
 def marker_codec():
@@ -419,7 +495,7 @@ def trace_binding(config,tests,vm,image):
                 'V8 traversal counts and timing claims are mixed')
 
 
-def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None):
+def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None,entry_park_qualification=None):
     """Revalidate existing immutable artifacts, without building or contacting a device."""
     package_dir,loader_dir,output=[Path(p).resolve() for p in (package_dir,loader_dir,output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private qualification required')
@@ -448,6 +524,7 @@ def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker
         run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
         runtime_sources=runtime)
     if marker_qualification is not None:image['retained_marker']=pin(Path(marker_qualification).resolve())
+    if entry_park_qualification is not None:image['entry_park']=pin(Path(entry_park_qualification).resolve())
     record=dict(schema='s22plus-mainline-qualification-v1',status='PASS_H0_MAINLINE_CANDIDATE',image=image,
         package=pin(package_dir/'result.json'),loader=pin(loader_dir/'result.json'),
         init_manifest=pin(Path(loader['initramfs_manifest'])),

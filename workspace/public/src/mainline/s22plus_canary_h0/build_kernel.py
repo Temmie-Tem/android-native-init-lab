@@ -28,7 +28,11 @@ def marker_provenance(prepared_dir,kernel):
     require(Path(value['instrumented_head']['path'])==kernel/'arch/arm64/kernel/head.S','marker head path differs')
     cfg=json.loads(Path(value['config']['path']).read_text());ir=json.loads(Path(value['init_manifest']['path']).read_text())
     marker.validate(cfg,ir['candidate_id'],Path(ir['key_path']).read_bytes())
-    require(text==instrumented_head(Path(value['original_head']['path']).read_text(),cfg),'complete marker source differs')
+    if 'entry_park' in value:
+        from entry_park import declaration
+        require(value['entry_park']==declaration(),'entry-park source declaration changed')
+    require(text==instrumented_head(Path(value['original_head']['path']).read_text(),cfg,
+            entry_park='entry_park' in value),'complete marker source differs')
     if marker.c_stages(cfg):
         header=(kernel/marker.c_source(cfg)).parent/('s22-retained-probe.h' if marker.version(cfg) in (9,10) else 's22-retained-early-c.h')
         for key in ('original_setup','instrumented_setup','generated_header'):
@@ -125,6 +129,7 @@ def build(prepared_dir, deps, label, jobs):
     if marker_record:
         require(marker_provenance(prepared_dir,kernel)==marker_record,'kernel marker changed during build')
         result['retained_marker']=dict(path=str(marker_source),size=marker_source.stat().st_size,sha256=digest(marker_source))
+        if 'entry_park' in marker_record:result['entry_park']=result['retained_marker']
     if prefix_record:
         require(prefix_image.verify(prepared_dir)==prefix_record,'kernel prefix changed during build')
         result['prefix_source']=prefix_image.pin(prepared_dir/'prefix-source.json')

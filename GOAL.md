@@ -30,6 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML018 is prepared/reviewed and fixed-D0 ready, without a new F1 grant.**
+  Its one ordinary-route V1 entry park is qualified using the actual loader
+  and Image at EL1/EL2, with positive and writer-skip cases. Final independent
+  review is PASS_GO; backend V27 uses the unchanged worker. It intentionally
+  cannot reach PID1/USB. [Preparation and limits](docs/reports/S22PLUS_MAINLINE_ML018_ENTRY_PARK_H0_2026-11-04.md).
+  ML017 remains the latest consumed candidate, closed original Android healthy.
+
 - **ML012 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.** The exact
   GPIO50/93 reservation correction retains V9 observation, but all 114 USB
   snapshots show absence and the complete returned log has zero V9 records.
@@ -255,7 +262,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: H0 evidence continuity after ML012
+## Next bounded unit: ML018 ordinary-route entry park
 
 The [ML002 joint analysis](docs/reports/S22PLUS_MAINLINE_ML002_BOOTLOOP_ANALYSIS_H0_2026-10-29.md)
 keeps the reset cause and physical boot stage unproved. It identified a
@@ -580,6 +587,19 @@ the other accepted return/D0 observations share one observed Android boot,
 without proving earlier continuity or a failure cause. TLMM exclusion supplied
 no functional proof or historical diagnosis. No successor, new grant or F1
 owner remains. A90 and S20+ are untouched.
+
+[ML018](docs/reports/S22PLUS_MAINLINE_ML018_ENTRY_PARK_H0_2026-11-04.md)
+is the next bounded H0 unit selected by two-round Claude/Argon discussion:
+one ordinary-route `primary_entry` park immediately after the unchanged V1
+writer, before `record_mmu_state`, with ML017 DT/config unchanged. It
+intentionally cannot reach PID1/USB. Exact changed-Image/layout and real
+EL1/EL2 park qualification, declaration/receipt admission, independent PASS_GO
+review, production preparation and fixed seven-read preapproval D0 pass. The
+new mainline capability/backend V27 retain the stable worker and original-A
+recovery; no fresh F1 approval or grant exists. Returned static frames would prove only their build-specific stage
+occurrence and survival, never physical park, unique attempt, same-boot pairing
+or past failure cause. A zero would not establish execution depth. This is one
+diagnostic, not a park ladder or a functional-admission prerequisite.
 
 The exact firmware's panel auto-refresh setting supports inherited-display
 investigation, but active scanout remains unmeasured. Display and additional

@@ -13,7 +13,8 @@ import retained_marker as marker
 def pin(p):
     p=Path(p);return dict(path=str(p.resolve()),size=p.stat().st_size,sha256=digest(p))
 
-def instrumented_head(old,cfg):
+def instrumented_head(old,cfg,*,entry_park=False):
+    require(not entry_park or marker.version(cfg)==1,'entry park requires V1')
     end='SYM_CODE_END(primary_entry)\n'
     if marker.version(cfg) in (3,4,5,6,7,8,9,10):
         require(old.count(end)==1 and 's22_retained_' not in old,'C-only format requires unmarked assembly entry')
@@ -24,7 +25,11 @@ def instrumented_head(old,cfg):
         return old.replace(site,site+'\tbl\ts22_retained_pre_mmu\n').replace(end,end+'\n'+marker.render(cfg,3)+'\n')
     site='SYM_CODE_START(primary_entry)\n\tbl\trecord_mmu_state\n'
     require(old.count(site)==old.count(end)==1 and 's22_retained_' not in old,'kernel entry hook differs')
-    return old.replace(site,'SYM_CODE_START(primary_entry)\n\tbl\ts22_retained_kernel\n\tbl\trecord_mmu_state\n').replace(end,end+'\n'+marker.render(cfg,2)+'\n')
+    result=old.replace(site,'SYM_CODE_START(primary_entry)\n\tbl\ts22_retained_kernel\n\tbl\trecord_mmu_state\n').replace(end,end+'\n'+marker.render(cfg,2)+'\n')
+    if entry_park:
+        from entry_park import instrument
+        result=instrument(result)
+    return result
 
 def instrumented_setup(old,cfg=None):
     declaration='void __init __no_sanitize_address setup_arch(char **cmdline_p)\n'
@@ -106,7 +111,7 @@ def prepare(previous,output):
     (output/'prepared.json').write_text(json.dumps(value,indent=2)+'\n')
     return value
 
-def instrument(prepared,init,*,version=1,initcall_count=None,initcall_ordinals=None):
+def instrument(prepared,init,*,version=1,initcall_count=None,initcall_ordinals=None,entry_park=False):
     prepared,init=prepared.resolve(),init.resolve()
     require(prepared.is_relative_to(ROOT/'workspace/private'),'private marker source')
     value=json.loads((prepared/'prepared.json').read_text());manifest=json.loads((init/'result.json').read_text())
@@ -118,13 +123,16 @@ def instrument(prepared,init,*,version=1,initcall_count=None,initcall_ordinals=N
     cfgpath=prepared/'retained-marker.json';require(not cfgpath.exists(),'marker already prepared')
     head=Path(value['kernel'])/'arch/arm64/kernel/head.S';old=head.read_text()
     (prepared/'original-head.S').write_text(old)
-    new=instrumented_head(old,cfg)
+    new=instrumented_head(old,cfg,entry_park=entry_park)
     head.write_text(new)
     cfgpath.write_text(json.dumps(cfg,indent=2)+'\n')
     receipt=dict(schema='s22plus-mainline-marker-kernel-source-v1',config=pin(cfgpath),
         init_manifest=pin(init/'result.json'),original_head=pin(prepared/'original-head.S'),
         instrumented_head=pin(head),sources=[pin(HERE/x) for x in ('retained-marker.S','retained_marker.py','prepare_marked.py')],
         device_actions=0)
+    if entry_park:
+        from entry_park import declaration
+        receipt['entry_park']=declaration()
     if marker.c_stages(cfg):
         setup=Path(value['kernel'])/'arch/arm64/kernel/setup.c';original=prepared/'original-setup.c'
         original.write_bytes(setup.read_bytes());setup.write_text(instrumented_setup(original.read_text(),cfg))
@@ -163,6 +171,7 @@ if __name__=='__main__':
     a.add_argument('--version',type=int,choices=tuple(marker.FORMATS),default=1)
     a.add_argument('--initcall-count',type=int)
     a.add_argument('--initcall-ordinals',type=lambda s:[int(v) for v in s.split(',')])
+    a.add_argument('--entry-park',action='store_true')
     a=p.parse_args();os.umask(0o077)
-    result=prepare(a.previous,a.output) if a.command=='prepare' else instrument(a.prepared,a.init,version=a.version,initcall_count=a.initcall_count,initcall_ordinals=a.initcall_ordinals)
+    result=prepare(a.previous,a.output) if a.command=='prepare' else instrument(a.prepared,a.init,version=a.version,initcall_count=a.initcall_count,initcall_ordinals=a.initcall_ordinals,entry_park=a.entry_park)
     print(json.dumps(dict(status='H0_ONLY',device_actions=0)))
