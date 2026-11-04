@@ -30,6 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML027 is consumed: PASS_MAINLINE_DOWNLOAD_RAM / ANDROID_CLOSED_HEALTHY.**
+  Authenticated packaged Debian RAM PID1/USB and one same-connection fixed
+  control led to machine-proved normal Download and original-A return.
+  N/A each transferred once. One failed final-health properties read was
+  preserved; a health-only continuation completed all seven health reads
+  without another transfer. The owned profile was removed and no owner remains.
+  No physical Download was requested. Automatic failure recovery, full SysV
+  shutdown and persistence remain unproved; no successor or grant is selected.
+  [Run and limits](docs/reports/S22PLUS_MAINLINE_ML027_RUN_2026-11-05.md) · [H0 qualification](docs/reports/S22PLUS_MAINLINE_ML027_DOWNLOAD_RETURN_H0_2026-11-05.md).
+
 - **ML026 is consumed: PASS_DEBIAN_SSH_RAM / ANDROID_CLOSED_HEALTHY.**
   Authenticated packaged Debian PID1/USB and one same-boot fixed SSH command
   proved UID/GID 1000 and zero effective capabilities. N/A each transferred
@@ -39,17 +49,10 @@ identities, goals, artifacts and authority remain separate.
   Persistence/general shell/automatic recovery remain unproved; no new owner/grant.
   [Run and limits](docs/reports/S22PLUS_MAINLINE_ML026_RUN_2026-11-05.md) · [H0 correction](docs/reports/S22PLUS_MAINLINE_ML026_INTERFACE_BINDING_H0_2026-11-05.md).
 
-- **ML027 is prepared, independently PASS_GO and preapproval D0 verified.**
-  After two discussion rounds each with Claude/Argon, the fixed authenticated
-  normal Download return from packaged Debian RAM passed H0/VM qualification,
-  complete producer reproduction and actual preparation/admission checks.
-  Seven fixed Android health captures passed. ML027 normal Download return,
-  unattended failure recovery and persistence remain unproved; the demonstrated
-  attended physical fallback is retained. No ML027 grant, control or transfer
-  has occurred. [Preparation and limits](docs/reports/S22PLUS_MAINLINE_ML027_DOWNLOAD_RETURN_H0_2026-11-05.md).
 - The mainline baseline has proved RAM PID1/USB, packaged Debian SysVinit as
-  initial PID1, and the ML026 fixed unprivileged same-boot SSH command. It has
-  not proved installed Debian on mainline, Linux UFS, full SysV shutdown,
+  initial PID1, the ML026 fixed unprivileged same-boot SSH command and ML027's
+  fixed normal Download return. These retain their separate run scopes. It
+  has not proved installed Debian on mainline, Linux UFS, full SysV shutdown,
   a general shell, automatic failure recovery, residency or endurance.
 - ML025 and ML024 are closed NO_PROOF with original-A/final health complete.
   ML024's late replug report remains separate from its actual unknown timing;
@@ -90,7 +93,7 @@ new kernel's actual configuration and runtime; do not require a simultaneous
 userspace migration merely to prove the new boot path. Display, desktop,
 camera, telephony, sensors and system suspend are optional later work.
 
-## Next bounded unit: ML027 normal Download from RAM
+## Completed bounded unit: ML027 normal Download from RAM
 
 The selected unit uses the same four-package Debian RAM SysVinit closure and
 adds one distinct authenticated Download control, mutually exclusive with the
@@ -100,23 +103,19 @@ existing mainline NVMEM reboot-mode driver gains only the exact DT Download
 value, and the existing SCM NODUMP/PSCI normal reboot chain remains explicit.
 There is no Linux storage or new vendor-module/reset framework.
 
-H0 producer/consumer and failure qualification, independent review, exact
-boot-only artifact preparation and named preapproval D0 are complete. The next
-device step needs the generated finite attended execution approval and current
-runtime binding. Keep an actually issued replug cue
-resolved or explicitly cancelled before normal control; no issued cue requires
-no extra human gate. Preserve the original host/device observation windows,
-fixed intent-time return deadline, exact Download ticket, original-A transfer,
-full final health and no replay. Failed normal control retains the existing
-attended physical recovery.
+H0 qualification, complete producer reproduction, independent review and exact
+boot-only preparation were followed by one approved attended physical run.
+The issued replug cue was resolved before normal control. The original
+host/device windows, fixed intent-time return deadline, exact Download ticket,
+single original-A transfer and final health all joined their retained evidence.
+The first failed health bracket remains separate from the successful complete
+health-only continuation; consumed controls and transfers never replayed.
 
-Completion for the physical unit is `PASS_MAINLINE_DOWNLOAD_RAM`: authenticated
-same-boot base/control evidence, machine-proved normal Download arrival and one
-original-A transfer with complete final health. ACK/EOF alone are insufficient.
-A negative result may retain independently proved base PID1/USB while closing
-the Download unit NO_PROOF after original-A recovery. A normal return proves
+The selected completion criterion, `PASS_MAINLINE_DOWNLOAD_RAM`, is achieved.
+ACK/EOF alone were not accepted as Download arrival. This normal return proves
 neither automatic stall recovery nor persistent/resident Debian. The broader
-watchdog interface and Linux storage work remain separate subsequent units.
+watchdog interface and Linux storage work remain separate possible subsequent
+units; neither a successor nor a new execution grant has been selected.
 
 ## Milestones toward the final server
 
