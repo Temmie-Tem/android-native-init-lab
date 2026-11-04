@@ -1,8 +1,10 @@
 # ML026: bind the interface name immediately before profile creation
 
-Status: **H0 QUALIFIED / INDEPENDENT PASS_GO / FIXED D0 READY /
-EXACT ATTENDED APPROVAL PENDING**.
-No approval, grant, candidate control or partition transfer has been created.
+Status: **H0 QUALIFIED / INDEPENDENT PASS_GO; PHYSICAL RUN CONSUMED /
+PASS_DEBIAN_SSH_RAM / ANDROID_CLOSED_HEALTHY**.
+The [run report](S22PLUS_MAINLINE_ML026_RUN_2026-11-05.md) records same-boot
+authenticated base/SSH success and normal original-A return. The physical
+anchor and final names were equal; the name-change branch's proof remains H0.
 
 ## Proportionality finding and selected correction
 
@@ -137,11 +139,12 @@ No extra settling gate or retry was required by review.
 One fixed preapproval D0 completed. All seven Android health raw captures
 rederive with successful producer status and empty stderr, proving the current
 exact target, original-A identity and healthy Android state. No grant, candidate
-control, partition transfer or attendance assertion was created. Existing
-300-second readiness freshness and all effect-time checks remain binding.
-A physical run still requires its own returned one-operation, 1800-second
-approval and actual attendance with usable Download recovery. The existing
-conditional single-replug procedure is unchanged.
+control, partition transfer or attendance assertion was created in preparation.
+The operator subsequently returned the exact one-operation, 1800-second approval
+and confirmed current attendance with usable Download recovery. The expired
+readiness was refreshed before arming; the original freshness and effect-time
+checks remained binding. One conditional replug was reported complete. ML026 is
+now consumed and closed healthy; no successor is armed.
 
 Source freezes, actual current capability/backend bindings, local links/privacy,
 the 798-line goal, unchanged unrelated-file hashes and scoped diff checks close

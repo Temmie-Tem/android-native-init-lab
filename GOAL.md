@@ -30,14 +30,14 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML026 is H0 qualified / independent PASS_GO / fixed D0 ready; exact attended approval pending.**
-  Final interface-name binding moves after the existing guard, immediately
-  before first profile creation; all other anchor fields must match. Own-address
-  exclusion uses integer ifindex. Postbinding identity and original deadlines
-  remain strict, without settling sleeps, extra full guards or retries.
-  Fifty-three focused tests and fresh artifact/VM qualification pass. Seven
-  Android health captures rederive; no new approval, grant or candidate control.
-  [Correction and proportionality review](docs/reports/S22PLUS_MAINLINE_ML026_INTERFACE_BINDING_H0_2026-11-05.md).
+- **ML026 is consumed: PASS_DEBIAN_SSH_RAM / ANDROID_CLOSED_HEALTHY.**
+  Authenticated packaged Debian PID1/USB and one same-boot fixed SSH command
+  proved UID/GID 1000 and zero effective capabilities. N/A each transferred
+  once; normal final health passed and the owned profile was removed. A tool
+  acknowledgment timed out, but the original continuation completed without
+  replay. Anchor/final names matched, so correction causality is not isolated.
+  Persistence/general shell/automatic recovery remain unproved; no new owner/grant.
+  [Run and limits](docs/reports/S22PLUS_MAINLINE_ML026_RUN_2026-11-05.md) · [H0 correction](docs/reports/S22PLUS_MAINLINE_ML026_INTERFACE_BINDING_H0_2026-11-05.md).
 - **ML025 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
   Only the interface name differed between NCM snapshots; the guard stopped
   before activation/base/SSH. Rename actor and replug causality remain unproved.
