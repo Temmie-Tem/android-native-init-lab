@@ -179,10 +179,18 @@ required.
   `/firmware/qcom_scm`, `/soc/timer` and `/soc/qcom,qup_uart@99c000`. Those
   paths differ from mainline naming. If the hypervisor overlay targets them by
   path or label, a mainline tree without matching targets fails the apply step.
-  Capturing that overlay blob is the next mainline-relevant item.
+  This matters only when the mainline tree passes through ABL.
 - A uniLoader-style shim avoids all DT handling, because ABL only sees the stock
-  tree. The cost is a second loader. The exact-match route is a cheaper first
-  hypothesis, not a demonstrated one.
+  tree. **This route is demonstrated on the sister S22 (r0q).** A public port
+  (created 2026-10-17) boots mainline 7.2.11 that way. It packs uniLoader as the
+  kernel of a v4 `boot` image and keeps the stock `vendor_boot`. Its first
+  failure was the embedded tree's memory node, which ABL does not fill: size 0.
+  The fix was to add the RAM ranges and Samsung carve-outs by hand. On this
+  device, the live memory banks and splash region equal the r0q values. The
+  exact-match route stays an untested hypothesis and is no longer the first
+  choice. Correction (same day): an earlier version of this section named the
+  hypervisor overlay as the remaining mainline barrier. That was written before
+  this prior art was checked.
 
 **Recovery as a Debian carrier:** structurally possible (own DTB/DTBO, header
 v2, custom recovery previously booted). It is not unattended by key entry on
