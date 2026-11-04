@@ -30,6 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML025 is H0 qualified / independent PASS_GO / fixed D0 ready; exact attended approval pending.**
+  One fresh packaged RAM SSH candidate keeps ML024's functional inputs, V30
+  host capability/backend and 120-second window. Exact new artifact/VM/SSH
+  qualification and independent entry review pass; unchanged source tests
+  retain their original evidence. Clear prebrief uses the unchanged single
+  conditional replug procedure. Seven fixed Android health captures rederive.
+  No grant, candidate control or transfer exists. Physical SSH remains unproved
+  for ML025, and the generated finite approval plus attendance/usable Download
+  recovery are still required.
+  [Preparation and proof limits](docs/reports/S22PLUS_MAINLINE_ML025_SSH_ATTACH_H0_2026-11-04.md).
 - **ML024 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
   The selected USB path remained absent in all 22 snapshots until the original
   observation deadline. No authenticated request or SSH invocation occurred,
@@ -38,8 +48,8 @@ identities, goals, artifacts and authority remain separate.
   N and A each transferred once. One health-only continuation after a preserved
   ADB device-not-found read completed original-A health. Both returned V1 frame
   counts are zero; boot depth and failure cause remain unproved. The qualified
-  H0 correction and VM evidence retain their separate scope. No F1 owner,
-  successor or new grant remains; the next bounded unit is not selected.
+  H0 correction and VM evidence retain their separate scope. Its consumed
+  approval and evidence do not transfer to the separate ML025 preparation.
   [Run and limits](docs/reports/S22PLUS_MAINLINE_ML024_RUN_2026-11-04.md) ·
   [H0 correction](docs/reports/S22PLUS_MAINLINE_ML024_SSH_BUDGET_H0_2026-11-04.md).
 - **ML023 is consumed: SSH NO_PROOF / ANDROID_CLOSED_HEALTHY.**
