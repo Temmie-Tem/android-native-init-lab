@@ -30,16 +30,18 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML024 is qualified and fixed-D0 ready; exact attended approval is pending.**
-  Keep the packaged Debian SSH RAM workload and functional kernel/DT/PHY inputs
-  unchanged. The host retains current binding checks, one invocation, the
-  twenty-second ceiling and the original absolute acquisition deadline; it
-  no longer requires the entire precomputed ceiling to fit after validation.
-  Focused producer/consumer tests, fresh artifact/VM qualification and the
-  final independent PASS_GO pass. Capability/backend V30 are adopted; actual
-  production preparation and seven-read Android health pass. ML023 remains
-  consumed; no successor approval or grant is armed and physical SSH is unproved.
-  [Scope and validation](docs/reports/S22PLUS_MAINLINE_ML024_SSH_BUDGET_H0_2026-11-04.md).
+- **ML024 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
+  The selected USB path remained absent in all 22 snapshots until the original
+  observation deadline. No authenticated request or SSH invocation occurred,
+  so the host budget correction was not exercised by physical SSH. The one
+  replug was reported complete after the window; its actual timing is unknown.
+  N and A each transferred once. One health-only continuation after a preserved
+  ADB device-not-found read completed original-A health. Both returned V1 frame
+  counts are zero; boot depth and failure cause remain unproved. The qualified
+  H0 correction and VM evidence retain their separate scope. No F1 owner,
+  successor or new grant remains; the next bounded unit is not selected.
+  [Run and limits](docs/reports/S22PLUS_MAINLINE_ML024_RUN_2026-11-04.md) ·
+  [H0 correction](docs/reports/S22PLUS_MAINLINE_ML024_SSH_BUDGET_H0_2026-11-04.md).
 - **ML023 is consumed: SSH NO_PROOF / ANDROID_CLOSED_HEALTHY.**
   One authenticated response again proved packaged Debian SysVinit RAM PID1
   and reported sshd startup readiness. The host stopped before launching its

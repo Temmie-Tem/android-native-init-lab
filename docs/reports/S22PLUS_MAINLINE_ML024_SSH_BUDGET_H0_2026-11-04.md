@@ -1,8 +1,10 @@
 # ML024: let SSH use the time remaining after validation
 
-Status: **H0 QUALIFIED / INDEPENDENT PASS_GO / FIXED D0 READY /
-EXACT ATTENDED APPROVAL PENDING**.
-No approval, grant, candidate control or partition transfer has been created.
+Status: **H0 QUALIFIED / INDEPENDENT PASS_GO; PHYSICAL RUN CONSUMED /
+NO_PROOF / ANDROID_CLOSED_HEALTHY**.
+The [run report](S22PLUS_MAINLINE_ML024_RUN_2026-11-04.md) records USB-window
+expiry before any SSH attempt, completed original-A recovery and proof limits.
+The preparation evidence below retains its original scope.
 
 ## Selected unit and correction
 
@@ -121,16 +123,17 @@ One fixed preapproval D0 completed. All seven Android health raw captures
 rederive with successful producer status and empty stderr, establishing the
 current exact target, original-A identity and healthy Android state. No grant,
 candidate control, partition transfer or attendance assertion was created.
-The actual generated task requires a new returned one-operation, 1800-second
-approval and current attendance/usable Download recovery before execution.
-The repeated ML023 approval cannot apply to this different, unconsumed task.
+The actual generated task subsequently received its exact one-operation,
+1800-second approval and explicit attendance/usable Download confirmation.
+Health was refreshed before opening the grant because its earlier readiness
+was close to expiry. The repeated ML023 approval was not used for ML024.
 Source freezes, unchanged initial unrelated files, local links, private-value
 exclusion, goal length and scoped diff checks complete the preparation commit.
 
 Private preparation, discussion and validation evidence is under
 `workspace/private/outputs/s22plus-mainline-ml024-ssh-budget-h0-20261104-1/`.
-No successor task is armed. A90 and S20+ are untouched and unrelated dirty work
-is preserved.
+ML024 is now consumed and no successor task is armed. A90 and S20+ are
+untouched and unrelated dirty work is preserved.
 
 ## External-model accounting
 
