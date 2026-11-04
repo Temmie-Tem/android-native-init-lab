@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_debian_ssh_budget_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_interface_binding_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -81,6 +81,21 @@ select only the retained lane's **CANDIDATE_TOPOLOGY USB2 path**, with exact
 candidate serial, descriptor, NCM driver, host MAC, interface and generation.
 Absence may be polled within that window; any different device or ambiguity
 stops. The source Android/Download path cannot substitute for USB2 evidence.
+
+The first valid endpoint is an identity anchor, before any host profile exists.
+After the existing full guard and immediately before the first profile intent,
+one fresh complete census must match every anchor field except the interface
+name. That current name is bound once in both the endpoint and profile intent.
+The address-conflict check excludes only the anchored integer ifindex, so a
+changed name cannot exclude an unrelated interface using the old label.
+The original-window clock check remains after durable publication and before
+profile creation. Once bound, all existing name-inclusive endpoint, profile,
+socket, route and SSH checks remain strict; no later rebind or retry is added.
+This replaces ML025's premature name freeze without a settling delay, repeated
+equality requirement or dependency on a particular host naming policy. The
+fresh pre-create check addresses changes before first binding; review it when
+selection or profile binding changes, and retire this capture only when the
+replacement supplies equivalent fresh identity at that binding point.
 
 The host may create one nonpersistent NetworkManager profile with a fresh
 task-owned UUID, autoconnect disabled, fixed candidate subnet, no default

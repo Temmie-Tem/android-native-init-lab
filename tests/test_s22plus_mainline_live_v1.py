@@ -246,8 +246,15 @@ class ObserverTests(unittest.TestCase):
     def tearDownClass(cls):canary.CanaryTests.tearDownClass()
 
     def test_complete_observer_rederives_from_original_raw_without_socket_or_command(self):
+        self.complete_observer()
+
+    def test_name_refresh_before_profile_reaches_one_real_socket_and_offline_proof(self):
+        self.complete_observer(rename_at_next_census=True)
+
+    def complete_observer(self,*,rename_at_next_census=False):
         usb=USBTests();usb.setUp();self.addCleanup(usb.doCleanups)
-        usb.interface(usb.device(),name='lo')
+        initial_name='fixture-pending' if rename_at_next_census else 'lo'
+        usb.interface(usb.device(),name=initial_name)
         manifest=copy.deepcopy(self.fixture.manifest)
         manifest['network']=dict(usb.manifest['network'],host_ip='127.0.0.1',device_ip='127.0.0.2',netmask='255.255.255.0')
         manifest['port']=1
@@ -276,7 +283,10 @@ class ObserverTests(unittest.TestCase):
             writer=raw.RawCaptureWriter(folder,label,stdout_maximum=262144,stderr_maximum=16384)
             writer.write_stdout(data);return writer.finalize(returncode=code)
         capture=access.capture_endpoint
-        def census(folder,label):return capture(folder,label,usb_root=usb.usb,net_root=usb.net)
+        def census(folder,label):
+            if rename_at_next_census and label in ('usb-before-configure','usb-before-up') and (usb.net/initial_name).exists():
+                (usb.net/initial_name).rename(usb.net/'lo')
+            return capture(folder,label,usb_root=usb.usb,net_root=usb.net)
         server=socket.socket();server.bind(('127.0.0.2',0));server.listen(1);server.settimeout(2)
         packet=self.fixture.raw();requests=[]
         def serve():

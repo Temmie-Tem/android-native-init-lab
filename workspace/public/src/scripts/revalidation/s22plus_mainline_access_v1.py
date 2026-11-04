@@ -107,14 +107,14 @@ def require_host(handle):
     require(not raw.read_stderr(handle,maximum=16384),'host command has diagnostics')
 
 
-def network_conflicts(handle,manifest,*,own_interface=None):
+def network_conflicts(handle,manifest,*,own_ifindex=None):
     require_host(handle)
     rows=json.loads(raw.decode_success_stdout(handle,maximum=262144))
     require(type(rows) is list and len(rows)<=128,'host address inventory bound')
     wanted=ipaddress.IPv4Network(manifest['network']['host_ip']+'/'+manifest['network']['netmask'],strict=False)
     for row in rows:
         require(type(row['ifname']) is str and type(row['addr_info']) is list,'host address shape')
-        if row['ifname']==own_interface:continue
+        if type(row.get('ifindex')) is int and row['ifindex']==own_ifindex:continue
         for address in row['addr_info']:
             if address.get('family')!='inet':continue
             actual=ipaddress.IPv4Network(str(address['local'])+'/'+str(address['prefixlen']),strict=False)
@@ -141,11 +141,20 @@ def inspect_connection(plan,folder,label):
         'connection','show','uuid',plan['uuid']],folder,label)
 
 
-def configure(plan,manifest,found,folder,guard):
+def configure(plan,manifest,found,folder,guard,*,deadline_ns):
+    """Bind the current name once, before the first owned profile effect."""
     before=host_command(plan,'ip',['-j','address','show'],folder,'addresses-before')
-    network_conflicts(before,manifest,own_interface=found['interface'])
+    network_conflicts(before,manifest,own_ifindex=found['ifindex'])
     require(not connection_identity(inspect_connection(plan,folder,'profile-before'),plan,found),
             'network UUID was already present')
+    guard()
+    current=endpoint(capture_endpoint(folder,'usb-before-configure'),manifest)
+    require(current is not None and
+            {k:v for k,v in current.items() if k!='interface'}==
+            {k:v for k,v in found.items() if k!='interface'},
+            'NCM identity changed before configuration')
+    found=current
+    publish(folder/'endpoint.json',found)
     publish(folder/'network-intent.json',dict(plan=plan,endpoint=found))
     prefix=ipaddress.IPv4Network('0.0.0.0/'+manifest['network']['netmask']).prefixlen
     args=['connection','add','save','no','type','ethernet','con-name',plan['name'],
@@ -153,7 +162,10 @@ def configure(plan,manifest,found,folder,guard):
         '802-3-ethernet.mac-address',found['host_mac'],'ipv4.method','manual',
         'ipv4.addresses',manifest['network']['host_ip']+'/'+str(prefix),'ipv4.never-default','yes',
         'ipv4.ignore-auto-dns','yes','ipv4.ignore-auto-routes','yes','ipv6.method','disabled']
-    guard();require_host(host_command(plan,'nmcli',args,folder,'network-create'))
+    # Keep the original-window check after durable publication without
+    # repeating the full guard or adding a settling delay.
+    require(clock()<deadline_ns,'original mainline window expired before profile creation')
+    require_host(host_command(plan,'nmcli',args,folder,'network-create'))
     require(endpoint(capture_endpoint(folder,'usb-before-up'),manifest)==found,'NCM changed before activation')
     guard();require_host(host_command(plan,'nmcli',['connection','up','uuid',plan['uuid'],
         'ifname',found['interface']],folder,'network-up'))
@@ -162,6 +174,7 @@ def configure(plan,manifest,found,folder,guard):
     route=host_command(plan,'ip',['-j','route','get',manifest['network']['device_ip'],
         'from',manifest['network']['host_ip'],'oif',found['interface']],folder,'route')
     direct_route(route,manifest,found)
+    return found
 
 
 def direct_route(route,manifest,found):
@@ -348,10 +361,9 @@ def observe(adapter,request,guard):
         if found is not None:break
         time.sleep(min(1,max(0,(deadline-clock())/1e9)))
     require(found is not None,'canary USB endpoint did not arrive')
-    publish(folder/'endpoint.json',found)
     def bound_guard():
         guard();require(clock()<deadline,'original mainline window expired')
-    configure(plan,manifest,found,folder,bound_guard)
+    found=configure(plan,manifest,found,folder,bound_guard,deadline_ns=deadline)
     guard_calls=0
     def socket_guard():
         nonlocal guard_calls

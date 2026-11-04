@@ -30,15 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML026 is H0 qualified / independent PASS_GO / fixed D0 ready; exact attended approval pending.**
+  Final interface-name binding moves after the existing guard, immediately
+  before first profile creation; all other anchor fields must match. Own-address
+  exclusion uses integer ifindex. Postbinding identity and original deadlines
+  remain strict, without settling sleeps, extra full guards or retries.
+  Fifty-three focused tests and fresh artifact/VM qualification pass. Seven
+  Android health captures rederive; no new approval, grant or candidate control.
+  [Correction and proportionality review](docs/reports/S22PLUS_MAINLINE_ML026_INTERFACE_BINDING_H0_2026-11-05.md).
 - **ML025 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
-  A candidate-compatible NCM endpoint appeared, then only its interface name
-  differed in the preactivation snapshot; the other compared fields matched.
-  The current identity guard stopped before network activation, authenticated
-  base request or SSH. Rename actor and replug causality remain unproved.
-  N and A each transferred once. One health-only continuation after a preserved
-  ADB read failure completed original-A health; the owned host profile was
-  removed. Both retained V1 frame counts are zero. No F1 owner, successor or
-  new grant remains. The next bounded unit is not selected.
+  Only the interface name differed between NCM snapshots; the guard stopped
+  before activation/base/SSH. Rename actor and replug causality remain unproved.
+  N and A each transferred once; health-only continuation after an ADB failure
+  closed original A healthy. The owned profile was removed; V1 frames were zero.
   [Run and evidence](docs/reports/S22PLUS_MAINLINE_ML025_RUN_2026-11-05.md) ·
   [H0 qualification](docs/reports/S22PLUS_MAINLINE_ML025_SSH_ATTACH_H0_2026-11-04.md).
 - **ML024 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
