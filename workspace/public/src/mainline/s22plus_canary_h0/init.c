@@ -167,6 +167,9 @@ static int hash_file(const char *path,uint8_t out[32]) {
     if(!error)s22plus_max77705_runtime_sha256_final(&h,out);
     return error;
 }
+#ifdef CANARY_RC_CYCLE
+#include "service-cycle.h"
+#endif
 #ifdef CANARY_DOWNLOAD_RAM
 #include "download-return.h"
 #endif
@@ -239,11 +242,17 @@ static int debian_proof(uint8_t response[G0Q_RESPONSE_SIZE]) {
     g_put32(response+224,1);g_put32(response+256,(uint32_t)self);
     g_put32(response+260,(uint32_t)parent);g_put32(response+264,1);
     g_put32(response+268,'2');g_put32(response+272,'N');
+#ifdef CANARY_RC_CYCLE
+    unsigned master=0,ticks=0,ready=download_ready()?1U:0U;
+    if(!cycle_started(&master,&ticks)){ready|=2;g_put32(response+280,master);g_put32(response+284,ticks);}
+    g_put32(response+276,ready);
+#else
 #ifdef CANARY_DEBIAN_SSH
     g_put32(response+276,(uint32_t)ssh_ready());
 #endif
 #ifdef CANARY_DOWNLOAD_RAM
     g_put32(response+276,(uint32_t)download_ready());
+#endif
 #endif
     return 0;
 }
@@ -331,7 +340,18 @@ static int serve(void) {
     if(client>=0&&close(client)&&!error)error=errno;
     return error;
 }
+#ifdef CANARY_RC_CYCLE
+int main(int argc,char **argv) {
+    deadline=120000;
+    if(geteuid()!=0||now_ms()>=deadline)return 100;
+    if(argc==3&&!strcmp(argv[1],"rc"))return cycle_level(argv[2]);
+    if(argc==3&&!strcmp(argv[1],"service"))return cycle_service(argv[2]);
+    int mount_phase=argc==2&&!strcmp(argv[1],"mounts");
+    if(!mount_phase&&argc!=1)return 100;
+#else
 int main(void) {
+    const int mount_phase=1;
+#endif
 #ifdef CANARY_DEBIAN_RAM
     if(getpid()<=1||getppid()!=1)return 100;
 #else
@@ -343,7 +363,12 @@ int main(void) {
     if(start>=deadline)park(ETIMEDOUT);
     const char *dirs[]={"/dev","/proc","/sys","/config"};
     for(size_t i=0;i<sizeof(dirs)/sizeof(dirs[0]);i++) {int e=folder(dirs[i],0755);if(e)park(e);}
-    if(mount("devtmpfs","/dev","devtmpfs",MS_NOSUID|MS_NOEXEC,NULL))park(errno);
+    if(mount_phase&&mount("devtmpfs","/dev","devtmpfs",MS_NOSUID|MS_NOEXEC,NULL))park(errno);
+#ifdef CANARY_RC_CYCLE
+    struct statfs live;
+    if(!mount_phase&&(statfs("/dev",&live)||live.f_type!=TMPFS_MAGIC||
+       statfs("/proc",&live)||live.f_type!=PROC_SUPER_MAGIC||statfs("/sys",&live)||live.f_type!=SYSFS_MAGIC))park(EPROTO);
+#endif
 #ifdef CANARY_H0_VM
     const char *console="/dev/ttyAMA0";
 #else
@@ -354,7 +379,7 @@ int main(void) {
     if(fd<0)park(errno);
     for(int n=0;n<3;n++)if(dup2(fd,n)<0)park(errno);
     if(fd>2)close(fd);
-    if(mount("proc","/proc","proc",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL)) {
+    if(mount_phase&&mount("proc","/proc","proc",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL)) {
         int error=errno;dprintf(2,"G0Q_RAM_MOUNT_FAIL proc\n");park(error);
     }
     int sysfs_ready=0;
@@ -368,6 +393,9 @@ int main(void) {
     if(!sysfs_ready&&mount("sysfs","/sys","sysfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL)) {
         int error=errno;dprintf(2,"G0Q_RAM_MOUNT_FAIL sysfs\n");park(error);
     }
+#ifdef CANARY_RC_CYCLE
+    if(mount_phase)return 0;
+#endif
     dprintf(2,"G0Q_RAM_PID1_BEGIN\n");
 #ifdef CANARY_H0_VM
     int e=network("eth0");

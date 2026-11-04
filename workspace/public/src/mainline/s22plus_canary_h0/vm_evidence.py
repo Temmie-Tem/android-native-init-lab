@@ -5,7 +5,7 @@ import shutil
 import time
 
 from prepare import HERE, ROOT, digest, require
-from verify import request, verify, has_ssh, has_download
+from verify import request, verify, has_ssh, has_download, has_cycle
 
 
 def record(path):
@@ -34,7 +34,7 @@ def inputs(prepared, init, kernel_label):
     return binding
 
 
-def snapshot(output):
+def snapshot(output,*,cycle=False):
     source=output/'source';source.mkdir()
     paths=[HERE/name for name in ('vm.py','vm_evidence.py','verify.py','prepare.py',
                                  'debian_ram.py','ssh_ram.py','download_ram.py','download_vm.py',
@@ -42,6 +42,7 @@ def snapshot(output):
                                  'retained_probe.py','retained_probe_v10.py','qualify_retained.py')]
     paths.append(ROOT/'workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py')
     paths.append(ROOT/'workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py')
+    if cycle:paths.append(HERE/'service_ram.py')
     for path in paths:shutil.copyfile(path,source/path.name)
     return {path.name:digest(source/path.name) for path in paths}
 
@@ -103,8 +104,11 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
     current_sources=v10_sources|{'debian_ram.py'}
     ssh_sources=current_sources|{'ssh_ram.py','device_action_raw_capture_v1.py'}
     download_sources=ssh_sources|{'download_ram.py','download_vm.py'}
-    require(set(receipt['source']) in (sources,expanded,expanded|{'retained_trace.py'},
-                                     v9_sources,v10_sources,current_sources,ssh_sources,download_sources),'capture source incomplete')
+    if has_cycle(manifest):
+        require(set(receipt['source'])==download_sources|{'service_ram.py'},'service VM source incomplete')
+    else:
+        require(set(receipt['source']) in (sources,expanded,expanded|{'retained_trace.py'},
+                                         v9_sources,v10_sources,current_sources,ssh_sources,download_sources),'capture source incomplete')
     kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
     if 'retained_marker' in kernel_record:
         marker_source=kernel_record['retained_marker']
@@ -138,7 +142,7 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
         import download_vm
         result['download_return']=download_vm.check_case(previous,manifest,binding['manifest'],binding['kernel'],'positive')
     result.update(observation_status=result['status'],status='PASS_H0_VM_EVIDENCE_RECHECK',
-                  capture=record(receipt_path),validator_source=snapshot(output),
+                  capture=record(receipt_path),validator_source=snapshot(output,cycle=has_cycle(manifest)),
                   kernel_sha256=binding['kernel']['sha256'],
                   original_elapsed_seconds=receipt['elapsed_seconds'],
                   elapsed_seconds=round(time.monotonic()-started,6),

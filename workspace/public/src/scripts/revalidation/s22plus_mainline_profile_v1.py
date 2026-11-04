@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_download_ram_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_rc_ssh_cycle_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -217,22 +217,32 @@ def download_checker():
 
 def download_return_binding(image,manifest,manifest_pin,debian,kernel):
     download_vm=download_checker()
-    download_ram=download_vm.codec
+    cycle=codec.has_cycle(manifest)
+    download_ram=download_vm.wire_for(manifest)
     from mainline.s22plus_canary_h0.prepare import nodes,config_values
     value=read(unchanged(image['download_return']))
     require(set(value)=={'schema','status','physical_manifest','vm_manifest','kernel','cases','source_audit','fixtures',
                          'physical_download_proved','device_actions'} and
-            value['schema']=='s22plus-mainline-download-qualification-v1' and value['status']=='PASS_H0_DOWNLOAD_CONTROL' and
+            value['schema']==('s22plus-mainline-rc-ssh-qualification-v1' if cycle else 's22plus-mainline-download-qualification-v1') and
+            value['status']==('PASS_H0_RC_SSH_CYCLE' if cycle else 'PASS_H0_DOWNLOAD_CONTROL') and
             value['physical_manifest']==manifest_pin and value['vm_manifest']==debian['vm_manifest'] and value['kernel']==kernel and
             value['physical_download_proved'] is False and value['device_actions']==0 and
             set(value['cases'])==set(download_vm.CASES) and
-            manifest['debian_ram']['download_return']==download_ram.declaration(), 'Download qualification differs')
+            (cycle or manifest['debian_ram']['download_return']==download_ram.declaration()), 'Download qualification differs')
+    if cycle:
+        require(json.dumps(manifest['debian_ram']['service_cycle'],sort_keys=True,allow_nan=False)==
+                json.dumps(download_ram.scope(),sort_keys=True),'rc service declaration differs')
     vm=read(unchanged(value['vm_manifest']))
     for case,record in value['cases'].items():
         require(record==download_vm.check_case(Path(record['capture']['path']).parent,vm,value['vm_manifest'],kernel,case),
                 'Download VM case changed')
     require(value['cases']['positive']['capture']==debian['positive_capture'] and
             value['cases']['positive']['result']==debian['positive_result'],'Download/base positive evidence differs')
+    if cycle:
+        positive=value['cases']['positive']
+        require(positive['service_ack']['status']=='AUTHENTICATED_RC6_SSH_STOP' and
+                debian['ssh']['positive']==dict(capture=positive['capture'],result=positive['result'],**positive['ssh']),
+                'service stop and same-boot SSH lack a common capture')
     tree=nodes(manifest['dtb']['path']);mode=tree['/reboot-mode']
     require(mode['compatible']==b'nvmem-reboot-mode\0' and mode['nvmem-cell-names']==b'reboot-mode\0' and
             {k:v.hex() for k,v in mode.items() if k.startswith('mode-')}==
@@ -257,14 +267,17 @@ def download_return_binding(image,manifest,manifest_pin,debian,kernel):
     require(all(values[name]=='y' for name in audit['already_builtin']),'Download driver configuration differs')
     fixtures=read(unchanged(value['fixtures']))
     require(set(fixtures)=={'schema','status','sources','evidence','actual_arm64_code','device_actions','physical_download_proved'} and
-            fixtures['schema']=='s22plus-mainline-download-fixtures-v1' and
-            fixtures['status']=='PASS_H0_ACTUAL_DOWNLOAD_C_AND_HOST_BOUNDARIES' and fixtures['device_actions']==0 and
+            fixtures['schema']==('s22plus-mainline-rc-ssh-fixtures-v1' if cycle else 's22plus-mainline-download-fixtures-v1') and
+            fixtures['status']==('PASS_H0_ACTUAL_RC_SSH_FAILURE_BOUNDARIES' if cycle else 'PASS_H0_ACTUAL_DOWNLOAD_C_AND_HOST_BOUNDARIES') and fixtures['device_actions']==0 and
             fixtures['physical_download_proved'] is False and fixtures['actual_arm64_code'] is True,
             'Download producer/failure fixtures absent')
     for receipt in fixtures['sources']:unchanged(receipt)
     source_by_path={r['path']:r['sha256'] for r in fixtures['sources']}
+    required_sources={'init.c','protocol.h','download-return.h','s22plus_fyg8_max77705_result_parser.inc.c'}
+    if cycle:required_sources|={'service-cycle.h','service_ram.py','ssh_ram.py'}
+    require(required_sources<={Path(item['path']).name for item in manifest['inputs']},'Download runtime source closure incomplete')
     for item in manifest['inputs']:
-        if Path(item['path']).name in ('init.c','protocol.h','download-return.h','s22plus_fyg8_max77705_result_parser.inc.c'):
+        if Path(item['path']).name in required_sources:
             require(source_by_path.get(item['path'])==item['sha256'],'Download C fixtures used another runtime source')
     for receipt in fixtures['evidence']:unchanged(receipt)
     return value

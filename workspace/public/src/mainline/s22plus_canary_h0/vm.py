@@ -12,7 +12,7 @@ import tempfile
 import time
 
 from prepare import ROOT, digest, require
-from verify import request, verify, response_size, FDT_LIMIT, has_ssh, has_download
+from verify import request, verify, response_size, FDT_LIMIT, has_ssh, has_download, has_cycle
 from vm_evidence import inputs, snapshot, capture, recheck
 
 
@@ -27,14 +27,39 @@ def persist(path,data):
     finally:os.close(parent)
 
 
+def capture_ssh(output,manifest,ssh_case,ssh_port,proof):
+    import sys
+    import ssh_ram
+    sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/revalidation'))
+    import device_action_raw_capture_v1 as capture_raw
+    require(proof['ssh_ready'], 'packaged SSH listener did not become ready')
+    persist(output/'known-hosts',ssh_ram.known_hosts(manifest['debian_ram']))
+    argv=ssh_ram.vm_command(manifest['debian_ram'],'/usr/bin/ssh',output/'known-hosts',
+                           ssh_port,ssh_case,output)
+    executable=ssh_ram.pin('/usr/bin/ssh')
+    command_record=dict(argv=argv,executable=executable,case=ssh_case)
+    if ssh_case=='wrong-key':
+        subprocess.run(['/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f',str(output/'wrong-key')],check=True)
+        (output/'wrong-key').chmod(0o400);command_record['wrong_key']=ssh_ram.pin(output/'wrong-key')
+    persist(output/'ssh-command.json',json.dumps(command_record,indent=2).encode()+b'\n')
+    handle=capture_raw.acquire_command(argv,output,'ssh',timeout=20,
+        stdout_maximum=1024,stderr_maximum=16384,env={'LANG':'C','LC_ALL':'C','PATH':'/usr/bin:/bin'})
+    require(ssh_ram.pin('/usr/bin/ssh')==executable,'VM SSH client changed during acquisition')
+    return ssh_ram.vm_outcome(handle,proof['boot_id'],ssh_case)
+
+
 def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_case='positive',download_case='positive'):
     prepared,init,output=prepared.resolve(),init.resolve(),output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'),'private VM output')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     binding=inputs(prepared,init,kernel_label)
-    source=snapshot(output)
     manifest=json.loads((init/'result.json').read_text())
-    ssh=has_ssh(manifest)
+    source=snapshot(output,cycle=has_cycle(manifest))
+    ssh=has_ssh(manifest);cycle=has_cycle(manifest)
+    if cycle and ssh_case!='positive':
+        require(download_case=='positive' and not bad_key,'mixed VM fault cases')
+        download_case='ssh-'+ssh_case
+    ssh_proof=None
     download=has_download(manifest)
     require(download_case=='positive' or download and not bad_key,'Download case requires its own runtime')
     require(ssh_case=='positive' or ssh and not bad_key,'SSH case requires an authenticated SSH RAM fixture')
@@ -113,7 +138,11 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
                 client.sendall(query)
                 if download and not bad_key:
                     import download_vm
-                    raw=download_vm.exchange(client,output,manifest,nonce,download_case,persist)
+                    def before_control(proof):
+                        nonlocal ssh_proof
+                        ssh_proof=capture_ssh(output,manifest,ssh_case,ssh_port,proof)
+                    raw=download_vm.exchange(client,output,manifest,nonce,download_case,persist,
+                        before_control=before_control if cycle else None)
                 else:
                     while len(raw)<=maximum:
                         chunk=client.recv(min(65536,maximum+1-len(raw)))
@@ -121,26 +150,8 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
                         raw.extend(chunk)
             if not (output/'response.raw').exists():persist(output/'response.raw',bytes(raw))
             if download and not bad_key:download_vm.settled(output,proc,download_case,monitor,persist)
-            if ssh and not bad_key:
-                import sys
-                import ssh_ram
-                sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/revalidation'))
-                import device_action_raw_capture_v1 as capture_raw
-                proof=verify(output/'response.raw',manifest,nonce,vm=True)
-                require(proof['ssh_ready'], 'packaged SSH listener did not become ready')
-                persist(output/'known-hosts',ssh_ram.known_hosts(manifest['debian_ram']))
-                argv=ssh_ram.vm_command(manifest['debian_ram'],'/usr/bin/ssh',output/'known-hosts',
-                                       ssh_port,ssh_case,output)
-                executable=ssh_ram.pin('/usr/bin/ssh')
-                command_record=dict(argv=argv,executable=executable,case=ssh_case)
-                if ssh_case=='wrong-key':
-                    subprocess.run(['/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f',str(output/'wrong-key')],check=True)
-                    (output/'wrong-key').chmod(0o400);command_record['wrong_key']=ssh_ram.pin(output/'wrong-key')
-                persist(output/'ssh-command.json',json.dumps(command_record,indent=2).encode()+b'\n')
-                handle=capture_raw.acquire_command(argv,output,'ssh',timeout=20,
-                    stdout_maximum=1024,stderr_maximum=16384,env={'LANG':'C','LC_ALL':'C','PATH':'/usr/bin:/bin'})
-                require(ssh_ram.pin('/usr/bin/ssh')==executable,'VM SSH client changed during acquisition')
-                ssh_proof=ssh_ram.vm_outcome(handle,proof['boot_id'],ssh_case)
+            if ssh and not bad_key and not download:
+                ssh_proof=capture_ssh(output,manifest,ssh_case,ssh_port,verify(output/'response.raw',manifest,nonce,vm=True))
             if bad_key:
                 require(not raw,'wrong key produced a response')
                 until=time.monotonic()+2

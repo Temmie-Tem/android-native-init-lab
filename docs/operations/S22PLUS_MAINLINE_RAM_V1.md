@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_download_ram_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_rc_ssh_cycle_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -37,9 +37,10 @@ normal graph for the read-only variants is:
 
 `fresh rooted Android health -> Download -> N once -> USB evidence -> physical Download -> A once -> rooted Android health`
 
-Only the separately qualified Download variant below replaces that physical
-normal return with its one authenticated RAM Download command. Its original
-attended physical recovery remains required if that normal control fails.
+The separately qualified Download variant and its schema-exact rc-managed SSH
+successor replace that physical normal return with one authenticated RAM
+Download command. Both retain the original attended physical recovery if
+normal control fails.
 
 Preparation is H0 and may reuse retained target/recovery records. It neither
 opens a grant nor establishes current device health. Fresh source/artifact,
@@ -76,8 +77,8 @@ evidence responder; the schema-exact packaged SSH variant below adds only its
 declared daemon and fixed unprivileged command. Linux UFS is compiled out and its controller/PHY disabled;
 there is no installed-root mount, native_data access, journal replay, repair,
 package operation or persistent filesystem data write. The base and SSH observers expose
-no device control; only the distinct Download schema below adds its fixed
-normal control. Ordinary boot-only transfer writes only the boot partition. Existing
+no device control. Only the distinct Download variant and its rc-managed SSH
+successor below admit their schema-exact normal control. Ordinary boot-only transfer writes only the boot partition. Existing
 firmware/bootloader behavior is not relabelled as Linux storage access.
 
 USB observation is bounded by the original N launch timestamp plus **120
@@ -216,8 +217,7 @@ the original observation window for an actual operator completion or explicit
 cancellation, bound to that operation and cue. Silence and timeout are neither.
 With no issued cue, issuance closes immediately without another human gate.
 These interlocks prevent an outstanding physical replug instruction from
-overlapping normal automatic A return. They apply only to this Download
-variant; review them when attach or automatic-return sequencing changes,
+overlapping normal automatic A return. They apply to this Download variant and its rc-managed SSH successor; review them when attach or automatic-return sequencing changes,
 and retire them only with evidence that no issued physical instruction can
 overlap control/transfer or after removing this automatic-return capability.
 
@@ -967,6 +967,54 @@ overwrite, short initial history or non-execution. Earlier latch drift and
 unresolved return/retention continuity remain possible limitations. USB/PID1,
 original-A return, final health and physical retention coverage stay separate.
 The existing exact finite attended grant and recovery graph are unchanged.
+
+### Fixed Debian rc-managed SSH cycle in RAM
+
+The distinct `s22plus-mainline-debian-rc-ssh-ram-v1` manifest and wire
+domain specialize the packaged SSH and normal Download variants for **one
+SSH service cycle**. The signed package closure in `service_ram.py` adds
+only the fixed rc and SSH scripts, their helpers and dependencies. There
+is no general rc directory or hook population. A direct PID-1 wait child
+prepares the fixed RAM mounts, and another runs packaged `/usr/lib/init/rc 2`
+with only S01ssh. Its one wrapper invokes unmodified `/etc/init.d/ssh start`.
+The responder runs once as a direct child eligible in both levels 2 and 6.
+The startup frame authenticates the same-boot start/rc records and exact
+packaged master executable, PID, start ticks and PID-1 parent. Neither the
+script exit code nor a listening port alone counts.
+
+On the existing framed base socket, close cue issuance and resolve an actual
+outstanding replug instruction before the one permitted fixed UID/GID 1000 SSH
+command on its own connection. Recheck the endpoint, route, SSH raw completion
+and same boot before the fresh Session intent binds those exact bytes. A
+failed or uncertain SSH command cannot be retried or followed by control.
+One authenticated command on the original base socket permits exactly one
+packaged `/usr/sbin/init 6` submission. The only rc6 link K01ssh invokes the
+same wrapper and unmodified stop script against the original master. Record
+exclusive intents, original boot, levels, script and rc completion, old
+master disappearance, absence of the pidfile and zero matching packaged
+SSH executables. No other halt, shutdown, signaling sweep, mount transition
+or package service is exposed. A zero telinit or script status alone is
+insufficient. A deadline can leave a submitted transition incomplete; no
+stage, SSH session, control, reset or transfer may replay.
+
+The 168-byte authenticated ACK binds that stop evidence to the original
+master, observer, nonce and boot. It does not prove reset. The existing
+write-half shutdown, empty peer EOF, exact reboot-mode binding, final clock
+check and one normal Download restart apply. Extra bytes or late EOF after a
+valid request may leave SSH stopped; neither permits a reset or a second
+request. Original observation/grant/return deadlines, N/A transfer limits,
+physical Download fallback and final Android health remain unchanged.
+
+Exact qualification uses both signed CPIOs with the same kernel, packaged
+service success and failure cases, same-boot SSH and control raw evidence,
+source/driver joins, and current independent capability/artifact review. Only
+the full cycle followed by actual normal Download, original A and complete
+health can earn `PASS_DEBIAN_RC_SSH_CYCLE_RAM`. Earlier evidence may survive
+a later failure. This does not establish complete system shutdown, signal
+causality, storage, persistent Debian or automatic failure recovery. Review
+this variant again if package links, evidence, privilege, dispatch, deadlines
+or return semantics change; retire its extra stage checks only with equivalent
+service proof or removal of the service-cycle variant.
 
 ### Fixed post-closure retained-marker D0
 

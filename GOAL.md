@@ -30,6 +30,17 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML028 passed the H0 service experiment:** a bounded Debian rc-managed SSH
+  service cycle in RAM. Packaged SysVinit runs the selected rc2 start and rc6
+  stop paths; one fixed SSH command, evidence of the service lifecycle and
+  normal Download/original-A return must join the same boot. The observer
+  remains a bounded evidence service through rc6, so this is not a claim of
+  complete system shutdown. The exact VM capture shows the same master stopped
+  through rc6 before one guest reset. [H0 evidence and limits](docs/reports/S22PLUS_MAINLINE_ML028_RC_SSH_CYCLE_H0_2026-11-05.md).
+  Independent exact-artifact review passed; the V33 preparation and fixed
+  preapproval Android health check are complete. No ML028 execution grant,
+  candidate control or transfer has occurred.
+
 - **ML027 is consumed: PASS_MAINLINE_DOWNLOAD_RAM / ANDROID_CLOSED_HEALTHY.**
   Authenticated packaged Debian RAM PID1/USB and one same-connection fixed
   control led to machine-proved normal Download and original-A return.
@@ -37,7 +48,7 @@ identities, goals, artifacts and authority remain separate.
   preserved; a health-only continuation completed all seven health reads
   without another transfer. The owned profile was removed and no owner remains.
   No physical Download was requested. Automatic failure recovery, full SysV
-  shutdown and persistence remain unproved; no successor or grant is selected.
+  shutdown and persistence remain unproved; its grant is consumed.
   [Run and limits](docs/reports/S22PLUS_MAINLINE_ML027_RUN_2026-11-05.md) · [H0 qualification](docs/reports/S22PLUS_MAINLINE_ML027_DOWNLOAD_RETURN_H0_2026-11-05.md).
 
 - **ML026 is consumed: PASS_DEBIAN_SSH_RAM / ANDROID_CLOSED_HEALTHY.**
@@ -115,7 +126,21 @@ The selected completion criterion, `PASS_MAINLINE_DOWNLOAD_RAM`, is achieved.
 ACK/EOF alone were not accepted as Download arrival. This normal return proves
 neither automatic stall recovery nor persistent/resident Debian. The broader
 watchdog interface and Linux storage work remain separate possible subsequent
-units; neither a successor nor a new execution grant has been selected.
+units. The selected ML028 service-cycle work has no execution grant.
+
+## Next bounded unit: ML028 Debian rc-managed SSH cycle in RAM
+
+Use the existing functional mainline kernel/DT and authenticated RAM
+transport. Debian PID1 must run the actual packaged rc dispatcher and SSH
+script, start one identified master, serve one fixed unprivileged SSH command,
+then transition to runlevel 6 and run the packaged stop against that same
+master. Require actual stage and process evidence before one fixed Download
+return. An authenticated ACK or a zero script exit alone is insufficient.
+The existing original observation windows, finite attended operation,
+exact normal Download ticket, original-A/final health and no replay remain.
+No storage, watchdog, generic halt path or additional network channel is
+selected. H0 producer/consumer qualification and independent review precede
+any proposal for a fresh physical run.
 
 ## Milestones toward the final server
 
@@ -158,7 +183,7 @@ The previous 798-line goal through ML026 is preserved byte-for-byte in
 It retains the completed ML001–ML026 research/diagnostic history, exact report
 links, proof limits and the earlier vendor-route snapshots. Archival changes
 neither retained evidence nor current authority. Historical next-step text is
-superseded by this selected ML027 unit; consumed grants remain consumed.
+superseded by the current selected bounded unit; consumed grants remain consumed.
 
 This product change does not relax partition/evidence boundaries, activate a
 mainline lane, grant unattended operation or authorize Android deletion now.

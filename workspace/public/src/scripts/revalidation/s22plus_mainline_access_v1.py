@@ -311,6 +311,14 @@ def rederive(adapter,request):
     value=rederive_base(adapter,request)
     manifest=profile.image_binding(request['N'])
     if not profile.codec.has_ssh(manifest):return value
+    return rederive_ssh(adapter,request,value,manifest,
+                        not_before_ns=read(adapter.folder(profile.SELECTION)/'connection.json')['finished_ns'])
+
+
+def rederive_ssh(adapter,request,value,manifest,*,not_before_ns):
+    """Check the one raw SSH invocation against its actual preceding phase."""
+    value=dict(value)
+    require(profile.codec.has_ssh(manifest),'SSH runtime not selected')
     from mainline.s22plus_canary_h0 import ssh_ram
     require(value['proof']['ssh_ready'] is True,'SSH startup absent')
     folder=adapter.folder(profile.SELECTION);window=read(folder/'window.json');found=read(folder/'endpoint.json')
@@ -329,7 +337,7 @@ def rederive(adapter,request):
             intent['acquisition_deadline_ns']==window['deadline_ns']-4_000_000_000 and
             type(intent['timeout_seconds']) in (int,float) and 0.1<=intent['timeout_seconds']<=20 and
             intent['opened_ns']+int(intent['timeout_seconds']*1e9)<intent['acquisition_deadline_ns'] and
-            read(folder/'connection.json')['finished_ns']<=intent['opened_ns']<complete['finished_ns']<window['deadline_ns'] and
+            not_before_ns<=intent['opened_ns']<complete['finished_ns']<window['deadline_ns'] and
             complete==dict(intent=pin(folder/'ssh-intent.json'),capture=pin(folder/'ssh.capture.json'),
                            finished_ns=complete['finished_ns']), 'SSH attempt/window binding differs')
     require(endpoint(raw.load_handle(folder/'usb-before-ssh.capture.json'),manifest)==found and

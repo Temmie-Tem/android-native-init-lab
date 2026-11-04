@@ -71,7 +71,11 @@ def terminal(adapter,request,*,recovered):
                     ready['requested_ns']<launch['boottime_ns']<ready['deadline_ns'] and
                     launch['ticket'] and launch['revalidation'] and returned['completed'] is True,
                     'normal Download/A does not join its original control intent')
-            result.update(status='PASS_MAINLINE_DOWNLOAD_RAM',automatic_download_return_proved=True,
+            cycle=value['proof'].get('runtime_schema')==profile.codec.CYCLE_SCHEMA
+            if cycle:require(value['accepted']['status']=='AUTHENTICATED_RC6_SSH_STOP' and
+                    value['ssh']['boot_id']==value['accepted']['boot_id']==value['proof']['boot_id'],
+                    'service cycle/SSH evidence absent from normal return')
+            result.update(status='PASS_DEBIAN_RC_SSH_CYCLE_RAM' if cycle else 'PASS_MAINLINE_DOWNLOAD_RAM',automatic_download_return_proved=True,
                           original_A_return=returned,download_return=pin(adapter.directory/Coordinator.READY_FILE))
     except (ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
         result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
@@ -83,6 +87,11 @@ def terminal(adapter,request,*,recovered):
                 base=download.rederive_base(adapter,request)
                 result.update(status='NO_PROOF',mainline_pid1=True,authenticated_usb=True,
                               observation=base,automatic_download_return_proved=False)
+                if base['proof'].get('runtime_schema')==profile.codec.CYCLE_SCHEMA:
+                    manifest=profile.image_binding(request['N'])
+                    closure=download.attach.rederive(adapter.directory,base['window'])
+                    ssh=download.ssh_receipt(adapter,request,base,manifest,closure)
+                    result.update(observation=dict(base,ssh=ssh['proof'],ssh_capture=ssh['capture']),ssh_proved=True)
                 return result
             qualification=read(verify(request['N']['debian_ram']))
             if 'ssh' in qualification:

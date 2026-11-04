@@ -33,16 +33,29 @@ static int download_ready(void) {
 }
 
 static int download_finish(int client,const uint8_t response[G0Q_RESPONSE_SIZE]) {
-    uint8_t command[88],auth[32],ack[120];
+#ifdef CANARY_RC_CYCLE
+    const char cmd_magic[]="G0QRCQ1",ack_magic[]="G0QRCA1";
+    uint8_t ack[168];
+#else
+    const char cmd_magic[]="G0QDCQ1",ack_magic[]="G0QDCA1";
+    uint8_t ack[120];
+#endif
+    uint8_t command[88],auth[32];
     int e=transfer(client,command,sizeof(command),0);if(e)return e;
     g_tag(auth,canary_key,canary_id,2,command,56);
-    if(memcmp(command,"G0QDCQ1\0",8)||!g_equal(command+8,response+40,32)||
+    if(memcmp(command,cmd_magic,8)||!g_equal(command+8,response+40,32)||
        !g_equal(command+40,response+72,16)||!g_equal(command+56,auth,32))return EACCES;
     if(now_ms()>=deadline)return ETIMEDOUT;
     if(!download_ready())return ENODEV;
-    memcpy(ack,"G0QDCA1\0",8);memcpy(ack+8,canary_id,32);
+#ifdef CANARY_RC_CYCLE
+    if(g_u32(response+276)!=3)return ENODEV;
+    if((e=cycle_transition(response,ack+88)))return e;
+    if(now_ms()>=deadline)return ETIMEDOUT;
+    if(!download_ready())return ENODEV;
+#endif
+    memcpy(ack,ack_magic,8);memcpy(ack+8,canary_id,32);
     memcpy(ack+40,response+40,32);memcpy(ack+72,response+72,16);
-    g_tag(ack+88,canary_key,canary_id,3,ack,88);
+    g_tag(ack+sizeof(ack)-32,canary_key,canary_id,3,ack,sizeof(ack)-32);
     if((e=transfer(client,ack,sizeof(ack),1)))return e;
     if(shutdown(client,SHUT_WR))return errno;
     /* EOF only settles this connection; it is neither verified receipt nor

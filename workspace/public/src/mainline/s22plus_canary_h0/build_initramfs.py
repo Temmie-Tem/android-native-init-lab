@@ -14,7 +14,7 @@ import subprocess
 from prepare import HERE, ROOT, digest, require, run
 
 
-def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False):
+def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False, service_cycle=False):
     prepared, output = prepared.resolve(), output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'), 'private output required')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -22,9 +22,14 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
                     HERE/'../../native-init/s22plus_fyg8_max77705_result_parser.inc.c',
                     prepared/'kernel-build/.config',prepared/'sm8450-samsung-g0q-ram.dtb',network_path]
     require(ssh_keys is None or debian_packages is not None, 'SSH requires packaged Debian RAM')
+    require(type(service_cycle) is bool and (not service_cycle or (debian_packages is not None and ssh_keys is not None and not download_return)), 'service cycle requires its exact combined closure')
+    arches=None
     require(type(download_return) is bool and (not download_return or
             debian_packages is not None and ssh_keys is None), 'Download requires the fixed non-SSH Debian RAM closure')
-    if download_return:source_paths += [HERE/'download_ram.py',HERE/'download-return.h']
+    if service_cycle:
+        import service_ram
+        source_paths += [HERE/'service_ram.py',HERE/'service-cycle.h']
+    if download_return or service_cycle:source_paths += [HERE/'download_ram.py',HERE/'download-return.h']
     if debian_packages is not None:
         import debian_ram
         debian_packages=debian_packages.resolve()
@@ -34,8 +39,9 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
             ssh_keys=ssh_keys.resolve()
             packages,members=ssh_ram.PACKAGES,ssh_ram.MEMBERS
             source_paths += [HERE/'ssh_ram.py',*ssh_ram.key_inputs(ssh_keys)]
+        if service_cycle:packages,members,arches=service_ram.PACKAGES,service_ram.MEMBERS,service_ram.ARCHES
         source_paths += [HERE/'debian_ram.py',HERE/'download_ram.py',HERE/'../../debian/s22plus_v1/verify_packages.py',
-                         *debian_ram.package_inputs(debian_packages,packages)]
+                         *debian_ram.package_inputs(debian_packages,packages,architectures=arches)]
     source_paths=list(dict.fromkeys(source_paths))
     inputs=[{'path':str(p.resolve()),'sha256':digest(p)} for p in source_paths]
     key=secrets.token_bytes(32)
@@ -68,7 +74,7 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
     for name in ['dev','proc','sys','config']:(tree/name).mkdir(mode=0o755)
     executable=tree/'init'
     if debian_packages is not None:
-        files,package_lock=debian_ram.extract(debian_packages,output,packages,members)
+        files,package_lock=debian_ram.extract(debian_packages,output,packages,members,architectures=arches)
         executable=tree/debian_ram.OBSERVER;executable.parent.mkdir(parents=True)
     command=['aarch64-linux-gnu-gcc','-std=c11','-static','-Os','-Wall','-Wextra','-Werror',
              '-Wno-unused-function','-Wno-unused-const-variable','-fno-ident','-ffunction-sections',
@@ -76,7 +82,8 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
              *(['-DCANARY_H0_VM'] if vm else []),
              *(['-DCANARY_DEBIAN_RAM'] if debian_packages is not None else []),HERE/'init.c','-o',executable]
     if ssh_keys is not None:command.insert(command.index(HERE/'init.c'),'-DCANARY_DEBIAN_SSH')
-    if download_return:command.insert(command.index(HERE/'init.c'),'-DCANARY_DOWNLOAD_RAM')
+    if service_cycle:command.insert(command.index(HERE/'init.c'),'-DCANARY_RC_CYCLE')
+    if download_return or service_cycle:command.insert(command.index(HERE/'init.c'),'-DCANARY_DOWNLOAD_RAM')
     (output/'compile-command.json').write_text(json.dumps([str(x) for x in command],indent=2)+'\n')
     run(command,output/'compile.log')
     executable.chmod(0o755)
@@ -87,8 +94,9 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
         files[debian_ram.OBSERVER]=executable.read_bytes();files['etc/inittab']=debian_ram.INITTAB
         specification=None
         if ssh_keys is not None:
-            files=ssh_ram.files_with_keys(files,{p.name:ssh_ram.pin(p) for p in ssh_ram.key_inputs(ssh_keys)})
-            specification=ssh_ram.specification()
+            recipe=service_ram if service_cycle else ssh_ram
+            files=ssh_ram.files_with_keys(files,{p.name:ssh_ram.pin(p) for p in ssh_ram.key_inputs(ssh_keys)},fixed=recipe.FIXED)
+            specification=recipe.specification()
         debian_ram.populate(tree,files,specification=specification)
         packed_bytes=debian_ram.pack(files,vm,specification=specification)
         initial=tree/'usr/sbin/init'
@@ -115,7 +123,8 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
             'initrd_address':0xb6915000,'device_actions':0}
     if debian_packages is not None:
         result['debian_ram']=(debian_ram.declaration(files,executable,package_lock) if ssh_keys is None else
-                              ssh_ram.declaration(files,executable,package_lock,ssh_keys))
+                              ssh_ram.declaration(files,executable,package_lock,ssh_keys,recipe=recipe))
+        if service_cycle:result['debian_ram']['service_cycle']=service_ram.scope()
         if download_return:
             import download_ram
             result['debian_ram'].update(schema=download_ram.SCHEMA,download_return=download_ram.declaration())
@@ -134,4 +143,5 @@ if __name__=='__main__':
     p.add_argument('--debian-packages',type=Path,help='fixed signed Debian package/index input directory')
     p.add_argument('--ssh-keys',type=Path,help='fresh fixed SSH host/client key input directory; Debian RAM only')
     p.add_argument('--download-return',action='store_true',help='distinct one-shot Download control schema; H0 only')
-    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return)
+    p.add_argument('--service-cycle',action='store_true',help='distinct packaged rc-managed SSH cycle; H0 only')
+    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return,service_cycle=a.service_cycle)

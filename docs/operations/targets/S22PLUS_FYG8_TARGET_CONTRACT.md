@@ -119,6 +119,15 @@ from automatic failure recovery, which remains unproved; mislanding or an
 uncertain control retains the original physical recovery without replay.
 This variant is separate from SSH, and its admission alone remains H0.
 
+The same policy's distinct `s22plus-mainline-debian-rc-ssh-ram-v1`
+specializes those fixed SSH and Download effects for one packaged Debian
+rc2 start and rc6 stop of the same SSH master. The signed closure, one
+nonroot fixed SSH command, one authenticated same-socket control and exact
+stop receipt are mandatory. Only observed normal Download, original A and
+full final health complete the cycle. All attendance, time, one-shot and
+fallback limits remain in force; there is no general shutdown, persistent
+Linux storage or automatic failure-recovery capability.
+
 The same policy's schema-exact optional `entry_park` diagnostic adopts only
 its unconditional V1 `primary_entry` WFE/back-branch before `record_mmu_state`.
 It intentionally cannot reach PID1/USB. Complete changed-Image/source/layout

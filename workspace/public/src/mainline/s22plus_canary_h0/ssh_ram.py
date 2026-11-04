@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import re
 import subprocess
+import sys
 
 if __package__:
     from . import debian_ram as base
@@ -197,34 +198,39 @@ def specification():
     return names,INITTAB,DIRS,LINKS,MODES
 
 
-def files_with_keys(files,keys):
-    files=dict(files);files.update(FIXED)
+def files_with_keys(files,keys,*,fixed=FIXED):
+    files=dict(files);files.update(fixed)
     files['etc/ssh/ssh_host_ed25519_key']=Path(keys['host-key']['path']).read_bytes()
     files['etc/ssh/authorized_keys']=b'restrict '+public_key(Path(keys['client-key.pub']['path']).read_bytes())+b'\n'
     return files
 
 
-def declaration(files,observer,package_lock,folder):
+def declaration(files,observer,package_lock,folder,*,recipe=None):
+    recipe=recipe or sys.modules[__name__]
     keys={p.name:pin(p) for p in key_inputs(folder)}
-    return dict(schema=SCHEMA,package_lock=package_lock,observer=pin(observer),
-        inittab_sha256=hashlib.sha256(INITTAB).hexdigest(),keys=keys,
-        members={n:dict(package=MEMBERS[n][0],sha256=hashlib.sha256(files[n]).hexdigest(),size=len(files[n]))
-                 for n in MEMBERS})
+    return dict(schema=recipe.SCHEMA,package_lock=package_lock,observer=pin(observer),
+        inittab_sha256=hashlib.sha256(recipe.INITTAB).hexdigest(),keys=keys,
+        members={n:dict(package=recipe.MEMBERS[n][0],sha256=hashlib.sha256(files[n]).hexdigest(),size=len(files[n]))
+                 for n in recipe.MEMBERS})
 
 
-def validate(manifest):
+def validate(manifest,*,recipe=None):
+    recipe=recipe or sys.modules[__name__]
+    cycle=recipe is not sys.modules[__name__]
     value=manifest['debian_ram']
-    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members','keys'} and
-            value['schema']==SCHEMA and type(manifest['vm']) is bool, 'SSH RAM schema differs')
-    require(value['inittab_sha256']==hashlib.sha256(INITTAB).hexdigest() and
-            set(value['members'])==set(MEMBERS) and set(value['keys'])==set(KEY_NAMES), 'SSH RAM fixed declaration differs')
+    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members','keys'}|({'service_cycle'} if cycle else set()) and
+            value['schema']==recipe.SCHEMA and type(manifest['vm']) is bool, 'SSH RAM schema differs')
+    require(value['inittab_sha256']==hashlib.sha256(recipe.INITTAB).hexdigest() and
+            set(value['members'])==set(recipe.MEMBERS) and set(value['keys'])==set(KEY_NAMES), 'SSH RAM fixed declaration differs')
+    if cycle:require(json.dumps(value['service_cycle'],sort_keys=True,allow_nan=False)==
+                     json.dumps(recipe.scope(),sort_keys=True),'service-cycle scope differs')
     for name,key in value['keys'].items():
         require(Path(key['path']).name==name and pin(key['path'])==key and key['size']<=4096,
                 'SSH key identity differs')
     require(len({str(Path(key['path']).parent) for key in value['keys'].values()})==1, 'SSH key set is split')
     key_inputs(Path(value['keys']['host-key']['path']).parent)
     root=Path(manifest['init']['path']).parent.parent.parent;files={}
-    for name,(package,expected) in MEMBERS.items():
+    for name,(package,expected) in recipe.MEMBERS.items():
         data=(root/name).read_bytes()
         require(value['members'][name]==dict(package=package,sha256=expected,size=len(data)) and
                 hashlib.sha256(data).hexdigest()==expected, 'signed SSH RAM member differs')
@@ -232,17 +238,17 @@ def validate(manifest):
     observer=value['observer'];path=Path(observer['path'])
     require(path==root/base.OBSERVER and pin(path)==observer and observer['size']<=4*1024*1024,
             'SSH RAM observer differs')
-    files[base.OBSERVER]=path.read_bytes();files=files_with_keys(files,value['keys'])
-    require(manifest['init']['sha256']==MEMBERS['usr/sbin/init'][1], 'packaged PID1 identity differs')
+    files[base.OBSERVER]=path.read_bytes();files=files_with_keys(files,value['keys'],fixed=recipe.FIXED)
+    require(manifest['init']['sha256']==recipe.MEMBERS['usr/sbin/init'][1], 'packaged PID1 identity differs')
     lock=value['package_lock'];require(pin(lock['path'])==lock, 'SSH signed package receipt changed')
     packages=json.loads(Path(lock['path']).read_text())
-    require(packages['verdict']=='PASS_SIGNED_PACKAGE_CLOSURE_H0' and packages['count']==len(PACKAGES) and
-            len(packages['packages'])==len(PACKAGES) and
-            {r['package']:(r['version'],r['sha256']) for r in packages['packages']}==PACKAGES and
-            all(r['architecture']=='arm64' for r in packages['packages']), 'SSH signed package closure differs')
+    require(packages['verdict']=='PASS_SIGNED_PACKAGE_CLOSURE_H0' and packages['count']==len(recipe.PACKAGES) and
+            len(packages['packages'])==len(recipe.PACKAGES) and
+            {r['package']:(r['version'],r['sha256']) for r in packages['packages']}==recipe.PACKAGES and
+            all(r['architecture']==getattr(recipe,'ARCHES',{}).get(r['package'],'arm64') for r in packages['packages']), 'SSH signed package closure differs')
     archive=Path(manifest['initramfs']['path'])
     require(archive.stat().st_size<=16*1024*1024 and pin(archive)==manifest['initramfs'], 'SSH RAM archive changed')
-    require(archive.read_bytes()==gzip.compress(base.pack(files,manifest['vm'],specification=specification()),mtime=0),
+    require(archive.read_bytes()==gzip.compress(base.pack(files,manifest['vm'],specification=recipe.specification()),mtime=0),
             'SSH RAM CPIO bytes, ownership, modes or membership differ')
     return value
 
@@ -340,6 +346,13 @@ def check_case(folder,manifest,manifest_pin,kernel,case):
         from . import verify
     else:
         import verify
+    if verify.has_cycle(manifest):
+        if __package__:
+            from . import download_vm
+        else:
+            import download_vm
+        row=download_vm.check_case(folder,manifest,manifest_pin,kernel,'positive' if case=='positive' else 'ssh-'+case)
+        return dict(capture=row['capture'],result=row['result'],**row['ssh'])
     folder=Path(folder);capture=json.loads((folder/'capture.json').read_text())
     result=json.loads((folder/'result.json').read_text())
     require(capture['schema']=='g0q-h0-vm-capture-v1' and capture['bad_key'] is False and

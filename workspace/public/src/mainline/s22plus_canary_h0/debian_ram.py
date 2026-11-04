@@ -44,22 +44,23 @@ def pin(path):
     return dict(path=str(path), size=path.stat().st_size, sha256=digest(path))
 
 
-def package_inputs(folder, packages=PACKAGES):
+def package_inputs(folder, packages=PACKAGES, *, architectures=None):
     paths = []
     for name, (version, sha) in packages.items():
-        path = folder/'debs'/f"{name}_{version.replace(':', '%3a')}_arm64.deb"
+        arch=(architectures or {}).get(name,'arm64')
+        path = folder/'debs'/f"{name}_{version.replace(':', '%3a')}_{arch}.deb"
         require(path.is_file() and digest(path) == sha, 'fixed Debian package differs: '+name)
         paths.append(path)
     return paths
 
 
-def extract(folder, output, packages=PACKAGES, members=MEMBERS):
+def extract(folder, output, packages=PACKAGES, members=MEMBERS, *, architectures=None):
     """Verify signatures into fresh output; never modify a retained package lock."""
     destination = output/'packages'; (destination/'debs').mkdir(parents=True)
-    for path in package_inputs(folder, packages):
+    for path in package_inputs(folder, packages, architectures=architectures):
         shutil.copyfile(path, destination/'debs'/path.name)
     shutil.copytree(folder/'apt-lists', destination/'apt-lists')
-    (destination/'packages.tsv').write_text(''.join(f'{n}\t{v}\tarm64\n' for n,(v,_) in packages.items()))
+    (destination/'packages.tsv').write_text(''.join(n+'\t'+v+'\t'+(architectures or {}).get(n,'arm64')+'\n' for n,(v,_) in packages.items()))
     sys.path.insert(0, str(ROOT/'workspace/public/src/debian/s22plus_v1'))
     from verify_packages import verify
     verified = verify(destination)
@@ -126,6 +127,12 @@ def declaration(files, observer, package_lock):
 def validate(manifest):
     """Pure fixed-member/actual-CPIO check, including node types and symlinks."""
     value=manifest['debian_ram']
+    if value.get('schema') == 's22plus-mainline-debian-rc-ssh-ram-v1':
+        if __package__:
+            from . import service_ram
+        else:
+            import service_ram
+        return service_ram.ssh_ram.validate(manifest,recipe=service_ram)
     if value.get('schema') == 's22plus-mainline-debian-ssh-ram-v1':
         if __package__:
             from . import ssh_ram
