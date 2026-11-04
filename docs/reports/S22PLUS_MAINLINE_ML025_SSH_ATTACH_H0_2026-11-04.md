@@ -1,8 +1,10 @@
 # ML025: fresh RAM SSH candidate with the existing attach procedure
 
-Status: **H0 QUALIFIED / INDEPENDENT PASS_GO / FIXED D0 READY /
-EXACT ATTENDED APPROVAL PENDING**.
-No approval, grant, candidate control or partition transfer has been created.
+Status: **H0 QUALIFIED / INDEPENDENT PASS_GO; PHYSICAL RUN CONSUMED /
+NO_PROOF / ANDROID_CLOSED_HEALTHY**.
+The [run report](S22PLUS_MAINLINE_ML025_RUN_2026-11-05.md) records an
+interface-name mismatch before network activation, no base/SSH attempt and
+completed original-A recovery. The preparation evidence keeps its original scope.
 
 ## Selected unit
 
@@ -92,13 +94,15 @@ One fixed foreground preapproval D0 completed. All seven Android health raw
 captures rederive with successful producer status and empty stderr, proving
 the current exact target, original-A identity and healthy Android state.
 No grant, candidate control, partition transfer or attendance assertion was
-created. The generated proposal still requires its own
-returned one-operation, 1800-second approval and actual attendance with usable
-Download recovery. ML024's consumed approval cannot apply to ML025.
+created during preparation. The operator subsequently returned the exact
+one-operation, 1800-second approval and confirmed current attendance with usable
+Download recovery. The fixed health observation was refreshed before arming;
+ML024's consumed approval was not reused.
 Readiness is a time-bounded observation; the existing 300-second grant-opening
 freshness and all effect-time guards remain mandatory. Source freezes, local
 links/privacy, goal length, unchanged unrelated-file hashes and scoped diff
-checks complete this preparation. No image or new source change follows review.
+checks completed this preparation. No image or execution-source change followed
+review. ML025 is now consumed and closed healthy; no successor is armed.
 
 Past-failure checklist application: ARTIFACT/AUDIT preserve consumed provenance
 and qualify fresh identity/key/marker bytes; WIRE/PERSIST require complete raw

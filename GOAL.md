@@ -30,16 +30,17 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML025 is H0 qualified / independent PASS_GO / fixed D0 ready; exact attended approval pending.**
-  One fresh packaged RAM SSH candidate keeps ML024's functional inputs, V30
-  host capability/backend and 120-second window. Exact new artifact/VM/SSH
-  qualification and independent entry review pass; unchanged source tests
-  retain their original evidence. Clear prebrief uses the unchanged single
-  conditional replug procedure. Seven fixed Android health captures rederive.
-  No grant, candidate control or transfer exists. Physical SSH remains unproved
-  for ML025, and the generated finite approval plus attendance/usable Download
-  recovery are still required.
-  [Preparation and proof limits](docs/reports/S22PLUS_MAINLINE_ML025_SSH_ATTACH_H0_2026-11-04.md).
+- **ML025 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
+  A candidate-compatible NCM endpoint appeared, then only its interface name
+  differed in the preactivation snapshot; the other compared fields matched.
+  The current identity guard stopped before network activation, authenticated
+  base request or SSH. Rename actor and replug causality remain unproved.
+  N and A each transferred once. One health-only continuation after a preserved
+  ADB read failure completed original-A health; the owned host profile was
+  removed. Both retained V1 frame counts are zero. No F1 owner, successor or
+  new grant remains. The next bounded unit is not selected.
+  [Run and evidence](docs/reports/S22PLUS_MAINLINE_ML025_RUN_2026-11-05.md) ·
+  [H0 qualification](docs/reports/S22PLUS_MAINLINE_ML025_SSH_ATTACH_H0_2026-11-04.md).
 - **ML024 is consumed: NO_PROOF / ANDROID_CLOSED_HEALTHY.**
   The selected USB path remained absent in all 22 snapshots until the original
   observation deadline. No authenticated request or SSH invocation occurred,
