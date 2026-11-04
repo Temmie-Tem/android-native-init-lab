@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_entry_park_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_debian_ram_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -37,6 +37,7 @@ def image_binding(image,*,artifact_bytes=False):
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification','runtime_sources'}
     if 'retained_marker' in image:keys.add('retained_marker')
     if 'entry_park' in image:keys.add('entry_park')
+    if 'debian_ram' in image:keys.add('debian_ram')
     require(set(image)==keys and image['schema']=='s22plus-mainline-image-v1' and image['profile']==PROFILE and
             image['namespace']==NAMESPACE and image['version']==VERSION and
             re.fullmatch('[0-9a-f]{32}',image['run_id_hex']),'mainline image shape differs')
@@ -48,6 +49,8 @@ def image_binding(image,*,artifact_bytes=False):
             qualified['image']=={k:v for k,v in image.items() if k!='qualification'},'mainline qualification differs')
     package=read(unchanged(qualified['package']));loader=read(unchanged(qualified['loader']))
     manifest=read(unchanged(qualified['init_manifest']));review=read(unchanged(qualified['entry_review']))
+    require(('debian_ram' in image)==('debian_ram' in manifest) and
+            not ('debian_ram' in image and 'entry_park' in image), 'Debian RAM mode admission differs')
     require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['activation'] is False and
             package['device_actions']==0 and package['loader_sha256']==loader['loader']['sha256'] and
             package['copies'][0]['ap']==image['ap'] and
@@ -94,11 +97,20 @@ def image_binding(image,*,artifact_bytes=False):
             require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
                     'entry-park evidence lacks exact independent coverage')
     for receipt in image['runtime_sources'].values():unchanged(receipt)
-    require(image['runtime_sources']=={
+    runtime_sources={
         'loader':dict(path=loader['loader']['path'],size=loader['loader']['size'],sha256=loader['loader']['sha256']),
         'kernel':dict(path=loader['kernel']['image'],size=loader['kernel']['file_size'],sha256=loader['kernel']['sha256']),
         'init':pin(Path(manifest['init']['path']),maximum=4*1024*1024),
-        'initramfs':manifest['initramfs'],'dtb':pin(Path(manifest['dtb']['path']))},'mainline runtime identity differs')
+        'initramfs':manifest['initramfs'],'dtb':pin(Path(manifest['dtb']['path']))}
+    if 'debian_ram' in image:
+        runtime_sources['observer']=manifest['debian_ram']['observer']
+        debian=debian_ram_binding(image,manifest,qualified['init_manifest'],runtime_sources['kernel'])
+        for receipt in (image['debian_ram'],debian['vm_manifest'],debian['positive_capture'],
+                        debian['negative_capture'],debian['positive_result'],debian['negative_result']):
+            path=str(Path(receipt['path']).relative_to(ROOT))
+            require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
+                    'Debian RAM evidence lacks exact independent coverage')
+    require(image['runtime_sources']==runtime_sources,'mainline runtime identity differs')
     require(image['runtime_sources']['init']['sha256']==manifest['init']['sha256'] and
             image['runtime_sources']['dtb']['sha256']==manifest['dtb']['sha256'],'canary measurements differ')
     if artifact_bytes:
@@ -107,6 +119,55 @@ def image_binding(image,*,artifact_bytes=False):
             require(transport.boot_only_member_receipt(ap,label='mainline RAM candidate')==image['member'],
                     'mainline AP member differs')
     return manifest
+
+
+def debian_ram_binding(image,manifest,manifest_pin,kernel):
+    from s22plus_mainline_task_v1 import capability
+    capability(ROOT)
+    try:
+        from mainline.s22plus_canary_h0 import debian_ram
+    except (ImportError,SyntaxError) as error:
+        raise ValueError('reviewed Debian RAM validator is unavailable') from error
+    runtime=debian_ram.validate(manifest)
+    value=read(unchanged(image['debian_ram']))
+    require(set(value)=={'schema','status','physical_manifest','kernel','vm_manifest','positive_capture',
+                         'negative_capture','positive_result','negative_result','physical_pid1_proved','device_actions'} and
+            value['schema']=='s22plus-mainline-debian-ram-qualification-v1' and
+            value['status']=='PASS_H0_DEBIAN_SYSVINIT_RAM' and value['physical_pid1_proved'] is False and
+            value['device_actions']==0 and value['physical_manifest']==manifest_pin and value['kernel']==kernel,
+            'Debian RAM qualification differs')
+    vm=read(unchanged(value['vm_manifest']));debian_ram.validate(vm)
+    require(vm['vm'] is True and vm['debian_ram']['members']==runtime['members'] and
+            vm['debian_ram']['inittab_sha256']==runtime['inittab_sha256'] and
+            vm['kernel_release']==manifest['kernel_release'] and vm['inputs']==manifest['inputs'],
+            'Debian VM and physical runtime sources differ')
+    positive=read(unchanged(value['positive_result']));negative=read(unchanged(value['negative_result']))
+    require(positive['status']=='PASS_H0_VM_DEBIAN_SYSVINIT_RAM' and
+            positive['runtime_schema']==runtime['schema'] and positive['pid']==1 and
+            positive['responder_pid']>1 and positive['responder_ppid']==1 and
+            positive['actual_pid1_sha256']==manifest['init']['sha256'] and
+            positive['actual_observer_sha256']==vm['debian_ram']['observer']['sha256'] and
+            positive['inittab_sha256']==runtime['inittab_sha256'] and
+            positive['pid_namespace_consistent'] is True and positive['runlevel']=='2' and
+            positive['previous_runlevel']=='N' and
+            negative['status']=='PASS_H0_VM_UNAUTHENTICATED_REQUEST_REJECTED' and
+            positive['kernel_sha256']==negative['kernel_sha256']==kernel['sha256'] and
+            positive['device_actions']==negative['device_actions']==0, 'Debian RAM VM proof differs')
+    for name,bad_key in (('positive_capture',False),('negative_capture',True)):
+        capture=read(unchanged(value[name]))
+        require(capture['schema']=='g0q-h0-vm-capture-v1' and capture['bad_key'] is bad_key and
+                capture['device_actions']==0 and
+                capture['inputs']['manifest']=={k:value['vm_manifest'][k] for k in ('path','sha256')} and
+                capture['inputs']['kernel']=={k:kernel[k] for k in ('path','sha256')},
+                'Debian VM raw capture input differs')
+        folder=Path(value[name]['path']).parent
+        require(set(capture['evidence'])=={'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'},
+                'Debian VM capture evidence incomplete')
+        for filename,expected in capture['evidence'].items():
+            require(hashlib.sha256((folder/filename).read_bytes()).hexdigest()==expected, 'Debian VM raw evidence changed')
+        require((folder/'response.raw').stat().st_size==0 if bad_key else
+                capture['evidence']['response.raw']==positive['raw_sha256'], 'Debian VM raw result join differs')
+    return value
 
 
 def entry_park_presence(image,loader):
@@ -495,7 +556,8 @@ def trace_binding(config,tests,vm,image):
                 'V8 traversal counts and timing claims are mixed')
 
 
-def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None,entry_park_qualification=None):
+def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None,
+            entry_park_qualification=None,debian_ram_qualification=None):
     """Revalidate existing immutable artifacts, without building or contacting a device."""
     package_dir,loader_dir,output=[Path(p).resolve() for p in (package_dir,loader_dir,output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private qualification required')
@@ -520,11 +582,14 @@ def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker
              'kernel':pin(Path(loader['kernel']['image']),maximum=128*1024*1024),
              'init':pin(Path(manifest['init']['path']),maximum=4*1024*1024),
              'initramfs':manifest['initramfs'],'dtb':pin(Path(manifest['dtb']['path']))}
+    require(('debian_ram' in manifest)==(debian_ram_qualification is not None), 'Debian RAM qualification required')
+    if 'debian_ram' in manifest:runtime['observer']=manifest['debian_ram']['observer']
     image=dict(schema='s22plus-mainline-image-v1',profile=PROFILE,namespace=NAMESPACE,version=VERSION,
         run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
         runtime_sources=runtime)
     if marker_qualification is not None:image['retained_marker']=pin(Path(marker_qualification).resolve())
     if entry_park_qualification is not None:image['entry_park']=pin(Path(entry_park_qualification).resolve())
+    if debian_ram_qualification is not None:image['debian_ram']=pin(Path(debian_ram_qualification).resolve())
     record=dict(schema='s22plus-mainline-qualification-v1',status='PASS_H0_MAINLINE_CANDIDATE',image=image,
         package=pin(package_dir/'result.json'),loader=pin(loader_dir/'result.json'),
         init_manifest=pin(Path(loader['initramfs_manifest'])),

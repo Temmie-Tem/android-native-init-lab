@@ -12,6 +12,6 @@ int main(int argc,char **argv) {
     }
     if(strcmp(argv[1],"response"))return 92;
     if(fread(buffer,1,G0Q_BODY_SIZE,stdin)!=G0Q_BODY_SIZE||getchar()!=EOF)return 93;
-    g_tag(buffer+256,key,id,1,buffer,256);
+    g_tag(buffer+G0Q_BODY_SIZE,key,id,1,buffer,G0Q_BODY_SIZE);
     return fwrite(buffer,1,sizeof(buffer),stdout)==sizeof(buffer)?0:94;
 }

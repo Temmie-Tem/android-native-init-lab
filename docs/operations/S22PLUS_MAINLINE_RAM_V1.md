@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_entry_park_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_debian_ram_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -91,6 +91,74 @@ There is no reconnect or request retry after uncertainty. The protocol proves
 actual RAM PID1 identity, selected kernel release, live DT semantics and
 reservations, one CPU, no block devices, timer health and a fresh authenticated
 response. Descriptor visibility alone proves none of these.
+
+### Optional packaged Debian RAM PID1
+
+The schema-exact `debian_ram` qualification admits only
+`s22plus-mainline-debian-sysvinit-ram-v1`, mutually exclusive with `entry_park`.
+The kernel directly executes `/init`, a symlink to the exact signed Debian
+arm64 SysVinit 3.14-4 executable. Its fixed RAM closure contains only that
+executable, the matching loader/libc/libselinux/libpcre2 members from four
+qualified packages, the fixed static observer, required directories, fixed
+console/null nodes and symlinks, and the two-line inittab. Runlevel 2 starts
+the observer once, directly through the `@` executable form. No shell, getty,
+shutdown helper, module loader, package manager or installed root is included.
+Linux UFS remains compiled out. No new persistent-storage exception is granted.
+
+The packaged init retains its standard startup: signal handling, console and
+RAM utmp/runlevel/initctl state, and the CAD-disable call with `reboot(0)`
+semantics. Its linked libselinux may mount proc/sysfs, try the fixed unavailable
+selinuxfs locations and detach its temporary proc mount before init starts the
+observer, with libselinux's original proc/sysfs mount flags of zero. The
+selected kernel has no SELinux support or policy input. The
+observer checks an inherited `/sys` with `statfs` and uses it only if it is
+actually sysfs; otherwise it performs its original fixed sysfs mount and any
+failure stops the observer. No generic EBUSY acceptance is permitted.
+Standard package signal and failure handlers are not claimed absent: the
+SIGRTMIN+4 shutdown executable is excluded, and SIGSEGV handling may fork and
+attempt a core file in RAM. The fixed inittab requests no reset/reboot/halt,
+and no control request is exposed. This adds no automatic recovery or claim
+that all package/inherited hardware activity stops when the observer parks.
+
+The separate wire magic/domain and 352-byte authenticated body retain all
+original kernel/DT/CPU/block/timer fields and additionally bind the measured
+observer PID above 1, PPID 1, single-level NSpid and equal PID namespace
+consistency, runlevel 2/previous N, actual observer executable and fixed inittab
+hashes. The original PID1 executable field must equal the actual package init
+hash. Namespace equality alone does not prove the initial namespace: this
+claim also requires the reviewed direct kernel-to-package startup with no
+namespace creation, exact fixed CPIO and actual same-kernel ARM64 VM boot.
+Legacy canary or VM proof cannot acquire physical Debian meaning.
+
+Fresh qualification must join physical and explicitly VM-marked observer
+builds from identical source/config/runtime inputs; exact signed package
+members; actual CPIO types, nodes, symlinks and data; the changed loader and
+boot/AP package; a complete positive authenticated VM capture; and the real
+wrong-key one-request rejection. Complete raw inputs and current independent
+exact-artifact review are required. Physical success is separately reported
+as `PASS_DEBIAN_SYSVINIT_RAM_PID1` only after the ordinary original-A return
+and complete final health. It establishes this bounded RAM PID1/direct-child
+workload, not full Debian services, persistent Debian, SSH or endurance.
+
+The finite attended grant, original 120-second window, one connection/request,
+physical Download/original-A return, health-only continuation and no-replay
+rules are unchanged. A candidate may retain the separately reviewed
+[ML021 physical attach procedure](../reports/S22PLUS_MAINLINE_ML021_USB_ATTACH_H0_2026-11-04.md):
+all of that procedure's cue, completion and no-replay conditions apply.
+at most one phone-end detach for about three seconds, preserving cable/host
+port/orientation and without buttons. Issue its explicit cue only after
+raw-complete N and its completed install step, a published active original
+window with more than 60 seconds left, the latest complete sealed USB census
+showing ENOENT with no children, and no selected endpoint, request, stop, return
+or terminal and no active N/A transfer. These are cue-issuance checks;
+enumeration or a request may begin before
+the operator's later physical action. Such a race retains the ordinary
+one-shot fail-stop rules, with no request/connection replay. The action never
+restarts or extends observation.
+Resolve any outstanding cue as completed or cancelled before requesting a
+separate physical Download confirmation. A replug answer is not that
+confirmation. This physical condition proves neither that replug was required
+nor a specific Type-C mechanism.
 
 ### Optional fixed entry park
 

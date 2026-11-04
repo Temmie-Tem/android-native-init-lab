@@ -16,6 +16,10 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef CANARY_DEBIAN_RAM
+#include <sys/vfs.h>
+#include <linux/magic.h>
+#endif
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -23,7 +27,7 @@
 #include "seal.h"
 #include "protocol.h"
 
-/* One bounded authenticated observation, then quiescent PID1. Physical
+/* One bounded authenticated observation, then this observer parks. Physical
  * Download/original-A is the recovery route; no automatic reset is claimed.
  * No child, shell, executable loader, module loader or block-device API.
  */
@@ -147,8 +151,8 @@ static int transfer(int fd,void *buffer,size_t length,int writing) {
     }
     return 0;
 }
-static int hash_executable(uint8_t out[32]) {
-    int fd=open("/proc/1/exe",O_RDONLY|O_CLOEXEC);if(fd<0)return errno;
+static int hash_file(const char *path,uint8_t out[32]) {
+    int fd=open(path,O_RDONLY|O_CLOEXEC);if(fd<0)return errno;
     struct s22plus_max77705_runtime_sha256 h;s22plus_max77705_runtime_sha256_init(&h);
     uint8_t b[4096];size_t total=0;int error=0;
     for(;;) {
@@ -163,6 +167,46 @@ static int hash_executable(uint8_t out[32]) {
     if(!error)s22plus_max77705_runtime_sha256_final(&h,out);
     return error;
 }
+#ifdef CANARY_DEBIAN_RAM
+/* Only scalar claims leave the observer. Namespace inode numbers and process
+ * status text stay local. This consistency check is joined with the reviewed
+ * initial boot path; namespace equality alone cannot establish initial PID1. */
+static int one_nspid(const char *path,pid_t expected) {
+    char data[8192];size_t size;int e=read_small(path,data,sizeof(data)-1,&size);
+    if(e)return e;
+    data[size]=0;unsigned found=0;
+    for(char *p=data;*p;) {
+        char *end=strchr(p,'\n');if(!end)return EINVAL;
+        if(!strncmp(p,"NSpid:",6)) {
+            char *last;errno=0;long value=strtol(p+6,&last,10);
+            if(errno||last==p+6||value!=expected)return EINVAL;
+            while(last<end&&(*last==' '||*last=='\t'))last++;
+            if(last!=end||++found!=1)return EINVAL;
+        }
+        p=end+1;
+    }
+    return found==1?0:EINVAL;
+}
+static int debian_proof(uint8_t response[G0Q_RESPONSE_SIZE]) {
+    pid_t self=getpid(),parent=getppid();
+    if(self<=1||parent!=1)return EINVAL;
+    const char *level=getenv("RUNLEVEL"),*previous=getenv("PREVLEVEL");
+    if(!level||strcmp(level,"2")||!previous||strcmp(previous,"N"))return EINVAL;
+    int e=one_nspid("/proc/1/status",1);if(e)return e;
+    if((e=one_nspid("/proc/self/status",self)))return e;
+    struct stat own,init;
+    if(stat("/proc/self/ns/pid",&own)||stat("/proc/1/ns/pid",&init))return errno;
+    if(own.st_dev!=init.st_dev||own.st_ino!=init.st_ino)return EINVAL;
+    if((e=hash_file("/proc/self/exe",response+288)))return e;
+    if((e=hash_file("/etc/inittab",response+320)))return e;
+    /* Parent must still be PID1 after all measured reads. */
+    if(getppid()!=1)return EINVAL;
+    g_put32(response+224,1);g_put32(response+256,(uint32_t)self);
+    g_put32(response+260,(uint32_t)parent);g_put32(response+264,1);
+    g_put32(response+268,'2');g_put32(response+272,'N');
+    return 0;
+}
+#endif
 static int proof(const uint8_t nonce[32],uint8_t response[G0Q_RESPONSE_SIZE]) {
     uint8_t memory[65536];
     for(size_t i=0;i<sizeof(memory);i++)memory[i]=(uint8_t)(i^(i>>8)^0xa7);
@@ -185,7 +229,7 @@ static int proof(const uint8_t nonce[32],uint8_t response[G0Q_RESPONSE_SIZE]) {
     char boot[40];size_t size;
     if((e=read_small("/proc/sys/kernel/random/boot_id",boot,sizeof(boot),&size)))return e;
     if(size!=37||boot[36]!='\n')return EINVAL;
-    memset(response,0,G0Q_RESPONSE_SIZE);memcpy(response,"G0QRSP1\0",8);
+    memset(response,0,G0Q_RESPONSE_SIZE);memcpy(response,G0Q_RESPONSE_MAGIC,8);
     memcpy(response+8,canary_id,32);memcpy(response+40,nonce,32);
     size_t at=72;int high=-1;
     for(size_t i=0;i<36;i++) {
@@ -196,7 +240,7 @@ static int proof(const uint8_t nonce[32],uint8_t response[G0Q_RESPONSE_SIZE]) {
     }
     if(at!=88||high!=-1)return EINVAL;
     g_hash(fdt,fdt_size,response+88);
-    if((e=hash_executable(response+120)))return e;
+    if((e=hash_file("/proc/1/exe",response+120)))return e;
     struct utsname u;if(uname(&u))return errno;
     if(strlen(u.release)>=64)return EOVERFLOW;
     memcpy(response+152,u.release,strlen(u.release));
@@ -207,7 +251,10 @@ static int proof(const uint8_t nonce[32],uint8_t response[G0Q_RESPONSE_SIZE]) {
 #ifdef CANARY_H0_VM
     g_put32(response+252,1);
 #endif
-    g_tag(response+256,canary_key,canary_id,1,response,256);
+#ifdef CANARY_DEBIAN_RAM
+    if((e=debian_proof(response)))return e;
+#endif
+    g_tag(response+G0Q_BODY_SIZE,canary_key,canary_id,1,response,G0Q_BODY_SIZE);
     return 0;
 }
 static int serve(void) {
@@ -241,7 +288,11 @@ static int serve(void) {
     return error;
 }
 int main(void) {
+#ifdef CANARY_DEBIAN_RAM
+    if(getpid()<=1||getppid()!=1)return 100;
+#else
     if(getpid()!=1)return 100;
+#endif
     signal(SIGPIPE,SIG_IGN);signal(SIGCHLD,SIG_DFL);
     uint64_t start=now_ms();if(start==UINT64_MAX)park(EIO);
     deadline=120000; /* Absolute boot-time limit, shared with host verification. */
@@ -259,8 +310,20 @@ int main(void) {
     if(fd<0)park(errno);
     for(int n=0;n<3;n++)if(dup2(fd,n)<0)park(errno);
     if(fd>2)close(fd);
-    if(mount("proc","/proc","proc",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL))park(errno);
-    if(mount("sysfs","/sys","sysfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL))park(errno);
+    if(mount("proc","/proc","proc",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL)) {
+        int error=errno;dprintf(2,"G0Q_RAM_MOUNT_FAIL proc\n");park(error);
+    }
+    int sysfs_ready=0;
+#ifdef CANARY_DEBIAN_RAM
+    /* Packaged libselinux may leave this mounted before init starts us.
+     * Accept the measured filesystem, never an EBUSY error by itself. */
+    struct statfs inherited;
+    if(statfs("/sys",&inherited))park(errno);
+    sysfs_ready=inherited.f_type==SYSFS_MAGIC;
+#endif
+    if(!sysfs_ready&&mount("sysfs","/sys","sysfs",MS_NOSUID|MS_NODEV|MS_NOEXEC,NULL)) {
+        int error=errno;dprintf(2,"G0Q_RAM_MOUNT_FAIL sysfs\n");park(error);
+    }
     dprintf(2,"G0Q_RAM_PID1_BEGIN\n");
 #ifdef CANARY_H0_VM
     int e=network("eth0");

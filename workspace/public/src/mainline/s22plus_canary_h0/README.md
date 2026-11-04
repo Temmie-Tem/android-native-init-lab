@@ -74,12 +74,26 @@ network data, keys and logs belong under `workspace/private/`.
    initrd. Retained signatures do not authenticate the changed payload. The
    result is H0 only and is never registered, armed or transferred by this tool.
 
+The optional `build_initramfs.py --debian-packages <private-package-directory>`
+selects the fixed Debian SysVinit RAM closure. The directory supplies retained
+`debs/` and signed `apt-lists/`; signature verification writes only into fresh
+build output. `debian_ram.py` declares the four exact packages, five ELF members,
+fixed symlinks/character nodes and direct runlevel-2 `once` inittab. The same
+flag with `--vm` tests the packaged PID1 and the explicitly VM-marked child.
+`qualify_debian_ram.py` joins both manifests to one exact kernel, complete
+positive raw VM proof and a separate wrong-key rejection. Production admission
+also requires the mainline owner's explicit Debian qualification and current
+independent artifact review. Legacy response bytes have a different wire domain
+and cannot establish Debian PID1. This mode supplies no shell, installed-root
+access, persistent storage, reset command or device authority.
+
 ## Evidence protocol and tests
 
 The runtime accepts one fixed 72-byte authenticated request. Its fixed response
 binds a host nonce, candidate identity, boot identity, measured PID1 executable
 and live FDT hashes, kernel release, CPU/block counts and a bounded memory/timer
-check. The live FDT follows the 288-byte response and is capped at 2 MiB.
+check. The live FDT follows the legacy 288-byte response or the Debian
+384-byte response (352-byte body plus tag) and is capped at 2 MiB.
 Both producer and consumer use an absolute 120-second boot-time bound. There
 is no command execution, module loading, root mount or reset request.
 

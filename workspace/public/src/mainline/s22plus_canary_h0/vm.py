@@ -11,7 +11,7 @@ import subprocess
 import time
 
 from prepare import ROOT, digest, require
-from verify import request, verify, RESPONSE, FDT_LIMIT
+from verify import request, verify, response_size, FDT_LIMIT
 from vm_evidence import inputs, snapshot, capture, recheck
 
 
@@ -77,7 +77,8 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
     persist(output/'nonce.bin',nonce)
     key=Path(manifest['key_path']).read_bytes()
     if bad_key:key=bytes([key[0]^1])+key[1:]
-    query=request(key,bytes.fromhex(manifest['candidate_id']),nonce)
+    query=request(key,bytes.fromhex(manifest['candidate_id']),nonce,manifest=manifest)
+    maximum=response_size(manifest)+FDT_LIMIT
     persist(output/'request.raw',query)
     with stderr.open('xb') as err:
         proc=subprocess.Popen(command,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=err)
@@ -93,8 +94,8 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
             with socket.create_connection(('127.0.0.1',port),timeout=5) as client:
                 client.settimeout(10)
                 client.sendall(query)
-                while len(raw)<=RESPONSE+FDT_LIMIT:
-                    chunk=client.recv(min(65536,RESPONSE+FDT_LIMIT+1-len(raw)))
+                while len(raw)<=maximum:
+                    chunk=client.recv(min(65536,maximum+1-len(raw)))
                     if not chunk:break
                     raw.extend(chunk)
             persist(output/'response.raw',bytes(raw))

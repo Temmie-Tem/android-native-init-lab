@@ -22,6 +22,10 @@ def inputs(prepared, init, kernel_label):
     require(manifest['vm'] is True,'VM-only input')
     artifacts={'kernel':{'path':kernel['image'],'sha256':kernel['sha256']},
                'initramfs':manifest['initramfs'],'init':manifest['init']}
+    if 'debian_ram' in manifest:
+        import debian_ram
+        runtime=debian_ram.validate(manifest)
+        artifacts['observer']=runtime['observer']
     for value in artifacts.values():
         require(digest(value['path'])==value['sha256'],'VM artifact changed')
     binding={name:record(value['path']) for name,value in artifacts.items()}
@@ -33,6 +37,7 @@ def inputs(prepared, init, kernel_label):
 def snapshot(output):
     source=output/'source';source.mkdir()
     paths=[HERE/name for name in ('vm.py','vm_evidence.py','verify.py','prepare.py',
+                                 'debian_ram.py',
                                  'retained_kernel_vm.py','retained_marker.py','retained_trace.py',
                                  'retained_probe.py','retained_probe_v10.py','qualify_retained.py')]
     paths.append(ROOT/'workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py')
@@ -77,8 +82,9 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
     expanded=sources|{'retained_kernel_vm.py','retained_marker.py','qualify_retained.py'}
     v9_sources=expanded|{'retained_trace.py','retained_probe.py'}
     v10_sources=v9_sources|{'retained_probe_v10.py'}
+    current_sources=v10_sources|{'debian_ram.py'}
     require(set(receipt['source']) in (sources,expanded,expanded|{'retained_trace.py'},
-                                     v9_sources,v10_sources),'capture source incomplete')
+                                     v9_sources,v10_sources,current_sources),'capture source incomplete')
     kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
     if 'retained_marker' in kernel_record:
         marker_source=kernel_record['retained_marker']
@@ -86,19 +92,19 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
         marker_config=json.loads(Path(marker_source['path']).read_text())['config']
         require(digest(marker_config['path'])==marker_config['sha256'],'rechecked VM marker config changed')
         if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-initcall-trace-v8':
-            require(set(receipt['source']) in (expanded|{'retained_trace.py'},v9_sources,v10_sources) and 'fixture_dtb' in command,
+            require(set(receipt['source']) in (expanded|{'retained_trace.py'},v9_sources,v10_sources,current_sources) and 'fixture_dtb' in command,
                     'V8 VM capture lacks trace source or no-map fixture')
         if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-deferred-probe-v9':
-            require(set(receipt['source']) in (v9_sources,v10_sources) and 'fixture_dtb' in command,
+            require(set(receipt['source']) in (v9_sources,v10_sources,current_sources) and 'fixture_dtb' in command,
                     'V9 VM capture lacks probe source or no-map fixture')
         if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-deferred-probe-v10':
-            require(set(receipt['source'])==v10_sources and 'fixture_dtb' in command,
+            require(set(receipt['source']) in (v10_sources,current_sources) and 'fixture_dtb' in command,
                     'V10 VM capture lacks probe source or no-map fixture')
     for name,expected in receipt['source'].items():
         require(digest(previous/'source'/name)==expected,'capture source changed')
     manifest=json.loads((init/'result.json').read_text())
     nonce=(previous/'nonce.bin').read_bytes()
-    expected=request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce)
+    expected=request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,manifest=manifest)
     require((previous/'request.raw').read_bytes()==expected,'captured request binding')
     # Scratch belongs to the new output, never to the retained evidence directory.
     output.mkdir(mode=0o700,parents=True,exist_ok=False)

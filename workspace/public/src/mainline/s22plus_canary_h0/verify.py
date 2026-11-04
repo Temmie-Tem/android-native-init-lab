@@ -17,20 +17,32 @@ DOMAIN=b'G0Q-MAINLINE-RAM-CANARY-v1'
 REQUEST=72
 RESPONSE=288
 FDT_LIMIT=2*1024*1024
+DEBIAN_SCHEMA='s22plus-mainline-debian-sysvinit-ram-v1'
 
 
-def tag(key, identity, kind, payload):
-    return hmac.new(key,DOMAIN+identity+bytes([kind])+payload,hashlib.sha256).digest()
+def protocol(manifest=None):
+    if manifest is not None and 'debian_ram' in manifest:
+        require(manifest['debian_ram'].get('schema')==DEBIAN_SCHEMA,'unknown Debian wire schema')
+        return b'G0Q-DEBIAN-SYSVINIT-RAM-v1',b'G0QDRQ1\0',b'G0QDRS1\0',352
+    return DOMAIN,b'G0QREQ1\0',b'G0QRSP1\0',256
 
 
-def request(key, identity, nonce):
+def response_size(manifest):
+    return protocol(manifest)[3]+32
+
+
+def tag(key, identity, kind, payload, *, manifest=None):
+    return hmac.new(key,protocol(manifest)[0]+identity+bytes([kind])+payload,hashlib.sha256).digest()
+
+
+def request(key, identity, nonce, *, manifest=None):
     require(len(key)==len(identity)==len(nonce)==32,'request binding length')
-    head=b'G0QREQ1\0'+nonce
-    return head+tag(key,identity,0,head)
+    head=protocol(manifest)[1]+nonce
+    return head+tag(key,identity,0,head,manifest=manifest)
 
 
 def verify(raw_path, manifest, nonce, *, vm=False):
-    path=Path(raw_path);require(path.stat().st_size<=RESPONSE+FDT_LIMIT,'response limit')
+    path=Path(raw_path);require(path.stat().st_size<=response_size(manifest)+FDT_LIMIT,'response limit')
     return _verify(path.read_bytes(),manifest,nonce,vm=vm,directory=path.parent)
 
 
@@ -39,18 +51,30 @@ def verify_capture(handle,manifest,nonce):
     import device_action_raw_capture_v1 as capture
     require(isinstance(handle,capture.RawCaptureHandle),'physical parser requires an immutable capture handle')
     capture.require_success(handle)
-    raw=capture.read_stdout(handle,maximum=RESPONSE+FDT_LIMIT)
+    raw=capture.read_stdout(handle,maximum=response_size(manifest)+FDT_LIMIT)
     return _verify(raw,manifest,nonce,vm=False,directory=handle.receipt_path.parent)
 
 
 def _verify(raw,manifest,nonce,*,vm,directory):
     require(manifest['vm'] is vm,'VM/physical artifact mismatch')
-    require(RESPONSE<=len(raw)<=RESPONSE+FDT_LIMIT,'truncated or excessive response')
-    body,auth,fdt=raw[:256],raw[256:288],raw[288:]
+    _,_,magic,body_size=protocol(manifest);size_limit=body_size+32
+    require(size_limit<=len(raw)<=size_limit+FDT_LIMIT,'truncated or excessive response')
+    body,auth,fdt=raw[:body_size],raw[body_size:size_limit],raw[size_limit:]
     key=Path(manifest['key_path']).read_bytes();identity=bytes.fromhex(manifest['candidate_id'])
     require(len(key)==len(identity)==len(nonce)==32,'response binding length')
-    require(hmac.compare_digest(tag(key,identity,1,body),auth),'response HMAC')
-    require(body[:8]==b'G0QRSP1\0' and body[8:40]==identity and body[40:72]==nonce,'response binding')
+    require(hmac.compare_digest(tag(key,identity,1,body,manifest=manifest),auth),'response HMAC')
+    require(body[:8]==magic and body[8:40]==identity and body[40:72]==nonce,'response binding')
+    extra={}
+    if 'debian_ram' in manifest:
+        child,parent,ns,level,previous=struct.unpack_from('<IIIII',body,256)
+        runtime=manifest['debian_ram']
+        require(child>1 and parent==1 and ns==1 and level==ord('2') and previous==ord('N') and
+                body[276:288]==bytes(12),'Debian PID1/direct-child/runlevel consistency')
+        require(body[288:320].hex()==runtime['observer']['sha256'] and
+                body[320:352].hex()==runtime['inittab_sha256'],'Debian observer/inittab identity')
+        extra=dict(runtime_schema=DEBIAN_SCHEMA,responder_pid=child,responder_ppid=parent,
+                   pid_namespace_consistent=True,runlevel='2',previous_runlevel='N',
+                   actual_observer_sha256=body[288:320].hex(),inittab_sha256=body[320:352].hex())
     uptime,pid,cpus,blocks,health,delta,size,variant=struct.unpack_from('<QIIIIQII',body,216)
     require(0<uptime<120000 and pid==1 and cpus==1 and blocks==0 and health==1,'health fields')
     require(20<=delta<=5000 and size==len(fdt) and 40<=size<=FDT_LIMIT,'timer/FDT fields')
@@ -78,7 +102,9 @@ def _verify(raw,manifest,nonce,*,vm,directory):
         end=manifest['initrd_address']+manifest['initramfs']['size']
         require(chosen.pop('linux,initrd-end')==struct.pack('>Q',end),'initrd end')
         require(tree==expected,'live DT properties differ from packaged tree')
-    return {'status':'PASS_H0_VM_PID1_OBSERVER' if vm else 'AUTHENTICATED_CANARY_OBSERVATION',
+    status=('PASS_H0_VM_DEBIAN_SYSVINIT_RAM' if vm else 'AUTHENTICATED_DEBIAN_SYSVINIT_RAM_OBSERVATION') if extra else (
+        'PASS_H0_VM_PID1_OBSERVER' if vm else 'AUTHENTICATED_CANARY_OBSERVATION')
+    return {'status':status,**extra,
             'boot_id':str(uuid.UUID(bytes=body[72:88])),'uptime_ms':uptime,'timer_delta_ms':delta,
             'pid':pid,'online_cpus':cpus,'block_devices':blocks,'kernel_release':release.decode(),
             'live_fdt_sha256':body[88:120].hex(),'actual_pid1_sha256':body[120:152].hex(),

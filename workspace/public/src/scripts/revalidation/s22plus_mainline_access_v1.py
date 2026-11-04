@@ -170,12 +170,14 @@ def configure(plan,manifest,found,folder,guard):
 def capture_connection(folder,manifest,found,*,deadline_ns,guard,connect=None):
     """One attempted TCP connection. No parser or retry can precede raw sealing."""
     nonce=secrets.token_bytes(32)
-    packet=profile.codec.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce)
+    maximum=profile.codec.response_size(manifest)+profile.codec.FDT_LIMIT+1
+    packet=profile.codec.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
+                                 manifest=manifest)
     request=raw.RawCaptureWriter(folder,'request',stdout_maximum=len(packet),stderr_maximum=0)
     request.write_stdout(packet);request_handle=request.finalize(returncode=0)
     attempt=publish(folder/'attempt.json',dict(request=pin(request_handle.receipt_path),nonce=nonce.hex(),
         endpoint=found,opened_ns=clock(),deadline_ns=deadline_ns,host_boot=host_boot()))
-    writer=raw.RawCaptureWriter(folder,'response',stdout_maximum=MAX_RX,stderr_maximum=0,
+    writer=raw.RawCaptureWriter(folder,'response',stdout_maximum=maximum,stderr_maximum=0,
         argv0_name='one-mainline-ncm-observation')
     client=None;received=0;sent=False;eof=False;failure=None;finished=None
     try:
@@ -190,15 +192,15 @@ def capture_connection(folder,manifest,found,*,deadline_ns,guard,connect=None):
         require(client.getsockopt(socket.SOL_SOCKET,socket.SO_BINDTODEVICE,64).rstrip(b'\0').decode()==found['interface'],
                 'socket interface binding differs')
         client.settimeout(min(1,(deadline_ns-clock())/1e9));client.sendall(packet);sent=True
-        while received<MAX_RX:
+        while received<maximum:
             remaining=(deadline_ns-clock())/1e9
             require(remaining>0,'response exceeded original window')
             client.settimeout(min(1,remaining))
-            try:data=client.recv(min(65536,MAX_RX-received))
+            try:data=client.recv(min(65536,maximum-received))
             except socket.timeout:continue  # Same connection, never another request.
             if not data:eof=True;break
             writer.write_stdout(data);received+=len(data)
-        require(eof and received<MAX_RX,'response is incomplete or exceeds bound')
+        require(eof and received<maximum,'response is incomplete or exceeds bound')
         require(clock()<deadline_ns,'complete response arrived after original window')
     except BaseException as error:failure=error
     finally:
@@ -208,7 +210,7 @@ def capture_connection(folder,manifest,found,*,deadline_ns,guard,connect=None):
                 if failure is None:failure=error
         finished=clock()
         handle=writer.finalize(returncode=0 if failure is None else None,
-            timed_out=finished>=deadline_ns,output_exceeded=received>=MAX_RX,
+            timed_out=finished>=deadline_ns,output_exceeded=received>=maximum,
             producer_error_type=type(failure).__name__ if failure else None)
         publish(folder/'connection.json',dict(attempt=attempt,response=pin(handle.receipt_path),
             sent_complete_request=sent,eof=eof,finished_ns=finished,descriptor_closed=True))
@@ -240,7 +242,8 @@ def rederive(adapter,request):
     nonce=bytes.fromhex(attempt['nonce']);require(len(nonce)==32,'nonce length differs')
     planned=raw.load_handle(verify(attempt['request']))
     raw.require_success(planned)
-    expected=profile.codec.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce)
+    expected=profile.codec.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
+                                   manifest=manifest)
     require(raw.read_stdout(planned,maximum=72)==expected,'retained request differs')
     proof=profile.codec.verify_capture(raw.load_handle(verify(connection['response'])),manifest,nonce)
     return dict(action='mainline-evidence',proof=proof,response=connection['response'],attempt=pin(folder/'attempt.json'),

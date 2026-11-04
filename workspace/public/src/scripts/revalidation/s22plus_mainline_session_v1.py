@@ -15,8 +15,10 @@ def normal_steps():
 
 def validate_result(adapter,step,value,request):
     if step.name!=profile.SELECTION:return
+    expected=('AUTHENTICATED_DEBIAN_SYSVINIT_RAM_OBSERVATION' if 'debian_ram' in request['N']
+              else 'AUTHENTICATED_CANARY_OBSERVATION')
     require(value==access.rederive(adapter,request) and
-            value['proof']['status']=='AUTHENTICATED_CANARY_OBSERVATION', 'mainline raw proof differs')
+            value['proof']['status']==expected, 'mainline raw proof differs')
     rows=Journal(adapter.directory/'journal').rows()
     require(sum(row['event']=='effect-intent' and row['data']['step']=='install-native-first' for row in rows)==1 and
             not any(row['event']=='effect-intent' and row['data']['step']==step.name for row in rows),
@@ -50,7 +52,8 @@ def terminal(adapter,request,*,recovered):
                 native_admitted=False,replay_authorized=False)
     try:
         value=access.rederive(adapter,request)
-        result.update(status='PASS_MAINLINE_RAM_USB',mainline_pid1=True,authenticated_usb=True,
+        status='PASS_DEBIAN_SYSVINIT_RAM_PID1' if 'debian_ram' in request['N'] else 'PASS_MAINLINE_RAM_USB'
+        result.update(status=status,mainline_pid1=True,authenticated_usb=True,
                       observation=value,physical_return_requested=not recovered)
     except (ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
         result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])

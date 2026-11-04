@@ -7,8 +7,18 @@
 #include "../../native-init/s22plus_fyg8_max77705_result_parser.inc.c"
 
 #define G0Q_REQUEST_SIZE 72U
+#ifdef CANARY_DEBIAN_RAM
+#define G0Q_BODY_SIZE 352U
+#define G0Q_REQUEST_MAGIC "G0QDRQ1\0"
+#define G0Q_RESPONSE_MAGIC "G0QDRS1\0"
+#define G0Q_DOMAIN "G0Q-DEBIAN-SYSVINIT-RAM-v1"
+#else
 #define G0Q_BODY_SIZE 256U
-#define G0Q_RESPONSE_SIZE 288U
+#define G0Q_REQUEST_MAGIC "G0QREQ1\0"
+#define G0Q_RESPONSE_MAGIC "G0QRSP1\0"
+#define G0Q_DOMAIN "G0Q-MAINLINE-RAM-CANARY-v1"
+#endif
+#define G0Q_RESPONSE_SIZE (G0Q_BODY_SIZE + 32U)
 #define G0Q_FDT_LIMIT (2U * 1024U * 1024U)
 
 static void g_put32(uint8_t *p, uint32_t x) {
@@ -31,7 +41,7 @@ static void g_hash(const void *p,size_t n,uint8_t out[32]) {
 }
 static void g_tag(uint8_t out[32],const uint8_t key[32],const uint8_t id[32],
                   unsigned response,const uint8_t *data,size_t size) {
-    static const uint8_t domain[]="G0Q-MAINLINE-RAM-CANARY-v1";
+    static const uint8_t domain[]=G0Q_DOMAIN;
     uint8_t pad[64],inner[32],kind=(uint8_t)response;
     struct s22plus_max77705_runtime_sha256 h;
     memset(pad,0x36,sizeof(pad));for(unsigned i=0;i<32;i++)pad[i]^=key[i];
@@ -50,6 +60,6 @@ static void g_tag(uint8_t out[32],const uint8_t key[32],const uint8_t id[32],
 }
 static int g_request(const uint8_t request[G0Q_REQUEST_SIZE],const uint8_t key[32],const uint8_t id[32]) {
     uint8_t tag[32];g_tag(tag,key,id,0,request,40);
-    return memcmp(request,"G0QREQ1\0",8)==0 && g_equal(tag,request+40,32);
+    return memcmp(request,G0Q_REQUEST_MAGIC,8)==0 && g_equal(tag,request+40,32);
 }
 #endif

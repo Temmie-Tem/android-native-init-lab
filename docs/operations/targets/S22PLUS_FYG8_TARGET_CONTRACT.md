@@ -81,6 +81,17 @@ S22+ research task without physical attendance or a per-read request. It reads
 only fixed identity/root/partition-digest health and host/lane evidence, refuses
 an unresolved F1 owner, and grants no control, payload or run authority.
 
+The same policy's schema-exact optional `debian_ram` qualification adopts the
+fixed packaged SysVinit RAM PID1 and one direct runlevel-2 evidence child.
+Its exact signed package/CPIO closure, standard package/libselinux startup
+effects, separate wire proof and initial-namespace proof limits are defined
+in that policy. Exact artifact qualification and current independent review
+are required. It grants no Linux storage, installed-root, general command,
+reset or automatic-recovery capability. It retains the finite attended grant,
+original observation window, bounded physical attach condition, separate
+physical Download/original-A return, final health and consumed no-replay rules.
+It is mutually exclusive with `entry_park`; preparation alone is H0.
+
 The same policy's schema-exact optional `entry_park` diagnostic adopts only
 its unconditional V1 `primary_entry` WFE/back-branch before `record_mmu_state`.
 It intentionally cannot reach PID1/USB. Complete changed-Image/source/layout

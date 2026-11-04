@@ -32,10 +32,14 @@ identities, goals, artifacts and authority remain separate.
 
 - **Usable mainline RAM PID1 and authenticated USB are now demonstrated by ML021.**
   Persistent Debian and ordinary headless services remain the product objective;
-  the next bounded development unit has not been selected or armed. Functional
+  ML022 is selected for packaged Debian SysVinit as RAM PID1 and one fixed
+  runlevel-2 evidence child. Exact H0 qualification, independent PASS_GO and
+  fixed preapproval Android health are complete; the fresh one-operation
+  attended approval is pending and no new grant is armed. Functional
   development takes priority over optional historical fault attribution or a
   new instrumentation ladder. Existing target, authority, recovery and no-replay
   requirements remain binding.
+  [ML022 scope and checks](docs/reports/S22PLUS_MAINLINE_ML022_DEBIAN_RAM_H0_2026-11-04.md).
 - **ML021 is consumed: PASS_MAINLINE_RAM_USB / ANDROID_CLOSED_HEALTHY.**
   The fresh ordinary RAM candidate kept ML020's functional baseline. After one
   instructed phone-end replug, reported complete by the operator, the observer
@@ -106,7 +110,8 @@ identities, goals, artifacts and authority remain separate.
   no failure or reset cause, and returned calls are not driver/probe success.
   ML010 retains its earlier full-initcall evidence. Earlier candidates retain their
   own evidence; no shared-boot or historical progress transfer is inferred.
-  A usable RAM PID1/USB boot is still unproved. The sister r0q port supplies
+  These earlier results did not prove a usable RAM PID1/USB boot; ML021 later
+  supplied that separate live proof. The sister r0q port supplies
   a starting point, not complete g0q qualification. The current
   [mainline assessment](docs/reports/S22PLUS_MAINLINE_SERVER_ASSESSMENT_H0_2026-10-27.md)
   records source evidence, known gaps and the proposed staged qualification.
@@ -250,7 +255,7 @@ identities, goals, artifacts and authority remain separate.
 - The [FYG8 ABL/live-FDT analysis](docs/reports/S22PLUS_FYG8_ABL_DT_HANDLING_H0_2026-10-27.md)
   establishes this target's DT handling and matching r0q RAM banks/splash.
   Static loader/kernel/DTB/initramfs placement and retained reservation checks
-  are qualified above; usable mainline boot remains unproved. Bypassing
+  are qualified above; ML021 separately proved live RAM PID1/USB. Bypassing
   ABL's DT pipeline does not remove Gunyah.
 - **P462 vendor-kernel proof remains valid within its original scope:** two
   Debian boots, one offline hello installation, function and exact retention
@@ -286,8 +291,9 @@ The initial preferred mainline boot route is:
                         -> mainline Linux + g0q DTB + minimal initramfs
                         -> admitted Debian root -> exec Debian host PID 1
 
-uniLoader has delivered the FYG8 Android control and ML003's early mainline
-entry; a complete mainline PID1/USB boot is still unproved. The initial carrier
+uniLoader has delivered the FYG8 Android control, ML003's early mainline entry
+and ML021's authenticated RAM PID1/USB boot. Installed Debian on mainline is
+still unproved. The initial carrier
 should retain stock vendor_boot/DTBO and avoid changing the bootloader or
 recovery partition. Pin the complete loader/kernel/patch/config/DTB/initramfs
 set. Do not copy the sister port's Android-removal or flashing workflow.

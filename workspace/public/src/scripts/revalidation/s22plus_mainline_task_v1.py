@@ -41,6 +41,7 @@ def source_paths(root,selected=profile):
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
         'docs/operations/DEVICE_ACTION_PROCESS_V2.md','docs/operations/DEVICE_ACTION_RISK_TIERS.md',
         'workspace/public/src/mainline/s22plus_canary_h0/verify.py',
+        'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
         'workspace/public/src/mainline/s22plus_canary_h0/prepare.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
@@ -77,9 +78,11 @@ def loader_build_only(path):
 
 
 def marker_only(path):
-    # This observer runs only after proved original-A closure. Neither it nor
-    # the marker codec is imported by the original-A recovery path.
+    # Marker observation runs only after proved original-A closure. Marker
+    # decoding and Debian candidate validation are lazy imports, unavailable
+    # candidate-only code must not become a prerequisite for original A.
     return path in ('workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
+                    'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe_v10.py',

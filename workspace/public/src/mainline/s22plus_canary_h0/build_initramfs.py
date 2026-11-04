@@ -14,13 +14,18 @@ import subprocess
 from prepare import HERE, ROOT, digest, require, run
 
 
-def build(prepared, output, vm, network_path):
+def build(prepared, output, vm, network_path, debian_packages=None):
     prepared, output = prepared.resolve(), output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'), 'private output required')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     source_paths = [HERE/'init.c',HERE/'protocol.h',HERE/'build_initramfs.py',
                     HERE/'../../native-init/s22plus_fyg8_max77705_result_parser.inc.c',
                     prepared/'kernel-build/.config',prepared/'sm8450-samsung-g0q-ram.dtb',network_path]
+    if debian_packages is not None:
+        import debian_ram
+        debian_packages=debian_packages.resolve()
+        source_paths += [HERE/'debian_ram.py',HERE/'../../debian/s22plus_v1/verify_packages.py',
+                         *debian_ram.package_inputs(debian_packages)]
     inputs=[{'path':str(p.resolve()),'sha256':digest(p)} for p in source_paths]
     key=secrets.token_bytes(32)
     identity=hashlib.sha256(json.dumps({'inputs':inputs,'vm':vm,'key_commitment':hashlib.sha256(key).hexdigest()},
@@ -50,33 +55,50 @@ def build(prepared, output, vm, network_path):
     (output/'seal.h').write_text(seal);(output/'seal.h').chmod(0o400)
     tree=output/'tree';tree.mkdir(mode=0o755)
     for name in ['dev','proc','sys','config']:(tree/name).mkdir(mode=0o755)
+    executable=tree/'init'
+    if debian_packages is not None:
+        files,package_lock=debian_ram.extract(debian_packages,output)
+        executable=tree/debian_ram.OBSERVER;executable.parent.mkdir(parents=True)
     command=['aarch64-linux-gnu-gcc','-std=c11','-static','-Os','-Wall','-Wextra','-Werror',
              '-Wno-unused-function','-Wno-unused-const-variable','-fno-ident','-ffunction-sections',
              '-fdata-sections','-Wl,--gc-sections','-Wl,--build-id=none','-I',output,
-             *(['-DCANARY_H0_VM'] if vm else []),HERE/'init.c','-o',tree/'init']
+             *(['-DCANARY_H0_VM'] if vm else []),
+             *(['-DCANARY_DEBIAN_RAM'] if debian_packages is not None else []),HERE/'init.c','-o',executable]
     (output/'compile-command.json').write_text(json.dumps([str(x) for x in command],indent=2)+'\n')
     run(command,output/'compile.log')
-    (tree/'init').chmod(0o755)
-    run(['file',tree/'init'],output/'file.log')
-    run(['aarch64-linux-gnu-readelf','-h','-l',tree/'init'],output/'elf.log')
+    executable.chmod(0o755)
+    run(['file',executable],output/'file.log')
+    run(['aarch64-linux-gnu-readelf','-h','-l',executable],output/'elf.log')
     require('INTERP' not in (output/'elf.log').read_text(), 'unexpected dynamic interpreter')
-    for p in [tree,*tree.iterdir()]:os.utime(p,(0,0))
-    names=['.','config','dev','init','proc','sys']
-    packed=subprocess.run(['cpio','-o','-H','newc','--owner=0:0','--reproducible'],
-                           input=('\n'.join(names)+'\n').encode(),cwd=tree,capture_output=True)
-    (output/'cpio.log').write_bytes(packed.stderr)
-    require(packed.returncode==0,'cpio failed')
-    archive=output/'initramfs.cpio.gz';archive.write_bytes(gzip.compress(packed.stdout,mtime=0))
-    listing=subprocess.run(['cpio','-it'],input=packed.stdout,capture_output=True,check=True)
-    require(listing.stdout.decode().splitlines()==names,'unexpected archive members')
+    if debian_packages is not None:
+        files[debian_ram.OBSERVER]=executable.read_bytes();files['etc/inittab']=debian_ram.INITTAB
+        debian_ram.populate(tree,files)
+        packed_bytes=debian_ram.pack(files,vm)
+        initial=tree/'usr/sbin/init'
+        run(['file',initial],output/'debian-file.log')
+        run(['aarch64-linux-gnu-readelf','-h','-l','-d',initial],output/'debian-elf.log')
+    else:
+        for p in [tree,*tree.iterdir()]:os.utime(p,(0,0))
+        names=['.','config','dev','init','proc','sys']
+        packed=subprocess.run(['cpio','-o','-H','newc','--owner=0:0','--reproducible'],
+                               input=('\n'.join(names)+'\n').encode(),cwd=tree,capture_output=True)
+        (output/'cpio.log').write_bytes(packed.stderr)
+        require(packed.returncode==0,'cpio failed')
+        packed_bytes=packed.stdout;initial=executable
+        listing=subprocess.run(['cpio','-it'],input=packed_bytes,capture_output=True,check=True)
+        require(listing.stdout.decode().splitlines()==names,'unexpected archive members')
+    archive=output/'initramfs.cpio.gz';archive.write_bytes(gzip.compress(packed_bytes,mtime=0))
     release=(prepared/'kernel-build/include/config/kernel.release').read_text().strip()
     result={'status':'H0_INITRAMFS_BUILT_NOT_DEVICE_AUTHORITY','vm':vm,'candidate_id':identity.hex(),
             'key_path':str(keypath),'network':net,'port':47649,'inputs':inputs,
-            'kernel_release':release,'init':{'path':str(tree/'init'),'sha256':digest(tree/'init')},
+            'kernel_release':release,'init':{'path':str(initial),'sha256':digest(initial)},
             'initramfs':{'path':str(archive),'sha256':digest(archive),'size':archive.stat().st_size},
             'dtb':{'path':str(prepared/'sm8450-samsung-g0q-ram.dtb'),
                    'sha256':digest(prepared/'sm8450-samsung-g0q-ram.dtb')},
             'initrd_address':0xb6915000,'device_actions':0}
+    if debian_packages is not None:
+        result['debian_ram']=debian_ram.declaration(files,executable,package_lock)
+        debian_ram.validate(result)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'vm':vm,'init_bytes':(tree/'init').stat().st_size,
                       'archive_bytes':archive.stat().st_size,'output':str(output)}))
@@ -88,4 +110,5 @@ if __name__=='__main__':
     p.add_argument('--output',type=Path,required=True)
     p.add_argument('--network',type=Path,required=True,help='private endpoint JSON; does not configure the host')
     p.add_argument('--vm',action='store_true')
-    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network)
+    p.add_argument('--debian-packages',type=Path,help='fixed signed Debian package/index input directory')
+    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages)
