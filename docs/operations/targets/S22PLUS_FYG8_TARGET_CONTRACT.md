@@ -92,6 +92,17 @@ original observation window, bounded physical attach condition, separate
 physical Download/original-A return, final health and consumed no-replay rules.
 It is mutually exclusive with `entry_park`; preparation alone is H0.
 
+The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
+adds the exact packaged OpenSSH daemon/split executables and one noninteractive
+public-key session executing a fixed UID/GID 1000 command. Its complete signed
+CPIO, secure root/ancestor modes, account/privilege scope, bounded startup
+indication, distinct wire proof and single host-client/raw-capture rules are
+in that policy. Actual same-kernel package/SSH success and failure qualification,
+current independent review and a new finite attended grant are required.
+It grants no general command, Linux storage, reset, automatic recovery or
+additional connection/retry capability. Original observation/return/health,
+physical attach conditions and consumed no-replay remain unchanged.
+
 The same policy's schema-exact optional `entry_park` diagnostic adopts only
 its unconditional V1 `primary_entry` WFE/back-branch before `record_mmu_state`.
 It intentionally cannot reach PID1/USB. Complete changed-Image/source/layout

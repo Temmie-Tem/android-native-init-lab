@@ -14,18 +14,25 @@ import subprocess
 from prepare import HERE, ROOT, digest, require, run
 
 
-def build(prepared, output, vm, network_path, debian_packages=None):
+def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None):
     prepared, output = prepared.resolve(), output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'), 'private output required')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     source_paths = [HERE/'init.c',HERE/'protocol.h',HERE/'build_initramfs.py',
                     HERE/'../../native-init/s22plus_fyg8_max77705_result_parser.inc.c',
                     prepared/'kernel-build/.config',prepared/'sm8450-samsung-g0q-ram.dtb',network_path]
+    require(ssh_keys is None or debian_packages is not None, 'SSH requires packaged Debian RAM')
     if debian_packages is not None:
         import debian_ram
         debian_packages=debian_packages.resolve()
+        packages,members=debian_ram.PACKAGES,debian_ram.MEMBERS
+        if ssh_keys is not None:
+            import ssh_ram
+            ssh_keys=ssh_keys.resolve()
+            packages,members=ssh_ram.PACKAGES,ssh_ram.MEMBERS
+            source_paths += [HERE/'ssh_ram.py',*ssh_ram.key_inputs(ssh_keys)]
         source_paths += [HERE/'debian_ram.py',HERE/'../../debian/s22plus_v1/verify_packages.py',
-                         *debian_ram.package_inputs(debian_packages)]
+                         *debian_ram.package_inputs(debian_packages,packages)]
     inputs=[{'path':str(p.resolve()),'sha256':digest(p)} for p in source_paths]
     key=secrets.token_bytes(32)
     identity=hashlib.sha256(json.dumps({'inputs':inputs,'vm':vm,'key_commitment':hashlib.sha256(key).hexdigest()},
@@ -57,13 +64,14 @@ def build(prepared, output, vm, network_path, debian_packages=None):
     for name in ['dev','proc','sys','config']:(tree/name).mkdir(mode=0o755)
     executable=tree/'init'
     if debian_packages is not None:
-        files,package_lock=debian_ram.extract(debian_packages,output)
+        files,package_lock=debian_ram.extract(debian_packages,output,packages,members)
         executable=tree/debian_ram.OBSERVER;executable.parent.mkdir(parents=True)
     command=['aarch64-linux-gnu-gcc','-std=c11','-static','-Os','-Wall','-Wextra','-Werror',
              '-Wno-unused-function','-Wno-unused-const-variable','-fno-ident','-ffunction-sections',
              '-fdata-sections','-Wl,--gc-sections','-Wl,--build-id=none','-I',output,
              *(['-DCANARY_H0_VM'] if vm else []),
              *(['-DCANARY_DEBIAN_RAM'] if debian_packages is not None else []),HERE/'init.c','-o',executable]
+    if ssh_keys is not None:command.insert(command.index(HERE/'init.c'),'-DCANARY_DEBIAN_SSH')
     (output/'compile-command.json').write_text(json.dumps([str(x) for x in command],indent=2)+'\n')
     run(command,output/'compile.log')
     executable.chmod(0o755)
@@ -72,8 +80,12 @@ def build(prepared, output, vm, network_path, debian_packages=None):
     require('INTERP' not in (output/'elf.log').read_text(), 'unexpected dynamic interpreter')
     if debian_packages is not None:
         files[debian_ram.OBSERVER]=executable.read_bytes();files['etc/inittab']=debian_ram.INITTAB
-        debian_ram.populate(tree,files)
-        packed_bytes=debian_ram.pack(files,vm)
+        specification=None
+        if ssh_keys is not None:
+            files=ssh_ram.files_with_keys(files,{p.name:ssh_ram.pin(p) for p in ssh_ram.key_inputs(ssh_keys)})
+            specification=ssh_ram.specification()
+        debian_ram.populate(tree,files,specification=specification)
+        packed_bytes=debian_ram.pack(files,vm,specification=specification)
         initial=tree/'usr/sbin/init'
         run(['file',initial],output/'debian-file.log')
         run(['aarch64-linux-gnu-readelf','-h','-l','-d',initial],output/'debian-elf.log')
@@ -97,7 +109,8 @@ def build(prepared, output, vm, network_path, debian_packages=None):
                    'sha256':digest(prepared/'sm8450-samsung-g0q-ram.dtb')},
             'initrd_address':0xb6915000,'device_actions':0}
     if debian_packages is not None:
-        result['debian_ram']=debian_ram.declaration(files,executable,package_lock)
+        result['debian_ram']=(debian_ram.declaration(files,executable,package_lock) if ssh_keys is None else
+                              ssh_ram.declaration(files,executable,package_lock,ssh_keys))
         debian_ram.validate(result)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'vm':vm,'init_bytes':(tree/'init').stat().st_size,
@@ -111,4 +124,5 @@ if __name__=='__main__':
     p.add_argument('--network',type=Path,required=True,help='private endpoint JSON; does not configure the host')
     p.add_argument('--vm',action='store_true')
     p.add_argument('--debian-packages',type=Path,help='fixed signed Debian package/index input directory')
-    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages)
+    p.add_argument('--ssh-keys',type=Path,help='fresh fixed SSH host/client key input directory; Debian RAM only')
+    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys)

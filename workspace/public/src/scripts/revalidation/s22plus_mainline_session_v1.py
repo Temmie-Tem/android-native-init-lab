@@ -53,10 +53,20 @@ def terminal(adapter,request,*,recovered):
     try:
         value=access.rederive(adapter,request)
         status='PASS_DEBIAN_SYSVINIT_RAM_PID1' if 'debian_ram' in request['N'] else 'PASS_MAINLINE_RAM_USB'
+        if 'ssh' in value:status='PASS_DEBIAN_SSH_RAM'
         result.update(status=status,mainline_pid1=True,authenticated_usb=True,
                       observation=value,physical_return_requested=not recovered)
     except (ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
         result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
+        # Preserve independent base proof when the later SSH unit fails; no
+        # connected action is performed by either rederivation path.
+        try:
+            qualification=read(verify(request['N']['debian_ram']))
+            if 'ssh' in qualification:
+                base=access.rederive_base(adapter,request)
+                if base['proof'].get('runtime_schema')==profile.codec.SSH_SCHEMA:
+                    result.update(mainline_pid1=True,authenticated_usb=True,observation=base,ssh_proved=False)
+        except (ValueError,OSError,KeyError,TypeError,RawCaptureError):pass
     return result
 
 

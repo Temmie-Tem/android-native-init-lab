@@ -511,6 +511,7 @@ def acquire_command(
     stdout_name: str | None = None,
     stderr_name: str | None = None,
     before_spawn: Callable[[], None] | None = None,
+    boottime_deadline_ns: int | None = None,
 ) -> RawCaptureHandle:
     """Run one command and publish both raw streams before returning a handle."""
 
@@ -522,6 +523,8 @@ def acquire_command(
         or not isinstance(timeout, (int, float))
         or not math.isfinite(timeout)
         or not 0.1 <= timeout <= 7200
+        or boottime_deadline_ns is not None and (
+            type(boottime_deadline_ns) is not int or boottime_deadline_ns <= 0)
     ):
         raise RawCaptureError("raw command invocation is invalid")
     writer = RawCaptureWriter(
@@ -544,6 +547,9 @@ def acquire_command(
         try:
             if before_spawn is not None:
                 before_spawn()
+            if (boottime_deadline_ns is not None and
+                    time.clock_gettime_ns(time.CLOCK_BOOTTIME) >= boottime_deadline_ns):
+                raise RawCaptureError("absolute acquisition deadline expired before spawn")
             process = subprocess.Popen(
                 list(argv),
                 stdin=subprocess.DEVNULL,
@@ -560,18 +566,28 @@ def acquire_command(
             producer_error_type = type(exc).__name__
         if process is not None:
             deadline = time.monotonic() + timeout
+            def remaining_time():
+                remaining = deadline - time.monotonic()
+                if boottime_deadline_ns is not None:
+                    remaining = min(remaining, (boottime_deadline_ns -
+                        time.clock_gettime_ns(time.CLOCK_BOOTTIME)) / 1e9)
+                return remaining
             selector = selectors.DefaultSelector()
             assert process.stdout is not None
             assert process.stderr is not None
             selector.register(process.stdout, selectors.EVENT_READ, "stdout")
             selector.register(process.stderr, selectors.EVENT_READ, "stderr")
             while selector.get_map():
-                remaining = deadline - time.monotonic()
+                remaining = remaining_time()
                 if remaining <= 0:
                     timed_out = True
                     _terminate(process)
                     break
                 events = selector.select(min(0.1, remaining))
+                if boottime_deadline_ns is not None and remaining_time() <= 0:
+                    timed_out = True
+                    _terminate(process)
+                    break
                 if not events:
                     if process.poll() is not None:
                         # Drain both pipes to EOF after child exit.
@@ -605,17 +621,28 @@ def acquire_command(
                 if exceeded:
                     break
             if process.poll() is None:
-                remaining = deadline - time.monotonic()
+                remaining = remaining_time()
                 if remaining <= 0:
                     timed_out = True
                     _terminate(process)
                 else:
-                    try:
-                        process.wait(timeout=remaining)
-                    except subprocess.TimeoutExpired:
-                        timed_out = True
-                        _terminate(process)
+                    while process.poll() is None:
+                        remaining = remaining_time()
+                        if remaining <= 0:
+                            timed_out = True
+                            _terminate(process)
+                            break
+                        try:
+                            process.wait(timeout=min(0.1, remaining) if boottime_deadline_ns is not None else remaining)
+                        except subprocess.TimeoutExpired:
+                            if boottime_deadline_ns is None:
+                                timed_out = True
+                                _terminate(process)
+                                break
             returncode = process.returncode
+            if (boottime_deadline_ns is not None and
+                    time.clock_gettime_ns(time.CLOCK_BOOTTIME) >= boottime_deadline_ns):
+                timed_out = True
     except BaseException as exc:
         if process is not None and process.poll() is None:
             _terminate(process)

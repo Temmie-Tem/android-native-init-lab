@@ -44,53 +44,56 @@ def pin(path):
     return dict(path=str(path), size=path.stat().st_size, sha256=digest(path))
 
 
-def package_inputs(folder):
+def package_inputs(folder, packages=PACKAGES):
     paths = []
-    for name, (version, sha) in PACKAGES.items():
-        path = folder/'debs'/f'{name}_{version}_arm64.deb'
+    for name, (version, sha) in packages.items():
+        path = folder/'debs'/f"{name}_{version.replace(':', '%3a')}_arm64.deb"
         require(path.is_file() and digest(path) == sha, 'fixed Debian package differs: '+name)
         paths.append(path)
     return paths
 
 
-def extract(folder, output):
+def extract(folder, output, packages=PACKAGES, members=MEMBERS):
     """Verify signatures into fresh output; never modify a retained package lock."""
     destination = output/'packages'; (destination/'debs').mkdir(parents=True)
-    for path in package_inputs(folder):
+    for path in package_inputs(folder, packages):
         shutil.copyfile(path, destination/'debs'/path.name)
     shutil.copytree(folder/'apt-lists', destination/'apt-lists')
-    (destination/'packages.tsv').write_text(''.join(f'{n}\t{v}\tarm64\n' for n,(v,_) in PACKAGES.items()))
+    (destination/'packages.tsv').write_text(''.join(f'{n}\t{v}\tarm64\n' for n,(v,_) in packages.items()))
     sys.path.insert(0, str(ROOT/'workspace/public/src/debian/s22plus_v1'))
     from verify_packages import verify
     verified = verify(destination)
-    require(verified['count'] == 4, 'fixed package closure differs')
+    require(verified['count'] == len(packages), 'fixed package closure differs')
     files = {}
     for row in verified['packages']:
         raw = subprocess.check_output(['dpkg-deb','--fsys-tarfile', destination/'debs'/row['file']])
         with tarfile.open(fileobj=io.BytesIO(raw)) as archive:
             for member in archive:
                 name = member.name.removeprefix('./')
-                if name not in MEMBERS:
+                if name not in members:
                     continue
-                package, expected = MEMBERS[name]
+                package, expected = members[name]
                 require(package == row['package'] and name not in files and member.isfile(), 'Debian member origin differs')
                 data = archive.extractfile(member).read()
                 require(hashlib.sha256(data).hexdigest() == expected, 'Debian member bytes differ')
                 files[name] = data
-    require(set(files) == set(MEMBERS), 'incomplete Debian ELF closure')
+    require(set(files) == set(members), 'incomplete Debian ELF closure')
     return files, pin(destination/'package-lock.json')
 
 
-def pack(files, vm):
-    require(set(files) == set(MEMBERS)|{OBSERVER, 'etc/inittab'}, 'unexpected Debian RAM members')
-    require(files['etc/inittab'] == INITTAB, 'fixed inittab differs')
-    entries = [(name, stat.S_IFDIR|0o755, b'', 0, 0) for name in DIRS]
-    entries += [(name, stat.S_IFLNK|0o777, target.encode(), 0, 0) for name,target in LINKS.items()]
+def pack(files, vm, *, specification=None):
+    members, inittab, dirs, links, modes = (MEMBERS, INITTAB, DIRS, LINKS, {'etc/inittab': 0o644}) if specification is None else specification
+    require(set(files) == set(members)|{OBSERVER, 'etc/inittab'}, 'unexpected Debian RAM members')
+    require(files['etc/inittab'] == inittab, 'fixed inittab differs')
+    entries = [(name, stat.S_IFDIR|0o755, b'', 0, 0) for name in dirs]
+    entries += [(name, stat.S_IFLNK|0o777, target.encode(), 0, 0) for name,target in links.items()]
     devices = [('dev/console',5,1), ('dev/null',1,3)]
+    if specification is not None:
+        devices += [('dev/zero',1,5), ('dev/urandom',1,9)]
     if vm:
         devices.append(('dev/ttyAMA0',204,64))
-    entries += [(name, stat.S_IFCHR|0o600, b'', major, minor) for name,major,minor in devices]
-    entries += [(name, stat.S_IFREG|(0o644 if name=='etc/inittab' else 0o755), data, 0, 0)
+    entries += [(name, stat.S_IFCHR|(0o666 if specification is not None and name in ('dev/null','dev/zero','dev/urandom') else 0o600), b'', major, minor) for name,major,minor in devices]
+    entries += [(name, stat.S_IFREG|modes.get(name, 0o755), data, 0, 0)
                 for name,data in sorted(files.items())]
     result = bytearray()
     for inode,(name,mode,data,major,minor) in enumerate([*entries,('TRAILER!!!',0,b'',0,0)],1):
@@ -102,12 +105,13 @@ def pack(files, vm):
     return bytes(result)
 
 
-def populate(tree, files):
-    for name in DIRS:
+def populate(tree, files, *, specification=None):
+    _, _, dirs, links, modes = (MEMBERS, INITTAB, DIRS, LINKS, {'etc/inittab': 0o644}) if specification is None else specification
+    for name in dirs:
         (tree/name).mkdir(parents=True, exist_ok=True, mode=0o755)
     for name,data in files.items():
-        path=tree/name;path.write_bytes(data);path.chmod(0o644 if name=='etc/inittab' else 0o755)
-    for name,target in LINKS.items():
+        path=tree/name;path.write_bytes(data);path.chmod(modes.get(name, 0o755))
+    for name,target in links.items():
         (tree/name).symlink_to(target)
     # CPIO contains fixed character nodes; the host tree has no device nodes.
 
@@ -122,6 +126,12 @@ def declaration(files, observer, package_lock):
 def validate(manifest):
     """Pure fixed-member/actual-CPIO check, including node types and symlinks."""
     value=manifest['debian_ram']
+    if value.get('schema') == 's22plus-mainline-debian-ssh-ram-v1':
+        if __package__:
+            from . import ssh_ram
+        else:
+            import ssh_ram
+        return ssh_ram.validate(manifest)
     require(set(value)=={'schema','package_lock','observer','inittab_sha256','members'} and
             value['schema']==SCHEMA and type(manifest['vm']) is bool, 'Debian RAM schema differs')
     require(value['inittab_sha256']==hashlib.sha256(INITTAB).hexdigest(), 'Debian inittab identity differs')

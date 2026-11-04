@@ -161,6 +161,10 @@ def configure(plan,manifest,found,folder,guard):
     require(connection_identity(inspect_connection(plan,folder,'profile-after'),plan,found),'network profile absent')
     route=host_command(plan,'ip',['-j','route','get',manifest['network']['device_ip'],
         'from',manifest['network']['host_ip'],'oif',found['interface']],folder,'route')
+    direct_route(route,manifest,found)
+
+
+def direct_route(route,manifest,found):
     require_host(route);rows=json.loads(raw.decode_success_stdout(route,maximum=262144))
     require(type(rows) is list and len(rows)==1 and rows[0]['dev']==found['interface'] and
             rows[0].get('gateway') is None and rows[0].get('from')==manifest['network']['host_ip'],
@@ -218,7 +222,7 @@ def capture_connection(folder,manifest,found,*,deadline_ns,guard,connect=None):
     return handle
 
 
-def rederive(adapter,request):
+def rederive_base(adapter,request):
     folder=adapter.folder(profile.SELECTION)
     window=read(folder/'window.json');attempt=read(folder/'attempt.json');connection=read(folder/'connection.json')
     manifest=profile.image_binding(request['N'])
@@ -248,6 +252,79 @@ def rederive(adapter,request):
     proof=profile.codec.verify_capture(raw.load_handle(verify(connection['response'])),manifest,nonce)
     return dict(action='mainline-evidence',proof=proof,response=connection['response'],attempt=pin(folder/'attempt.json'),
                 endpoint=pin(folder/'endpoint.json'),window=pin(folder/'window.json'))
+
+
+def capture_ssh(folder,manifest,plan,found,proof,*,deadline_ns,guard):
+    """Exactly one standard SSH invocation, inside the original N window."""
+    from mainline.s22plus_canary_h0 import ssh_ram
+    require(profile.codec.has_ssh(manifest) and proof.get('ssh_ready') is True,'SSH startup not proved')
+    runtime=manifest['debian_ram']
+    known=raw.publish_captured_bytes(folder,'ssh-known-hosts',stdout=ssh_ram.known_hosts(runtime),stderr=b'',
+        argv0_name='fixed-mainline-ssh-host-key')
+    argv=ssh_ram.command(runtime,plan['ssh']['path'],known.stdout_path,manifest['network']['device_ip'],
+                         source=manifest['network']['host_ip'])
+    guard()
+    require(endpoint(capture_endpoint(folder,'usb-before-ssh'),manifest)==found,'NCM changed before SSH')
+    # OpenSSH -b binds an address, not SO_BINDTODEVICE. Check the actual
+    # unconstrained route from that address rather than forcing an oif result.
+    route=host_command(plan,'ip',['-j','route','get',manifest['network']['device_ip'],
+        'from',manifest['network']['host_ip']],folder,'ssh-route')
+    direct_route(route,manifest,found)
+    opened=clock();acquisition_deadline=deadline_ns-4_000_000_000
+    timeout=min(20.0,(acquisition_deadline-opened)/1e9-0.1)
+    require(timeout>=0.1,'original SSH observation window exhausted')
+    intent=publish(folder/'ssh-intent.json',dict(argv=argv,executable=plan['ssh'],known_hosts=pin(known.receipt_path),
+        endpoint=found,opened_ns=opened,deadline_ns=deadline_ns,acquisition_deadline_ns=acquisition_deadline,timeout_seconds=timeout,
+        host_boot=host_boot(),boot_id=proof['boot_id']))
+    def before_spawn():
+        guard();profile.unchanged(plan['ssh'],32*1024*1024)
+        require(clock()+int(timeout*1e9)<acquisition_deadline,'SSH spawn would exceed original window')
+    handle=raw.acquire_command(argv,folder,'ssh',timeout=timeout,stdout_maximum=1024,stderr_maximum=16384,
+        env={'LANG':'C','LC_ALL':'C','PATH':'/usr/bin:/bin'},before_spawn=before_spawn,
+        boottime_deadline_ns=acquisition_deadline)
+    finished=clock()
+    publish(folder/'ssh-complete.json',dict(intent=intent,capture=pin(handle.receipt_path),finished_ns=finished))
+    # Raw status and both streams are already durable before any interpretation.
+    raw.require_success(handle)
+    require(finished<deadline_ns,'SSH completed after original observation window')
+    require(not raw.read_stderr(handle,maximum=16384),'SSH has diagnostics')
+    require(endpoint(capture_endpoint(folder,'usb-after-ssh'),manifest)==found,'NCM changed during SSH')
+    return ssh_ram.parse_stdout(raw.read_stdout(handle,maximum=1024),proof['boot_id'])
+
+
+def rederive(adapter,request):
+    value=rederive_base(adapter,request)
+    manifest=profile.image_binding(request['N'])
+    if not profile.codec.has_ssh(manifest):return value
+    from mainline.s22plus_canary_h0 import ssh_ram
+    require(value['proof']['ssh_ready'] is True,'SSH startup absent')
+    folder=adapter.folder(profile.SELECTION);window=read(folder/'window.json');found=read(folder/'endpoint.json')
+    intent=read(folder/'ssh-intent.json');complete=read(folder/'ssh-complete.json')
+    plan=adapter.configuration(request)['mainline_access']
+    known=raw.load_handle(verify(intent['known_hosts']));raw.require_success(known)
+    require(known.receipt_path==folder/'ssh-known-hosts.capture.json' and
+            raw.read_stdout(known,maximum=256)==ssh_ram.known_hosts(manifest['debian_ram']) and
+            not raw.read_stderr(known,maximum=16384),'SSH host key pin differs')
+    argv=ssh_ram.command(manifest['debian_ram'],plan['ssh']['path'],known.stdout_path,
+        manifest['network']['device_ip'],source=manifest['network']['host_ip'])
+    require(set(intent)=={'argv','executable','known_hosts','endpoint','opened_ns','deadline_ns','acquisition_deadline_ns','timeout_seconds',
+                          'host_boot','boot_id'} and intent['argv']==argv and intent['executable']==plan['ssh'] and
+            intent['endpoint']==found and intent['host_boot']==window['host_boot'] and
+            intent['boot_id']==value['proof']['boot_id'] and intent['deadline_ns']==window['deadline_ns'] and
+            intent['acquisition_deadline_ns']==window['deadline_ns']-4_000_000_000 and
+            type(intent['timeout_seconds']) in (int,float) and 0.1<=intent['timeout_seconds']<=20 and
+            intent['opened_ns']+int(intent['timeout_seconds']*1e9)<intent['acquisition_deadline_ns'] and
+            read(folder/'connection.json')['finished_ns']<=intent['opened_ns']<complete['finished_ns']<window['deadline_ns'] and
+            complete==dict(intent=pin(folder/'ssh-intent.json'),capture=pin(folder/'ssh.capture.json'),
+                           finished_ns=complete['finished_ns']), 'SSH attempt/window binding differs')
+    require(endpoint(raw.load_handle(folder/'usb-before-ssh.capture.json'),manifest)==found and
+            endpoint(raw.load_handle(folder/'usb-after-ssh.capture.json'),manifest)==found,'SSH USB continuity differs')
+    direct_route(raw.load_handle(folder/'ssh-route.capture.json'),manifest,found)
+    handle=raw.load_handle(verify(complete['capture']));raw.require_success(handle)
+    require(not raw.read_stderr(handle,maximum=16384),'SSH diagnostics')
+    value['ssh']=ssh_ram.parse_stdout(raw.read_stdout(handle,maximum=1024),value['proof']['boot_id'])
+    value['ssh_capture']=complete['capture'];value['ssh_intent']=complete['intent']
+    return value
 
 
 def window_for(adapter,request):
@@ -282,6 +359,9 @@ def observe(adapter,request,guard):
         require(endpoint(value,manifest)==found,'NCM changed at socket connection')
     capture_connection(folder,manifest,found,deadline_ns=deadline,guard=socket_guard)
     require(endpoint(capture_endpoint(folder,'usb-after-response'),manifest)==found,'NCM changed during response')
+    if profile.codec.has_ssh(manifest):
+        base=rederive_base(adapter,request)
+        capture_ssh(folder,manifest,plan,found,base['proof'],deadline_ns=deadline,guard=bound_guard)
     value=rederive(adapter,request)
     publish(folder/'result.json',value)
     return value

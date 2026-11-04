@@ -11,7 +11,7 @@ import subprocess
 import time
 
 from prepare import ROOT, digest, require
-from verify import request, verify, response_size, FDT_LIMIT
+from verify import request, verify, response_size, FDT_LIMIT, has_ssh
 from vm_evidence import inputs, snapshot, capture, recheck
 
 
@@ -26,19 +26,25 @@ def persist(path,data):
     finally:os.close(parent)
 
 
-def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
+def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_case='positive'):
     prepared,init,output=prepared.resolve(),init.resolve(),output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'),'private VM output')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     binding=inputs(prepared,init,kernel_label)
     source=snapshot(output)
     manifest=json.loads((init/'result.json').read_text())
+    ssh=has_ssh(manifest)
+    require(ssh_case=='positive' or ssh and not bad_key,'SSH case requires an authenticated SSH RAM fixture')
     kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
     kernel=Path(kernel_record['image'])
     ramdisk=Path(manifest['initramfs']['path'])
     qroot=ROOT/'workspace/private/tools/qemu-arm64-10.2.1/root'
     qemu=qroot/'usr/bin/qemu-system-aarch64'
     with socket.socket() as listener:listener.bind(('127.0.0.1',0));port=listener.getsockname()[1]
+    ssh_forward=''
+    if ssh:
+        with socket.socket() as listener:listener.bind(('127.0.0.1',0));ssh_port=listener.getsockname()[1]
+        ssh_forward=f',hostfwd=tcp:127.0.0.1:{ssh_port}-:22'
     serial=output/'serial.log';stderr=output/'qemu.stderr'
     net=manifest['network'];prefix=str(ipaddress.IPv4Interface(net['device_ip']+'/'+net['netmask']).network)
     # The marked physical kernel intentionally probes the fixed high Samsung
@@ -52,7 +58,7 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
              '-kernel',str(kernel),'-initrd',str(ramdisk),
              # CMDLINE_FORCE comes from the same actual g0q kernel. The VM
              # fixture opens ttyAMA0 directly; -append would be ignored.
-             '-netdev',f'user,id=net0,net={prefix},host={net["host_ip"]},dhcpstart={net["device_ip"]},hostfwd=tcp:127.0.0.1:{port}-:{manifest["port"]}',
+             '-netdev',f'user,id=net0,net={prefix},host={net["host_ip"]},dhcpstart={net["device_ip"]},hostfwd=tcp:127.0.0.1:{port}-:{manifest["port"]}'+ssh_forward,
              '-device','virtio-net-device,netdev=net0']
     (output/'command.json').write_text(json.dumps({'command':command,'qemu_sha256':digest(qemu)},indent=2)+'\n')
     env=dict(os.environ,LD_LIBRARY_PATH=str(qroot/'usr/lib/x86_64-linux-gnu'))
@@ -99,6 +105,26 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
                     if not chunk:break
                     raw.extend(chunk)
             persist(output/'response.raw',bytes(raw))
+            if ssh and not bad_key:
+                import sys
+                import ssh_ram
+                sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/revalidation'))
+                import device_action_raw_capture_v1 as capture_raw
+                proof=verify(output/'response.raw',manifest,nonce,vm=True)
+                require(proof['ssh_ready'], 'packaged SSH listener did not become ready')
+                persist(output/'known-hosts',ssh_ram.known_hosts(manifest['debian_ram']))
+                argv=ssh_ram.vm_command(manifest['debian_ram'],'/usr/bin/ssh',output/'known-hosts',
+                                       ssh_port,ssh_case,output)
+                executable=ssh_ram.pin('/usr/bin/ssh')
+                command_record=dict(argv=argv,executable=executable,case=ssh_case)
+                if ssh_case=='wrong-key':
+                    subprocess.run(['/usr/bin/ssh-keygen','-q','-t','ed25519','-N','','-f',str(output/'wrong-key')],check=True)
+                    (output/'wrong-key').chmod(0o400);command_record['wrong_key']=ssh_ram.pin(output/'wrong-key')
+                persist(output/'ssh-command.json',json.dumps(command_record,indent=2).encode()+b'\n')
+                handle=capture_raw.acquire_command(argv,output,'ssh',timeout=20,
+                    stdout_maximum=1024,stderr_maximum=16384,env={'LANG':'C','LC_ALL':'C','PATH':'/usr/bin:/bin'})
+                require(ssh_ram.pin('/usr/bin/ssh')==executable,'VM SSH client changed during acquisition')
+                ssh_proof=ssh_ram.vm_outcome(handle,proof['boot_id'],ssh_case)
             if bad_key:
                 require(not raw,'wrong key produced a response')
                 until=time.monotonic()+2
@@ -110,12 +136,15 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1'):
             try:proc.wait(timeout=5)
             except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
             if sparse is not None and sparse.exists():sparse.unlink()
+            # Preserve the settled producer and complete raw set even when a
+            # later SSH/result interpreter rejects otherwise complete bytes.
+            capture(output,binding,source,bad_key=bad_key,elapsed=round(time.monotonic()-started,3),returncode=proc.returncode)
     require(inputs(prepared,init,kernel_label)==binding,'VM input changed during acquisition')
-    capture(output,binding,source,bad_key=bad_key,elapsed=round(time.monotonic()-started,3),returncode=proc.returncode)
     if bad_key:
         result={'status':'PASS_H0_VM_UNAUTHENTICATED_REQUEST_REJECTED'}
     else:
         result=verify(output/'response.raw',manifest,nonce,vm=True)
+        if ssh:result.update(ssh=ssh_proof,ssh_case=ssh_case)
     result.update(elapsed_seconds=round(time.monotonic()-started,3),
                   kernel_sha256=kernel_record['sha256'],device_actions=0)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
@@ -127,9 +156,10 @@ if __name__=='__main__':
     p.add_argument('--prepared',type=Path,required=True);p.add_argument('--init',type=Path,required=True)
     p.add_argument('--output',type=Path,required=True);p.add_argument('--bad-key',action='store_true')
     p.add_argument('--kernel-label',default='kernel-1')
+    p.add_argument('--ssh-case',choices=('positive','wrong-key','root','forced-command','pty','forwarding','sftp'),default='positive')
     p.add_argument('--recheck-run',type=Path,help='revalidate a complete positive capture without starting QEMU')
     a=p.parse_args()
     if a.recheck_run:
         require(not a.bad_key,'recheck supports positive captures only')
         recheck(a.prepared,a.init,a.recheck_run,a.output,kernel_label=a.kernel_label)
-    else:test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label)
+    else:test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label,ssh_case=a.ssh_case)

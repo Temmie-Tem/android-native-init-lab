@@ -32,10 +32,16 @@ identities, goals, artifacts and authority remain separate.
 
 - **Packaged Debian SysVinit as mainline RAM PID1 is demonstrated by ML022.**
   Persistent Debian and ordinary headless services remain the product objective;
-  the next bounded unit has not been selected or armed. Functional development
+  ML023 now selects packaged OpenSSH with one fixed nonroot RAM command.
+  H0 implementation, fresh candidate and exact-artifact qualification pass;
+  independent final PASS_GO and backend V29 adoption are complete.
+  Fixed seven-read preapproval Android health also passes; the exact finite
+  attended approval remains pending. Physical SSH is still unproved.
+  No successor grant is armed. Functional development
   takes priority over optional historical fault attribution or a new
   instrumentation ladder. Existing target, authority, recovery and no-replay
   requirements remain binding.
+  [ML023 scope and validation](docs/reports/S22PLUS_MAINLINE_ML023_DEBIAN_SSH_RAM_H0_2026-11-04.md).
 - **ML022 is consumed: PASS_DEBIAN_SYSVINIT_RAM_PID1 / ANDROID_CLOSED_HEALTHY.**
   After one instructed phone-end replug, one authenticated response proved the
   exact packaged SysVinit PID1, direct observer child/PPID 1, runlevel 2/N,

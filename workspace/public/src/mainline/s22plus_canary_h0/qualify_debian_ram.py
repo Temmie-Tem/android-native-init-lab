@@ -11,13 +11,15 @@ import verify
 import vm_evidence
 
 
-def qualification(prepared,physical,vm,positive,negative,output,*,kernel_label='build-1'):
+def qualification(prepared,physical,vm,positive,negative,output,*,kernel_label='build-1',ssh_cases=None):
     prepared,physical,vm,positive,negative,output=[p.resolve() for p in (prepared,physical,vm,positive,negative,output)]
     require(output.is_relative_to(ROOT/'workspace/private'),'private qualification output')
     output.mkdir(parents=True,mode=0o700,exist_ok=False)
     paths=[physical/'result.json',vm/'result.json',prepared/(kernel_label+'-result.json')]
     actual,test,kernel=[json.loads(p.read_text()) for p in paths]
     production=validate(actual);emulated=validate(test)
+    ssh=verify.has_ssh(actual)
+    require(ssh==(ssh_cases is not None),'SSH qualification requires its exact VM failure cases')
     require(actual['vm'] is False and test['vm'] is True and actual['inputs']==test['inputs'] and
             actual['kernel_release']==test['kernel_release'] and production['members']==emulated['members'] and
             production['inittab_sha256']==emulated['inittab_sha256'], 'VM/physical runtime source closure differs')
@@ -36,7 +38,12 @@ def qualification(prepared,physical,vm,positive,negative,output,*,kernel_label='
         require(capture['schema']=='g0q-h0-vm-capture-v1' and capture['bad_key'] is bad_key and
                 capture['device_actions']==0 and capture['inputs']==binding and
                 capture['qemu_returncode'] in (0,-15,-9), 'complete settled VM capture required')
-        require(set(capture['evidence'])=={'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'},
+        extra=set()
+        if ssh and not bad_key:
+            import ssh_ram
+            checked=ssh_ram.check_case(directory,test,pin(vm/'result.json'),kernel_pin,'positive')
+            extra=set(capture['evidence'])-{'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'}
+        require(set(capture['evidence'])=={'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'}|extra,
                 'complete VM raw evidence required')
         for name,sha in capture['evidence'].items():
             require(digest(directory/name)==sha, 'VM raw evidence changed')
@@ -63,6 +70,14 @@ def qualification(prepared,physical,vm,positive,negative,output,*,kernel_label='
                 positive_capture=pin(positive/'capture.json'),negative_capture=pin(negative/'capture.json'),
                 positive_result=pin(positive/'result.json'),negative_result=pin(negative/'result.json'),
                 physical_pid1_proved=False,device_actions=0)
+    if ssh:
+        import ssh_ram
+        require(production['keys']==emulated['keys'],'VM and physical SSH keys differ')
+        cases={case:ssh_ram.check_case(Path(ssh_cases)/case,test,pin(vm/'result.json'),kernel_pin,case)
+               for case in ssh_ram.VM_CASES if case!='positive'}
+        positive_ssh=ssh_ram.check_case(positive,test,pin(vm/'result.json'),kernel_pin,'positive')
+        require(all(row['executable']==positive_ssh['executable'] for row in cases.values()),'SSH clients differ across VM cases')
+        result['ssh']=dict(executable=positive_ssh['executable'],positive=positive_ssh,cases=cases,physical_ssh_proved=False)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps(dict(status=result['status'],pid=rederived['pid'],responder_ppid=rederived['responder_ppid'],
                          physical_pid1_proved=False,device_actions=0)))
@@ -74,5 +89,7 @@ if __name__=='__main__':
     for name in ('prepared','physical','vm','positive','negative','output'):
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--kernel-label',default='build-1')
+    parser.add_argument('--ssh-cases',type=Path)
     args=parser.parse_args()
-    qualification(args.prepared,args.physical,args.vm,args.positive,args.negative,args.output,kernel_label=args.kernel_label)
+    qualification(args.prepared,args.physical,args.vm,args.positive,args.negative,args.output,kernel_label=args.kernel_label,
+                  ssh_cases=args.ssh_cases)

@@ -42,6 +42,7 @@ def source_paths(root,selected=profile):
         'docs/operations/DEVICE_ACTION_PROCESS_V2.md','docs/operations/DEVICE_ACTION_RISK_TIERS.md',
         'workspace/public/src/mainline/s22plus_canary_h0/verify.py',
         'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
+        'workspace/public/src/mainline/s22plus_canary_h0/ssh_ram.py',
         'workspace/public/src/mainline/s22plus_canary_h0/prepare.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
@@ -83,6 +84,7 @@ def marker_only(path):
     # candidate-only code must not become a prerequisite for original A.
     return path in ('workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
+                    'workspace/public/src/mainline/s22plus_canary_h0/ssh_ram.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe_v10.py',
@@ -107,12 +109,15 @@ def capability(root,*,recovery=False,selected=profile):
     return pin(path)
 
 
-def validate_access(plan):
-    require(set(plan)=={'uuid','name','nmcli','ip'} and str(uuid.UUID(plan['uuid']))==plan['uuid'] and
+def validate_access(plan,*,ssh=False):
+    require(set(plan)=={'uuid','name','nmcli','ip'}|({'ssh'} if ssh else set()) and str(uuid.UUID(plan['uuid']))==plan['uuid'] and
         plan['name']=='s22plus-mainline-'+plan['uuid'],'mainline host network ownership differs')
     for name,path in [('nmcli','/usr/bin/nmcli'),('ip','/usr/sbin/ip')]:
         require(plan[name]['path']==str(Path(path).resolve(strict=True)),'host executable path differs')
         tasks.unchanged(plan[name],maximum=32*1024*1024)
+    if ssh:
+        require(plan['ssh']['path']==str(Path('/usr/bin/ssh').resolve(strict=True)), 'SSH executable path differs')
+        tasks.unchanged(plan['ssh'],maximum=32*1024*1024)
 
 
 def validate_task(root,task,*,live=False,recovery=False,require_android=True):
@@ -134,8 +139,13 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
     require(task['review']==capability(root,recovery=recovery,selected=selected),'mainline capability changed')
     require(task['runtime_scope']==task['N']['runtime_sources'],'mainline runtime scope differs')
     if not recovery:
-        selected.image_binding(task['N'])
-        if selected is profile:validate_access(task['mainline_access'])
+        manifest=selected.image_binding(task['N'])
+        if selected is profile:
+            ssh=profile.codec.has_ssh(manifest);validate_access(task['mainline_access'],ssh=ssh)
+            if ssh:
+                qualification=read(verify(task['N']['debian_ram']))
+                require(task['mainline_access']['ssh']==qualification['ssh']['executable'],
+                        'host SSH client differs from qualified actual VM client')
     fixed=read(root/tasks.PROFILE)
     require(task['odin']==fixed['transport']['odin'] and
         task['adb']['path']==str(Path('/usr/bin/adb').resolve(strict=True)) and
@@ -170,7 +180,8 @@ def validate_operation(adapter,request,*,recovery=False):
 
 def host_ready(task,folder):
     if selected_profile(task['N']) is not profile:return None
-    plan=task['mainline_access'];validate_access(plan)
+    plan=task['mainline_access'];manifest=profile.image_binding(task['N'])
+    validate_access(plan,ssh=profile.codec.has_ssh(manifest))
     value=access.host_command(plan,'nmcli',['--terse','general','permissions'],folder,'permissions')
     access.require_host(value)
     permissions=dict(line.rsplit(':',1) for line in access.raw.decode_success_stdout(value,maximum=262144).splitlines())
@@ -281,6 +292,8 @@ def prepare(root,output,image,retained_task):
     if selected_profile_value is profile:
         task['mainline_access']=dict(uuid=ident,name='s22plus-mainline-'+ident,
             nmcli=pin(Path('/usr/bin/nmcli').resolve(strict=True)),ip=pin(Path('/usr/sbin/ip').resolve(strict=True)))
+        manifest=profile.image_binding(image)
+        if profile.codec.has_ssh(manifest):task['mainline_access']['ssh']=pin(Path('/usr/bin/ssh').resolve(strict=True))
     validate_task(root,task)
     output.mkdir(mode=0o700);Journal(output/'journal');receipt=publish(output/'task.json',task)
     # Source provenance is ordinary private preparation output, not a new

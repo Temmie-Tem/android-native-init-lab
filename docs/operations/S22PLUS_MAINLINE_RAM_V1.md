@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_debian_ram_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_debian_ssh_ram_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -67,8 +67,9 @@ rules. Missing readiness cannot be replaced by H0 qualification.
 
 ## Runtime and observation
 
-The candidate executes only its reviewed RAM PID1 and fixed one-client NCM
-evidence responder. Linux UFS is compiled out and its controller/PHY disabled;
+The base candidate executes its reviewed RAM PID1 and fixed one-client NCM
+evidence responder; the schema-exact packaged SSH variant below adds only its
+declared daemon and fixed unprivileged command. Linux UFS is compiled out and its controller/PHY disabled;
 there is no installed-root mount, native_data access, journal replay, repair,
 package operation, persistent data write or device control command in the
 observer. Ordinary boot-only transfer writes only the boot partition. Existing
@@ -159,6 +160,111 @@ Resolve any outstanding cue as completed or cancelled before requesting a
 separate physical Download confirmation. A replug answer is not that
 confirmation. This physical condition proves neither that replug was required
 nor a specific Type-C mechanism.
+
+### Optional packaged Debian SSH in RAM
+
+The distinct `debian_ram.schema=s22plus-mainline-debian-ssh-ram-v1` extends the
+packaged SysVinit mode with one ordinary OpenSSH service and one fixed,
+noninteractive public-key session. It remains mutually exclusive with
+`entry_park`. The signed package/member allowlists and configuration in
+`ssh_ram.py` define its complete closure: SysVinit, the three packaged OpenSSH
+executables (`sshd`, `sshd-session`, `sshd-auth`), packaged dash and their
+recursive ELF dependencies. Required PAM/Kerberos/audit libraries are included
+as ELF dependencies; PAM, password, keyboard-interactive, GSSAPI and host-based
+authentication are disabled. No package manager, PAM modules, standalone
+SFTP server helper, module loader or installed root is included. The packaged
+internal-SFTP implementation is unreachable through the fixed configuration.
+
+The three-line inittab starts the existing observer and `sshd -D -e` as
+parallel direct runlevel-2 `once` children, without a restart loop. sshd binds
+IPv4 wildcard port 22 so its startup does not depend on the later USB address
+assignment; there is no IPv6 listener. The exact CPIO includes root `.` as
+root:root 0755, fixed secure ancestor directories, static console/null/zero/
+urandom nodes, empty root-owned 0755 `/run/sshd`, files-only NSS accounts,
+a locked root/privilege-separation account and one unexpired UID/GID 1000
+`probe` account whose `NP` password field cannot provide a password login.
+The root-owned authorized key is fixed outside the user's home. `StrictModes`
+remains enabled. Host private key mode is 0600 and private images/keys remain
+under `workspace/private/`; consumed evidence is retained unchanged.
+
+Only a fresh per-candidate Ed25519 client key is admitted. The server rejects
+root login, PTY, user RC/environment and all forwarding/tunnels. System sshrc,
+login denial files and subsystem definitions are absent from the exact CPIO.
+`ForceCommand` always selects the root-owned fixed probe through packaged
+dash's normal `-c` behavior, regardless of the requested command. Undefined
+subsystem requests, including SFTP, are rejected before command execution.
+The probe uses only shell builtins to read this boot's ID and its own
+UID/GID/groups/effective-capability status; it has no caller-supplied command,
+path, reset or storage operation. Successful output must report every UID/GID
+as 1000, supplementary group 1000 only and zero effective capabilities.
+
+OpenSSH retains its actual standard startup and session behavior: entropy and
+cryptographic initialization, socket/auth parsing, privilege separation,
+seccomp/chroot, account checks, process/fd/signal handling and the nonroot shell
+execution. Its Linux OOM helper may write its own proc OOM adjustment and
+children restore the previous value; if proc is not yet mounted it skips that
+adjustment. Its RAM pidfile and ordinary package RAM accounting/log attempts
+are in scope. This is not a claim that a RAM kernel cannot affect hardware:
+BLOCK, DEVMEM and KEXEC configuration is not changed, and standard privileged
+sshd parsing is a new reviewed runtime surface. The fixed nonroot command,
+exact file closure and absent Linux UFS access bound this experiment.
+
+After accepting and authenticating the single original observer request, the
+observer waits at most ten seconds, within its original absolute boot deadline,
+for a complete decimal sshd pidfile and a matching live `/proc/<pid>/exe` path.
+Exact package source publishes the pidfile after listen. Missing/partial or
+nonmatching data never supplies readiness. This positive startup indication
+is not authentication or continued-life proof. It is carried in a distinct
+SSH wire domain/magic with the existing 352-byte body and reserved fields.
+If not ready, the base response may still prove Debian PID1/USB; it does not
+permit an SSH attempt or any retry. This bounded check addresses the concrete
+parallel-start connection-refusal race; it is reviewed again when startup or
+package behavior changes and may retire when a successor provides equivalent
+readiness without an additional connection.
+
+After the complete base proof, the host may invoke its qualified `/usr/bin/ssh`
+exactly once, with config loading, agent use, password methods, proxying,
+connection reuse, PTY and forwarding disabled. It pins the candidate host key,
+client key, selected source IP and port 22, and uses one connection attempt.
+The installed client's address bind is not `SO_BINDTODEVICE`. Immediately
+before SSH, an unconstrained route lookup from that exact source must select
+the already bound NCM interface directly, with no gateway; the endpoint
+censuses and cryptographic host/boot join remain required. The invocation has
+a maximum twenty-second timeout, further bounded
+by the remaining original 120-second N observation window, reserving the
+existing raw producer's four-second termination settlement. Its absolute
+`CLOCK_BOOTTIME` deadline includes host suspend and is rechecked before spawn,
+around acquisition polling and while waiting for the client to exit. This is deadline
+accounting, not atomic cancellation of a remote child on host suspend.
+Complete endpoint
+censuses immediately before and after must retain the selected USB generation.
+The durable intent is published before spawning; stdout, stderr and exit/
+timeout status are sealed before parsing. Any failure, partial result, changed
+endpoint, expired window or uncertainty stops this unit without another client
+invocation, connection or request. The ordinary physical original-A recovery
+owner remains available. SSH KEX/auth contains normal protocol exchanges;
+`MaxSessions 1` is per connection, not a claim of one lifetime server session.
+
+H0 qualification includes the actual signed closure and canonical CPIO,
+matching physical/VM sources and SSH keys, same-kernel packaged startup, the
+existing wrong-HMAC rejection, and complete one-connection SSH cases for valid
+key, wrong key, root, ignored arbitrary command and denied PTY/forwarding/SFTP.
+The tested host SSH executable is bound
+into the task. Independent review covers this coherent runtime/host/evidence
+change and the exact candidate artifacts. Physical success requires one
+successful fixed SSH result joined by boot ID to the authenticated base proof,
+followed by original-A return and complete final health; its terminal label is
+`PASS_DEBIAN_SSH_RAM`. Failed SSH cannot erase separately proved base PID1/USB,
+but cannot obtain that SSH success label.
+
+The same finite attended grant, physical attach cue conditions, separate
+Download confirmation, original-A return, health-only continuation and consumed
+no-replay rules remain binding. The twenty/120-second limits govern observation
+and the host client; they do not stop sshd, PID1 or the kernel and do not prove
+automatic recovery. The daemon may continue listening until physical return.
+This scope establishes bounded standard SSH access and a packaged nonroot
+workload in RAM, not a general interactive shell, persistence, endurance,
+physical entropy timing, replug necessity or automatic recovery.
 
 ### Optional fixed entry park
 

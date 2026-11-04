@@ -87,6 +87,26 @@ independent artifact review. Legacy response bytes have a different wire domain
 and cannot establish Debian PID1. This mode supplies no shell, installed-root
 access, persistent storage, reset command or device authority.
 
+Adding `--ssh-keys <fresh-private-key-directory>` selects the distinct packaged
+SSH RAM variant. `ssh_ram.generate_keys()` creates its per-candidate host/client
+Ed25519 inputs; physical and VM builds use that same input directory.
+`ssh_ram.py` fixes the 22-package, 27-ELF closure, secure CPIO root and ancestors,
+accounts, OpenSSH configuration and builtin-only nonroot command. SysVinit
+starts the observer and ordinary foreground sshd directly. The observer's
+bounded post-listen indication precedes one config-free, host-key-pinned SSH
+client invocation; its same-boot UID/GID/groups/capability output is separate
+from the base PID1/USB proof. This is fixed command access, not a general shell.
+
+`vm.py --ssh-case` exercises positive, wrong-key, root, forced-command, PTY,
+forwarding and SFTP cases against the actual packaged processes. One fresh VM
+is used for each case. `qualify_debian_ram.py --ssh-cases <case-directory>`
+joins their complete captures and the separate bad-HMAC run to the exact
+physical/VM closure and kernel. The physical owner uses the qualified host
+SSH executable, exact source address, direct-route and endpoint checks,
+original observation deadline and raw-first one-shot intent. SSH preparation
+does not arm a grant, establish physical entropy timing or qualify automatic
+recovery; the daemon can remain active until physical original-A return.
+
 ## Evidence protocol and tests
 
 The runtime accepts one fixed 72-byte authenticated request. Its fixed response
@@ -95,7 +115,8 @@ and live FDT hashes, kernel release, CPU/block counts and a bounded memory/timer
 check. The live FDT follows the legacy 288-byte response or the Debian
 384-byte response (352-byte body plus tag) and is capped at 2 MiB.
 Both producer and consumer use an absolute 120-second boot-time bound. There
-is no command execution, module loading, root mount or reset request.
+is no command execution, module loading, root mount or reset request in that
+protocol. The explicit SSH variant adds only the separate fixed command above.
 
 `verify.py` is an offline verifier. It checks HMAC and exact fields, then joins
 all DT properties, header reservations, version and boot CPU to the packaged

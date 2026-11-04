@@ -5,7 +5,7 @@ import shutil
 import time
 
 from prepare import HERE, ROOT, digest, require
-from verify import request, verify
+from verify import request, verify, has_ssh
 
 
 def record(path):
@@ -37,10 +37,11 @@ def inputs(prepared, init, kernel_label):
 def snapshot(output):
     source=output/'source';source.mkdir()
     paths=[HERE/name for name in ('vm.py','vm_evidence.py','verify.py','prepare.py',
-                                 'debian_ram.py',
+                                 'debian_ram.py','ssh_ram.py',
                                  'retained_kernel_vm.py','retained_marker.py','retained_trace.py',
                                  'retained_probe.py','retained_probe_v10.py','qualify_retained.py')]
     paths.append(ROOT/'workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py')
+    paths.append(ROOT/'workspace/public/src/scripts/revalidation/device_action_raw_capture_v1.py')
     for path in paths:shutil.copyfile(path,source/path.name)
     return {path.name:digest(source/path.name) for path in paths}
 
@@ -49,6 +50,13 @@ def capture(output, binding, source, *, bad_key, elapsed, returncode):
     # Called only after complete socket reception and QEMU process settlement.
     evidence={name:digest(output/name) for name in
               ('command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr')}
+    if (output/'ssh.capture.json').exists():
+        import sys
+        sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/revalidation'))
+        import device_action_raw_capture_v1 as raw
+        handle=raw.load_handle(output/'ssh.capture.json')
+        for path in (handle.receipt_path,handle.stdout_path,handle.stderr_path,output/'known-hosts',output/'ssh-command.json'):
+            evidence[path.name]=digest(path)
     receipt={'schema':'g0q-h0-vm-capture-v1','inputs':binding,'source':source,
              'evidence':evidence,'bad_key':bad_key,'elapsed_seconds':elapsed,
              'qemu_returncode':returncode,'device_actions':0}
@@ -68,6 +76,13 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
     binding=inputs(prepared,init,kernel_label)
     require(receipt['inputs']==binding,'VM inputs differ from captured execution')
     required={'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'}
+    manifest=json.loads((init/'result.json').read_text())
+    if has_ssh(manifest):
+        import sys
+        sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/revalidation'))
+        import device_action_raw_capture_v1 as raw
+        handle=raw.load_handle(previous/'ssh.capture.json')
+        required|={handle.receipt_path.name,handle.stdout_path.name,handle.stderr_path.name,'known-hosts','ssh-command.json'}
     require(set(receipt['evidence'])==required,'capture evidence incomplete')
     for name,expected in receipt['evidence'].items():
         require(digest(previous/name)==expected,'captured evidence changed: '+name)
@@ -83,8 +98,9 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
     v9_sources=expanded|{'retained_trace.py','retained_probe.py'}
     v10_sources=v9_sources|{'retained_probe_v10.py'}
     current_sources=v10_sources|{'debian_ram.py'}
+    ssh_sources=current_sources|{'ssh_ram.py','device_action_raw_capture_v1.py'}
     require(set(receipt['source']) in (sources,expanded,expanded|{'retained_trace.py'},
-                                     v9_sources,v10_sources,current_sources),'capture source incomplete')
+                                     v9_sources,v10_sources,current_sources,ssh_sources),'capture source incomplete')
     kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
     if 'retained_marker' in kernel_record:
         marker_source=kernel_record['retained_marker']
@@ -92,13 +108,13 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
         marker_config=json.loads(Path(marker_source['path']).read_text())['config']
         require(digest(marker_config['path'])==marker_config['sha256'],'rechecked VM marker config changed')
         if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-initcall-trace-v8':
-            require(set(receipt['source']) in (expanded|{'retained_trace.py'},v9_sources,v10_sources,current_sources) and 'fixture_dtb' in command,
+            require(set(receipt['source']) in (expanded|{'retained_trace.py'},v9_sources,v10_sources,current_sources,ssh_sources) and 'fixture_dtb' in command,
                     'V8 VM capture lacks trace source or no-map fixture')
         if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-deferred-probe-v9':
-            require(set(receipt['source']) in (v9_sources,v10_sources,current_sources) and 'fixture_dtb' in command,
+            require(set(receipt['source']) in (v9_sources,v10_sources,current_sources,ssh_sources) and 'fixture_dtb' in command,
                     'V9 VM capture lacks probe source or no-map fixture')
         if json.loads(Path(marker_config['path']).read_text())['schema']=='s22plus-mainline-retained-deferred-probe-v10':
-            require(set(receipt['source']) in (v10_sources,current_sources) and 'fixture_dtb' in command,
+            require(set(receipt['source']) in (v10_sources,current_sources,ssh_sources) and 'fixture_dtb' in command,
                     'V10 VM capture lacks probe source or no-map fixture')
     for name,expected in receipt['source'].items():
         require(digest(previous/'source'/name)==expected,'capture source changed')
@@ -110,6 +126,10 @@ def recheck(prepared, init, previous, output, *, kernel_label='kernel-1'):
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
     shutil.copyfile(previous/'response.raw',output/'response.raw')
     result=verify(output/'response.raw',manifest,nonce,vm=True)
+    if has_ssh(manifest):
+        import ssh_ram
+        require(result['ssh_ready'],'VM SSH readiness absent')
+        result['ssh']=ssh_ram.recheck_vm(previous,manifest,result['boot_id'])['proof']
     result.update(observation_status=result['status'],status='PASS_H0_VM_EVIDENCE_RECHECK',
                   capture=record(receipt_path),validator_source=snapshot(output),
                   kernel_sha256=binding['kernel']['sha256'],

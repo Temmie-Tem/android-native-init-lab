@@ -168,6 +168,38 @@ static int hash_file(const char *path,uint8_t out[32]) {
     return error;
 }
 #ifdef CANARY_DEBIAN_RAM
+/* sshd publishes this only after its fixed listener was created. This is
+ * positive startup evidence, not an authentication or continued-life proof.
+ * A partial/missing file is only not-ready; no second daemon is started. */
+#ifdef CANARY_DEBIAN_SSH
+static int ssh_ready(void) {
+    uint64_t now=now_ms(),until=now+10000;
+    if(until>deadline)until=deadline;
+    while(now<until) {
+        char data[32],path[64],exe[64];size_t size=0;
+        int e=read_small("/run/sshd.pid",data,sizeof(data)-1,&size);
+        if(!e&&size>=2&&size<=11&&data[size-1]=='\n') {
+            unsigned long pid=0;int valid=1;
+            for(size_t i=0;i<size-1;i++) {
+                if(data[i]<'0'||data[i]>'9'||(!i&&data[i]=='0')) {valid=0;break;}
+                pid=pid*10+(unsigned)(data[i]-'0');
+                if(pid>2147483647UL) {valid=0;break;}
+            }
+            if(valid&&pid>1) {
+                int n=snprintf(path,sizeof(path),"/proc/%lu/exe",pid);
+                if(n>0&&(size_t)n<sizeof(path)) {
+                    ssize_t got=readlink(path,exe,sizeof(exe));
+                    if(got==14&&!memcmp(exe,"/usr/sbin/sshd",14))return 1;
+                }
+            }
+        }
+        struct timespec delay={0,50000000};
+        if(nanosleep(&delay,NULL)&&errno!=EINTR)return 0;
+        now=now_ms();
+    }
+    return 0;
+}
+#endif
 /* Only scalar claims leave the observer. Namespace inode numbers and process
  * status text stay local. This consistency check is joined with the reviewed
  * initial boot path; namespace equality alone cannot establish initial PID1. */
@@ -204,6 +236,9 @@ static int debian_proof(uint8_t response[G0Q_RESPONSE_SIZE]) {
     g_put32(response+224,1);g_put32(response+256,(uint32_t)self);
     g_put32(response+260,(uint32_t)parent);g_put32(response+264,1);
     g_put32(response+268,'2');g_put32(response+272,'N');
+#ifdef CANARY_DEBIAN_SSH
+    g_put32(response+276,(uint32_t)ssh_ready());
+#endif
     return 0;
 }
 #endif

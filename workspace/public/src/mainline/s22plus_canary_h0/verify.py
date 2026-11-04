@@ -18,10 +18,16 @@ REQUEST=72
 RESPONSE=288
 FDT_LIMIT=2*1024*1024
 DEBIAN_SCHEMA='s22plus-mainline-debian-sysvinit-ram-v1'
+SSH_SCHEMA='s22plus-mainline-debian-ssh-ram-v1'
+
+
+def has_ssh(manifest):
+    return manifest.get('debian_ram',{}).get('schema')==SSH_SCHEMA
 
 
 def protocol(manifest=None):
     if manifest is not None and 'debian_ram' in manifest:
+        if has_ssh(manifest):return b'G0Q-DEBIAN-SSH-RAM-v1',b'G0QSRQ1\0',b'G0QSRS1\0',352
         require(manifest['debian_ram'].get('schema')==DEBIAN_SCHEMA,'unknown Debian wire schema')
         return b'G0Q-DEBIAN-SYSVINIT-RAM-v1',b'G0QDRQ1\0',b'G0QDRS1\0',352
     return DOMAIN,b'G0QREQ1\0',b'G0QRSP1\0',256
@@ -68,11 +74,16 @@ def _verify(raw,manifest,nonce,*,vm,directory):
     if 'debian_ram' in manifest:
         child,parent,ns,level,previous=struct.unpack_from('<IIIII',body,256)
         runtime=manifest['debian_ram']
-        require(child>1 and parent==1 and ns==1 and level==ord('2') and previous==ord('N') and
-                body[276:288]==bytes(12),'Debian PID1/direct-child/runlevel consistency')
+        require(child>1 and parent==1 and ns==1 and level==ord('2') and previous==ord('N'),
+                'Debian PID1/direct-child/runlevel consistency')
+        if has_ssh(manifest):
+            ready=struct.unpack_from('<I',body,276)[0]
+            require(ready in (0,1) and body[280:288]==bytes(8), 'SSH startup field differs')
+            extra['ssh_ready']=bool(ready)
+        else:require(body[276:288]==bytes(12),'reserved Debian fields differ')
         require(body[288:320].hex()==runtime['observer']['sha256'] and
                 body[320:352].hex()==runtime['inittab_sha256'],'Debian observer/inittab identity')
-        extra=dict(runtime_schema=DEBIAN_SCHEMA,responder_pid=child,responder_ppid=parent,
+        extra.update(runtime_schema=runtime['schema'],responder_pid=child,responder_ppid=parent,
                    pid_namespace_consistent=True,runlevel='2',previous_runlevel='N',
                    actual_observer_sha256=body[288:320].hex(),inittab_sha256=body[320:352].hex())
     uptime,pid,cpus,blocks,health,delta,size,variant=struct.unpack_from('<QIIIIQII',body,216)

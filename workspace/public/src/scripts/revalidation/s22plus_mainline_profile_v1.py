@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_debian_ram_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_debian_ssh_ram_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -110,6 +110,12 @@ def image_binding(image,*,artifact_bytes=False):
             path=str(Path(receipt['path']).relative_to(ROOT))
             require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
                     'Debian RAM evidence lacks exact independent coverage')
+        if 'ssh' in debian:
+            for case in debian['ssh']['cases'].values():
+                for receipt in (case['capture'],case['result'],case['ssh_capture']):
+                    path=str(Path(receipt['path']).relative_to(ROOT))
+                    require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
+                            'SSH failure evidence lacks exact independent coverage')
     require(image['runtime_sources']==runtime_sources,'mainline runtime identity differs')
     require(image['runtime_sources']['init']['sha256']==manifest['init']['sha256'] and
             image['runtime_sources']['dtb']['sha256']==manifest['dtb']['sha256'],'canary measurements differ')
@@ -126,18 +132,19 @@ def debian_ram_binding(image,manifest,manifest_pin,kernel):
     capability(ROOT)
     try:
         from mainline.s22plus_canary_h0 import debian_ram
+        runtime=debian_ram.validate(manifest)
     except (ImportError,SyntaxError) as error:
         raise ValueError('reviewed Debian RAM validator is unavailable') from error
-    runtime=debian_ram.validate(manifest)
     value=read(unchanged(image['debian_ram']))
+    ssh=codec.has_ssh(manifest)
     require(set(value)=={'schema','status','physical_manifest','kernel','vm_manifest','positive_capture',
-                         'negative_capture','positive_result','negative_result','physical_pid1_proved','device_actions'} and
+                         'negative_capture','positive_result','negative_result','physical_pid1_proved','device_actions'}|({'ssh'} if ssh else set()) and
             value['schema']=='s22plus-mainline-debian-ram-qualification-v1' and
             value['status']=='PASS_H0_DEBIAN_SYSVINIT_RAM' and value['physical_pid1_proved'] is False and
             value['device_actions']==0 and value['physical_manifest']==manifest_pin and value['kernel']==kernel,
             'Debian RAM qualification differs')
     vm=read(unchanged(value['vm_manifest']));debian_ram.validate(vm)
-    require(vm['vm'] is True and vm['debian_ram']['members']==runtime['members'] and
+    require(vm['vm'] is True and vm['debian_ram']['schema']==runtime['schema'] and vm['debian_ram']['members']==runtime['members'] and
             vm['debian_ram']['inittab_sha256']==runtime['inittab_sha256'] and
             vm['kernel_release']==manifest['kernel_release'] and vm['inputs']==manifest['inputs'],
             'Debian VM and physical runtime sources differ')
@@ -161,12 +168,28 @@ def debian_ram_binding(image,manifest,manifest_pin,kernel):
                 capture['inputs']['kernel']=={k:kernel[k] for k in ('path','sha256')},
                 'Debian VM raw capture input differs')
         folder=Path(value[name]['path']).parent
-        require(set(capture['evidence'])=={'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'},
+        extra=set()
+        if ssh and not bad_key:
+            from mainline.s22plus_canary_h0 import ssh_ram
+            ssh_ram.check_case(folder,vm,value['vm_manifest'],kernel,'positive')
+            extra=set(capture['evidence'])-{'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'}
+        require(set(capture['evidence'])=={'command.json','nonce.bin','request.raw','response.raw','serial.log','qemu.stderr'}|extra,
                 'Debian VM capture evidence incomplete')
         for filename,expected in capture['evidence'].items():
             require(hashlib.sha256((folder/filename).read_bytes()).hexdigest()==expected, 'Debian VM raw evidence changed')
         require((folder/'response.raw').stat().st_size==0 if bad_key else
                 capture['evidence']['response.raw']==positive['raw_sha256'], 'Debian VM raw result join differs')
+    if ssh:
+        from mainline.s22plus_canary_h0 import ssh_ram
+        proof=value['ssh'];require(set(proof)=={'executable','positive','cases','physical_ssh_proved'} and
+            proof['physical_ssh_proved'] is False and set(proof['cases'])==set(ssh_ram.VM_CASES)-{'positive'} and
+            runtime['keys']==vm['debian_ram']['keys'], 'SSH qualification/key shape differs')
+        positive_case=ssh_ram.check_case(Path(value['positive_capture']['path']).parent,vm,value['vm_manifest'],kernel,'positive')
+        require(proof['positive']==positive_case and proof['executable']==positive_case['executable'],
+                'SSH positive evidence differs')
+        for case,record in proof['cases'].items():
+            require(record==ssh_ram.check_case(Path(record['capture']['path']).parent,vm,value['vm_manifest'],kernel,case) and
+                    record['executable']==proof['executable'], 'SSH rejection/forced-command evidence differs')
     return value
 
 

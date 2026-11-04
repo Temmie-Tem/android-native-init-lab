@@ -7,7 +7,12 @@
 #include "../../native-init/s22plus_fyg8_max77705_result_parser.inc.c"
 
 #define G0Q_REQUEST_SIZE 72U
-#ifdef CANARY_DEBIAN_RAM
+#ifdef CANARY_DEBIAN_SSH
+#define G0Q_BODY_SIZE 352U
+#define G0Q_REQUEST_MAGIC "G0QSRQ1\0"
+#define G0Q_RESPONSE_MAGIC "G0QSRS1\0"
+#define G0Q_DOMAIN "G0Q-DEBIAN-SSH-RAM-v1"
+#elif defined(CANARY_DEBIAN_RAM)
 #define G0Q_BODY_SIZE 352U
 #define G0Q_REQUEST_MAGIC "G0QDRQ1\0"
 #define G0Q_RESPONSE_MAGIC "G0QDRS1\0"

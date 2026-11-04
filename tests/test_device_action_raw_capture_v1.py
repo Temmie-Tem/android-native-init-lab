@@ -32,6 +32,57 @@ class DeviceActionRawCaptureV1Test(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load_module()
 
+    def test_absolute_boottime_expiry_before_spawn_keeps_failure_without_start(self):
+        module=self.module
+        with tempfile.TemporaryDirectory() as temporary:
+            capture=module.prepare_capture_dir(Path(temporary))
+            with mock.patch.object(module.time,'clock_gettime_ns',return_value=100), \
+                 mock.patch.object(module.subprocess,'Popen') as spawn:
+                handle=module.acquire_command(['/bin/true'],capture,'expired',timeout=2,
+                    stdout_maximum=64,stderr_maximum=64,boottime_deadline_ns=99)
+            spawn.assert_not_called()
+            self.assertIsNone(handle.returncode)
+            self.assertEqual(handle.producer_error_type,'RawCaptureError')
+            self.assertEqual(module.read_stdout(handle,maximum=64),b'')
+
+    def test_suspend_clock_jump_stops_running_capture_before_monotonic_timeout(self):
+        module=self.module;start=1_000_000_000;calls=[]
+        def boottime(clock_id):
+            self.assertEqual(clock_id,module.time.CLOCK_BOOTTIME)
+            calls.append(clock_id)
+            return start if len(calls)<=3 else start+30_000_000_000
+        with tempfile.TemporaryDirectory() as temporary:
+            capture=module.prepare_capture_dir(Path(temporary))
+            began=module.time.monotonic()
+            with mock.patch.object(module.time,'clock_gettime_ns',side_effect=boottime):
+                handle=module.acquire_command([sys.executable,'-c',
+                    'import sys,time;sys.stdout.write("partial");sys.stdout.flush();time.sleep(5)'],
+                    capture,'suspend',timeout=10,stdout_maximum=64,stderr_maximum=64,
+                    boottime_deadline_ns=start+20_000_000_000)
+            self.assertLess(module.time.monotonic()-began,3)
+            self.assertTrue(handle.timed_out)
+            self.assertEqual(module.read_stdout(handle,maximum=64),b'partial')
+            with self.assertRaises(module.RawCaptureError):module.require_success(handle)
+
+    def test_suspend_at_final_process_wait_cannot_return_success_after_deadline(self):
+        module=self.module;start=1_000_000_000;expired=False;waits=[]
+        real_popen=module.subprocess.Popen
+        def spawn(*args,**kwargs):
+            process=real_popen(*args,**kwargs);real_wait=process.wait
+            def wait(timeout=None):
+                nonlocal expired
+                result=real_wait(timeout=timeout);expired=True;waits.append(result);return result
+            process.wait=wait;return process
+        with tempfile.TemporaryDirectory() as temporary:
+            capture=module.prepare_capture_dir(Path(temporary))
+            with mock.patch.object(module.subprocess,'Popen',side_effect=spawn), \
+                 mock.patch.object(module.time,'clock_gettime_ns',side_effect=lambda unused:start+(30_000_000_000 if expired else 0)):
+                handle=module.acquire_command([sys.executable,'-c',
+                    'import os,time;os.close(1);os.close(2);time.sleep(.05)'],capture,'final-wait',timeout=2,
+                    stdout_maximum=64,stderr_maximum=64,boottime_deadline_ns=start+20_000_000_000)
+            self.assertEqual(waits,[0]);self.assertEqual(handle.returncode,0);self.assertTrue(handle.timed_out)
+            with self.assertRaises(module.RawCaptureError):module.require_success(handle)
+
     def test_command_publishes_mode0400_streams_before_handle_parse(self):
         module = self.module
         with tempfile.TemporaryDirectory() as temporary:
