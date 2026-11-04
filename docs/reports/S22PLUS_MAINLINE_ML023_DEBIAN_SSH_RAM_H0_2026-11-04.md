@@ -1,7 +1,10 @@
 # S22+ ML023: packaged OpenSSH on Debian RAM PID1
 
-Status: **H0 QUALIFIED / INDEPENDENT PASS_GO / FIXED D0 READY /
-EXACT ATTENDED APPROVAL PENDING**. No grant is armed.
+Status: **H0 QUALIFIED / INDEPENDENT PASS_GO; PHYSICAL RUN CONSUMED /
+SSH NO_PROOF / ANDROID_CLOSED_HEALTHY**. No successor grant is armed.
+The [physical run report](S22PLUS_MAINLINE_ML023_RUN_2026-11-04.md) records
+positive base Debian evidence, a host pre-spawn SSH failure and completed
+original-A recovery. The preparation evidence below retains its original scope.
 
 ## Selected unit
 
@@ -98,7 +101,7 @@ KEXEC settings; RAM use is not a claim of zero hardware hazard. The fixed
 nonroot command and exact closure bound this experiment. Linux UFS remains
 compiled out; no installed-root or native_data operation is added.
 
-## Validation and current preparation
+## Validation and pre-execution preparation
 
 The unchanged functional kernel/config/DT/PHY baseline is checked against
 ML022. Fresh candidate identity and retained-marker literals require a fresh
@@ -139,10 +142,11 @@ worker reports backend V29 and remains unchanged.
 One authorized fixed preapproval D0 completed and its full seven raw health
 captures rederive successfully, with successful producer status and empty
 stderr throughout. The current Android target/health and original-A identity
-pass. No candidate control, partition transfer, operation grant or attendance
-claim was created. A new returned one-operation, 1800-second approval and
-actual attendance/usable Download recovery remain required before execution.
-This report establishes H0/ready state only; physical SSH remains unproved.
+passed at preparation. That D0 created no candidate control, partition transfer,
+operation grant or attendance claim. Execution subsequently used a refreshed
+health check, the actual returned one-operation, 1800-second approval and the
+operator's explicit attendance/usable Download confirmation. Those effects
+and closure belong to the linked run report; physical SSH remains unproved.
 
 Past-failure checklist application:
 

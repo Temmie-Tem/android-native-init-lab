@@ -30,18 +30,22 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Packaged Debian SysVinit as mainline RAM PID1 is demonstrated by ML022.**
-  Persistent Debian and ordinary headless services remain the product objective;
-  ML023 now selects packaged OpenSSH with one fixed nonroot RAM command.
-  H0 implementation, fresh candidate and exact-artifact qualification pass;
-  independent final PASS_GO and backend V29 adoption are complete.
-  Fixed seven-read preapproval Android health also passes; the exact finite
-  attended approval remains pending. Physical SSH is still unproved.
-  No successor grant is armed. Functional development
-  takes priority over optional historical fault attribution or a new
-  instrumentation ladder. Existing target, authority, recovery and no-replay
-  requirements remain binding.
-  [ML023 scope and validation](docs/reports/S22PLUS_MAINLINE_ML023_DEBIAN_SSH_RAM_H0_2026-11-04.md).
+- **ML023 is consumed: SSH NO_PROOF / ANDROID_CLOSED_HEALTHY.**
+  One authenticated response again proved packaged Debian SysVinit RAM PID1
+  and reported sshd startup readiness. The host stopped before launching its
+  SSH client with `SessionError`; no physical SSH session is proved. An offline
+  reproduction identifies a pre-spawn timeout-ordering defect compatible with
+  the recorded timing, without claiming the unrecorded original error message.
+  N and A each transferred once. One physical recovery and one health-only
+  continuation after a preserved ADB read failure closed original A healthy.
+  Both returned V1 frame counts are zero despite positive live Debian proof.
+  No F1 owner, new grant or successor is armed. Persistent Debian and ordinary
+  headless services remain the product objective; the next bounded unit is not
+  yet selected. Functional development takes priority over optional historical
+  fault attribution. Target, authority, recovery and no-replay requirements
+  remain binding.
+  [Run and host failure](docs/reports/S22PLUS_MAINLINE_ML023_RUN_2026-11-04.md) ·
+  [Qualified H0 scope](docs/reports/S22PLUS_MAINLINE_ML023_DEBIAN_SSH_RAM_H0_2026-11-04.md).
 - **ML022 is consumed: PASS_DEBIAN_SYSVINIT_RAM_PID1 / ANDROID_CLOSED_HEALTHY.**
   After one instructed phone-end replug, one authenticated response proved the
   exact packaged SysVinit PID1, direct observer child/PPID 1, runlevel 2/N,
