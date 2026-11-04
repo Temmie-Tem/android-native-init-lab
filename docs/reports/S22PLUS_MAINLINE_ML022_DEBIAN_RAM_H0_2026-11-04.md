@@ -1,7 +1,11 @@
 # ML022: packaged Debian SysVinit as RAM PID1
 
-Status: **H0 QUALIFIED / INDEPENDENT PASS_GO / FIXED D0 READY /
-EXACT ATTENDED APPROVAL PENDING**.
+Status: **H0 qualified and independently reviewed; separately approved
+[physical run](S22PLUS_MAINLINE_ML022_RUN_2026-11-04.md) consumed
+PASS_DEBIAN_SYSVINIT_RAM_PID1 and closed original A healthy**.
+
+This report records preparation. The linked run records subsequent authority,
+physical execution, original-A return and final health.
 
 After ML021 proved live mainline RAM PID1 and authenticated USB, the selected
 next unit is actual Debian SysVinit as initial RAM PID1, directly starting one
@@ -90,11 +94,11 @@ both APs to the actual loader. The new mainline capability and backend V28 are
 qualified together. Prior receipts remain unchanged, and the live connector
 confirms the same resident worker with a fresh reviewed backend per request.
 
-The exact candidate and prospective task are prepared. One authorized fixed
+At preparation close, the exact candidate and prospective task were prepared. One authorized fixed
 preapproval D0 completed all seven original-Android health reads, each with
 successful producer status and empty stderr. No grant, candidate control or
-partition transfer occurred. The finite one-operation, 1800-second attended
-approval remains a separate required input. The optional physical attach cue
+partition transfer occurred during preparation. The finite one-operation,
+1800-second attended approval remained a separate required input. The optional physical attach cue
 retains all ML021 issuance, race, completion and separate Download conditions.
 
 Applicable past-failure checklist rows:
@@ -121,7 +125,7 @@ Candidate work and preserved H0 failures are under
 Token totals, account-wide quota movement, list-price estimates and unknown
 subscription billing remain separate. No provider fallback or retry was used.
 
-Independent review and fixed preapproval readiness are complete; the exact
-finite attended approval remains pending. No new grant is armed. A90 and S20+ were not
-accessed. Persistence, full Debian services, SSH, endurance, automatic recovery,
+Independent review and fixed preapproval readiness completed before the
+separately approved run linked above. That run is now consumed and closed
+healthy, with no further grant armed. A90 and S20+ were not accessed. Persistence, full Debian services, SSH, endurance, automatic recovery,
 USB attach without replug and marker retention remain outside the result claim.

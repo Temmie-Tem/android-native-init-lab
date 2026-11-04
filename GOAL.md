@@ -30,16 +30,23 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Usable mainline RAM PID1 and authenticated USB are now demonstrated by ML021.**
+- **Packaged Debian SysVinit as mainline RAM PID1 is demonstrated by ML022.**
   Persistent Debian and ordinary headless services remain the product objective;
-  ML022 is selected for packaged Debian SysVinit as RAM PID1 and one fixed
-  runlevel-2 evidence child. Exact H0 qualification, independent PASS_GO and
-  fixed preapproval Android health are complete; the fresh one-operation
-  attended approval is pending and no new grant is armed. Functional
-  development takes priority over optional historical fault attribution or a
-  new instrumentation ladder. Existing target, authority, recovery and no-replay
+  the next bounded unit has not been selected or armed. Functional development
+  takes priority over optional historical fault attribution or a new
+  instrumentation ladder. Existing target, authority, recovery and no-replay
   requirements remain binding.
-  [ML022 scope and checks](docs/reports/S22PLUS_MAINLINE_ML022_DEBIAN_RAM_H0_2026-11-04.md).
+- **ML022 is consumed: PASS_DEBIAN_SYSVINIT_RAM_PID1 / ANDROID_CLOSED_HEALTHY.**
+  After one instructed phone-end replug, one authenticated response proved the
+  exact packaged SysVinit PID1, direct observer child/PPID 1, runlevel 2/N,
+  expected kernel/live DT/initrd, one CPU, no block devices and a working timer.
+  N and A each transferred once. A failed return properties read retained its
+  raw error; one health-only continuation closed original A healthy without
+  another transfer. Both returned V1 frame counts are zero despite positive
+  live Debian proof. Persistence, ordinary services, SSH, automatic recovery
+  and replug necessity remain unproved. No F1 owner or new grant remains.
+  [Run and limits](docs/reports/S22PLUS_MAINLINE_ML022_RUN_2026-11-04.md) ·
+  [H0 scope](docs/reports/S22PLUS_MAINLINE_ML022_DEBIAN_RAM_H0_2026-11-04.md).
 - **ML021 is consumed: PASS_MAINLINE_RAM_USB / ANDROID_CLOSED_HEALTHY.**
   The fresh ordinary RAM candidate kept ML020's functional baseline. After one
   instructed phone-end replug, reported complete by the operator, the observer
