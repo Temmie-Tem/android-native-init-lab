@@ -278,7 +278,9 @@ def capture_ssh(folder,manifest,plan,found,proof,*,deadline_ns,guard):
         host_boot=host_boot(),boot_id=proof['boot_id']))
     def before_spawn():
         guard();profile.unchanged(plan['ssh'],32*1024*1024)
-        require(clock()+int(timeout*1e9)<acquisition_deadline,'SSH spawn would exceed original window')
+        # timeout is an intent-time ceiling. The raw producer rechecks the
+        # absolute deadline after this guard and clips acquisition to it;
+        # validation time must not require the entire ceiling to still fit.
     handle=raw.acquire_command(argv,folder,'ssh',timeout=timeout,stdout_maximum=1024,stderr_maximum=16384,
         env={'LANG':'C','LC_ALL':'C','PATH':'/usr/bin:/bin'},before_spawn=before_spawn,
         boottime_deadline_ns=acquisition_deadline)

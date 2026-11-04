@@ -30,6 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML024 is qualified and fixed-D0 ready; exact attended approval is pending.**
+  Keep the packaged Debian SSH RAM workload and functional kernel/DT/PHY inputs
+  unchanged. The host retains current binding checks, one invocation, the
+  twenty-second ceiling and the original absolute acquisition deadline; it
+  no longer requires the entire precomputed ceiling to fit after validation.
+  Focused producer/consumer tests, fresh artifact/VM qualification and the
+  final independent PASS_GO pass. Capability/backend V30 are adopted; actual
+  production preparation and seven-read Android health pass. ML023 remains
+  consumed; no successor approval or grant is armed and physical SSH is unproved.
+  [Scope and validation](docs/reports/S22PLUS_MAINLINE_ML024_SSH_BUDGET_H0_2026-11-04.md).
 - **ML023 is consumed: SSH NO_PROOF / ANDROID_CLOSED_HEALTHY.**
   One authenticated response again proved packaged Debian SysVinit RAM PID1
   and reported sshd startup readiness. The host stopped before launching its
@@ -40,8 +50,8 @@ identities, goals, artifacts and authority remain separate.
   continuation after a preserved ADB read failure closed original A healthy.
   Both returned V1 frame counts are zero despite positive live Debian proof.
   No F1 owner, new grant or successor is armed. Persistent Debian and ordinary
-  headless services remain the product objective; the next bounded unit is not
-  yet selected. Functional development takes priority over optional historical
+  headless services remain the product objective. Functional development takes
+  priority over optional historical
   fault attribution. Target, authority, recovery and no-replay requirements
   remain binding.
   [Run and host failure](docs/reports/S22PLUS_MAINLINE_ML023_RUN_2026-11-04.md) ·

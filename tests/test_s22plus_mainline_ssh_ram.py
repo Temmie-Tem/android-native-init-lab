@@ -8,6 +8,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 
@@ -175,10 +176,12 @@ class SSHCaptureTests(unittest.TestCase):
 
     def test_effect_time_guard_failure_is_durable_and_does_not_start_client(self):
         found,plan=self.setup_ssh('raise RuntimeError("must not run")')
-        guard=mock.Mock(side_effect=[None,ValueError('scope stopped')])
-        with self.assertRaises(raw.RawCaptureError):self.run_ssh(found,plan,guard=guard)
+        guard=mock.Mock(side_effect=[None,records.SessionError('scope stopped')])
+        with mock.patch.object(raw.subprocess,'Popen') as spawn:
+            with self.assertRaises(raw.RawCaptureError):self.run_ssh(found,plan,guard=guard)
+        spawn.assert_not_called()
         handle=raw.load_handle(self.out/'ssh.capture.json')
-        self.assertIsNone(handle.returncode);self.assertEqual(handle.producer_error_type,'ValueError')
+        self.assertIsNone(handle.returncode);self.assertEqual(handle.producer_error_type,'SessionError')
         self.assertEqual(raw.read_stdout(handle,maximum=1024),b'')
 
     def test_base_ready_false_never_creates_an_ssh_attempt(self):
@@ -188,14 +191,71 @@ class SSHCaptureTests(unittest.TestCase):
                 deadline_ns=records.clock()+10_000_000_000,guard=lambda:None)
         acquire.assert_not_called();self.assertFalse((self.out/'ssh-intent.json').exists())
 
-    def test_real_producer_to_offline_rederivation_and_endpoint_tamper(self):
+    def test_guard_consumes_window_without_starting_an_expired_client(self):
+        found,plan=self.setup_ssh('raise RuntimeError("must not run")')
+        original=time.clock_gettime_ns;offset=0;calls=0
+        def guard():
+            nonlocal offset,calls
+            calls+=1
+            if calls==2:offset=3_000_000_000
+        with mock.patch.object(time,'clock_gettime_ns',side_effect=lambda clock:original(clock)+offset), \
+             mock.patch.object(raw.subprocess,'Popen') as spawn:
+            with self.assertRaises(raw.RawCaptureError):self.run_ssh(found,plan,seconds=6,guard=guard)
+        spawn.assert_not_called();self.assertEqual(calls,2)
+        handle=raw.load_handle(self.out/'ssh.capture.json')
+        self.assertIsNone(handle.returncode);self.assertEqual(handle.producer_error_type,'RawCaptureError')
+        self.assertEqual(raw.read_stdout(handle,maximum=1024),b'')
+        self.assertTrue((self.out/'ssh-complete.json').exists())
+
+    def test_delayed_guard_clips_acquisition_to_absolute_deadline(self):
+        found,plan=self.setup_ssh('import signal,sys,time;signal.signal(signal.SIGTERM,signal.SIG_IGN);'
+                                  'sys.stdout.write("partial");sys.stdout.flush();time.sleep(5)')
+        original=time.clock_gettime_ns;offset=0;calls=0;started=time.monotonic()
+        def guard():
+            nonlocal offset,calls
+            calls+=1
+            if calls==2:offset=21_750_000_000
+        with mock.patch.object(time,'clock_gettime_ns',side_effect=lambda clock:original(clock)+offset):
+            with self.assertRaises(raw.RawCaptureError):self.run_ssh(found,plan,seconds=26.502,guard=guard)
+        self.assertLess(time.monotonic()-started,4);self.assertEqual(calls,2)
+        self.assertEqual(records.read(self.out/'ssh-intent.json')['timeout_seconds'],20.0)
+        handle=raw.load_handle(self.out/'ssh.capture.json');self.assertTrue(handle.timed_out)
+        self.assertEqual(handle.returncode,-9);self.assertIsNone(handle.producer_error_type)
+        self.assertEqual(raw.read_stdout(handle,maximum=1024),b'partial')
+        self.assertFalse((self.out/'usb-after-ssh.capture.json').exists())
+        with mock.patch.object(raw.subprocess,'Popen') as spawn:
+            with self.assertRaises((raw.RawCaptureError,FileExistsError)):self.run_ssh(found,plan)
+        spawn.assert_not_called()
+
+    def test_shorter_intent_budget_survives_more_than_initial_margin(self):
         found,plan=self.setup_ssh(f'import sys;sys.stdout.buffer.write({OUTPUT!r})')
-        opened=records.clock();deadline=opened+7_000_000_000
+        original=time.clock_gettime_ns;offset=0;calls=0
+        def guard():
+            nonlocal offset,calls
+            calls+=1
+            if calls==2:offset=500_000_000
+        with mock.patch.object(time,'clock_gettime_ns',side_effect=lambda clock:original(clock)+offset):
+            result=self.run_ssh(found,plan,seconds=14,guard=guard)
+        self.assertEqual(result['uid'],1000);self.assertEqual(calls,2)
+        timeout=records.read(self.out/'ssh-intent.json')['timeout_seconds']
+        self.assertLess(timeout,10);self.assertGreater(timeout,9)
+
+    def test_delayed_guard_real_producer_to_offline_rederivation_and_endpoint_tamper(self):
+        found,plan=self.setup_ssh(f'import sys;sys.stdout.buffer.write({OUTPUT!r})')
+        opened=records.clock();deadline=opened+26_502_000_000
         proof={'ssh_ready':True,'boot_id':BOOT}
         records.publish(self.out/'window.json',dict(host_boot=records.host_boot(),deadline_ns=deadline))
         records.publish(self.out/'endpoint.json',found)
         records.publish(self.out/'connection.json',dict(finished_ns=opened))
-        access.capture_ssh(self.out,self.manifest,plan,found,proof,deadline_ns=deadline,guard=lambda:None)
+        original=time.clock_gettime_ns;offset=0;calls=0
+        def guard():
+            nonlocal offset,calls
+            calls+=1
+            if calls==2:offset=3_558_000_000
+        with mock.patch.object(time,'clock_gettime_ns',side_effect=lambda clock:original(clock)+offset):
+            access.capture_ssh(self.out,self.manifest,plan,found,proof,deadline_ns=deadline,guard=guard)
+        self.assertEqual(calls,2)
+        self.assertEqual(records.read(self.out/'ssh-intent.json')['timeout_seconds'],20.0)
         adapter=mock.Mock();adapter.folder.return_value=self.out;adapter.configuration.return_value={'mainline_access':plan}
         with mock.patch.object(access,'rederive_base',return_value={'proof':proof}), \
              mock.patch.object(profile,'image_binding',return_value=self.manifest), \
