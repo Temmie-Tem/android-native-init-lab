@@ -19,14 +19,20 @@ RESPONSE=288
 FDT_LIMIT=2*1024*1024
 DEBIAN_SCHEMA='s22plus-mainline-debian-sysvinit-ram-v1'
 SSH_SCHEMA='s22plus-mainline-debian-ssh-ram-v1'
+DOWNLOAD_SCHEMA='s22plus-mainline-debian-download-ram-v1'
 
 
 def has_ssh(manifest):
     return manifest.get('debian_ram',{}).get('schema')==SSH_SCHEMA
 
 
+def has_download(manifest):
+    return manifest.get('debian_ram',{}).get('schema')==DOWNLOAD_SCHEMA
+
+
 def protocol(manifest=None):
     if manifest is not None and 'debian_ram' in manifest:
+        if has_download(manifest):return b'G0Q-DEBIAN-DOWNLOAD-RAM-v1',b'G0QNRQ1\0',b'G0QNRS1\0',352
         if has_ssh(manifest):return b'G0Q-DEBIAN-SSH-RAM-v1',b'G0QSRQ1\0',b'G0QSRS1\0',352
         require(manifest['debian_ram'].get('schema')==DEBIAN_SCHEMA,'unknown Debian wire schema')
         return b'G0Q-DEBIAN-SYSVINIT-RAM-v1',b'G0QDRQ1\0',b'G0QDRS1\0',352
@@ -76,10 +82,10 @@ def _verify(raw,manifest,nonce,*,vm,directory):
         runtime=manifest['debian_ram']
         require(child>1 and parent==1 and ns==1 and level==ord('2') and previous==ord('N'),
                 'Debian PID1/direct-child/runlevel consistency')
-        if has_ssh(manifest):
+        if has_ssh(manifest) or has_download(manifest):
             ready=struct.unpack_from('<I',body,276)[0]
             require(ready in (0,1) and body[280:288]==bytes(8), 'SSH startup field differs')
-            extra['ssh_ready']=bool(ready)
+            extra['download_ready' if has_download(manifest) else 'ssh_ready']=bool(ready)
         else:require(body[276:288]==bytes(12),'reserved Debian fields differ')
         require(body[288:320].hex()==runtime['observer']['sha256'] and
                 body[320:352].hex()==runtime['inittab_sha256'],'Debian observer/inittab identity')

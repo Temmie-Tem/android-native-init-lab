@@ -794,6 +794,10 @@ class Adapter:
         return value
 
     def recover_step_result(self, step, request):
+        if step.action=='mainline-download':
+            from s22plus_mainline_download_access_v1 import rederive,selected
+            require(selected(request) and step.name=='mainline-evidence','unselected mainline Download result')
+            return rederive(self,request)
         if step.action=='loader-android-evidence':
             require(request['operation']=='loader-android' and step.name=='loader-android-evidence',
                     'unselected loader Android result')

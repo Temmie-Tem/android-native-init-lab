@@ -132,8 +132,14 @@ def validate(manifest):
         else:
             import ssh_ram
         return ssh_ram.validate(manifest)
-    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members'} and
-            value['schema']==SCHEMA and type(manifest['vm']) is bool, 'Debian RAM schema differs')
+    if __package__:
+        from . import download_ram
+    else:
+        import download_ram
+    returning=value.get('schema')==download_ram.SCHEMA
+    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members'}|({'download_return'} if returning else set()) and
+            value['schema'] in (SCHEMA,download_ram.SCHEMA) and type(manifest['vm']) is bool, 'Debian RAM schema differs')
+    if returning:require(value['download_return']==download_ram.declaration(),'Download runtime scope differs')
     require(value['inittab_sha256']==hashlib.sha256(INITTAB).hexdigest(), 'Debian inittab identity differs')
     require(set(value['members'])==set(MEMBERS), 'Debian member declaration differs')
     root=Path(manifest['init']['path']).parent.parent.parent

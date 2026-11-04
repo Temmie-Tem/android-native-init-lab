@@ -67,8 +67,8 @@ attended boot-only F1 operation through the existing V3 Session and its exact
 mainline adapter. Its source-bound independent PASS_GO, qualified exact
 candidate, original Android rollback/recovery, fresh rooted Android health,
 finite returned operator grant and actual physical attendance are required.
-The scope is RAM PID1 and authenticated USB2 evidence followed by physical
-Download and original-A return/health. It grants no native baseline admission,
+The scope is RAM PID1 and authenticated USB2 evidence followed by the policy's
+physical or schema-exact normal Download and original-A return/health. It grants no native baseline admission,
 Linux storage access, installed-root execution or automatic recovery claim.
 Preparation and this adoption text alone perform no device action.
 Its original-A return health, including the existing health-only continuation,
@@ -102,6 +102,22 @@ current independent review and a new finite attended grant are required.
 It grants no general command, Linux storage, reset, automatic recovery or
 additional connection/retry capability. Original observation/return/health,
 physical attach conditions and consumed no-replay remain unchanged.
+
+The same policy's distinct `s22plus-mainline-debian-download-ram-v1` variant
+adopts its four-package RAM SysVinit closure and one fixed authenticated
+`RESTART2("download")` from the direct observer child. Its exact qualified
+SDAM reboot-reason bitfield, separate existing SCM NODUMP shutdown and ordinary
+cold-default PSCI reset are bounded normal control; no partition or Linux
+storage access, raw NVMEM writer, new SMC, dump/reset fallback or vendor module
+is added. Complete same-socket base evidence, actual driver registration,
+operation-local issued-cue closure, fresh Session intent, original host/device
+deadlines, one control, fixed 600-second/grant-limited normal arrival window,
+exact Download ticket and original-A/final health are defined in that policy.
+Current independent review, exact artifact/VM/failure qualification and a new
+finite attended grant are required. Normal automatic Download/A is distinct
+from automatic failure recovery, which remains unproved; mislanding or an
+uncertain control retains the original physical recovery without replay.
+This variant is separate from SSH, and its admission alone remains H0.
 
 The same policy's schema-exact optional `entry_park` diagnostic adopts only
 its unconditional V1 `primary_entry` WFE/back-branch before `record_mmu_state`.

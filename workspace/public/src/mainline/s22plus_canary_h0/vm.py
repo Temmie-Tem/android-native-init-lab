@@ -8,10 +8,11 @@ from pathlib import Path
 import secrets
 import socket
 import subprocess
+import tempfile
 import time
 
 from prepare import ROOT, digest, require
-from verify import request, verify, response_size, FDT_LIMIT, has_ssh
+from verify import request, verify, response_size, FDT_LIMIT, has_ssh, has_download
 from vm_evidence import inputs, snapshot, capture, recheck
 
 
@@ -26,7 +27,7 @@ def persist(path,data):
     finally:os.close(parent)
 
 
-def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_case='positive'):
+def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_case='positive',download_case='positive'):
     prepared,init,output=prepared.resolve(),init.resolve(),output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'),'private VM output')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -34,6 +35,8 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
     source=snapshot(output)
     manifest=json.loads((init/'result.json').read_text())
     ssh=has_ssh(manifest)
+    download=has_download(manifest)
+    require(download_case=='positive' or download and not bad_key,'Download case requires its own runtime')
     require(ssh_case=='positive' or ssh and not bad_key,'SSH case requires an authenticated SSH RAM fixture')
     kernel_record=json.loads((prepared/(kernel_label+'-result.json')).read_text())
     kernel=Path(kernel_record['image'])
@@ -60,6 +63,11 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
              # fixture opens ttyAMA0 directly; -append would be ignored.
              '-netdev',f'user,id=net0,net={prefix},host={net["host_ip"]},dhcpstart={net["device_ip"]},hostfwd=tcp:127.0.0.1:{port}-:{manifest["port"]}'+ssh_forward,
              '-device','virtio-net-device,netdev=net0']
+    qmp_directory=None;monitor=None
+    if download and not bad_key:
+        qmp_directory=tempfile.TemporaryDirectory(prefix='dq-',dir=ROOT/'workspace/private/tmp')
+        qmp_path=Path(qmp_directory.name)/'qmp'
+        command+=['-qmp','unix:'+str(qmp_path)+',server=on,wait=off']
     (output/'command.json').write_text(json.dumps({'command':command,'qemu_sha256':digest(qemu)},indent=2)+'\n')
     env=dict(os.environ,LD_LIBRARY_PATH=str(qroot/'usr/lib/x86_64-linux-gnu'))
     fixture=None
@@ -97,14 +105,22 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
                 if b'G0Q_RAM_OBSERVER_READY\n' in text:break
                 time.sleep(.1)
             else:raise ValueError('VM observer did not become ready')
+            if download and not bad_key:
+                import download_vm
+                monitor=download_vm.open_monitor(qmp_path,output,persist)
             with socket.create_connection(('127.0.0.1',port),timeout=5) as client:
                 client.settimeout(10)
                 client.sendall(query)
-                while len(raw)<=maximum:
-                    chunk=client.recv(min(65536,maximum+1-len(raw)))
-                    if not chunk:break
-                    raw.extend(chunk)
-            persist(output/'response.raw',bytes(raw))
+                if download and not bad_key:
+                    import download_vm
+                    raw=download_vm.exchange(client,output,manifest,nonce,download_case,persist)
+                else:
+                    while len(raw)<=maximum:
+                        chunk=client.recv(min(65536,maximum+1-len(raw)))
+                        if not chunk:break
+                        raw.extend(chunk)
+            if not (output/'response.raw').exists():persist(output/'response.raw',bytes(raw))
+            if download and not bad_key:download_vm.settled(output,proc,download_case,monitor,persist)
             if ssh and not bad_key:
                 import sys
                 import ssh_ram
@@ -135,6 +151,8 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
             proc.terminate()
             try:proc.wait(timeout=5)
             except subprocess.TimeoutExpired:proc.kill();proc.wait(timeout=5)
+            if monitor is not None:download_vm.finish_monitor(monitor,output,persist)
+            if qmp_directory is not None:qmp_directory.cleanup()
             if sparse is not None and sparse.exists():sparse.unlink()
             # Preserve the settled producer and complete raw set even when a
             # later SSH/result interpreter rejects otherwise complete bytes.
@@ -145,6 +163,7 @@ def test(prepared, init, output, *, bad_key=False, kernel_label='kernel-1',ssh_c
     else:
         result=verify(output/'response.raw',manifest,nonce,vm=True)
         if ssh:result.update(ssh=ssh_proof,ssh_case=ssh_case)
+        if download:result['download_case']=download_case
     result.update(elapsed_seconds=round(time.monotonic()-started,3),
                   kernel_sha256=kernel_record['sha256'],device_actions=0)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
@@ -157,9 +176,10 @@ if __name__=='__main__':
     p.add_argument('--output',type=Path,required=True);p.add_argument('--bad-key',action='store_true')
     p.add_argument('--kernel-label',default='kernel-1')
     p.add_argument('--ssh-case',choices=('positive','wrong-key','root','forced-command','pty','forwarding','sftp'),default='positive')
+    p.add_argument('--download-case',choices=('positive','wrong-control-key','wrong-boot','legacy-command','extra-tail','partial-control','missing-eof'),default='positive')
     p.add_argument('--recheck-run',type=Path,help='revalidate a complete positive capture without starting QEMU')
     a=p.parse_args()
     if a.recheck_run:
         require(not a.bad_key,'recheck supports positive captures only')
         recheck(a.prepared,a.init,a.recheck_run,a.output,kernel_label=a.kernel_label)
-    else:test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label,ssh_case=a.ssh_case)
+    else:test(a.prepared,a.init,a.output,bad_key=a.bad_key,kernel_label=a.kernel_label,ssh_case=a.ssh_case,download_case=a.download_case)

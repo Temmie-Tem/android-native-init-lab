@@ -75,7 +75,9 @@ def steps(operation, *, reentry=False, hud=False, native_bootstrap=False):
 
 def operation_steps(request):
     if request['operation']=='loader-android':return steps('loader-android')
-    if request['operation']=='mainline-ram':return steps('mainline-ram')
+    if request['operation']=='mainline-ram':
+        from s22plus_mainline_session_v1 import normal_steps
+        return normal_steps(request)
     from s22plus_debian_reboot_access_v1 import selected as reboot_selected,normal_steps as reboot_steps
     if reboot_selected(request):return reboot_steps()
     return steps(request['operation'],reentry=request['reentry'],hud=request['hud'],
@@ -190,7 +192,7 @@ class Session:
             claim_effect(self.adapter,step,self.request)
         deferred_detail=callable(detail)
         if deferred_detail:
-            require(step.action=='download', 'deferred intent detail is only for Android Download')
+            require(step.action in ('download','mainline-download'), 'unselected deferred control intent detail')
             detail=detail()
             live_grant(self.grant,recovery=recovery)
         result=self.journal.append('effect-intent',step=step.name,action=step.action,
@@ -259,6 +261,10 @@ class Session:
             require(self.request['operation']=='mainline-ram' and step.name=='mainline-evidence','unselected mainline observation')
             from s22plus_mainline_access_v1 import observe
             value=observe(self.adapter,self.request,guard)
+        elif step.action=='mainline-download':
+            from s22plus_mainline_download_access_v1 import observe,selected
+            require(selected(self.request) and step.name=='mainline-evidence','unselected mainline Download control')
+            value=observe(self.adapter,self.request,guard,dispatch)
         elif step.action=='early-evidence':
             require(self.request['operation']=='debian-early','unselected early observation')
             value=self.adapter.early_observe(step,self.request,guard=guard)
@@ -307,7 +313,7 @@ class Session:
                 recovery_terminal_covers_effects(self.adapter,self.request,selected_steps,effects)
             else:require(covered,'recovery terminal does not cover the latest effect')
         else:
-            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot','debian-shutdown','debian-reboot')
+            expected=[step.name for step in selected_steps if step.action in ('download','transfer','physical','reboot','debian-shutdown','debian-reboot','mainline-download')
                 or step.action=='observe' and step.ending=='download' or step.name in ('gpt-apply','gpt-restore')
                 or self.request['operation']=='native-ext4' and step.name=='experiment-first'
                 or self.request['operation'] not in ('mainline-ram','loader-android') and mutates_step(self.request['operation'],step.name)]

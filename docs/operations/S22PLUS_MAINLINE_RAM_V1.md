@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_interface_binding_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_download_ram_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -33,9 +33,13 @@ grants are never repinned.
 The operator must return the generated exact approval and a statement of
 physical attendance and usable Download recovery. One grant permits **one
 operation in 1800 seconds**, on the same host boot, including suspend. Its
-only normal graph is:
+normal graph for the read-only variants is:
 
 `fresh rooted Android health -> Download -> N once -> USB evidence -> physical Download -> A once -> rooted Android health`
+
+Only the separately qualified Download variant below replaces that physical
+normal return with its one authenticated RAM Download command. Its original
+attended physical recovery remains required if that normal control fails.
 
 Preparation is H0 and may reuse retained target/recovery records. It neither
 opens a grant nor establishes current device health. Fresh source/artifact,
@@ -71,8 +75,9 @@ The base candidate executes its reviewed RAM PID1 and fixed one-client NCM
 evidence responder; the schema-exact packaged SSH variant below adds only its
 declared daemon and fixed unprivileged command. Linux UFS is compiled out and its controller/PHY disabled;
 there is no installed-root mount, native_data access, journal replay, repair,
-package operation, persistent data write or device control command in the
-observer. Ordinary boot-only transfer writes only the boot partition. Existing
+package operation or persistent filesystem data write. The base and SSH observers expose
+no device control; only the distinct Download schema below adds its fixed
+normal control. Ordinary boot-only transfer writes only the boot partition. Existing
 firmware/bootloader behavior is not relabelled as Linux storage access.
 
 USB observation is bounded by the original N launch timestamp plus **120
@@ -132,8 +137,8 @@ actually sysfs; otherwise it performs its original fixed sysfs mount and any
 failure stops the observer. No generic EBUSY acceptance is permitted.
 Standard package signal and failure handlers are not claimed absent: the
 SIGRTMIN+4 shutdown executable is excluded, and SIGSEGV handling may fork and
-attempt a core file in RAM. The fixed inittab requests no reset/reboot/halt,
-and no control request is exposed. This adds no automatic recovery or claim
+attempt a core file in RAM. The fixed inittab requests no reset/reboot/halt.
+This base schema exposes no control request. This adds no automatic recovery or claim
 that all package/inherited hardware activity stops when the observer parks.
 
 The separate wire magic/domain and 352-byte authenticated body retain all
@@ -175,6 +180,102 @@ Resolve any outstanding cue as completed or cancelled before requesting a
 separate physical Download confirmation. A replug answer is not that
 confirmation. This physical condition proves neither that replug was required
 nor a specific Type-C mechanism.
+
+### Optional normal Download from packaged Debian RAM
+
+Only `s22plus-mainline-debian-download-ram-v1`, with its separate exact
+`download_return` qualification, selects the `mainline-download` Session
+action. It uses the same fixed four-package RAM SysVinit closure and direct
+observer child, without the SSH package/session variant. One connection carries
+the authenticated 352-byte base body, its tag and complete length-framed FDT,
+then at most one 88-byte fixed `download` command and one 120-byte acceptance
+ACK. The separate domain, request/response/control/ACK magics, fresh nonce,
+candidate identity and measured boot ID exclude legacy or other-boot commands.
+There is no shell, generic command, additional connection or control retry.
+
+The host seals the received prefix before interpreting its bounded FDT length,
+then seals the complete frame before checking authentication, actual package
+PID1/observer/inittab, kernel, live DT, existing health fields and the driver
+readiness flag. Partial and rejected bytes remain private raw evidence.
+Length completion does not claim EOF or a closed descriptor: the same socket
+remains open. Driver readiness requires the exact reboot-mode class output,
+platform driver and OF-node links. The current kernel's `reboot_modes_show`
+returns one trailing NUL byte after its newline; this exact output is bound,
+not trimmed or generalized. Readiness proves registration/binding, not the
+later write, reset, firmware consumption or clearing of the reboot reason.
+
+After full base validation, the existing original 120-second host window and
+the device observer's separate original 120-second deadline still apply.
+Before control, `s22plus_mainline_attach_v1.py` serializes actual cue publication,
+resolution and closing further cue issuance under an operation-local lock;
+it never reacquires the executing owner's global target lease. The cue's
+existing fixed census/window checks run under this lock, and the issued record
+must be durable before its instruction is emitted. A publisher refuses a
+closed issuance record. An actually issued unresolved cue waits only within
+the original observation window for an actual operator completion or explicit
+cancellation, bound to that operation and cue. Silence and timeout are neither.
+With no issued cue, issuance closes immediately without another human gate.
+These interlocks prevent an outstanding physical replug instruction from
+overlapping normal automatic A return. They apply only to this Download
+variant; review them when attach or automatic-return sequencing changes,
+and retire them only with evidence that no issued physical instruction can
+overlap control/transfer or after removing this automatic-return capability.
+
+The fresh Session check and unique durable effect intent precede the sole
+control send. The intent binds the sealed base, exact command bytes, attach
+closure and original observation deadline. At that intent it fixes once the
+normal Download-arrival deadline to the earlier of 600 seconds later and the
+original grant expiry. Neither ACK parsing nor a continuation renews it.
+A final current endpoint and clock check precedes dispatch. Any uncertain
+send is consumed, with no resend or reconnect. The device verifies the fixed
+command, original nonce/boot binding, deadline and exact driver readiness,
+then sends its authenticated ACK and shuts down only its socket write half.
+The host retains ACK bytes and actual final connection status separately.
+The device requires EOF without extra bytes within its original deadline,
+rechecks deadline/readiness, then calls exactly one `RESTART2("download")`.
+EOF establishes neither verified host receipt nor new authority. An absent
+EOF, extra bytes, failed check or returning syscall parks without an alternate
+reset, fallback syscall or repeated control.
+
+This normal D1 control uses the qualified mainline built-in reboot chain:
+`nvmem-reboot-mode`, the PMK8350 SID 0 SDAM peripheral at `0x7100`, its exact
+one-byte cell at offset `0x48`, and bits 1 through 7. The sole DT addition is
+`mode-download = <0x15>`; the existing NVMEM bitfield read/modify/write preserves
+bit 0 and requests `0x2a | original_bit0`. The stock strict `download` table,
+retained stock DT and actual mainline source/cell/config join are qualified
+H0 inputs. The existing mainline SCM shutdown path separately requests
+NODUMP in its TCSR download-mode field before the ordinary cold-default PSCI
+SYSTEM_RESET path. This SDAM and SCM scope is normal reboot control, not Linux
+storage or partition access. No raw NVMEM writer, new SMC, vendor module,
+`reboot=warm` override, FULLDUMP, emergency-download command, bootloader write
+or reset-core change is admitted. The reboot-mode notifier does not propagate
+a cell-write failure to abort reset, so a mislanding remains possible and
+requires the original attended physical recovery; registration is no promise
+of recoverability.
+
+Fresh qualification joins the actual ARM64 physical/VM observer builds,
+same kernel, exact DT/config, complete framed positive and wrong-request-key
+captures, actual QEMU normal restart plus wrong-control-key/boot/schema,
+extra-byte, partial-control and missing-EOF cases, and fixed physical-binding,
+final-deadline and returning-syscall C fixtures. QEMU has no Samsung PMIC;
+its explicit readiness fixture proves protocol/reset behavior only. Host
+raw/intent, cue race, normal-A and no-replay failure paths and independent
+exact-artifact review remain required. Old read-only qualifications cannot
+select this control.
+
+After complete ACK/connection evidence, the existing coordinator automatically
+waits for an exact Download arrival ticket and revalidation, transfers only
+original A once, and obtains complete final rooted Android health. No extra
+human Download confirmation is required for this machine-proved normal
+arrival. `PASS_MAINLINE_DOWNLOAD_RAM` additionally requires the original
+control intent, completed `install-android` transfer within that fixed return
+window and final A health; a later permitted health-only continuation may
+finish this same normal A. A physical `recover-android` transfer cannot
+substitute for normal return proof. Failure preserves independently validated
+base PID1/USB evidence while reporting the Download unit as `NO_PROOF`.
+ACK, EOF and USB disappearance alone never prove reset or Download arrival.
+This capability establishes neither full SysV shutdown nor automatic failure
+recovery, unattended execution, persistence or Linux UFS access.
 
 ### Optional packaged Debian SSH in RAM
 
@@ -929,7 +1030,7 @@ the ML012/ML013 missing-return-identity observation gap. Changes to the command
 grammar, scope or acceptance trigger review; a reviewed successor may retire
 them by replacing the observation with equivalent evidence or removing it.
 
-After complete observation the owner asks for physical Download, within ten
+For the read-only variants, after complete observation the owner asks for physical Download, within ten
 minutes and the original grant. The normal A dispatch uses that return
 request's deadline, not the initial Android Download window. Failure, expiry,
 missing evidence or host interruption stops candidate work and retains the

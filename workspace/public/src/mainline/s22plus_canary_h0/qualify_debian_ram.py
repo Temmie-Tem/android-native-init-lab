@@ -39,6 +39,10 @@ def qualification(prepared,physical,vm,positive,negative,output,*,kernel_label='
                 capture['device_actions']==0 and capture['inputs']==binding and
                 capture['qemu_returncode'] in (0,-15,-9), 'complete settled VM capture required')
         extra=set()
+        if verify.has_download(actual) and not bad_key:
+            import download_vm
+            download_vm.check_case(directory,test,pin(vm/'result.json'),kernel_pin,'positive')
+            extra=download_vm.EVIDENCE|{'prefix.raw'}
         if ssh and not bad_key:
             import ssh_ram
             checked=ssh_ram.check_case(directory,test,pin(vm/'result.json'),kernel_pin,'positive')

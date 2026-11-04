@@ -17,6 +17,7 @@ from s22plus_native_records_v3 import SCHEMA,Journal,canonical,clock,digest,host
 # Selected mainline/Android/transport branches only. The shared modules also
 # contain vendor-native operations which this exact task cannot select.
 MODULES=('s22plus_mainline_task_v1','s22plus_mainline_profile_v1','s22plus_mainline_access_v1',
+    's22plus_mainline_download_access_v1','s22plus_mainline_attach_v1',
     's22plus_mainline_retention_v1',
     's22plus_native_android_storage_v1',
     's22plus_mainline_session_v1','s22plus_native_task_v3','s22plus_native_session_v3',
@@ -43,6 +44,8 @@ def source_paths(root,selected=profile):
         'workspace/public/src/mainline/s22plus_canary_h0/verify.py',
         'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
         'workspace/public/src/mainline/s22plus_canary_h0/ssh_ram.py',
+        'workspace/public/src/mainline/s22plus_canary_h0/download_ram.py',
+        'workspace/public/src/mainline/s22plus_canary_h0/download_vm.py',
         'workspace/public/src/mainline/s22plus_canary_h0/prepare.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
         'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
@@ -85,6 +88,8 @@ def marker_only(path):
     return path in ('workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/ssh_ram.py',
+                    'workspace/public/src/mainline/s22plus_canary_h0/download_ram.py',
+                    'workspace/public/src/mainline/s22plus_canary_h0/download_vm.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_trace.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe_v10.py',
@@ -374,7 +379,7 @@ def close_task(root,task_path):
         current_android_terminal=terminal_pin,terminal_state=terminal['terminal_state'],
         scientific_status=terminal[result_key]['status'],recovered=terminal['recovered'],
         closed_boottime_ns=ended,original_N_transfers_total=len(n),original_A_transfers_total=len(a),
-        device_controls_total=sum(r['data']['action']=='download' for r in effects),
+        device_controls_total=sum(r['data']['action'] in ('download','mainline-download') for r in effects),
         automatic_recovery_proved=False,native_admitted=False,raw_captures=raw_index,canonical_timeline=timeline,
         source_binding=task['review'],source_snapshot=pin(folder/'source-snapshot.json'),
         device_actions_by_closure=0,journal_rows=len(rows),journal_tail=pin(session.journal.directory/f'{len(rows)-1:04d}.json'))

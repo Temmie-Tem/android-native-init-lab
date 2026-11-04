@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_interface_binding_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_download_ram_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -38,6 +38,7 @@ def image_binding(image,*,artifact_bytes=False):
     if 'retained_marker' in image:keys.add('retained_marker')
     if 'entry_park' in image:keys.add('entry_park')
     if 'debian_ram' in image:keys.add('debian_ram')
+    if 'download_return' in image:keys.add('download_return')
     require(set(image)==keys and image['schema']=='s22plus-mainline-image-v1' and image['profile']==PROFILE and
             image['namespace']==NAMESPACE and image['version']==VERSION and
             re.fullmatch('[0-9a-f]{32}',image['run_id_hex']),'mainline image shape differs')
@@ -51,6 +52,7 @@ def image_binding(image,*,artifact_bytes=False):
     manifest=read(unchanged(qualified['init_manifest']));review=read(unchanged(qualified['entry_review']))
     require(('debian_ram' in image)==('debian_ram' in manifest) and
             not ('debian_ram' in image and 'entry_park' in image), 'Debian RAM mode admission differs')
+    require(('download_return' in image)==codec.has_download(manifest),'Download mode admission differs')
     require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['activation'] is False and
             package['device_actions']==0 and package['loader_sha256']==loader['loader']['sha256'] and
             package['copies'][0]['ap']==image['ap'] and
@@ -116,6 +118,14 @@ def image_binding(image,*,artifact_bytes=False):
                     path=str(Path(receipt['path']).relative_to(ROOT))
                     require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
                             'SSH failure evidence lacks exact independent coverage')
+        if 'download_return' in image:
+            download=download_return_binding(image,manifest,qualified['init_manifest'],debian,runtime_sources['kernel'])
+            receipts=[image['download_return'],download['source_audit'],download['fixtures']]
+            for case in download['cases'].values():receipts.extend((case['capture'],case['result']))
+            for receipt in receipts:
+                path=str(Path(receipt['path']).relative_to(ROOT))
+                require(path in reviewed and all(reviewed[path][k]==receipt[k] for k in ('size','sha256')),
+                        'Download evidence lacks exact independent coverage')
     require(image['runtime_sources']==runtime_sources,'mainline runtime identity differs')
     require(image['runtime_sources']['init']['sha256']==manifest['init']['sha256'] and
             image['runtime_sources']['dtb']['sha256']==manifest['dtb']['sha256'],'canary measurements differ')
@@ -169,6 +179,10 @@ def debian_ram_binding(image,manifest,manifest_pin,kernel):
                 'Debian VM raw capture input differs')
         folder=Path(value[name]['path']).parent
         extra=set()
+        if codec.has_download(manifest) and not bad_key:
+            download_vm=download_checker()
+            download_vm.check_case(folder,vm,value['vm_manifest'],kernel,'positive')
+            extra=download_vm.EVIDENCE|{'prefix.raw'}
         if ssh and not bad_key:
             from mainline.s22plus_canary_h0 import ssh_ram
             ssh_ram.check_case(folder,vm,value['vm_manifest'],kernel,'positive')
@@ -190,6 +204,69 @@ def debian_ram_binding(image,manifest,manifest_pin,kernel):
         for case,record in proof['cases'].items():
             require(record==ssh_ram.check_case(Path(record['capture']['path']).parent,vm,value['vm_manifest'],kernel,case) and
                     record['executable']==proof['executable'], 'SSH rejection/forced-command evidence differs')
+    return value
+
+
+def download_checker():
+    try:
+        from mainline.s22plus_canary_h0 import download_vm
+        return download_vm
+    except (ImportError,SyntaxError) as error:
+        raise ValueError('reviewed Download checker is unavailable') from error
+
+
+def download_return_binding(image,manifest,manifest_pin,debian,kernel):
+    download_vm=download_checker()
+    download_ram=download_vm.codec
+    from mainline.s22plus_canary_h0.prepare import nodes,config_values
+    value=read(unchanged(image['download_return']))
+    require(set(value)=={'schema','status','physical_manifest','vm_manifest','kernel','cases','source_audit','fixtures',
+                         'physical_download_proved','device_actions'} and
+            value['schema']=='s22plus-mainline-download-qualification-v1' and value['status']=='PASS_H0_DOWNLOAD_CONTROL' and
+            value['physical_manifest']==manifest_pin and value['vm_manifest']==debian['vm_manifest'] and value['kernel']==kernel and
+            value['physical_download_proved'] is False and value['device_actions']==0 and
+            set(value['cases'])==set(download_vm.CASES) and
+            manifest['debian_ram']['download_return']==download_ram.declaration(), 'Download qualification differs')
+    vm=read(unchanged(value['vm_manifest']))
+    for case,record in value['cases'].items():
+        require(record==download_vm.check_case(Path(record['capture']['path']).parent,vm,value['vm_manifest'],kernel,case),
+                'Download VM case changed')
+    require(value['cases']['positive']['capture']==debian['positive_capture'] and
+            value['cases']['positive']['result']==debian['positive_result'],'Download/base positive evidence differs')
+    tree=nodes(manifest['dtb']['path']);mode=tree['/reboot-mode']
+    require(mode['compatible']==b'nvmem-reboot-mode\0' and mode['nvmem-cell-names']==b'reboot-mode\0' and
+            {k:v.hex() for k,v in mode.items() if k.startswith('mode-')}==
+            {'mode-recovery':'00000001','mode-bootloader':'00000002','mode-download':'00000015'},'Download DT modes differ')
+    cells=[(p,v) for p,v in tree.items() if v.get('phandle')==mode['nvmem-cells']]
+    require(len(cells)==1 and cells[0][0]=='/soc@0/spmi@c400000/pmic@0/nvram@7100/reboot-reason@48' and
+            cells[0][1]['reg'].hex()=='0000004800000001' and cells[0][1]['bits'].hex()=='0000000100000007',
+            'Download SDAM cell differs')
+    audit=read(unchanged(value['source_audit']))
+    require(audit['status']=='PASS_H0_FIXED_DOWNLOAD_SOURCE_AND_CELL_JOIN' and audit['device_actions']==0 and
+            audit['proposed_logical_magic']==21 and audit['physical_write_or_reset_proved'] is False,
+            'Download source/cell audit absent')
+    for receipt in [audit['source'],audit['stock_module'],audit['config'],*audit['dt_inputs'],
+                    *audit['mainline_sources'],*audit['vendor_sources']]:unchanged(receipt)
+    configs=[p for p in manifest['inputs'] if p['path'].endswith('/kernel-build/.config')]
+    require(len(configs)==1 and configs[0]['sha256']==audit['config']['sha256'],'Download source audit kernel config differs')
+    kernel_source=Path(configs[0]['path']).parent.parent/'kernel-source'
+    for receipt in audit['mainline_sources']:
+        relative=receipt['path'].split('/kernel-source/',1)[1]
+        unchanged(dict(receipt,path=str(kernel_source/relative)))
+    values=config_values(Path(configs[0]['path']).read_text())
+    require(all(values[name]=='y' for name in audit['already_builtin']),'Download driver configuration differs')
+    fixtures=read(unchanged(value['fixtures']))
+    require(set(fixtures)=={'schema','status','sources','evidence','actual_arm64_code','device_actions','physical_download_proved'} and
+            fixtures['schema']=='s22plus-mainline-download-fixtures-v1' and
+            fixtures['status']=='PASS_H0_ACTUAL_DOWNLOAD_C_AND_HOST_BOUNDARIES' and fixtures['device_actions']==0 and
+            fixtures['physical_download_proved'] is False and fixtures['actual_arm64_code'] is True,
+            'Download producer/failure fixtures absent')
+    for receipt in fixtures['sources']:unchanged(receipt)
+    source_by_path={r['path']:r['sha256'] for r in fixtures['sources']}
+    for item in manifest['inputs']:
+        if Path(item['path']).name in ('init.c','protocol.h','download-return.h','s22plus_fyg8_max77705_result_parser.inc.c'):
+            require(source_by_path.get(item['path'])==item['sha256'],'Download C fixtures used another runtime source')
+    for receipt in fixtures['evidence']:unchanged(receipt)
     return value
 
 
@@ -580,7 +657,7 @@ def trace_binding(config,tests,vm,image):
 
 
 def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None,
-            entry_park_qualification=None,debian_ram_qualification=None):
+            entry_park_qualification=None,debian_ram_qualification=None,download_return_qualification=None):
     """Revalidate existing immutable artifacts, without building or contacting a device."""
     package_dir,loader_dir,output=[Path(p).resolve() for p in (package_dir,loader_dir,output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private qualification required')
@@ -606,6 +683,7 @@ def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker
              'init':pin(Path(manifest['init']['path']),maximum=4*1024*1024),
              'initramfs':manifest['initramfs'],'dtb':pin(Path(manifest['dtb']['path']))}
     require(('debian_ram' in manifest)==(debian_ram_qualification is not None), 'Debian RAM qualification required')
+    require(codec.has_download(manifest)==(download_return_qualification is not None),'Download qualification required')
     if 'debian_ram' in manifest:runtime['observer']=manifest['debian_ram']['observer']
     image=dict(schema='s22plus-mainline-image-v1',profile=PROFILE,namespace=NAMESPACE,version=VERSION,
         run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
@@ -613,6 +691,7 @@ def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker
     if marker_qualification is not None:image['retained_marker']=pin(Path(marker_qualification).resolve())
     if entry_park_qualification is not None:image['entry_park']=pin(Path(entry_park_qualification).resolve())
     if debian_ram_qualification is not None:image['debian_ram']=pin(Path(debian_ram_qualification).resolve())
+    if download_return_qualification is not None:image['download_return']=pin(Path(download_return_qualification).resolve())
     record=dict(schema='s22plus-mainline-qualification-v1',status='PASS_H0_MAINLINE_CANDIDATE',image=image,
         package=pin(package_dir/'result.json'),loader=pin(loader_dir/'result.json'),
         init_manifest=pin(Path(loader['initramfs_manifest'])),

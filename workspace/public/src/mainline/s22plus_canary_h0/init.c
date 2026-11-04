@@ -167,6 +167,9 @@ static int hash_file(const char *path,uint8_t out[32]) {
     if(!error)s22plus_max77705_runtime_sha256_final(&h,out);
     return error;
 }
+#ifdef CANARY_DOWNLOAD_RAM
+#include "download-return.h"
+#endif
 #ifdef CANARY_DEBIAN_RAM
 /* sshd publishes this only after its fixed listener was created. This is
  * positive startup evidence, not an authentication or continued-life proof.
@@ -238,6 +241,9 @@ static int debian_proof(uint8_t response[G0Q_RESPONSE_SIZE]) {
     g_put32(response+268,'2');g_put32(response+272,'N');
 #ifdef CANARY_DEBIAN_SSH
     g_put32(response+276,(uint32_t)ssh_ready());
+#endif
+#ifdef CANARY_DOWNLOAD_RAM
+    g_put32(response+276,(uint32_t)download_ready());
 #endif
     return 0;
 }
@@ -319,6 +325,9 @@ static int serve(void) {
     if(!error)error=proof(request+8,response);
     if(!error)error=transfer(client,response,sizeof(response),1);
     if(!error)error=transfer(client,fdt,fdt_size,1);
+#ifdef CANARY_DOWNLOAD_RAM
+    if(!error)error=download_finish(client,response);
+#endif
     if(client>=0&&close(client)&&!error)error=errno;
     return error;
 }

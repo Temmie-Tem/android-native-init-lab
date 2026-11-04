@@ -1,4 +1,5 @@
-/* Fixed observation only. No command, reset, mount or write request exists. */
+/* Legacy schemas are observations. The distinct Download schema additionally
+ * requires its separately authenticated, same-boot control after base proof. */
 #ifndef G0Q_RAM_CANARY_PROTOCOL_H
 #define G0Q_RAM_CANARY_PROTOCOL_H
 #include <stdint.h>
@@ -7,7 +8,12 @@
 #include "../../native-init/s22plus_fyg8_max77705_result_parser.inc.c"
 
 #define G0Q_REQUEST_SIZE 72U
-#ifdef CANARY_DEBIAN_SSH
+#ifdef CANARY_DOWNLOAD_RAM
+#define G0Q_BODY_SIZE 352U
+#define G0Q_REQUEST_MAGIC "G0QNRQ1\0"
+#define G0Q_RESPONSE_MAGIC "G0QNRS1\0"
+#define G0Q_DOMAIN "G0Q-DEBIAN-DOWNLOAD-RAM-v1"
+#elif defined(CANARY_DEBIAN_SSH)
 #define G0Q_BODY_SIZE 352U
 #define G0Q_REQUEST_MAGIC "G0QSRQ1\0"
 #define G0Q_RESPONSE_MAGIC "G0QSRS1\0"

@@ -189,9 +189,10 @@ def audit_candidate(live_path, candidate_path):
             'active_nonreusable_nomap_coverage':True,'memory_banks_equal':True}
 
 
-def prepare(base, live_path, output):
+def prepare(base, live_path, output, *, download_return=False):
     base, live_path, output = map(lambda p: p.resolve(), (base, live_path, output))
     require(output.is_relative_to(ROOT/'workspace/private'), 'output must be private')
+    require(type(download_return) is bool, 'Download preparation flag differs')
     lock = json.loads((HERE/'sources.json').read_text())
     for relative, expected in lock['files'].items():
         require(digest(base/relative) == expected, 'source changed: '+relative)
@@ -232,7 +233,8 @@ def prepare(base, live_path, output):
     generated = output/'g0q-memory.dtsi'
     generated.write_text('/* Private retained g0q memory snapshot; do not commit. */\n'+''.join(extra))
     final = output/'sm8450-samsung-g0q-ram.dts'
-    final.write_text(static+'\n#include "g0q-memory.dtsi"\n')
+    final.write_text(static+'\n#include "g0q-memory.dtsi"\n'+
+                    ('&{/reboot-mode} { mode-download = <0x15>; };\n' if download_return else ''))
     compile_dt(kernel, final, output/'sm8450-samsung-g0q-ram.dtb', output/'g0q')
     candidate = nodes(output/'sm8450-samsung-g0q-ram.dtb')
     candidate_audit = audit_candidate(live_path, output/'sm8450-samsung-g0q-ram.dtb')
@@ -269,5 +271,6 @@ if __name__ == '__main__':
     parser.add_argument('--base', type=Path, required=True)
     parser.add_argument('--live-fdt', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--download-return', action='store_true')
     args = parser.parse_args()
-    prepare(args.base, args.live_fdt, args.output)
+    prepare(args.base, args.live_fdt, args.output,download_return=args.download_return)

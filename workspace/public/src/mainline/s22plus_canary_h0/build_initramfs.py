@@ -14,7 +14,7 @@ import subprocess
 from prepare import HERE, ROOT, digest, require, run
 
 
-def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None):
+def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False):
     prepared, output = prepared.resolve(), output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'), 'private output required')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -22,6 +22,9 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
                     HERE/'../../native-init/s22plus_fyg8_max77705_result_parser.inc.c',
                     prepared/'kernel-build/.config',prepared/'sm8450-samsung-g0q-ram.dtb',network_path]
     require(ssh_keys is None or debian_packages is not None, 'SSH requires packaged Debian RAM')
+    require(type(download_return) is bool and (not download_return or
+            debian_packages is not None and ssh_keys is None), 'Download requires the fixed non-SSH Debian RAM closure')
+    if download_return:source_paths += [HERE/'download_ram.py',HERE/'download-return.h']
     if debian_packages is not None:
         import debian_ram
         debian_packages=debian_packages.resolve()
@@ -31,8 +34,9 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
             ssh_keys=ssh_keys.resolve()
             packages,members=ssh_ram.PACKAGES,ssh_ram.MEMBERS
             source_paths += [HERE/'ssh_ram.py',*ssh_ram.key_inputs(ssh_keys)]
-        source_paths += [HERE/'debian_ram.py',HERE/'../../debian/s22plus_v1/verify_packages.py',
+        source_paths += [HERE/'debian_ram.py',HERE/'download_ram.py',HERE/'../../debian/s22plus_v1/verify_packages.py',
                          *debian_ram.package_inputs(debian_packages,packages)]
+    source_paths=list(dict.fromkeys(source_paths))
     inputs=[{'path':str(p.resolve()),'sha256':digest(p)} for p in source_paths]
     key=secrets.token_bytes(32)
     identity=hashlib.sha256(json.dumps({'inputs':inputs,'vm':vm,'key_commitment':hashlib.sha256(key).hexdigest()},
@@ -72,6 +76,7 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
              *(['-DCANARY_H0_VM'] if vm else []),
              *(['-DCANARY_DEBIAN_RAM'] if debian_packages is not None else []),HERE/'init.c','-o',executable]
     if ssh_keys is not None:command.insert(command.index(HERE/'init.c'),'-DCANARY_DEBIAN_SSH')
+    if download_return:command.insert(command.index(HERE/'init.c'),'-DCANARY_DOWNLOAD_RAM')
     (output/'compile-command.json').write_text(json.dumps([str(x) for x in command],indent=2)+'\n')
     run(command,output/'compile.log')
     executable.chmod(0o755)
@@ -111,6 +116,9 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
     if debian_packages is not None:
         result['debian_ram']=(debian_ram.declaration(files,executable,package_lock) if ssh_keys is None else
                               ssh_ram.declaration(files,executable,package_lock,ssh_keys))
+        if download_return:
+            import download_ram
+            result['debian_ram'].update(schema=download_ram.SCHEMA,download_return=download_ram.declaration())
         debian_ram.validate(result)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'vm':vm,'init_bytes':(tree/'init').stat().st_size,
@@ -125,4 +133,5 @@ if __name__=='__main__':
     p.add_argument('--vm',action='store_true')
     p.add_argument('--debian-packages',type=Path,help='fixed signed Debian package/index input directory')
     p.add_argument('--ssh-keys',type=Path,help='fresh fixed SSH host/client key input directory; Debian RAM only')
-    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys)
+    p.add_argument('--download-return',action='store_true',help='distinct one-shot Download control schema; H0 only')
+    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return)
