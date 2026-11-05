@@ -30,16 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML028 passed the H0 service experiment:** a bounded Debian rc-managed SSH
-  service cycle in RAM. Packaged SysVinit runs the selected rc2 start and rc6
-  stop paths; one fixed SSH command, evidence of the service lifecycle and
-  normal Download/original-A return must join the same boot. The observer
-  remains a bounded evidence service through rc6, so this is not a claim of
-  complete system shutdown. The exact VM capture shows the same master stopped
-  through rc6 before one guest reset. [H0 evidence and limits](docs/reports/S22PLUS_MAINLINE_ML028_RC_SSH_CYCLE_H0_2026-11-05.md).
-  Independent exact-artifact review passed; the V33 preparation and fixed
-  preapproval Android health check are complete. No ML028 execution grant,
-  candidate control or transfer has occurred.
+- **ML028 is consumed with `PASS_DEBIAN_RC_SSH_CYCLE_RAM` and `ANDROID_CLOSED_HEALTHY`.**
+  On the S22+, packaged rc2 started SSH, one fixed UID/GID 1000 command
+  succeeded with zero effective capabilities, and rc6 stopped the same master.
+  An exact normal Download ticket admitted original A. N and A each transferred
+  once. After an ADB health read failed, the existing owner completed a fresh
+  seven-read bracket and removed its network profile. The one-service RAM
+  result is complete. [Physical run](docs/reports/S22PLUS_MAINLINE_ML028_RUN_2026-11-05.md) · [H0 qualification](docs/reports/S22PLUS_MAINLINE_ML028_RC_SSH_CYCLE_H0_2026-11-05.md).
 
 - **ML027 is consumed: PASS_MAINLINE_DOWNLOAD_RAM / ANDROID_CLOSED_HEALTHY.**
   Authenticated packaged Debian RAM PID1/USB and one same-connection fixed
@@ -62,7 +59,8 @@ identities, goals, artifacts and authority remain separate.
 
 - The mainline baseline has proved RAM PID1/USB, packaged Debian SysVinit as
   initial PID1, the ML026 fixed unprivileged same-boot SSH command and ML027's
-  fixed normal Download return. These retain their separate run scopes. It
+  fixed normal Download return. ML028 joined packaged rc2 startup, nonroot SSH,
+  rc6 stop and normal Download in one RAM boot. It
   has not proved installed Debian on mainline, Linux UFS, full SysV shutdown,
   a general shell, automatic failure recovery, residency or endurance.
 - ML025 and ML024 are closed NO_PROOF with original-A/final health complete.
@@ -126,21 +124,16 @@ The selected completion criterion, `PASS_MAINLINE_DOWNLOAD_RAM`, is achieved.
 ACK/EOF alone were not accepted as Download arrival. This normal return proves
 neither automatic stall recovery nor persistent/resident Debian. The broader
 watchdog interface and Linux storage work remain separate possible subsequent
-units. The selected ML028 service-cycle work has no execution grant.
+units. ML027's grant is consumed.
 
-## Next bounded unit: ML028 Debian rc-managed SSH cycle in RAM
+## Completed bounded unit: ML028 Debian rc-managed SSH cycle in RAM
 
-Use the existing functional mainline kernel/DT and authenticated RAM
-transport. Debian PID1 must run the actual packaged rc dispatcher and SSH
-script, start one identified master, serve one fixed unprivileged SSH command,
-then transition to runlevel 6 and run the packaged stop against that same
-master. Require actual stage and process evidence before one fixed Download
-return. An authenticated ACK or a zero script exit alone is insufficient.
-The existing original observation windows, finite attended operation,
-exact normal Download ticket, original-A/final health and no replay remain.
-No storage, watchdog, generic halt path or additional network channel is
-selected. H0 producer/consumer qualification and independent review precede
-any proposal for a fresh physical run.
+The physical run met the selected service criterion. Packaged rc2 and rc6
+ran their fixed SSH scripts under Debian PID 1. The stop receipt joined the
+startup PID and start ticks to both successful exits, the disappearance of
+the old master and pidfile, and a final count of zero matching packaged SSH
+processes. The original owner proved normal Download and returned original A.
+The next experiment remains to be selected. The ML028 grant is consumed.
 
 ## Milestones toward the final server
 
