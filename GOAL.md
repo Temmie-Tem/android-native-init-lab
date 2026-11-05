@@ -30,6 +30,14 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML029 completed a host-only UFS wiring and probe study.** A private copy
+  of the disabled ML028 DT gained two known g0q connections (reset GPIO 210
+  and PHY analog L5) and a correction to the host reference-clock rate
+  table. Reversing those three changes reproduced ML028's canonical DT.
+  The upstream PM8350 L6/L9 supply and the bounds on pre-scan UFS commands
+  remain open. The latest physical closure is ML028.
+  [Study, sources and next decision](docs/reports/S22PLUS_MAINLINE_ML029_UFS_H0_2026-11-05.md).
+
 - **ML028 is consumed with `PASS_DEBIAN_RC_SSH_CYCLE_RAM` and `ANDROID_CLOSED_HEALTHY`.**
   On the S22+, packaged rc2 started SSH, one fixed UID/GID 1000 command
   succeeded with zero effective capabilities, and rc6 stopped the same master.
@@ -133,7 +141,18 @@ ran their fixed SSH scripts under Debian PID 1. The stop receipt joined the
 startup PID and start ticks to both successful exits, the disappearance of
 the old master and pidfile, and a final count of zero matching packaged SSH
 processes. The original owner proved normal Download and returned original A.
-The next experiment remains to be selected. The ML028 grant is consumed.
+The ML028 grant is consumed.
+
+## Completed bounded unit: ML029 mainline UFS host study
+
+The FYG8 board overlay and captured FDT agree on six regulator votes.
+Mainline's clock names expose an inherited 75–300 MHz range on `ref_clk`;
+the study DT restores the shipped zero limits without changing USB's L5
+constraints. The normal UFS probe performs reset, link startup and device
+initialization before asynchronous SCSI discovery. The next design needs
+g0q-specific evidence for the L6/L9 upstream supply, vendor auxiliary votes
+and a defined limit on controller/device effects. ML029 used only retained
+data and has no physical grant.
 
 ## Milestones toward the final server
 
