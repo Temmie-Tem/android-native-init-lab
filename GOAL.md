@@ -30,12 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML030 proved a five-minute same-boot challenge and one emulated UFS link
+  on ARM64. The S22+ physical experiment is blocked.** The FYG8 cold PHY
+  tables match the shipped driver and the g0q module builds. A retained
+  RPMh transport fixture reached the hardware trigger after its 15-second deadline.
+  No ML030 image or command was sent to the phone. ML028 is still the latest
+  physical closure. [Results and shared-power blocker](docs/reports/S22PLUS_MAINLINE_ML030_DWELL_LINK_H0_2026-11-05.md).
+
 - **ML029 completed a host-only UFS wiring and probe study.** A private copy
   of the disabled ML028 DT gained two known g0q connections (reset GPIO 210
   and PHY analog L5) and a correction to the host reference-clock rate
   table. Reversing those three changes reproduced ML028's canonical DT.
-  The upstream PM8350 L6/L9 supply and the bounds on pre-scan UFS commands
-  remain open. The latest physical closure is ML028.
+  This study left the PM8350 L6/L9 supply and pre-scan command limits for
+  ML030. The latest physical closure is ML028.
   [Study, sources and next decision](docs/reports/S22PLUS_MAINLINE_ML029_UFS_H0_2026-11-05.md).
 
 - **ML028 is consumed with `PASS_DEBIAN_RC_SSH_CYCLE_RAM` and `ANDROID_CLOSED_HEALTHY`.**
