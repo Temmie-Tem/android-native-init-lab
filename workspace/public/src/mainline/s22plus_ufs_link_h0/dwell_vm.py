@@ -125,7 +125,7 @@ def verify_emulated_trace(trace, expected):
             "unexpected emulated SCSI execution")
 
 
-def exercise(manifest, out, case):
+def exercise(manifest, out, case, *, transport_record=None):
     out.mkdir(mode=0o700)
     archive = manifest["initramfs"]
     require(manifest["vm"] is True and manifest["physical_candidate"] is False
@@ -134,6 +134,13 @@ def exercise(manifest, out, case):
     qroot=Path(cmd[0]).parents[2]
     kernel=json.loads((BASE/"prepare-1/build-1-result.json").read_bytes())
     require(cmd[cmd.index("-kernel")+1]==kernel["image"] and digest(kernel["image"])==kernel["sha256"],"ML028 kernel identity")
+    if transport_record is not None:
+        require(transport_record.resolve().is_relative_to(WORK.resolve()), "private transport identity required")
+        kernel=json.loads(transport_record.read_bytes())
+        require(kernel["status"] == "H0_ML030_TRANSPORT_KERNEL" and
+                digest(transport_record.parent/"transport.json") == kernel["transport_sha256"] and
+                digest(kernel["image"]) == kernel["sha256"], "ML030 transport kernel identity")
+        cmd[cmd.index("-kernel")+1]=kernel["image"]
     with socket.socket() as s:
         s.bind(("127.0.0.1",0)); port=s.getsockname()[1]
     serial=out/"serial.log"; ram=out/"guest.sparse"

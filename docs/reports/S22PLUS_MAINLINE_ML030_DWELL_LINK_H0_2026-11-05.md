@@ -1,11 +1,11 @@
 # ML030 S22+ five-minute dwell and UFS link rehearsal
 
-**H0 result.** Debian answered a fresh challenge on the same ARM64 VM boot,
-301.000 seconds after the first response. One subsequent command brought up
-QEMU's emulated UFS link. The proposed S22+ cold-init component builds for
-the retained kernel. Integrated review found that a queued power command can
-start after the component's deadline. **The physical candidate is blocked.**
-ML028 remains the last physical result. [ML028 closure](S22PLUS_MAINLINE_ML028_RUN_2026-11-05.md)
+**H0 result.** The revised ARM64 kernel, fixed module, Debian witness, loader
+and boot-only AP are built. A contended RPMh path could previously start a
+power request after the deadline. The revised S22+ path tries one active slot,
+keeps an ambiguous slot occupied, and binds a normal return to the authenticated
+link result. ML028 remains the latest physical result. ML030 still requires
+a separately adopted common/target scope and reviewed live owner. [ML028 closure](S22PLUS_MAINLINE_ML028_RUN_2026-11-05.md)
 and [ML029 board study](S22PLUS_MAINLINE_ML029_UFS_H0_2026-11-05.md).
 
 ## Same-boot evidence
@@ -85,10 +85,9 @@ A separate VM boot submitted exactly these bytes through `finit_module` after
 its five-minute witness. The module returned `ENODEV` on QEMU's virt board
 before creating a platform device. All thirteen HCI cases also ran as ARM64
 executables. Independent review matched the corrected integrated H0 module
-to its nine source hashes and overlay bytes. The physical path has an open
-finding. [Component producer](../../workspace/public/src/mainline/s22plus_ufs_link_h0/build_module.py).
+to its nine source hashes and overlay bytes. At that stage the shared RPMh path had an open finding. [Component producer](../../workspace/public/src/mainline/s22plus_ufs_link_h0/build_module.py).
 
-## Why the phone was held
+## Why the initial module was held
 
 The component checks time before requesting a resource through Linux.
 Inside the retained kernel, `rpmh_rsc_send_data()` can then wait indefinitely
@@ -114,9 +113,8 @@ The stock interfaces expose no per-request deadline to the four-rail module.
 A shared-transport repair would need to cover slot admission, the actual
 trigger, cached votes and completion lifetime without disturbing ordinary USB
 and original-A return. Skipping the real regulator holds would leave the known
-FYG8 cold-power requirements unmet. The present producer yields an H0 component
-only. There is no ML030 AP, reviewed live owner, grant or transfer. A90 and
-S20+ had no actions in this unit.
+FYG8 cold-power requirements unmet. This initial producer yielded an H0 component. No AP or grant had been
+prepared at that point. A90 and S20+ had no actions in either ML030 unit.
 
 Private evidence is under
 `workspace/private/outputs/s22plus-mainline-ml030-dwell-link-h0-20261105-1/`.
@@ -124,3 +122,102 @@ The principal records are `recheck-raw-1.json`, `power-source-1/result.json`,
 `cold-phy-events-2/result.json`, `component-build-2/result.json`,
 `module-guard-vm-1/serial.log`, `rpmh-contention-2/result.json` and
 `rpmh-cache-negative-1/result.json`.
+
+## Revised shared power transport and boot-only AP
+
+The operator authorized H0 changes to the S22+ shared RPMh path and checks
+of ordinary USB and Download return. The new path admits only the issuing
+task after the late witness. It checks that all four named VRM windows are
+unique in the mapped command database before entering the issuing context.
+The scan checks header offsets and entry counts against the mapping extent.
+At most 32 requests have separate completion storage lasting until reboot.
+An uncertain posted payload, command enable or control write keeps its slot
+occupied. A verified preparation can be reclaimed before trigger. A final
+deadline check precedes trigger submission under the slot lock. Late hardware
+completion may settle an issued request. The command history preserves the
+distinction between claimed, triggered, acknowledged and reclaimed slots.
+[Transport source](../../workspace/public/src/mainline/s22plus_ufs_link_h0/transport/authority.inc.c)
+and [TCS writer](../../workspace/public/src/mainline/s22plus_ufs_link_h0/transport/rsc-send.inc.c).
+
+The late module takes a runtime-PM reference only on an already active g0q
+DWC3 device. Under the interconnect and voter locks it checks the existing
+four-node apps-USB path, bandwidth, node/provider identity and completed
+SH1/CN0 active votes. Wake/sleep fields describe cached requests. They do
+not establish that firmware later executed those requests. Ordinary transfers,
+completion IRQs and the existing reboot-mode driver retain their original
+implementations. An independent reviewer verified the observer against the
+retained DWC3/BCM source and the actual ARM64 build. Twelve TCS submission,
+timing, quarantine and reuse cases passed on both host and ARM64. Additional
+cases covered database alias/extent failures and lost, duplicate, stale or
+failed bus-vote confirmations. [Host fixtures](../../tests/test_s22plus_ml030_transport.py).
+
+The first transport kernel still carried the consumed ML028 marker in its
+early entry. It was confined to VM work. The prospective kernel restores
+the exact original entry and its loader omits the marker. On the new kernel,
+the original ML028 VM archive completed its UID 1000 SSH command, rc6 stop
+and normal guest reset. A wrong-boot command parked without reset. QEMU
+uses a virtio network device for this check. The actual DWC3, PMIC and
+Download arrival remain physical observations.
+
+The new fixed RAM root contains the four qualified Debian packages and one
+40,992-byte g0q module. After the second challenge the witness checks the
+same boot, DT, PID 1, kernel release and observer, then validates a separate
+permit. It checks the fixed module's ownership, type, mode, link count,
+size and bytes on the descriptor passed to its sole finit_module call.
+The signed reply preserves the syscall errno and bounded raw status, including
+a partial sysfs read failure. The host must verify the fresh UIC completion,
+device-present transition, resolved RPMh records and released USB reference
+before deriving the normal Download command from the SHA-256 of the entire
+signed reply. Link evidence, normal Download, rollback and Android health
+are separate findings. [Receiver](../../workspace/public/src/mainline/s22plus_ufs_link_h0/link-runtime.h)
+and [result checks](../../workspace/public/src/mainline/s22plus_ufs_link_h0/link_wire.py).
+
+| Final H0 artifact | SHA-256 |
+| --- | --- |
+| Unmarked ARM64 Image | `19fc260fc880731167d3612804e34a0ea64c48efb1a46bdf7aee803d35a2bc3c` |
+| ARM64 module | `7859073e9abfef8cb93202683046bec2878b3210c4703fc36eb6a1474a6615f8` |
+| Physical-mode RAM archive | `3c829b6137b10745ad1b0a3d16c227d498f96dbf0ca4c1495058033244a04631` |
+| uniLoader | `6be55da7a4d53f18ad6c9129f66bcf24843117662a16b54dcfc03f5ae0b979ed` |
+| Boot-only AP, both independent packs | `44ea04f4f7a9aaa09e3ad4e86e5162c08eb6aaba6d4bf5b94632feb95d9d7aba` |
+
+Both observer binaries and archives were reproduced byte for byte from the
+sealed inputs. The loader passed 20 placement/entry cases and 1,051 aligned
+copy cases. QEMU separately exercised actual EL1, EL2 and rejected EL3 entry.
+The AP has a single boot.img.lz4 member and retains the verified original-A
+outer boot envelope. Raw inputs, outputs and superseded builds remain in the
+private ML030 directory identified above, including `transport-build-4`,
+`transport-component-4`, `producer-check-5`, `loader-tests-5`,
+`loader-entry-vm-5` and `package-5`.
+
+### Final protocol cases and independent review
+
+| ARM64 guest case | Result |
+| --- | --- |
+| Early challenge | Parked with ETIMEDOUT before a permit |
+| Altered late permit | Parked with EACCES after 301.000 seconds, without dispatch |
+| Real module on QEMU virt | After 301.000 seconds the fixed module returned ENODEV, the sealed result recorded zero report bytes and the guest parked |
+| Modeled power, QEMU UFS, final-result-bound Download | Same boot at 1.594 and 302.737 seconds, one emulated link command, zero SCSI commands, one authenticated ACK and one guest reset |
+| Same model with the original base nonce | Same boot at 1.641 and 302.771 seconds, one emulated link command, zero SCSI commands, EACCES and zero resets |
+
+The last two cases use the real late protocol and reboot code with a QEMU UFS
+controller and explicit fixture values for g0q power status. Only the
+unmodified-module case exercises the real candidate module on QEMU. It
+correctly rejects that board. A bounded sysfs read fixture also retained the
+exact prefix and errno on short read, overflow and close failure. The selected
+Python suite passed nine tests, including thirteen HCI scenarios. All four new
+C fixtures were cross-built, checked as ARM64 ELFs and executed under QEMU.
+
+The independent reviewer returned **PASS_GO for revision 5's prospective
+guest and loader at H0**, with zero open H0 findings. Review covered rederived
+raw frames and QMP events, the outer boot payload and ELF/CPIO joins.
+`final-evidence-check-5.json` has SHA-256
+`58ace1c8e7afc1ab43150282857e757996d5451816fc658240be3bbec93b1a5a`.
+The current RAM validator rejects both new manifests. This H0 review covers
+neither the future live owner nor a physical operation.
+
+The [proposed common scope](../plans/S22PLUS_ML030_LINK_ONLY_SCOPE_2026-11-05.md)
+was independently reviewed as a proposal. It limits the experiment to one
+S22+ boot, the 300-second witness, fixed cold initialization, one link command
+and an attended return. The current revision 64 exception names the eight
+FYG8 stock drivers and V3 owner. The new AP has no live execution authority
+from packaging, H0 review or ML028's consumed grant.

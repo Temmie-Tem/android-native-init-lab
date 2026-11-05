@@ -1,6 +1,10 @@
-/* Host qualification of the late witness and single handoff. No hardware sink. */
-#ifndef CANARY_H0_VM
-#error "ML030 has no qualified physical UFS backend"
+/* One authenticated late dispatch. A physical compilation must explicitly
+ * select the fixed module backend and Download return. */
+#if !defined(CANARY_H0_VM) && !defined(ML030_G0Q_MODULE)
+#error "no physical UFS backend selected"
+#endif
+#if defined(ML030_G0Q_MODULE) && (!defined(CANARY_DOWNLOAD_RAM) || defined(ML030_QEMU_UFS))
+#error "the g0q module requires its distinct Download runtime"
 #endif
 #ifdef ML030_QEMU_UFS
 #include "emulated_uic.h"
@@ -9,6 +13,10 @@
 #define ML030_END_MS 540000U
 #define ML030_BODY 136U
 #define ML030_FRAME (ML030_BODY + 32U)
+
+#ifdef ML030_G0Q_MODULE
+#include "link-runtime.h"
+#endif
 
 static uint64_t ml030_u64(const uint8_t *p) {
     return (uint64_t)g_u32(p) | ((uint64_t)g_u32(p + 4) << 32);
@@ -37,7 +45,7 @@ static int ml030_dwell(int fd, const uint8_t base[G0Q_RESPONSE_SIZE]) {
         ml030_u64(frame + 128)) return EACCES;
     /* Reobserve this exact boot, PID 1 and observer, FDT, timer and zero block devices. */
     if ((err = proof(frame + 72, next))) return err;
-    if (!g_equal(next + 72, base + 72, 80) || !g_equal(next + 256, base + 256, 96) ||
+    if (!g_equal(next + 72, base + 72, 144) || !g_equal(next + 256, base + 256, 96) ||
         ml030_u64(next + 216) < t0 + ML030_DWELL_MS || now_ms() >= deadline) return EPROTO;
     memcpy(witness, frame, ML030_BODY);
     memcpy(witness, "G030WIT1", 8);
@@ -48,9 +56,9 @@ static int ml030_dwell(int fd, const uint8_t base[G0Q_RESPONSE_SIZE]) {
     if ((err = transfer(fd, frame, sizeof(frame), 0))) return err;
     if (memcmp(frame, "G030GO01", 8) || !ml030_tag_ok(frame, 18) ||
         !g_equal(frame + 8, witness + 8, ML030_BODY - 8) || now_ms() >= deadline) return EACCES;
-    /* This VM-only boundary has no module, register or control interface. A fake
-     * link success would hide the very boundary this experiment is testing. */
-#ifdef ML030_QEMU_UFS
+#ifdef ML030_G0Q_MODULE
+    return ml030_module_result(fd, witness);
+#elif defined(ML030_QEMU_UFS)
     if ((err = emu_link_once())) return err;
     memcpy(frame, "G030EMU1", 8);
 #else

@@ -23,10 +23,17 @@ def generate(source, output):
     require(prefix.count(signature) == 1, "RPMh register write boundary differs")
     prefix = prefix.replace(signature, "static bool rail_requests_open;\n\n" + signature)
     start = prefix.index(signature)
-    marker = "\n\tif (wait_for_ack || vreg->always_wait_for_ack)"
-    require(prefix[start:].count(marker) == 1, "RPMh send implementation differs")
-    prefix = prefix[:start] + prefix[start:].replace(
-        marker, "\n\tif (!READ_ONCE(rail_requests_open))\n\t\treturn -EPERM;\n" + marker)
+    body = prefix.index("\n{\n", start)
+    end = prefix.index("\n}\n", body) + 3
+    require("rpmh_write(vreg->dev, RPMH_ACTIVE_ONLY_STATE" in prefix[body:end],
+            "RPMh send implementation differs")
+    prefix = ("#include <soc/qcom/g0q-ml030.h>\n" + prefix[:body] + """
+{
+	if (!READ_ONCE(rail_requests_open))
+		return -EPERM;
+	return g0q_rpmh_vrm(vreg->dev, cmd->addr, cmd->data);
+}
+""" + prefix[end:])
     lookup = "\tvreg->addr = cmd_db_read_addr(rpmh_resource_name);"
     require(prefix.count(lookup) == 1, "VRM lookup differs")
     prefix = prefix.replace(lookup, "\tif (cmd_db_read_slave_id(rpmh_resource_name) != CMD_DB_HW_VRM)\n"

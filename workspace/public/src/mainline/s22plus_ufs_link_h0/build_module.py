@@ -15,12 +15,25 @@ BASE = tables.PRIVATE / "outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105
 FILES = ("waipio_phy.c", "waipio_phy.h", "waipio_hci.c", "waipio_hci.h", "g0q_stage.c")
 
 
-def build(header, output):
+def build(header, output, transport):
     tables.require(output.resolve().is_relative_to(tables.PRIVATE.resolve()), "private output required")
     output = output.resolve()
     output.mkdir(mode=0o700)
-    kernel = BASE / "kernel-source"
-    baseline = BASE / "kernel-build"
+    transport = transport.resolve()
+    tables.require(transport.is_relative_to(tables.PRIVATE.resolve()), "private transport build required")
+    applied = json.loads((transport/"transport.json").read_bytes())
+    kernel = Path(applied["kernel"])
+    baseline = Path(applied["build"])
+    tables.require(kernel == transport/"kernel-source" and baseline == transport/"kernel-build"
+                   and (baseline/"source").resolve() == kernel and
+                   all(tables.digest(kernel/name) == pin for name, pin in applied["files"].items())
+                   and all(tables.digest(HERE/"transport"/name) == pin
+                           for name, pin in applied["producer"].items()), "transport sources differ")
+    patched = json.loads((transport/"guard-result.json").read_bytes())
+    image = baseline/"arch/arm64/boot/Image"
+    tables.require(Path(patched["image"]) == image and tables.digest(image) == patched["sha256"]
+                   and patched["transport_sha256"] == tables.digest(transport/"transport.json"),
+                   "transport kernel image differs")
     retained = json.loads((BASE/"build-1-result.json").read_bytes())
     tables.require(tables.digest(Path(retained["image"])) == retained["sha256"] and
                    tables.digest(baseline/".config") == retained["config_sha256"], "ML028 build identity")
@@ -70,6 +83,7 @@ def build(header, output):
     receipt = dict(status="BUILT_H0_COLD_LINK_COMPONENT", source_sha256={
         str(p):tables.digest(p) for p in (HERE/"build_module.py",HERE/"late_overlay.py",HERE/"late_rails.py",
         HERE/"cold_phy_tables.py",*(HERE/n for n in FILES))}, baseline_kernel=retained["sha256"],
+        selected_kernel=patched["sha256"], transport=tables.digest(transport/"transport.json"),
         inputs={p.name:tables.digest(p) for p in (kbuild/"vmlinux.symvers",kbuild/".config",header)},
         module_sha256=tables.digest(module), module_path=str(module), vermagic=version,
         physical_admitted=False, device_actions=0)
@@ -82,5 +96,6 @@ if __name__ == "__main__":
     cli = argparse.ArgumentParser(description=__doc__)
     cli.add_argument("header",type=Path)
     cli.add_argument("output",type=Path)
+    cli.add_argument("--transport",required=True,type=Path)
     args=cli.parse_args()
-    print(build(args.header, args.output)["status"])
+    print(build(args.header, args.output, args.transport)["status"])

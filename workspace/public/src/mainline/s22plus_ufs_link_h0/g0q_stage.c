@@ -4,7 +4,6 @@
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/interconnect.h>
 #include <linux/io.h>
 #include <linux/ktime.h>
 #include <linux/module.h>
@@ -13,6 +12,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
+#include <soc/qcom/g0q-ml030.h>
 #include "waipio_hci.h"
 #include "overlay-data.h"
 
@@ -32,20 +32,24 @@ static struct board board;
 static int operation_rc = -EINPROGRESS;
 static unsigned int stage;
 static atomic_t probe_taken = ATOMIC_INIT(0);
+static struct g0q_rpmh_report power;
+static bool usb_covered, usb_released;
 
 static int remaining(void)
 {
-	return ktime_get_boottime_ns() < board.link.hw.deadline_ns ? 0 : -ETIMEDOUT;
+	return g0q_rpmh_remaining();
 }
 
 static int report(char *buf, const struct kernel_param *kp)
 {
 	struct g0q_link *link = &board.link;
 
-	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u\n",
+	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u\n",
 			 operation_rc, stage, link->version, link->hw.pcs_ready,
 			 link->local_commands, link->link_issued, link->before,
-			 link->interrupt, link->result, link->after, link->hce_started);
+			 link->interrupt, link->result, link->after, link->hce_started,
+			 power.records, power.claimed, power.triggered, power.acknowledged,
+			 power.reclaimed, power.error, usb_covered, usb_released);
 }
 static const struct kernel_param_ops report_ops = { .get = report };
 module_param_cb(result, &report_ops, NULL, 0444);
@@ -112,11 +116,8 @@ static int supply(const char *name, int min_uv, int max_uv, int load,
 static int access_power(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct icc_path *cpu = devm_of_icc_get(dev, "cpu-ufs");
 	int rc;
 
-	if (IS_ERR_OR_NULL(cpu))
-		return cpu ? PTR_ERR(cpu) : -ENODEV;
 	if (remaining())
 		return -ETIMEDOUT;
 	pm_runtime_enable(dev);
@@ -125,10 +126,9 @@ static int access_power(struct platform_device *pdev)
 		return rc;
 	if (remaining())
 		return -ETIMEDOUT;
-	/* Fixed PWM-G1 CPU-config path; no DMA client or memory traffic. */
-	rc = icc_set_bw(cpu, 0, 1000);
-	if (rc)
-		return rc;
+	/* CPU config traffic is already covered by the held apps-usb SH1/CN0
+	 * votes. No generic ICC request, batch invalidation or rollback is issued.
+	 */
 	rc = clock_on("iface_clk", &board.iface);
 	if (!rc)
 		rc = clock_on("bus_aggr_clk", &board.aggr);
@@ -227,7 +227,18 @@ static int phy_on(void)
 	if (regulator_is_enabled(usb) <= 0 || uv < 880000 || uv > 888000 ||
 	    regulator_get_mode(usb) != REGULATOR_MODE_NORMAL)
 		return -ERANGE;
-	rc = supply("vdda-phy", uv, uv, 173000, &board.analog);
+	if (remaining())
+		return -ETIMEDOUT;
+	rc = regulator_set_load(usb, 173000);
+	if (!rc && !remaining())
+		rc = regulator_enable(usb);
+	if (!rc)
+		rc = remaining();
+	if (!rc && (regulator_get_mode(usb) != REGULATOR_MODE_NORMAL ||
+		    regulator_get_voltage(usb) != uv))
+		rc = -ERANGE;
+	if (!rc)
+		board.analog = usb;
 	if (!rc)
 		rc = g0q_phy_analog_on(&board.link.hw);
 	if (!rc)
@@ -338,6 +349,8 @@ static int run(struct platform_device *pdev)
 	if (rc)
 		return rc;
 	stage = 6;
+	if (remaining())
+		return -ETIMEDOUT;
 	return g0q_hci_link_once(&board.link, clk_get_rate(board.core), clk_get_rate(board.unipro));
 }
 
@@ -381,6 +394,7 @@ static bool original_board(void)
 
 static int __init start(void)
 {
+	struct device *usb = NULL;
 	u64 now = ktime_get_boottime_ns();
 	int id = 0, rc;
 
@@ -389,7 +403,15 @@ static int __init start(void)
 	if (now < 300ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)
 		return -ETIMEDOUT;
 	board.link.hw.deadline_ns = now + 15ULL * NSEC_PER_SEC;
-	rc = of_overlay_fdt_apply(ml030_overlay, sizeof(ml030_overlay), &id, NULL);
+	rc = g0q_rpmh_begin(board.link.hw.deadline_ns);
+	if (rc)
+		return rc;
+	rc = g0q_usb_cover(&usb);
+	usb_covered = !rc;
+	if (!rc)
+		rc = remaining();
+	if (!rc)
+		rc = of_overlay_fdt_apply(ml030_overlay, sizeof(ml030_overlay), &id, NULL);
 	if (!rc)
 		rc = remaining();
 	if (!rc)
@@ -400,6 +422,15 @@ static int __init start(void)
 		rc = platform_driver_probe(&link_driver, once_probe);
 	if (operation_rc == -EINPROGRESS)
 		operation_rc = rc ? rc : -ETIMEDOUT;
+	if (!operation_rc)
+		operation_rc = remaining();
+	if (usb) {
+		pm_runtime_put_noidle(usb);
+		put_device(usb);
+		usb_released = true;
+	}
+	g0q_rpmh_status(&power);
+	g0q_rpmh_end();
 	/* Returning 0 retains the one-shot owner and its read-only terminal report. */
 	return 0;
 }
