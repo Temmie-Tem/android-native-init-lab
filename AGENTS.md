@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **65** (supersedes revision 64; 2026-11-06)
+Contract-Revision: **66** (supersedes revision 65; 2026-11-07)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`eb28a7b006969e866b3a1625e7c0ab76ea0a01f8b1acc8eaecde5de3033a0068`.
+`f98fc6bb00302e54c467f728a0e752688f540639fb0a43de2c2d3b0fe986246b`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -73,6 +73,8 @@ Read an exception's complete conditions before considering it applicable.
    The separate exact ML030 mainline UFS link F1 scope in the details permits
    its late fixed initialization and one link command after the same-boot
    five-minute witness, with no SCSI or media access.
+   The separate exact ML031 followup in the details retains those same closed
+   effects for its one fresh candidate; consumed ML030 remains consumed.
    The exact S22+ inspection, userspace, preflight, witness, Debian and
    journal-recovery profiles are linked in the routing table below. Their
    complete closed effects, admission, attendance, budgets, evidence and

@@ -22,7 +22,7 @@ remain H0 evidence. ABL acceptance and physical USB work are unproved until
 the real run. No generic candidate override is exposed.
 
 The source-bound independent `PASS_GO` receipt at
-`workspace/public/src/device-action/bindings/s22plus_mainline_ufs_link_v1_review.json`
+`workspace/public/src/device-action/bindings/s22plus_mainline_ufs_link_followup_v1_review.json`
 qualifies the reachable mainline/Android/transport capability. It names the
 selected source closure, including shared owner/adapter modules; unreachable
 vendor-native branches add no authority. Artifact provenance remains separate
@@ -75,6 +75,9 @@ rules. Missing readiness cannot be replaced by H0 qualification.
 The separately adopted [ML030 mainline UFS link policy](S22PLUS_MAINLINE_UFS_LINK_V1.md)
 defines its own fixed module, late witness and result-bound normal-return
 scope. It requires an explicitly reviewed ML030 implementation and schema.
+The separately adopted [ML031 followup](S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md)
+uses the same bounded protocol for its distinct exact candidate and own grant;
+ML030's consumed authority remains unchanged.
 The variants described below retain their own runtime and time bounds.
 
 The base candidate executes its reviewed RAM PID1 and fixed one-client NCM

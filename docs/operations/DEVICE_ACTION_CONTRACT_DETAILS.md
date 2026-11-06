@@ -330,6 +330,24 @@ permission to perform host-only work.
    and arrival window then admit original A. Normal and physical paths share
    one original-A consumption history. Closure requires
    final rooted Android health and settlement of the task-owned network profile.
+   The distinct [ML031 mainline UFS link followup](S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md),
+   adopted by the operator on 2026-11-07, delegates one new exact ML031
+   candidate on the same S22+ FYG8 target. It inherits the complete preceding
+   ML030 hardware, observation, dispatch, normal-return and physical-recovery
+   conditions, substituting only its separately qualified candidate and own
+   source-bound task/grant. The 120-second first response, at least 300-second
+   same-boot interval, original 540-second host/guest ceilings, 15-second module
+   budget, six local UniPro commands and at most one link attempt are unchanged.
+   Its finite attended approval permits one operation in 1800 seconds, one N
+   and one original A total across normal and recovery paths. Its exact policy
+   and target adoption, fresh health and rollback evidence, reviewed owner and
+   separately returned approval are mandatory before any effect. No SCSI/media,
+   partition, filesystem or ICE/key action is added. The existing bounded
+   physical attach condition may be used through its prepared fixed caller;
+   it never extends a deadline or authorizes a reconnect/request/control replay.
+   ML030's original policy, artifact pins, approvals, consumption and journals
+   retain their identities. This separate followup cannot renew or replay ML030,
+   and another successor requires its own scope.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

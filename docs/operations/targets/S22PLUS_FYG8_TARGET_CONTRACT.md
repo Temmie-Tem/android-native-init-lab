@@ -83,6 +83,20 @@ health and no-replay boundaries remain mandatory. The separate normal
 return and fallback share the original durable owner. Existing grants
 cannot be repinned or reused for ML030.
 
+### ML031 mainline UFS link followup V1
+
+The operator-adopted [ML031 followup](../S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md)
+selects the separate common boundary-3 delegation for its single fresh
+candidate on this exact target. It retains the preceding ML030 closed
+hardware, observation, permit, return and recovery conditions, including
+120/300/540/15-second bounds, one link attempt and one original A total.
+Its reviewed exact source/artifact admission, fresh target/health/rollback
+checks and separately returned one-operation 1800-second attended approval
+remain mandatory. The fixed cue caller uses only the existing bounded attach
+condition and operation-local interlock, with no added device command or
+window extension. ML030 remains consumed; no old approval, source binding or
+journal may be repinned. This adoption does not admit any further successor.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

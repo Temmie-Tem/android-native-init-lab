@@ -30,15 +30,17 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML031 is a fresh H0 successor for prepared cable guidance, five-minute
-  same-boot evidence and one UFS link attempt.** New physical/VM identities,
+- **ML031 is adopted and prepared for a separately approved attended run.**
+  It selects prepared cable guidance, five-minute same-boot evidence and one
+  UFS link attempt. New physical/VM identities,
   observers, RAM archives, loader and identical paired AP packages are
   qualified. Image/DTB/module machinery retains its reviewed bytes. The fixed
-  cue caller passed focused H0 tests, and the combined candidate/caller/scope
-  review returned independent `PASS_GO`. No device read, grant or transfer was opened.
-  The current ML030 live validator rejects ML031, and its exact prospective
-  scope remains unadopted. [H0 evidence](docs/reports/S22PLUS_MAINLINE_ML031_ATTACH_DWELL_H0_2026-11-07.md)
-  · [scope proposal](docs/plans/S22PLUS_ML031_ATTACH_DWELL_LINK_SCOPE_2026-11-07.md).
+  cue caller and the actual adoption/admission/recovery/bridge changes received
+  independent `PASS_GO`. The unchanged worker accepted immutable bridge V35.
+  Fresh preapproval health completed seven reads; the exact one-operation
+  approval and current attendance remain required. No grant, control or transfer
+  was opened. [Evidence](docs/reports/S22PLUS_MAINLINE_ML031_ATTACH_DWELL_H0_2026-11-07.md)
+  · [adopted followup](docs/operations/S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md).
 
 - **ML030 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   Its one attended N transfer completed, but all 87 sealed USB censuses found

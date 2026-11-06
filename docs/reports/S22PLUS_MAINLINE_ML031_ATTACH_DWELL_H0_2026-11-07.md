@@ -1,14 +1,15 @@
 # S22+ ML031: prepared attach cue and fresh dwell/link candidate
 
-Status: **H0 qualified; independent PASS_GO; no device authority**.
-Device actions, connected D0 reads, new grants and candidate transfers: **0**.
+Status: **H0 qualified; adoption/owner independently reviewed; awaiting exact
+attended approval**. Candidate transfers, device controls and new grants: **0**.
+The subsequent preparation completed one fixed seven-read preapproval D0.
 
 ML031 is a new candidate after [consumed ML030](S22PLUS_MAINLINE_ML030_RUN_2026-11-07.md).
 The work addresses the concrete preparation failure: the assistant tried to
 assemble the physical attach caller during the initial 120-second window.
 The fixed caller now imports and exercises the actual retained consumers
-before a future launch. The current ML030 owner, protocol, window lengths,
-source reviews, bridge selector and permanent boundaries are unchanged.
+before a future launch. The initial H0 phase left the ML030 owner, protocol,
+window lengths, source reviews, bridge selector and permanent boundaries unchanged.
 [Prospective exact scope](../plans/S22PLUS_ML031_ATTACH_DWELL_LINK_SCOPE_2026-11-07.md)
 
 ## New artifact and retained machinery
@@ -25,7 +26,8 @@ copy cases and the actual QEMU EL1/EL2/EL3 checks. Both independent boot/AP
 packages match. Offline unpacking joins the single `boot.img.lz4` member to
 the boot-v4 kernel, exact loader, embedded Image/DTB/archive and preserved
 original-A outer envelope. The exact hashes are in the scope proposal.
-The live ML030 validator refuses the new AP; this is an intended H0 boundary.
+At that initial H0 close, the ML030-only live validator refused the new AP;
+this was an intended boundary before the separate adoption below.
 
 ## Fresh protocol qualification
 
@@ -132,3 +134,75 @@ case as entry, overlooking expected full-kernel/FDT-park behavior. Its
 corrected consumer passed; both scripts and raw logs remain in `review/`.
 No production guard was changed. This H0 close creates no ML031 live adoption,
 task, approval, grant or device action.
+
+## Subsequent ML031 scope adoption and admission
+
+After the operator requested the next step and then approved proceeding with
+it, revision 66 added a distinct exact ML031 common/target delegation. The
+original ML030 common block and policy are unchanged. The new
+[followup policy](../operations/S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md)
+adopts the reviewed proposal while preserving the one-candidate limit,
+120/300/540/15-second bounds, one-operation 1800-second attended grant,
+closed hardware scope, one original A and no replay. The H0 proposal/review's
+original unadopted and rejected-admission records retain their historical bytes.
+
+One declaration table now selects the two exact image closures by AP hash.
+ML030 remains the default H0 preparation selection; ML031 requires explicit
+selection. There is no unknown-candidate fallback. Each declaration binds its
+own manifest, archive, loader, qualification and independent review. ML031's
+distinct review schema is joined through its exact reviewed input/evidence
+pins and retained kernel/module review, not a copied PASS label. A live normal
+task additionally checks its selected policy in both common and target adoption.
+
+The unchanged original Session, guest protocol and terminal transport are
+reused. Normal source admission includes the new policy and fixed cue caller.
+Recovery omits the optional candidate/cue source dependency; it keeps original
+authority, target, A, health and no-replay checks. The bridge source selection
+also excludes the cue file from its recovery prerequisites. New capability
+and immutable bridge review receipts are required before the revised entry
+can run; old review receipts and consumed grants are not repinned.
+
+The actual preparation/consumer accepted both exact artifacts, including the
+historical ML030 image, and refused 17 bidirectional mixed/unknown cases.
+One hundred thirty-six focused wire/owner/bridge/cue tests and 21 additional
+mainline tests passed. Four isolated real-Session cases removed or corrupted
+the optional cue source, with either first A recovery or health-only completion
+after an already completed A. Each restored A exactly once and replayed no
+control. Independent source-consistent fixtures accepted the adopted ML031
+case and rejected a missing common link, missing target link or absent policy
+status through the actual live task validator. All these tests were H0.
+
+The unchanged guest/kernel/module bytes and complete retained ARM64 VM/raw
+proofs were reused. No new kernel build or 300-second VM run was needed for
+these admission and authority changes. The new phase's private evidence is
+under `workspace/private/outputs/s22plus-ml031-policy-adoption-h0-20261107-1/`,
+including the actual scope-adoption statement, before-source snapshot,
+`admission-cases.json`, `cue-recovery-final/`, focused logs and source-exact
+review inputs. No physical transfer is authorized by this preparation.
+
+## Adopted owner review and preapproval readiness
+
+The final independent adoption/owner/bridge review returned **PASS_GO**, with
+no open findings, over 53 mainline sources and 49 bridge sources. Its exact
+input SHA-256 is `3387e74a4f25f6d963d4a7bf517147da4519d92480f2243e064a6d6bfdce9614`;
+the review result is `b880fb572bee293061333d7ce3e90f89da6e6c87002dfc8b35eb9c1c5500046d`.
+The new capability receipt and immutable bridge V35 were published from that
+source set. The selector advanced to V35; V34 and the original capability
+receipt remain unchanged. The connected worker accepted the new backend
+review with its original worker-source hashes and no restart or modification.
+
+The exact ML031 task was prepared from ML030's healthy closed original-A
+record. The fixed cue CLI was imported before any N, and its exact check,
+issue and actual-response resolution commands were saved for this task.
+One named foreground preapproval D0 completed. All seven raw health captures,
+current source/artifact/recovery bindings and the existing freshness condition
+were revalidated. No approval record, grant, operation, candidate control or
+partition transfer was created. The next F1 step still requires the actual
+returned exact finite approval and current attendance/usable physical Download.
+
+The adoption directory retains `owner-review-complete.json`,
+`prepared-cue-commands.json`, `verified-preapproval-readiness.json`, the
+connector declaration and task/source snapshot. Protected ML030 records,
+the reviewed H0 proposal/evidence, unrelated work and A90/S20+ are unchanged.
+This preparation does not prove physical ML031 boot, five-minute survival,
+UFS link or return.
