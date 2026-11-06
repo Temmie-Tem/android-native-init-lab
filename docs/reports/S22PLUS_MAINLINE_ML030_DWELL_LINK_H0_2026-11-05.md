@@ -221,3 +221,34 @@ S22+ boot, the 300-second witness, fixed cold initialization, one link command
 and an attended return. The current revision 64 exception names the eight
 FYG8 stock drivers and V3 owner. The new AP has no live execution authority
 from packaging, H0 review or ML028's consumed grant.
+
+## Policy adoption on 2026-11-06
+
+The operator approved incorporating the independently reviewed proposal into
+common and S22+ target rules. Contract revision 65 adds that closed ML030
+hardware delegation. The new policy pins the already-qualified Image,
+module, RAM archive, loader and boot-only AP. It keeps the 1800-second
+single-operation attended task, initial 120-second observation, five-minute
+same-boot witness, 540-second late ceilings, 15-second module budget,
+one link attempt, result-bound normal Download and original-A consumption.
+
+Independent policy review returned PASS_GO with no open findings. Its
+source-bound review covers the root, common details, target, risk tiers,
+RAM cross-link, new policy and current goal. Review clarified that generic
+driver disablement concerns the UFS-device binding/discovery path, while
+common SCSI code may remain compiled in the retained kernel. The witness
+verifies the module file before finit_module. No effect was added by either
+clarification. The unchanged proposal remains the adopted reference.
+
+The common details digest is
+`eb28a7b006969e866b3a1625e7c0ab76ea0a01f8b1acc8eaecde5de3033a0068`.
+Removing only the new ML030 clause reproduces the previous common details
+byte for byte. Diff, links, anchors and the root digest passed focused checks.
+The existing successful artifact and VM checks were reused because their
+inputs were unchanged. The current owner still requires explicit ML030
+implementation and review before an exact returned approval, fresh health
+and attendance can authorize a device effect. Device actions in this policy
+unit were zero. [Adopted policy](../operations/S22PLUS_MAINLINE_UFS_LINK_V1.md).
+
+Private policy-review and checks are retained under
+`workspace/private/outputs/s22plus-ml030-policy-adoption-h0-20261106-1/`.

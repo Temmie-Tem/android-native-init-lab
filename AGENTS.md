@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **64** (supersedes revision 63; 2026-10-28)
+Contract-Revision: **65** (supersedes revision 64; 2026-11-06)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`e13b318106e59892f0dc1d8b5543a4f3a300d4194333b23a9cb0085ef2121088`.
+`eb28a7b006969e866b3a1625e7c0ab76ea0a01f8b1acc8eaecde5de3033a0068`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -70,6 +70,9 @@ Read an exception's complete conditions before considering it applicable.
    GPT metadata only; they grant no partition-table mutation or formatting.
    The exact S22+ UFS F1 profile also permits its fixed driver initialization
    and ordinary kernel discovery, without a host partition-data writer.
+   The separate exact ML030 mainline UFS link F1 scope in the details permits
+   its late fixed initialization and one link command after the same-boot
+   five-minute witness, with no SCSI or media access.
    The exact S22+ inspection, userspace, preflight, witness, Debian and
    journal-recovery profiles are linked in the routing table below. Their
    complete closed effects, admission, attendance, budgets, evidence and
@@ -297,6 +300,7 @@ linked policy; an abbreviated routing cell does not remove a limit or grant.
 | Task-scoped S22+ research | [Proportional research V1](docs/operations/S22PLUS_PROPORTIONAL_RESEARCH_V1.md); one finite scope grant, spontaneous machine-bound candidates, bounded reobservation, prospective closed-health repeats and explicit attended/deferred recovery. |
 | S22+ deferred physical F1 | [Exact native-baseline exception](docs/operations/S22PLUS_NATIVE_BASELINE_DEFERRED_RECOVERY_V1.md) |
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
+| S22+ ML030 mainline UFS link | [One late link after the five-minute witness](docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md) |
 | S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md) |
 | S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md) |
 | S22+ Debian first boot | [Exact native_data installation and PID 1 handoff](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md) |

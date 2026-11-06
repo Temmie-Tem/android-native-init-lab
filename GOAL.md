@@ -34,10 +34,11 @@ identities, goals, artifacts and authority remain separate.
   UFS link attempt.** The revised RPMh path addresses the reproduced late
   trigger and quarantines uncertain slots. The unmarked kernel ran the prior
   Debian SSH and normal-return VM checks. The phone's uptime, physical link,
-  and return remain unmeasured for ML030. The proposed common scope and live
-  owner require separate adoption and review. ML028 is the last physical
+  and return remain unmeasured for ML030. On 2026-11-06 the operator adopted
+  the common and target scope. The actual live owner requires implementation
+  and review before a new finite attended grant. ML028 is the last physical
   closure. [ML030 evidence](docs/reports/S22PLUS_MAINLINE_ML030_DWELL_LINK_H0_2026-11-05.md)
-  · [proposed scope](docs/plans/S22PLUS_ML030_LINK_ONLY_SCOPE_2026-11-05.md).
+  · [adopted policy](docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md).
 
 - **ML029 completed a host-only UFS wiring and probe study.** A private copy
   of the disabled ML028 DT gained two known g0q connections (reset GPIO 210

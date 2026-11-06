@@ -72,6 +72,11 @@ rules. Missing readiness cannot be replaced by H0 qualification.
 
 ## Runtime and observation
 
+The separately adopted [ML030 mainline UFS link policy](S22PLUS_MAINLINE_UFS_LINK_V1.md)
+defines its own fixed module, late witness and result-bound normal-return
+scope. It requires an explicitly reviewed ML030 implementation and schema.
+The variants described below retain their own runtime and time bounds.
+
 The base candidate executes its reviewed RAM PID1 and fixed one-client NCM
 evidence responder; the schema-exact packaged SSH variant below adds only its
 declared daemon and fixed unprivileged command. Linux UFS is compiled out and its controller/PHY disabled;

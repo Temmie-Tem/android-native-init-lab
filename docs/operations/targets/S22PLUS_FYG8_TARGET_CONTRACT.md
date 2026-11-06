@@ -60,6 +60,29 @@ adds no post-closure reader, reset, storage effect or automatic recovery.
 Fresh source review, exact qualification and the same returned finite attended
 grant are required; original-A recovery and consumed no-replay remain intact.
 
+### ML030 mainline UFS link V1
+
+The operator-adopted [ML030 mainline UFS link policy](../S22PLUS_MAINLINE_UFS_LINK_V1.md)
+selects the separately incorporated common boundary-3 delegation for one
+attended boot-only experiment on this exact target. It admits only the
+policy's qualified ML030 four-package RAM root and fixed late module.
+The same-boot five-minute witness, 540-second host/guest ceilings, 15-second
+module budget, six fixed local UniPro commands and one link attempt define
+the complete new hardware scope. SCSI, media, partition, ICE/key and
+media-backed filesystem operations remain excluded.
+
+This target adoption is gated on independent review of the actual execution
+and recovery implementation. The current RAM variants do not select this
+schema. A live ML030 owner must bind this policy and the common details,
+its exact artifact closure, the existing target lease/consumption/transport,
+fresh health and rollback evidence, and a returned finite one-operation
+1800-second approval with attendance. Normal late Download is bound to
+the authenticated final link result and settled power/USB state. The
+original physical Download recovery, one original A total, final rooted
+health and no-replay boundaries remain mandatory. The separate normal
+return and fallback share the original durable owner. Existing grants
+cannot be repinned or reused for ML030.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary
