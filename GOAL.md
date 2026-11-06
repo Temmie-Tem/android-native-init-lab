@@ -30,15 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML030 has an H0 boot-only AP for a five-minute same-boot witness and one
-  UFS link attempt.** The revised RPMh path addresses the reproduced late
-  trigger and quarantines uncertain slots. The unmarked kernel ran the prior
-  Debian SSH and normal-return VM checks. The phone's uptime, physical link,
-  and return remain unmeasured for ML030. On 2026-11-06 the operator adopted
-  the common and target scope. The actual host owner and bridge passed
-  independent review and fresh preapproval Android health passed. The exact
-  finite attended grant remains required before N. ML028 is the last physical
-  closure. [ML030 evidence](docs/reports/S22PLUS_MAINLINE_ML030_DWELL_LINK_H0_2026-11-05.md)
+- **ML030 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
+  Its one attended N transfer completed, but all 87 sealed USB censuses found
+  the selected path absent through the original 120-second window. No base
+  request, five-minute witness or UFS permit was sent. Assistant-side cue
+  preparation missed the permitted replug-issuance window; no cue was issued.
+  This does not establish a boot or UFS failure cause. Physical Download and
+  one original-A recovery completed with seven successful final health reads.
+  ML030 is the latest physical closure; its candidate cannot be replayed.
+  [Physical run](docs/reports/S22PLUS_MAINLINE_ML030_RUN_2026-11-07.md)
+  · [H0 evidence](docs/reports/S22PLUS_MAINLINE_ML030_DWELL_LINK_H0_2026-11-05.md)
   · [adopted policy](docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md).
 
 - **ML029 completed a host-only UFS wiring and probe study.** A private copy
@@ -46,7 +47,7 @@ identities, goals, artifacts and authority remain separate.
   and PHY analog L5) and a correction to the host reference-clock rate
   table. Reversing those three changes reproduced ML028's canonical DT.
   This study left the PM8350 L6/L9 supply and pre-scan command limits for
-  ML030. The latest physical closure is ML028.
+  ML030. The study itself performed no device action.
   [Study, sources and next decision](docs/reports/S22PLUS_MAINLINE_ML029_UFS_H0_2026-11-05.md).
 
 - **ML028 is consumed with `PASS_DEBIAN_RC_SSH_CYCLE_RAM` and `ANDROID_CLOSED_HEALTHY`.**

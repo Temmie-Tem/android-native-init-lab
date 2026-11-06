@@ -4,9 +4,12 @@
 and boot-only AP are built. A contended RPMh path could previously start a
 power request after the deadline. The revised S22+ path tries one active slot,
 keeps an ambiguous slot occupied, and binds a normal return to the authenticated
-link result. ML028 remains the latest physical result. ML030 still requires
-a separately adopted common/target scope and reviewed live owner. [ML028 closure](S22PLUS_MAINLINE_ML028_RUN_2026-11-05.md)
-and [ML029 board study](S22PLUS_MAINLINE_ML029_UFS_H0_2026-11-05.md).
+link result. The common/target scope and reviewed live owner were adopted on
+2026-11-06 as recorded below. The subsequent [physical ML030 run](S22PLUS_MAINLINE_ML030_RUN_2026-11-07.md)
+is consumed `NO_PROOF / ANDROID_CLOSED_HEALTHY`: its first USB window expired
+before any witness or UFS permit. H0 results below retain their own scope.
+[ML028 closure](S22PLUS_MAINLINE_ML028_RUN_2026-11-05.md) and
+[ML029 board study](S22PLUS_MAINLINE_ML029_UFS_H0_2026-11-05.md).
 
 ## Same-boot evidence
 
