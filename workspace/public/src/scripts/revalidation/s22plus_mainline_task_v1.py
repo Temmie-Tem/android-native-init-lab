@@ -17,6 +17,7 @@ from s22plus_native_records_v3 import SCHEMA,Journal,canonical,clock,digest,host
 # Selected mainline/Android/transport branches only. The shared modules also
 # contain vendor-native operations which this exact task cannot select.
 MODULES=('s22plus_mainline_task_v1','s22plus_mainline_profile_v1','s22plus_mainline_access_v1',
+    's22plus_mainline_ufs_image_v1','s22plus_mainline_ufs_access_v1',
     's22plus_mainline_download_access_v1','s22plus_mainline_attach_v1',
     's22plus_mainline_retention_v1',
     's22plus_native_android_storage_v1',
@@ -40,6 +41,8 @@ def source_paths(root,selected=profile):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
+        'docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md',
+        'workspace/public/src/mainline/s22plus_ufs_link_h0/link_wire.py',
         'docs/operations/DEVICE_ACTION_PROCESS_V2.md','docs/operations/DEVICE_ACTION_RISK_TIERS.md',
         'workspace/public/src/mainline/s22plus_canary_h0/verify.py',
         'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
@@ -87,6 +90,9 @@ def marker_only(path):
     # decoding and Debian candidate validation are lazy imports, unavailable
     # candidate-only code must not become a prerequisite for original A.
     return path in ('workspace/public/src/mainline/s22plus_canary_h0/retained_marker.py',
+                    'workspace/public/src/scripts/revalidation/s22plus_mainline_ufs_image_v1.py',
+                    'workspace/public/src/scripts/revalidation/s22plus_mainline_ufs_access_v1.py',
+                    'workspace/public/src/mainline/s22plus_ufs_link_h0/link_wire.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/ssh_ram.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/download_ram.py',
@@ -381,7 +387,8 @@ def close_task(root,task_path):
         current_android_terminal=terminal_pin,terminal_state=terminal['terminal_state'],
         scientific_status=terminal[result_key]['status'],recovered=terminal['recovered'],
         closed_boottime_ns=ended,original_N_transfers_total=len(n),original_A_transfers_total=len(a),
-        device_controls_total=sum(r['data']['action'] in ('download','mainline-download') for r in effects),
+        device_controls_total=sum(r['data']['action'] in ('download','mainline-download') for r in effects)+
+                              sum(r['event']=='ml030-return-intent' for r in rows),
         automatic_recovery_proved=False,native_admitted=False,raw_captures=raw_index,canonical_timeline=timeline,
         source_binding=task['review'],source_snapshot=pin(folder/'source-snapshot.json'),
         device_actions_by_closure=0,journal_rows=len(rows),journal_tail=pin(session.journal.directory/f'{len(rows)-1:04d}.json'))

@@ -21,6 +21,11 @@ DEBIAN_SCHEMA='s22plus-mainline-debian-sysvinit-ram-v1'
 SSH_SCHEMA='s22plus-mainline-debian-ssh-ram-v1'
 DOWNLOAD_SCHEMA='s22plus-mainline-debian-download-ram-v1'
 CYCLE_SCHEMA='s22plus-mainline-debian-rc-ssh-ram-v1'
+LINK_SCHEMA='s22plus-mainline-debian-ufs-link-ram-v1'
+
+
+def has_link(manifest):
+    return manifest.get('debian_ram',{}).get('schema')==LINK_SCHEMA
 
 
 def has_cycle(manifest):
@@ -32,7 +37,7 @@ def has_ssh(manifest):
 
 
 def has_download(manifest):
-    return manifest.get('debian_ram',{}).get('schema') in (DOWNLOAD_SCHEMA,CYCLE_SCHEMA)
+    return manifest.get('debian_ram',{}).get('schema') in (DOWNLOAD_SCHEMA,CYCLE_SCHEMA,LINK_SCHEMA)
 
 
 def protocol(manifest=None):

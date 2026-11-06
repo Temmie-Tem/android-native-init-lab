@@ -1,0 +1,139 @@
+"""Exact ML030 candidate admission, using its retained H0 artifact review."""
+from pathlib import Path
+import gzip
+import hashlib
+import json
+
+import s22plus_mainline_profile_v1 as profile
+from s22plus_native_records_v3 import pin, publish, read, require
+
+ROOT = profile.ROOT
+BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml030-dwell-link-h0-20261105-1'
+POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md'
+SCHEMA = 's22plus-mainline-debian-ufs-link-ram-v1'
+AP = '44ea04f4f7a9aaa09e3ad4e86e5162c08eb6aaba6d4bf5b94632feb95d9d7aba'
+KERNEL = '19fc260fc880731167d3612804e34a0ea64c48efb1a46bdf7aee803d35a2bc3c'
+MODULE = '7859073e9abfef8cb93202683046bec2878b3210c4703fc36eb6a1474a6615f8'
+ARCHIVE = '3c829b6137b10745ad1b0a3d16c227d498f96dbf0ca4c1495058033244a04631'
+LOADER = '6be55da7a4d53f18ad6c9129f66bcf24843117662a16b54dcfc03f5ae0b979ed'
+MANIFEST = BASE/'init-provisional-5/result.json'
+RETAINED_REVIEW = BASE/'independent-h0-guest-close-5.json'
+EVIDENCE_SHA = '58ace1c8e7afc1ab43150282857e757996d5451816fc658240be3bbec93b1a5a'
+
+
+def checked(receipt):
+    return read(profile.unchanged(receipt))
+
+
+def runtime(manifest):
+    from mainline.s22plus_canary_h0 import debian_ram as d
+    require(manifest['debian_ram']['schema']==SCHEMA and manifest['vm'] is False and
+            manifest['physical_admitted'] is False and manifest['status']=='H0_ML030_FIXED_RAM_ARCHIVE',
+            'ML030 physical archive declaration')
+    value=manifest['debian_ram']
+    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members','module'},'ML030 runtime fields')
+    root=Path(manifest['init']['path']).parent.parent.parent
+    files={}
+    for name,(package,expected) in d.MEMBERS.items():
+        data=(root/name).read_bytes()
+        require(hashlib.sha256(data).hexdigest()==expected and value['members'][name]==
+                dict(package=package,sha256=expected,size=len(data)), 'ML030 fixed package file')
+        files[name]=data
+    require(set(value['members'])==set(d.MEMBERS) and manifest['init']==d.pin(root/'usr/sbin/init'), 'ML030 PID1 closure')
+    lock=checked(value['package_lock'])
+    require(lock['verdict']=='PASS_SIGNED_PACKAGE_CLOSURE_H0' and lock['count']==4 and len(lock['packages'])==4 and
+            {r['package']:(r['version'],r['sha256']) for r in lock['packages']}==d.PACKAGES and
+            all(r['architecture']=='arm64' for r in lock['packages']), 'ML030 signed packages')
+    module=root/'usr/lib/g0q_ml030.ko'
+    require(value['module']==d.pin(module) and value['module']['sha256']==MODULE and
+            value['observer']==d.pin(root/d.OBSERVER), 'ML030 module/observer file')
+    files.update({d.OBSERVER:profile.unchanged(value['observer']).read_bytes(),
+                  'usr/lib/g0q_ml030.ko':module.read_bytes(),'etc/inittab':(root/'etc/inittab').read_bytes()})
+    require(files['etc/inittab']==d.INITTAB and value['inittab_sha256']==hashlib.sha256(d.INITTAB).hexdigest(),
+            'ML030 once-only inittab')
+    spec=({**d.MEMBERS,'usr/lib/g0q_ml030.ko':None},d.INITTAB,d.DIRS,d.LINKS,
+          {'etc/inittab':0o644,'usr/lib/g0q_ml030.ko':0o400})
+    archive=profile.unchanged(manifest['initramfs']).read_bytes()
+    require(manifest['initramfs']['sha256']==ARCHIVE and archive==gzip.compress(d.pack(files,False,specification=spec),mtime=0),
+            'ML030 canonical CPIO differs')
+    producer=read(Path(manifest['initramfs']['path']).parent/'producer.json')
+    key=Path(manifest['key_path']).read_bytes()
+    recipe=producer['recipe']
+    require(len(key)==32 and recipe==dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],
+            key_digest=hashlib.sha256(key).hexdigest()) and hashlib.sha256(json.dumps(recipe,
+            sort_keys=True,separators=(',',':')).encode()).hexdigest()==manifest['candidate_id'], 'ML030 key/recipe binding')
+    return value
+
+
+def binding(image,*,artifact_bytes=False):
+    keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification',
+          'runtime_sources','ufs_link','debian_ram','download_return'}
+    require(set(image)==keys and image['schema']=='s22plus-mainline-image-v1' and image['ufs_link'] is True and
+            image['profile']==profile.PROFILE and image['namespace']==profile.NAMESPACE and image['version']==profile.VERSION,
+            'ML030 image shape')
+    bundle=checked(image['qualification'])
+    require(set(bundle)=={'schema','manifest','package','loader','component','kernel','review','evidence','loader_tests','entry_tests'} and
+            bundle['schema']=='s22plus-ml030-qualification-v1' and
+            image['debian_ram']==image['download_return']==image['qualification'], 'ML030 qualification join')
+    require(bundle['manifest']['path']==str(MANIFEST) and bundle['review']['path']==str(RETAINED_REVIEW), 'ML030 retained artifact identity')
+    manifest=checked(bundle['manifest']); package=checked(bundle['package']); loader=checked(bundle['loader'])
+    component=checked(bundle['component']); kernel=checked(bundle['kernel']); review=checked(bundle['review'])
+    require(review['status']=='PASS_GO' and review['findings']==[] and review['device_actions']==0 and
+            bundle['evidence']['sha256']==EVIDENCE_SHA and checked(bundle['evidence'])['status']=='PASS_H0_REDERIVED_FIVE_RAW_GUEST_CASES',
+            'ML030 independent H0 coverage')
+    reviewed={r['path']:r['sha256'] for r in review['raw']}
+    for name in ('manifest','package','component','kernel','evidence'):
+        require(reviewed.get(bundle[name]['path'])==bundle[name]['sha256'], 'ML030 H0 review lacks artifact')
+    require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['activation'] is False and
+            package['device_actions']==0 and len(package['copies'])==2 and
+            all(package['copies'][0][name]['sha256']==package['copies'][1][name]['sha256'] for name in ('ap','boot')),
+            'ML030 double package differs')
+    require(package['copies'][0]['ap']==image['ap'] and image['ap']['sha256']==AP and
+            package['loader_sha256']==loader['loader']['sha256']==LOADER and
+            loader['kernel']['sha256']==kernel['sha256']==component['selected_kernel']==KERNEL and
+            component['module_sha256']==MODULE and loader['initramfs_manifest']==str(MANIFEST) and
+            'retained_marker' not in loader and 'retained_marker' not in kernel,
+            'ML030 exact linked artifact join')
+    for name,status,key in (('loader_tests','PASS_H0_ACTUAL_ARM64_LOADER','qualification_sha256'),
+                            ('entry_tests','PASS_H0_QEMU_ACTUAL_EXCEPTION_LEVELS','entry_vm_sha256')):
+        result=checked(bundle[name])
+        require(result['status']==status and result['device_actions']==0 and result['loader_sha256']==LOADER and
+                package[key]==bundle[name]['sha256'], 'ML030 actual loader checks')
+    value=runtime(manifest)
+    kernel_file=pin(Path(kernel['image']),maximum=128*1024*1024)
+    require(kernel_file['sha256']==KERNEL and kernel_file['size']==kernel['file_size'], 'ML030 kernel bytes differ')
+    expected={'loader':loader['loader'],'kernel':kernel_file,
+              'init':manifest['init'],'initramfs':manifest['initramfs'],'dtb':manifest['dtb'],'observer':value['observer'],
+              'module':value['module']}
+    require(image['runtime_sources']==expected and image['key']==pin(Path(manifest['key_path']),maximum=32) and
+            image['run_id_hex']==manifest['candidate_id'][:32] and manifest['port']==47649,
+            'ML030 runtime/key identity')
+    for receipt in expected.values():profile.unchanged(receipt)
+    if artifact_bytes:
+        with profile.transport.pin_boot_only_ap(Path(image['ap']['path']),label='ML030 candidate',
+                expected_size=image['ap']['size'],expected_sha256=AP) as ap:
+            require(profile.transport.boot_only_member_receipt(ap,label='ML030 candidate')==image['member'], 'ML030 boot member')
+    else:profile.unchanged(image['ap'])
+    return manifest
+
+
+def prepare(output):
+    output=output.resolve();require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private image output')
+    output.mkdir(mode=0o700)
+    paths=dict(manifest=MANIFEST,package=BASE/'package-5/result.json',loader=BASE/'loader-5/result.json',
+               component=BASE/'transport-component-4/result.json',kernel=BASE/'transport-build-4/guard-result.json',
+               review=RETAINED_REVIEW,evidence=BASE/'final-evidence-check-5.json',loader_tests=BASE/'loader-tests-5/result.json',
+               entry_tests=BASE/'loader-entry-vm-5/result.json')
+    bundle={name:pin(path) for name,path in paths.items()}
+    receipt=publish(output/'qualification.json',dict(schema='s22plus-ml030-qualification-v1',**bundle))
+    manifest=read(MANIFEST);loader=read(paths['loader']);kernel=read(paths['kernel']);ap=read(paths['package'])['copies'][0]['ap']
+    with profile.transport.pin_boot_only_ap(Path(ap['path']),label='ML030 candidate',expected_size=ap['size'],expected_sha256=AP) as fd:
+        member=profile.transport.boot_only_member_receipt(fd,label='ML030 candidate')
+    runtime_sources=dict(loader=loader['loader'],kernel=pin(Path(kernel['image']),maximum=128*1024*1024),
+        init=manifest['init'],initramfs=manifest['initramfs'],dtb=manifest['dtb'],observer=manifest['debian_ram']['observer'],
+        module=manifest['debian_ram']['module'])
+    image=dict(schema='s22plus-mainline-image-v1',profile=profile.PROFILE,namespace=profile.NAMESPACE,version=profile.VERSION,
+               run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
+               qualification=receipt,debian_ram=receipt,download_return=receipt,ufs_link=True,runtime_sources=runtime_sources)
+    binding(image,artifact_bytes=True)
+    return publish(output/'image.json',image)

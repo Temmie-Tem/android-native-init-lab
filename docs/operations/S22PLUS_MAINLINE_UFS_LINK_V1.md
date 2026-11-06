@@ -1,6 +1,6 @@
 # S22+ ML030 mainline UFS link V1
 
-Status: **OPERATOR_ADOPTED_SCOPE — IMPLEMENTATION_REVIEW_REQUIRED**
+Status: **REVIEW_GATED_CAPABILITY**
 
 On 2026-11-06 the operator adopted the exact
 [ML030 scope proposal](../plans/S22PLUS_ML030_LINK_ONLY_SCOPE_2026-11-05.md),
@@ -94,6 +94,20 @@ repeat a completed A transfer. Closure requires exact original-A rooted
 Android health and settlement of the task-owned network profile.
 
 ## Implementation and activation
+
+The explicit `ufs_link` image branch in
+`s22plus_mainline_profile_v1.py` selects
+`s22plus_mainline_ufs_image_v1.py`. Its fixed artifact admission binds
+the qualified candidate above. The existing `mainline-download` Session
+action calls `s22plus_mainline_ufs_access_v1.py` for that branch. It records
+one Session effect-intent for the bounded compound operation before GO.
+The conditional Download records its separate no-clobber return intent
+and unique `ml030-return-intent` journal stage under that original intent.
+The current Session check and original deadline remain required immediately
+before each send. A second same-step Session intent remains forbidden.
+The source-bound capability review is
+`workspace/public/src/device-action/bindings/s22plus_mainline_ufs_link_v1_review.json`.
+It must be PASS_GO over the current reachable source closure before use.
 
 The execution implementation must reuse the existing Process-v2 target,
 transport, lease, consumed-candidate and original-A recovery boundaries.

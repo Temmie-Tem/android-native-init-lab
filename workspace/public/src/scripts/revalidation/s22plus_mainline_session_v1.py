@@ -92,13 +92,35 @@ def terminal(adapter,request,*,recovered):
                     closure=download.attach.rederive(adapter.directory,base['window'])
                     ssh=download.ssh_receipt(adapter,request,base,manifest,closure)
                     result.update(observation=dict(base,ssh=ssh['proof'],ssh_capture=ssh['capture']),ssh_proved=True)
-                return result
+                return link_fact(adapter,request,result)
             qualification=read(verify(request['N']['debian_ram']))
             if 'ssh' in qualification:
                 base=access.rederive_base(adapter,request)
                 if base['proof'].get('runtime_schema')==profile.codec.SSH_SCHEMA:
                     result.update(mainline_pid1=True,authenticated_usb=True,observation=base,ssh_proved=False)
         except (ValueError,OSError,KeyError,TypeError,RawCaptureError):pass
+    return link_fact(adapter,request,result)
+
+
+def link_fact(adapter,request,result):
+    if request.get('N',{}).get('ufs_link') is not True:
+        return result
+    try:
+        from s22plus_mainline_ufs_access_v1 import rederive_witness, rederive_link
+        witness=rederive_witness(adapter,request)
+        result.update(mainline_pid1=True,authenticated_usb=True,five_minute_same_boot=True,
+                      ufs_witness=witness)
+    except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
+        result['ufs_witness_error']=dict(type=type(error).__name__,message=str(error)[:256])
+        return result
+    try:
+        link=rederive_link(adapter,request)
+        complete=link['result']['status']=='UFS_LINK_COMPLETED'
+        result.update(ufs_link_completed=complete,ufs_evidence=link)
+        if complete:
+            result['status']='PASS_MAINLINE_UFS_LINK'
+    except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
+        result['ufs_evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
     return result
 
 

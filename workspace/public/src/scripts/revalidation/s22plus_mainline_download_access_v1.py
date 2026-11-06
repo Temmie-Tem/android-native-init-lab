@@ -13,6 +13,14 @@ from s22plus_native_records_v3 import Journal,canonical,clock,host_boot,pin,publ
 ACTION='mainline-download'
 
 
+def link_access():
+    try:
+        import s22plus_mainline_ufs_access_v1
+        return s22plus_mainline_ufs_access_v1
+    except (ImportError,SyntaxError) as error:
+        raise ValueError('reviewed ML030 candidate observer is unavailable') from error
+
+
 def codec(manifest=None):
     # Candidate-only decoding must not prevent stopped-owner original-A
     # recovery merely by being imported with the Session coordinator.
@@ -46,9 +54,10 @@ def receive(client,writer,size,deadline):
         writer.write_stdout(data);received+=len(data)
 
 
-def capture_connection(folder,manifest,found,*,deadline_ns,guard,before_control,connect=None):
+def capture_connection(folder,manifest,found,*,deadline_ns,guard,before_control,connect=None,after_base=None):
     """Raw-first framing; a complete base frame never claims socket EOF."""
     require(profile.codec.has_download(manifest),'unselected Download runtime')
+    require(profile.codec.has_link(manifest)==(after_base is not None),'ML030 late exchange selection differs')
     wire=codec(manifest)
     key=Path(manifest['key_path']).read_bytes();identity=bytes.fromhex(manifest['candidate_id'])
     nonce=secrets.token_bytes(32);packet=profile.codec.request(key,identity,nonce,manifest=manifest)
@@ -81,6 +90,8 @@ def capture_connection(folder,manifest,found,*,deadline_ns,guard,before_control,
             framing='length',descriptor_open=True))
         proof=profile.codec.verify_capture(base_handle,manifest,nonce)
         require(proof['download_ready'] is True,'exact reboot-mode binding was not observed')
+        if after_base is not None:
+            nonce,deadline_ns=after_base(client,proof,nonce)
         command=wire.control(key,identity,nonce,proof['boot_id'])
         control=raw.publish_captured_bytes(folder,'control',stdout=command,stderr=b'')
         before_control(proof,pin(control.receipt_path))
@@ -151,6 +162,8 @@ def ssh_receipt(adapter,request,base,manifest,closure):
 
 
 def control_intent(adapter,request):
+    if 'ufs_link' in request['N']:
+        return link_access().return_intent(adapter,request)
     folder=adapter.folder(profile.SELECTION);base=rederive_base(adapter,request)
     manifest=profile.image_binding(request['N']);window=read(verify(base['window']))
     value=read(folder/'control-intent.json');grant=read(verify(request['grant']));wire=codec(manifest)
@@ -181,6 +194,8 @@ def control_intent(adapter,request):
 
 
 def rederive(adapter,request):
+    if 'ufs_link' in request['N']:
+        return link_access().rederive_return(adapter,request)
     value=control_intent(adapter,request);folder=adapter.folder(profile.SELECTION)
     base=value['base'];connection=read(folder/'connection.json');manifest=profile.image_binding(request['N'])
     require(connection==dict(attempt=base['attempt'],response=base['response'],ack=pin(folder/'ack.capture.json'),
@@ -211,6 +226,8 @@ def return_request(adapter,request,*,create=False):
 
 
 def observe(adapter,request,guard,before_control):
+    if 'ufs_link' in request['N']:
+        return link_access().observe(adapter,request,guard,before_control)
     require(selected(request),'Download action is not selected')
     manifest=profile.image_binding(request['N']);plan=adapter.configuration(request)['mainline_access']
     folder=adapter.folder(profile.SELECTION,create=True);window=access.window_for(adapter,request)

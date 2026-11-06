@@ -17,7 +17,7 @@ PROFILE='mainline-ram-v1'
 OPERATION='mainline-ram'
 SELECTION='mainline-evidence'
 POLICY='docs/operations/S22PLUS_MAINLINE_RAM_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_rc_ssh_cycle_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_mainline_ufs_link_v1_review.json'
 NAMESPACE='ml001'
 VERSION='mainline-ram-1'
 SECONDS=1800
@@ -34,6 +34,12 @@ def unchanged(receipt,maximum=128*1024*1024):
 
 
 def image_binding(image,*,artifact_bytes=False):
+    if 'ufs_link' in image:
+        try:
+            from s22plus_mainline_ufs_image_v1 import binding
+            return binding(image, artifact_bytes=artifact_bytes)
+        except (ImportError,SyntaxError) as error:
+            raise ValueError('reviewed ML030 candidate validator is unavailable') from error
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification','runtime_sources'}
     if 'retained_marker' in image:keys.add('retained_marker')
     if 'entry_park' in image:keys.add('entry_park')

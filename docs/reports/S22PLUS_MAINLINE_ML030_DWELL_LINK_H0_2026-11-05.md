@@ -252,3 +252,56 @@ unit were zero. [Adopted policy](../operations/S22PLUS_MAINLINE_UFS_LINK_V1.md).
 
 Private policy-review and checks are retained under
 `workspace/private/outputs/s22plus-ml030-policy-adoption-h0-20261106-1/`.
+
+## Live owner qualification on 2026-11-06
+
+The existing mainline operation now explicitly selects ML030 through its
+fixed artifact branch. It verifies the approved AP, actual Image bytes,
+module, canonical archive and retained independent H0 review. It closes
+attach issuance immediately after W0 inside the original 120-second window.
+Its separate late window derives from the same N launch and grant. One
+Session effect-intent consumes the GO permit. A unique conditional return
+intent and journal stage bind the entire signed module result before
+Download. Both sends retain their final endpoint and deadline checks.
+
+Terminal interpretation independently preserves W0, the five-minute witness
+and a complete link result. A missing module reply leaves an authenticated
+W1 available. A failed Download ACK preserves a verified link. Candidate
+import or syntax failure is reported as unavailable evidence so the original
+owner can continue its original-A recovery.
+
+The new host collector ran against the retained ARM64 guests. The modeled
+power/QEMU-link case measured a 300.074470472-second host gap and 300182 ms
+of additional guest uptime. It issued one GO, one result-bound return and
+observed one QMP guest reset, one emulated UIC command and zero SCSI commands.
+The real module/QEMU-board case measured 300.017481346 seconds on the host,
+recorded ENODEV and issued no Download control. The collector and its actual
+Session.intent logic ran in both H0 fixtures. Endpoint/NetworkManager behavior
+was replaced with explicitly marked loopback fixtures. Physical USB, power,
+link and reset remain prospective for ML030.
+
+The focused unittest suites passed 123 tests. Seven new socket cases cover
+success, rejection before GO, an intent without send, partial result, bad
+return ACK and expiry at both final send boundaries. Six artifact mutations
+were refused, including changed actual kernel bytes at preparation. Six
+independent original-Session recovery cases injected missing or invalid
+access, image and codec modules. All returned A once with no effect replay.
+The standalone interface test initially lacked its required PYTHONPATH;
+rerunning with the repository module paths passed. The original recovery
+fixture's argument-handling failure and corrected outputs are retained.
+
+Final independent PASS_GO covers the current 51-source mainline capability
+and 48-source terminal bridge closure. The input digest is
+`8243875afa6112d93b7bc5ffa9cf05b441e09e7e6db8f38cb25a309994e5ad64`.
+The immutable V34 bridge review selects the reviewed current dependencies.
+The resident worker sources match V33, and the connected worker accepted V34.
+Historical V33 and earlier grants and intents retain their identities.
+
+The exact task was prepared from ML028's healthy closed original-A record.
+The adopted preapproval D0 then completed and its raw health projection and
+freshness were revalidated. No grant, candidate transfer or device control
+was opened. The actual returned one-operation approval and current physical
+attendance remain required by the named policy. Evidence for this unit,
+including `actual-host-vm-modeled`, `actual-host-vm-wrong-board`,
+`review-recovery/retry-1`, `image-admission-cases.json` and
+`verified-preapproval-readiness.json`, is in the private adoption directory.

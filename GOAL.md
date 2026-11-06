@@ -35,8 +35,9 @@ identities, goals, artifacts and authority remain separate.
   trigger and quarantines uncertain slots. The unmarked kernel ran the prior
   Debian SSH and normal-return VM checks. The phone's uptime, physical link,
   and return remain unmeasured for ML030. On 2026-11-06 the operator adopted
-  the common and target scope. The actual live owner requires implementation
-  and review before a new finite attended grant. ML028 is the last physical
+  the common and target scope. The actual host owner and bridge passed
+  independent review and fresh preapproval Android health passed. The exact
+  finite attended grant remains required before N. ML028 is the last physical
   closure. [ML030 evidence](docs/reports/S22PLUS_MAINLINE_ML030_DWELL_LINK_H0_2026-11-05.md)
   · [adopted policy](docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md).
 
