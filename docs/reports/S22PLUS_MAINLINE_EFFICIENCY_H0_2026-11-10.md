@@ -136,6 +136,21 @@ single-file pin contract. Failed logs remain private.
 Private evidence roots are
 `workspace/private/outputs/s22plus-mainline-efficiency-h0-20261110-1` in the
 isolated worktree and the newly created same-named artifact directory in the
-original checkout. No existing private run or owner was edited. The current
-source changes are not merged to main or pushed; actual deployment and live
-adoption remain outside the requested H0 unit.
+original checkout. No existing private run or owner was edited.
+
+On 2026-11-10, the operator requested main integration without touching the
+unfinished boot-journal work or activating a device lane. Main was fast-forwarded
+from `3249adcaf1` through the exact reviewed commits `30d74d0ac7` and
+`5feed3658a`. All eleven pre-existing modified/untracked files and the complete
+unstaged diff were preserved byte-for-byte, without stashing. The original
+review and artifact provenance remain at their recorded locations; no approval,
+source pin, grant or journal was repinned. V2 remains `H0_NOT_ADOPTED`, with no
+common/target activation, connected read or device action. This integration
+was not pushed.
+
+Post-integration checks confirmed all 80 reviewed source hashes in main,
+Python compilation, document links and a clean repository-boundary check.
+The main-checkout H0 regression run passed 34 tests; six private-artifact cases
+were skipped there and retain their completed source-bound validation in the
+original worktree. Existing build and independent-review evidence was reused;
+no image rebuild or new review binding was needed for the byte-identical code.

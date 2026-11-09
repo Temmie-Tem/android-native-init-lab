@@ -284,9 +284,12 @@ are implemented by the separate H0 unit below, without live adoption.
 
 ## Completed host-only unit: candidate reuse and pre-effect return
 
-The isolated `codex/s22-mainline-efficiency-h0` branch implements report-v4
-normal Download after a proved, settled pre-overlay coverage refusal, and a
-key-only V2 capability/candidate split through the existing image/task paths.
+The H0 work from `codex/s22-mainline-efficiency-h0` was fast-forwarded into
+main on 2026-11-10 through `5feed3658a`, including the preceding `30d74d0ac7`
+diagnostic commit. It implements report-v4 normal Download after a proved,
+settled pre-overlay coverage refusal, and a key-only V2 capability/candidate
+split through the existing image/task paths. Existing boot-journal work is
+preserved; code integration does not activate the shared policy.
 Existing guards, same-boot 300-second witness, deadlines, original-A owner and
 no-replay semantics remain mandatory; stage-two failures remain excluded from
 the return extension. The UFS result after refusal stays `NO_PROOF`.
