@@ -30,14 +30,20 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML033 candidate and exact adoption have independent `PASS_GO`.** It retains
-  ML032's functional kernel/module/guest/cue behavior with fresh keys, observer,
-  archive, loader and AP. The existing cue is prepared for timely use under
-  unchanged guards and 120/300/540/15-second bounds. Exact admission, the
-  reviewed owner and immutable V37 bridge are prepared; no grant or F1 effect
-  has occurred. Current health, the generated finite approval, attendance and
-  usable Download recovery remain the physical frontier.
-  [Comparison, evidence and preparation](docs/reports/S22PLUS_MAINLINE_ML033_USB_COMPARISON_H0_2026-11-10.md)
+- **ML033 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
+  authenticated first response arrived at N+74.463 seconds, within the original
+  120-second window. A fresh same-socket witness proved a 300.422-second host
+  interval and 300.564-second guest uptime advance on the same boot. The one
+  module permit returned operation `EBUSY(16)` at stage 0 with no USB coverage,
+  fixed RPMh request or UniPro/link command. Retained source locates this at
+  initial USB-coverage admission; the exact rejecting condition is unobserved.
+  Physical Download and one original A restored Android; after one failed ADB
+  health read, the permitted health-only continuation passed seven fresh reads.
+  N/A each transferred once, the owned network profile is absent, and no F1
+  owner remains. First-response and five-minute proof are retained independently
+  from the unproved UFS link. It is the latest physical closure and cannot replay.
+  [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML033_RUN_2026-11-10.md)
+  · [Comparison, evidence and preparation](docs/reports/S22PLUS_MAINLINE_ML033_USB_COMPARISON_H0_2026-11-10.md)
   · [Adopted scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md).
 
 - **ML032 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
@@ -49,7 +55,7 @@ identities, goals, artifacts and authority remain separate.
   Original A transferred once, then the permitted health-only continuation
   completed all seven reads after an ADB disappearance in the first bracket.
   N/A each transferred once, no F1 owner remains, and ML032 cannot be replayed.
-  It is the latest physical closure. This proves cue publication during live
+  It is the preceding physical closure. This proves cue publication during live
   polling, not mainline boot, timely physical replug or a UFS failure cause.
   Later retained host-journal analysis found its exact USB identity/NCM at
   N+180.621/+180.685 seconds, outside the original first-response window.

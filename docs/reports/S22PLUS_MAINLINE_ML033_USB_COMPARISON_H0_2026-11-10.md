@@ -174,5 +174,9 @@ is separate from this H0 qualification and from the still-required returned fini
 approval and current attendance/Download recovery. No old consumed permission
 or readiness result supplies that approval.
 
-No new grant, control or partition transfer has occurred in this H0 unit.
+No grant, control or partition transfer occurred during the H0 preparation.
+The later separately approved [ML033 physical run](S22PLUS_MAINLINE_ML033_RUN_2026-11-10.md)
+proved first authentication and same-boot five-minute survival, then stopped at
+the initial UFS USB-coverage admission with `EBUSY`. It closed `NO_PROOF` and
+healthy Android with N/A each once. Its consumption does not renew this scope.
 A90, S20+ and unrelated boot-journal work remain untouched.
