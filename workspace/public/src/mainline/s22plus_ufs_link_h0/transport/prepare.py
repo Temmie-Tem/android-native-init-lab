@@ -18,10 +18,16 @@ PINS = {
     "drivers/soc/qcom/rpmh-rsc.c": "6ddd654c5804d8c47cef1f30e1a6a25d98868f4c7d33a77ee239107857b6b87b",
     "drivers/interconnect/core.c": "177b6dc3f59862089099f8ff83015157400d023893b5616aadd6b55fbe7dca10",
     "drivers/interconnect/qcom/bcm-voter.c": "f482cad4f35ff5c144ce802baf9f8d9591770830a860feb79be9fc6a1c80aa83",
+    "drivers/interconnect/qcom/sm8450.c": "24263005206c9ce869ec251c66a5853300b72b4efe0c492ee74634abdd507ee8",
     "drivers/clk/qcom/clk-rpmh.c": "b308209084b184f345d5a733bdeff8f5c081b524c20e31c6dec0b727b87178c7",
     "drivers/usb/dwc3/dwc3-qcom.c": "cf8257168ad0e8e201a003e7d2e3344cdfa08b33eb6ae6451728bc497d2ce008",
 }
 HEADER = "#include <soc/qcom/g0q-ml030.h>\n"
+# The reduced g0q DT has no enabled client of the disjoint DISP graph.
+# Its eleven providers share one apps voter. Distinct display BCM objects
+# therefore overwrite normal votes at the same command-DB addresses.
+NO_DISPLAY_DTB = "f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0"
+DISPLAY_BCMS = ("sh0", "sh1", "acv", "mc0", "mm0", "mm1")
 
 
 def digest(path):
@@ -81,6 +87,16 @@ def integrate(path, text):
         text = after_decls(text, "static int clk_rpmh_bcm_set_rate(", "\tc->aggr_state = rate", check)
     elif path == "drivers/usb/dwc3/dwc3-qcom.c":
         text += "\n"+(HERE/"usb-cover.inc.c").read_text()
+    elif path == "drivers/interconnect/qcom/sm8450.c":
+        # Remove only the unused duplicate producers and their registrations.
+        # Nodes, binding indices, ordinary BCMs and confirmation stay intact.
+        for name in DISPLAY_BCMS:
+            marker = "static struct qcom_icc_bcm bcm_"+name+"_disp = {\n"
+            require(text.count(marker) == 1, "display BCM definition differs")
+            start = text.index(marker)
+            end = text.index("\n};\n", start) + len("\n};\n")
+            text = text[:start]+text[end:]
+            text = once(text, "\t&bcm_"+name+"_disp,\n", "")
     elif path == "drivers/interconnect/qcom/bcm-voter.c":
         text = once(text, "struct bcm_voter {", HEADER+"""
 struct g0q_bcm_confirmation {
@@ -128,6 +144,8 @@ def prepare(output):
     shutil.copyfile(HERE/"g0q_rpmh.h", hdr)
     prepared = json.loads((BASE/"prepared.json").read_bytes())
     dt_name = "sm8450-samsung-g0q-ram.dtb"
+    require(digest(BASE/dt_name) == NO_DISPLAY_DTB,
+            "reviewed no-display interconnect DT differs")
     require(digest(BASE/dt_name) == prepared["dtb_sha256"] and
             digest(kbuild/".config") == prepared["config_sha256"], "retained kernel inputs differ")
     shutil.copyfile(BASE/dt_name, output/dt_name)

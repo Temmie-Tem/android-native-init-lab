@@ -30,6 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML035 is qualified and prepared, not dispatched.** The exact no-display
+  BCM producer correction passed native/ARM64 full-table tests, fresh artifact
+  qualification and independent candidate/owner reviews. Fixed foreground D0
+  passed seven fresh original-A health reads; no run approval, grant or operation
+  exists. Current attendance and the separately returned finite approval remain
+  required. [H0 evidence and preparation](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md).
+
 - **ML034 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
   authenticated base arrived at N+67.704s; the same-socket witness proved a
   300.355s host gap and 300.495s guest uptime advance. One coverage attempt
@@ -231,11 +238,29 @@ data and has no physical grant.
 
 The approved experiment and original-A healthy closure are complete. The
 five-minute witness and exact rejection branch are proved; the selected UFS
-link criterion remains `NO_PROOF`. The next H0 question is why the ordinary
-SH1 command/confirmation history supplies zero Y values while the USB consumer
-passes its preceding checks. Distinguish the confirmation producer, expected
-values and actual device state before proposing a correction. No guard is
-relaxed and no additional device effect or replay is authorized by this goal.
+link criterion remains `NO_PROOF`. Its known-zero SH1 confirmation is a
+software command observation; the historical producing object/order and
+electrical state remain unobserved. It cannot replay.
+
+## Selected bounded unit: ML035 ordinary BCM producer correction
+
+Argon and Opus discussion plus full-table H0 execution identified a reachable
+duplicate-producer defect: unused display BCM objects can submit zero votes
+after normal USB/DDR votes on the same apps voter. The prospective kernel
+removes six unused display BCM registrations and their orphan definitions,
+preserving all nodes, binding indices, normal BCMs and observer predicates.
+The exact reduced DT has no active DISP consumer or normal-to-DISP path.
+Host and ARM64 cases reproduce the old failure and qualify the correction;
+they do not establish ML034's historical physical cause.
+
+The selected completion criterion is the qualified fresh candidate and one
+separately approved attended physical run through original-A health closure.
+Fresh Image/module/archive/loader qualification, independent source/scope
+review, concrete task preparation and fixed D0 health are complete. Physical
+execution still awaits its returned finite approval and attendance. The original 120/300/540/15-second
+bounds, one link attempt, one N and one original A total remain unchanged.
+This goal grants no device effect or replay. [H0 evidence and progress](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md)
+· [Exact prospective scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md).
 
 ## Milestones toward the final server
 

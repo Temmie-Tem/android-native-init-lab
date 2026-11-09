@@ -405,6 +405,27 @@ permission to perform host-only work.
    No SCSI/media, partition, filesystem, ICE/key or unattended effect is added.
    Consumed ML028 and ML030–ML033 retain their original artifact, approval,
    source and journal identities. A further successor requires its own scope.
+   The distinct [ML035 BCM-alias followup](S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md),
+   adopted for the operator's 2026-11-10 correction/next-experiment request,
+   delegates one new exact ML035 candidate on this same S22+ FYG8 target.
+   Its independently reviewed Image removes only the six unused display BCM
+   objects/registrations from the fixed SM8450 GEM, MC and MMSS providers;
+   nodes, binding indices and normal BCMs remain unchanged. The exact reduced
+   DT has no enabled DISP consumer or normal-to-DISP graph path. Ordinary
+   boot-time ICC votes therefore omit those duplicate producers, retaining
+   normal request/keepalive commands without an explicit refresh vote or
+   observer relaxation. ML035's own exact qualification selects the unchanged
+   21-field version-2 report. The complete ML034 USB admission conditions
+   and ML030 late hardware, observation, dispatch, return and recovery scope
+   apply unchanged: 120/300/540/15-second bounds, six local UniPro commands,
+   one link attempt, one N and one original A total. Its own reviewed exact
+   artifact/task binding, fresh health/rollback, usable Download recovery and
+   separately returned one-operation 1800-second attended approval remain
+   mandatory. No SCSI/media, partition, filesystem, ICE/key, display-client,
+   general-command or unattended effect is added. The unchanged cue caller,
+   physical interlock and no-replay rules remain binding. Consumed ML028 and
+   ML030–ML034 retain their original artifact, approval, source and journal
+   identities. A further successor requires its own scope.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

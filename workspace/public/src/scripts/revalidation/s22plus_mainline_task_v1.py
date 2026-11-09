@@ -46,6 +46,7 @@ def source_paths(root,selected=profile):
         'docs/operations/S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md',
         'docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md',
         'docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md',
+        'docs/operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md',
         'workspace/public/src/scripts/host_tools/s22plus_mainline_attach_cue_v1.py',
         'workspace/public/src/mainline/s22plus_ufs_link_h0/link_wire.py',
         'docs/operations/DEVICE_ACTION_PROCESS_V2.md','docs/operations/DEVICE_ACTION_RISK_TIERS.md',

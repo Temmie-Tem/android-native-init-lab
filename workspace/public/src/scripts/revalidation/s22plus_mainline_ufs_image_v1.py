@@ -27,6 +27,8 @@ TIMED_ATTACH_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml033-timed
 TIMED_ATTACH_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md'
 USB_ADMISSION_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml034-usb-cover-h0-20261110-1'
 USB_ADMISSION_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md'
+BCM_ALIAS_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml035-bcm-alias-h0-20261110-1'
+BCM_ALIAS_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md'
 DECLARATIONS = {
     'ML030': dict(ap=AP, archive=ARCHIVE, loader=LOADER, policy=POLICY,
         schema='s22plus-ml030-qualification-v1', evidence_sha256=EVIDENCE_SHA,
@@ -84,6 +86,20 @@ DECLARATIONS = {
             component=USB_ADMISSION_BASE/'component-1/result.json', kernel=USB_ADMISSION_BASE/'transport-build-1/guard-result.json',
             review=USB_ADMISSION_BASE/'review/independent-review-1.json', evidence=USB_ADMISSION_BASE/'qualification-1.json',
             loader_tests=USB_ADMISSION_BASE/'loader-tests-1/result.json', entry_tests=USB_ADMISSION_BASE/'loader-entry-vm-1/result.json')),
+    'ML035': dict(ap='6bef1c3d436ff5948623f075f11f283a21d3a75add8f4b7d0e0e34aa43147e6e',
+        archive='872a1bfc7bc198c996754812474fec18338899f6b1e0e9b2946e712a3aa4745a',
+        loader='3543b0ef7a7a1fa1573cc23aa74e8f3f4ad0dd5cf8d57ce7bb456939edf80ec1',
+        kernel='c4f8d9b0fad688d1a9682dc9c3aac2fd4ab2abfde9d14da858b2b89190ac7e72',
+        module='d08217055d940bb55f330a63070eaad9827badfd47cffa8ea77fa13f9cd5002e', report_version=2,
+        policy=BCM_ALIAS_POLICY, schema='s22plus-ml035-qualification-v1',
+        review_sha256='2e3fc410356ea4d6d9e68e082016b2ca9aad8ce2d82ef5ea4b91ce156a4b3b99',
+        inputs_sha256='17ca0665eb798585dc3f0d17134d87c35195889b5cc1e824ad2746135c210197',
+        evidence_sha256='352b9a24751a5818d9f5b7d422783937bfbf20ddca3a773bdaeacf36cbc4dec1',
+        paths=dict(manifest=BCM_ALIAS_BASE/'init-physical-1/result.json',
+            package=BCM_ALIAS_BASE/'package-1/result.json', loader=BCM_ALIAS_BASE/'loader-1/result.json',
+            component=BCM_ALIAS_BASE/'component-1/result.json', kernel=BCM_ALIAS_BASE/'transport-build-1/guard-result.json',
+            review=BCM_ALIAS_BASE/'review/independent-review-1.json', evidence=BCM_ALIAS_BASE/'qualification-1.json',
+            loader_tests=BCM_ALIAS_BASE/'loader-tests-1/result.json', entry_tests=BCM_ALIAS_BASE/'loader-entry-vm-1/result.json')),
 }
 
 

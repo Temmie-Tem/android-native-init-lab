@@ -146,6 +146,24 @@ attendance remain mandatory. The retained cue caller and physical interlock
 remain unchanged. Consumed ML028 and ML030–ML033 keep their original bindings
 and cannot replay; this adoption admits no further successor.
 
+### ML035 mainline UFS link BCM-alias followup V1
+
+The operator-adopted [ML035 followup](../S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md)
+selects its separate common boundary-3 delegation for one new exact candidate.
+Its reviewed Image removes six unused display BCM objects/registrations from
+the fixed SM8450 GEM, MC and MMSS providers, preserving all node definitions,
+binding indices and normal BCMs. The exact no-display DT and disjoint graph
+bind the changed ordinary boot-time vote production. ML035's own exact
+qualification selects the unchanged version-2 report. The complete ML034 USB
+admission/report predicates and ML030 closed late-hardware, witness, permit,
+normal-return and physical-recovery conditions remain mandatory, including
+120/300/540/15-second bounds, one link attempt, one N and one original A total.
+Fresh exact source/artifact review, target/health/rollback checks, usable
+Download recovery, a separately returned one-operation 1800-second approval
+and current attendance are required. The cue caller and physical interlock
+remain unchanged. Consumed ML028 and ML030–ML034 retain their original bindings
+and cannot replay. No further successor is admitted by this adoption.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary
