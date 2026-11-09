@@ -30,17 +30,17 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML031 is adopted and prepared for a separately approved attended run.**
-  It selects prepared cable guidance, five-minute same-boot evidence and one
-  UFS link attempt. New physical/VM identities,
-  observers, RAM archives, loader and identical paired AP packages are
-  qualified. Image/DTB/module machinery retains its reviewed bytes. The fixed
-  cue caller and the actual adoption/admission/recovery/bridge changes received
-  independent `PASS_GO`. The unchanged worker accepted immutable bridge V35.
-  Fresh preapproval health completed seven reads; the exact one-operation
-  approval and current attendance remain required. No grant, control or transfer
-  was opened. [Evidence](docs/reports/S22PLUS_MAINLINE_ML031_ATTACH_DWELL_H0_2026-11-07.md)
-  · [adopted followup](docs/operations/S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md).
+- **ML031 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
+  Its N transfer completed, but all 86 sealed USB censuses reported the
+  selected path absent. Two prepared cue calls failed the latest-census
+  stability check; a third failed the remaining-time check. No cue, base
+  request or UFS permit was issued. A deterministic H0 fixture reproduces the
+  refusal when another identical absence census appears between checks;
+  the exact live comparison ordinals were not recorded. Physical Download,
+  one original-A recovery and seven final health reads completed. ML031 is
+  the latest physical closure and cannot be replayed.
+  [Physical run](docs/reports/S22PLUS_MAINLINE_ML031_RUN_2026-11-09.md)
+  · [H0/adoption evidence](docs/reports/S22PLUS_MAINLINE_ML031_ATTACH_DWELL_H0_2026-11-07.md).
 
 - **ML030 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   Its one attended N transfer completed, but all 87 sealed USB censuses found
@@ -49,7 +49,7 @@ identities, goals, artifacts and authority remain separate.
   preparation missed the permitted replug-issuance window; no cue was issued.
   This does not establish a boot or UFS failure cause. Physical Download and
   one original-A recovery completed with seven successful final health reads.
-  ML030 is the latest physical closure; its candidate cannot be replayed.
+  Its candidate cannot be replayed.
   [Physical run](docs/reports/S22PLUS_MAINLINE_ML030_RUN_2026-11-07.md)
   · [H0 evidence](docs/reports/S22PLUS_MAINLINE_ML030_DWELL_LINK_H0_2026-11-05.md)
   · [adopted policy](docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md).

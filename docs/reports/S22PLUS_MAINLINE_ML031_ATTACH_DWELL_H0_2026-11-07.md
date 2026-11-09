@@ -1,8 +1,10 @@
 # S22+ ML031: prepared attach cue and fresh dwell/link candidate
 
-Status: **H0 qualified; adoption/owner independently reviewed; awaiting exact
-attended approval**. Candidate transfers, device controls and new grants: **0**.
-The subsequent preparation completed one fixed seven-read preapproval D0.
+The H0/adoption preparation below passed independent review and completed one
+fixed seven-read preapproval D0, with zero candidate transfers, device controls
+or grants in that preparation. The later [2026-11-09 physical run](S22PLUS_MAINLINE_ML031_RUN_2026-11-09.md)
+is consumed **NO_PROOF / ANDROID_CLOSED_HEALTHY**. Its moving-census cue refusal
+and unissued UFS permit do not change these historical H0 results.
 
 ML031 is a new candidate after [consumed ML030](S22PLUS_MAINLINE_ML030_RUN_2026-11-07.md).
 The work addresses the concrete preparation failure: the assistant tried to
