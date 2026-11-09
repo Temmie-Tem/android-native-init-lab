@@ -3,10 +3,11 @@
 The caller now selects the latest sealed USB census after its expensive final
 owner/source/artifact guard. A new ML032 candidate has been built and qualified
 in H0 for the same five-minute witness and bounded UFS-link experiment.
-[Exact prospective scope](../plans/S22PLUS_ML032_CUE_REFRESH_DWELL_LINK_SCOPE_2026-11-09.md)
-is not adopted for device execution. Independent review returned **PASS_GO**
-with no open findings. No device read, transfer, control, approval or grant
-occurred.
+The initial [prospective scope](../plans/S22PLUS_ML032_CUE_REFRESH_DWELL_LINK_SCOPE_2026-11-09.md)
+and candidate received independent **PASS_GO** with no open findings, while
+remaining unadopted for execution. That H0 phase performed no device read,
+transfer, control, approval or grant. The subsequent scope-adoption phase is
+recorded below; neither review substitutes for an actual finite attended grant.
 
 ## Defect and narrow correction
 
@@ -59,8 +60,9 @@ bytes and provenance; no kernel rebuild or changed hardware scope was needed.
 The new loader passed 20 actual ARM64 cases, 1,051 aligned-copy cases and actual
 QEMU EL1/EL2/EL3 checks. Two independent boot/AP packages match. Offline
 unpacking joins their single boot member to the exact loader and embedded
-Image/DTB/archive. The current live image validator rejects the unknown ML032
-AP before admission. That expected refusal does not authorize a bypass.
+Image/DTB/archive. At that H0 close, the live image validator rejected the
+unknown ML032 AP before admission. That historical expected refusal did not
+authorize a bypass.
 
 | Fresh ARM64 case | Guest uptime, seconds | Result |
 | --- | --- | --- |
@@ -83,7 +85,8 @@ the before snapshot, recipes, complete producer reproduction, loader/EL/package
 results, four VM cases, sealed raw captures, caller test logs and
 `qualification-1.json`. Changed Python passes `py_compile`; content/link/diff
 checks cover the documentation. No live binding, policy, bridge selector or
-worker was changed. ML030 and ML031 remain consumed and healthy-closed.
+worker was changed during that initial H0 unit. ML030 and ML031 remain
+consumed and healthy-closed.
 
 Applicable past-failure concerns are HOST/ROUTE (actual caller and periodic
 producer), RETURN (unchanged one-shot interlock and recovery ownership),
@@ -104,16 +107,81 @@ Actual ELF symbols and both APs joined the embedded artifacts and retained
 original-A outer ramdisk, signature and trailer. Actual EL1/EL2/EL3 raw proof,
 new keys/identities and complete producer reproduction were rechecked.
 
-The reviewed cue source differs from the old normal capability's source pin,
-so that normal capability correctly refuses it. The unchanged recovery
-capability and V35 bridge still validate. No old review was repinned. The
+At that close, the reviewed cue source differed from the old normal capability's
+source pin, so that normal capability correctly refused it. The unchanged
+recovery capability and V35 bridge still validated. No old review was repinned. The
 63 protected consumed records and 11 unrelated work files remain unchanged.
 The review's supplemental QEMU-file check initially used a session-record pin
 function that rejects a hard-linked binary. The failed check is retained; the
 corrected check uses the entry qualifier's existing byte-hash semantics.
 No production assertion or artifact was changed to obtain the review result.
 
-ML032 needs its own common/target scope adoption, exact admission and current
-owner/bridge review before a live task and finite attended approval can be
-prepared. H0 success supplies neither live authority nor device proof. A90 and
-S20+ are untouched.
+That H0 close required separate common/target scope adoption, exact admission
+and current owner/bridge review before a live task and finite attended approval.
+H0 success supplies neither live authority nor device proof. A90 and S20+
+are untouched.
+
+## Subsequent ML032 scope adoption and admission
+
+The operator then requested continuation through the physical experiment.
+Revision 67 incorporates the distinct exact
+[ML032 scope](../operations/S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md) at common
+and target precedence, preserving the preceding ML030/ML031 blocks and policy
+bytes. It retains one attended operation in 1800 seconds, the original
+120/300/540/15-second bounds, closed hardware effects, one original A total and
+no replay. The original unadopted proposal and H0 review retain their bytes.
+
+The existing declaration table now selects ML032's exact AP, archive, loader,
+manifest, qualification and independent review. The two followups share the
+same evidence-validation logic, with schema and result names derived from
+the exact selected declaration. There is no unknown-candidate fallback.
+ML030 and ML031 retain their artifact identities and consumed status.
+
+Actual artifact admission accepted all three exact historical/new bundles and
+rejected 31 mixed or unknown cases involving ML032. All 101 focused tests
+passed. Four source-consistent actual-validator fixtures accepted the complete
+ML032 adoption and rejected a missing common link, missing target link or
+absent policy status. Four isolated real-Session fixtures proved original-A
+recovery and health-only continuation with missing or invalid optional cue
+source, without repeating a control or transfer. Current source/authority
+checks remain required, and candidate/cue code remains outside recovery's
+mandatory source set. Complete artifact and ARM64 proofs were reused unchanged.
+
+This phase's evidence is private under
+`workspace/private/outputs/s22plus-ml032-policy-adoption-h0-20261109-1/`, including
+the actual scope request, before-source snapshot, admission and adoption cases,
+recovery fixtures and exact owner/bridge review input. The independent review
+returned **PASS_GO**, with no open findings, over 54 mainline sources, 50 bridge
+sources and the two unchanged resident-worker sources. Input SHA-256 is
+`c4e4b3041613bc8d3ccc2c6d4acd58e24ad231a05584657c7dccd46713521bf7`;
+the result at `review/final-review-1.json` is
+`9a77d4b4702e3460a2a03e5c40af4f80d42f1963c16596bd4c74951812c1afef`.
+The review's auxiliary fixture first calculated the wrong temporary-root
+depth; the failed check and corrected isolated check are retained. Production
+inputs and assertions were unchanged.
+
+The exact new capability receipt and immutable backend V36 were published
+from that reviewed source set, and the selector advanced from V35 to V36.
+The connected worker accepted V36 with unchanged resident source hashes and
+no restart. Earlier capability/bridge receipts and consumed records remain
+intact. The exact task uses ML031's healthy original-A closure and preserved
+rollback provenance. Its fixed cue CLI was imported from another working
+directory through the real raw capture producer; both output streams and
+exit status were retained. Exact operation-local commands and the fresh
+raw-capture destination were prepared before any candidate launch.
+
+No prepared task or PASS label supplies the required returned exact approval
+or current physical attendance.
+
+The first named preapproval D0 stopped at its initial inventory capture:
+ADB returned exit 0 but emitted its host-daemon startup notice on stderr.
+The raw notice and failed invocation remain retained. The strict stderr rule
+was not relaxed. After the daemon's reported successful startup, the permitted
+fixed D0 reobservation was invoked in a fresh readiness directory; it does not
+reuse the failed inventory as health or create candidate/grant authority.
+That second invocation completed all seven health reads. Their full raw
+projection, same-boot binding, current source/artifact/recovery checks and
+existing freshness condition were revalidated. Preparation ended with no
+approval record, grant, operation or candidate dispatch. The exact finite
+approval and current attendance/usable Download recovery remain the next
+requirements for the separately requested physical experiment.

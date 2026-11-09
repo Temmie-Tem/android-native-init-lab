@@ -35,9 +35,14 @@ identities, goals, artifacts and authority remain separate.
   census, while retaining the final latest/raw/state/deadline checks. A fresh
   observer, RAM archive, loader and boot-only AP passed producer reproduction,
   ARM64 loader checks and the five-minute host/guest fixtures. This is not
-  physical survival or UFS proof. The review has no open findings. Its exact
-  prospective scope is unadopted; ML030/ML031 authority and consumed records
-  do not transfer to it.
+  physical survival or UFS proof. The operator then requested physical
+  continuation; revision 67 adopted its exact scope. Separate owner/bridge
+  review passed without findings, and the fresh capability and backend V36
+  are prepared. A first preapproval D0 stopped on the ADB host-daemon startup
+  notice; a fresh permitted invocation passed all seven health reads. The
+  task still requires its returned exact finite approval and current
+  attendance/Download recovery, with freshness rechecked at grant. ML030/ML031
+  authority and consumed records do not transfer to it.
   [H0 repair and evidence](docs/reports/S22PLUS_MAINLINE_ML032_CUE_REFRESH_H0_2026-11-09.md)
   · [proposed scope](docs/plans/S22PLUS_ML032_CUE_REFRESH_DWELL_LINK_SCOPE_2026-11-09.md).
 

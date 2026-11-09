@@ -97,6 +97,21 @@ condition and operation-local interlock, with no added device command or
 window extension. ML030 remains consumed; no old approval, source binding or
 journal may be repinned. This adoption does not admit any further successor.
 
+### ML032 mainline UFS link refreshed-census followup V1
+
+The operator-adopted [ML032 followup](../S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md)
+selects its separate common boundary-3 delegation for one fresh candidate on
+this exact target. The closed ML030 hardware, witness, permit, return and
+recovery scope remains unchanged, including 120/300/540/15-second bounds,
+one link attempt, one N and one original A total. Exact reviewed source and
+artifact admission, fresh target/health/rollback checks, usable Download
+recovery, a separately returned one-operation 1800-second approval and current
+attendance remain mandatory. The corrected cue caller selects the latest
+census after owner guards and retains final latest/raw/state/deadline checks
+and the existing interlock. It adds no device effect or time extension.
+ML030 and ML031 remain consumed, and no old approval, source binding or journal
+may be repinned. No further successor is admitted by this adoption.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

@@ -176,6 +176,10 @@ reviewed live owner. SCSI/media access and unattended execution are excluded.
 The separately adopted [ML031 followup](S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md)
 retains exactly that F1 hardware scope for one new qualified candidate and its
 own finite attended approval. It cannot replay ML030 or inherit its consumed grant.
+The separately adopted [ML032 refreshed-census followup](S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md)
+retains those same effects and limits for its one exact fresh candidate, with
+its own finite attended approval. The corrected attach caller adds no device
+effect; ML030 and ML031 remain consumed.
 
 The separately common-incorporated [S22+ Debian first-boot V1](S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
 uses its own reviewed owner for one embedded rootfs installation and initial

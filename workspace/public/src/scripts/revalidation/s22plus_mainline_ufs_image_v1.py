@@ -21,6 +21,8 @@ RETAINED_REVIEW = BASE/'independent-h0-guest-close-5.json'
 EVIDENCE_SHA = '58ace1c8e7afc1ab43150282857e757996d5451816fc658240be3bbec93b1a5a'
 FOLLOWUP_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml031-attach-dwell-h0-20261107-1'
 FOLLOWUP_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md'
+CUE_REFRESH_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml032-cue-refresh-h0-20261109-1'
+CUE_REFRESH_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md'
 DECLARATIONS = {
     'ML030': dict(ap=AP, archive=ARCHIVE, loader=LOADER, policy=POLICY,
         schema='s22plus-ml030-qualification-v1', evidence_sha256=EVIDENCE_SHA,
@@ -40,6 +42,18 @@ DECLARATIONS = {
             component=BASE/'transport-component-4/result.json', kernel=BASE/'transport-build-4/guard-result.json',
             review=FOLLOWUP_BASE/'review/independent-review-1.json', evidence=FOLLOWUP_BASE/'qualification-1.json',
             loader_tests=FOLLOWUP_BASE/'loader-tests-1/result.json', entry_tests=FOLLOWUP_BASE/'loader-entry-vm-1/result.json')),
+    'ML032': dict(ap='797e10947ba7706367bc04ff0ab170fe808956839235420505ddc42fa2a04f92',
+        archive='0ab1ba484aba5dffa171c963feb9718824eee46c726576ef8bfa5999d44c2808',
+        loader='b15aeab452d4c88345f13b92cc9c50865906c10359af49a2d96e0f40f7ba066f',
+        policy=CUE_REFRESH_POLICY, schema='s22plus-ml032-qualification-v1',
+        review_sha256='f05a06429e00e2583dc9648b7a4ca803fae0f847d4aa1e23e31fb4be836481b8',
+        inputs_sha256='a9e9393d723a48f0656315281b062a7ea00aeb9a39206f3e649f76d11f026cdc',
+        evidence_sha256='af0bd23bee739682cff9f13eaa627fa39bd6feeda114e02a0c87735a3d967b14',
+        paths=dict(manifest=CUE_REFRESH_BASE/'init-physical-1/result.json',
+            package=CUE_REFRESH_BASE/'package-1/result.json', loader=CUE_REFRESH_BASE/'loader-1/result.json',
+            component=BASE/'transport-component-4/result.json', kernel=BASE/'transport-build-4/guard-result.json',
+            review=CUE_REFRESH_BASE/'review/independent-review-1.json', evidence=CUE_REFRESH_BASE/'qualification-1.json',
+            loader_tests=CUE_REFRESH_BASE/'loader-tests-1/result.json', entry_tests=CUE_REFRESH_BASE/'loader-entry-vm-1/result.json')),
 }
 
 
@@ -124,26 +138,26 @@ def binding(image,*,artifact_bytes=False):
         for name in ('manifest','package','component','kernel','evidence'):
             require(reviewed.get(bundle[name]['path'])==bundle[name]['sha256'], 'ML030 H0 review lacks artifact')
     else:
-        require(candidate=='ML031' and bundle['review']['sha256']==declaration['review_sha256'] and
-                review['schema']=='s22plus-ml031-independent-h0-candidate-cue-scope-review-v1' and
+        require(bundle['review']['sha256']==declaration['review_sha256'] and
+                review['schema']==f's22plus-{candidate.lower()}-independent-h0-candidate-cue-scope-review-v1' and
                 review['inputs']['sha256']==declaration['inputs_sha256'] and
-                review['grants_device_authority'] is False, 'ML031 retained independent review differs')
+                review['grants_device_authority'] is False, f'{candidate} retained independent review differs')
         inputs=checked(review['inputs'])
         reviewed={r['path']:r['sha256'] for r in inputs['evidence']}
         for name in ('manifest','package','loader','evidence','loader_tests','entry_tests'):
-            require(reviewed.get(bundle[name]['path'])==bundle[name]['sha256'], 'ML031 H0 review lacks artifact')
-        require(evidence['status']=='PASS_H0_ML031_ARTIFACT_AND_PROTOCOL_QUALIFICATION' and
-                evidence['candidate']=='ML031' and evidence['device_actions']==0 and
+            require(reviewed.get(bundle[name]['path'])==bundle[name]['sha256'], f'{candidate} H0 review lacks artifact')
+        require(evidence['status']==f'PASS_H0_{candidate}_ARTIFACT_AND_PROTOCOL_QUALIFICATION' and
+                evidence['candidate']==candidate and evidence['device_actions']==0 and
                 evidence['physical_manifest']==bundle['manifest'] and evidence['package']==bundle['package'] and
                 evidence['loader']==loader['loader'] and evidence['loader_tests']==bundle['loader_tests'] and
-                evidence['entry_tests']==bundle['entry_tests'], 'ML031 H0 qualification joins differ')
+                evidence['entry_tests']==bundle['entry_tests'], f'{candidate} H0 qualification joins differ')
         retained=checked(evidence['retained_review'])
         require(evidence['retained_review']['path']==str(RETAINED_REVIEW) and
                 retained['status']=='PASS_GO' and retained['findings']==[] and retained['device_actions']==0,
-                'ML031 retained machinery review differs')
+                f'{candidate} retained machinery review differs')
         machinery={r['path']:r['sha256'] for r in retained['raw']}
         for name in ('component','kernel'):
-            require(machinery.get(bundle[name]['path'])==bundle[name]['sha256'], 'ML031 machinery provenance differs')
+            require(machinery.get(bundle[name]['path'])==bundle[name]['sha256'], f'{candidate} machinery provenance differs')
     require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['activation'] is False and
             package['device_actions']==0 and len(package['copies'])==2 and
             all(package['copies'][0][name]['sha256']==package['copies'][1][name]['sha256'] for name in ('ap','boot')),
@@ -162,9 +176,9 @@ def binding(image,*,artifact_bytes=False):
     value=runtime(manifest,candidate=candidate)
     kernel_file=pin(Path(kernel['image']),maximum=128*1024*1024)
     require(kernel_file['sha256']==KERNEL and kernel_file['size']==kernel['file_size'], 'ML030 kernel bytes differ')
-    if candidate=='ML031':
+    if candidate!='ML030':
         require(evidence['kernel']==kernel_file and evidence['module']['sha256']==MODULE,
-                'ML031 qualified runtime machinery differs')
+                f'{candidate} qualified runtime machinery differs')
     expected={'loader':loader['loader'],'kernel':kernel_file,
               'init':manifest['init'],'initramfs':manifest['initramfs'],'dtb':manifest['dtb'],'observer':value['observer'],
               'module':value['module']}

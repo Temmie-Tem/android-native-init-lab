@@ -348,6 +348,22 @@ permission to perform host-only work.
    ML030's original policy, artifact pins, approvals, consumption and journals
    retain their identities. This separate followup cannot renew or replay ML030,
    and another successor requires its own scope.
+   The distinct [ML032 refreshed-census followup](S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md),
+   adopted by the operator on 2026-11-09, delegates one new exact ML032
+   candidate on the same S22+ FYG8 target. It inherits the complete preceding
+   ML030 hardware, observation, dispatch, normal-return and physical-recovery
+   conditions with its separately qualified artifact and own source-bound
+   task/grant. The 120/300/540/15-second bounds, six fixed local UniPro
+   commands, one link attempt, one N and one original A total are unchanged.
+   Its separately returned attended approval permits one operation in 1800
+   seconds. Exact common/target adoption, reviewed source/artifact admission,
+   fresh health/rollback and usable physical Download recovery remain required.
+   The corrected caller selects the latest sealed census after owner guards,
+   while retaining final latest/raw/state/deadline checks and the original
+   physical attach interlock. It adds no device command, window extension,
+   SCSI/media, partition, filesystem or ICE/key effect. Consumed ML030/ML031
+   artifacts, approvals, journals and source bindings retain their identities;
+   neither may replay, and a further successor requires its own scope.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:
