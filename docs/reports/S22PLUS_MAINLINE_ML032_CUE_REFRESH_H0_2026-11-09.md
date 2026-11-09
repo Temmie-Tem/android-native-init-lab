@@ -1,5 +1,11 @@
 # S22+ ML032: attach-census ordering repair and fresh dwell/link candidate
 
+The later [physical run](S22PLUS_MAINLINE_ML032_RUN_2026-11-09.md) is consumed
+**NO_PROOF / ANDROID_CLOSED_HEALTHY**. One cue was issued during live polling,
+but no first USB response or UFS permit followed. Original A and complete
+final health were restored. The preparation evidence below retains its own
+phase and does not become physical mainline or UFS proof.
+
 The caller now selects the latest sealed USB census after its expensive final
 owner/source/artifact guard. A new ML032 candidate has been built and qualified
 in H0 for the same five-minute witness and bounded UFS-link experiment.

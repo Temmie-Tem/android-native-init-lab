@@ -30,21 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML032 H0 preparation is complete with independent `PASS_GO`.** The attach
-  caller now completes its expensive owner checks before selecting the latest sealed
-  census, while retaining the final latest/raw/state/deadline checks. A fresh
-  observer, RAM archive, loader and boot-only AP passed producer reproduction,
-  ARM64 loader checks and the five-minute host/guest fixtures. This is not
-  physical survival or UFS proof. The operator then requested physical
-  continuation; revision 67 adopted its exact scope. Separate owner/bridge
-  review passed without findings, and the fresh capability and backend V36
-  are prepared. A first preapproval D0 stopped on the ADB host-daemon startup
-  notice; a fresh permitted invocation passed all seven health reads. The
-  task still requires its returned exact finite approval and current
-  attendance/Download recovery, with freshness rechecked at grant. ML030/ML031
-  authority and consumed records do not transfer to it.
-  [H0 repair and evidence](docs/reports/S22PLUS_MAINLINE_ML032_CUE_REFRESH_H0_2026-11-09.md)
-  · [proposed scope](docs/plans/S22PLUS_ML032_CUE_REFRESH_DWELL_LINK_SCOPE_2026-11-09.md).
+- **ML032 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
+  The corrected caller issued one cue with 101.163 seconds remaining, but all
+  86 sealed USB censuses reported the selected path absent. No base request,
+  five-minute witness or UFS permit was issued. The reconnect completion
+  response arrived after observation expired; the actual physical action time
+  is unmeasured. Its cue was resolved before separate physical Download.
+  Original A transferred once, then the permitted health-only continuation
+  completed all seven reads after an ADB disappearance in the first bracket.
+  N/A each transferred once, no F1 owner remains, and ML032 cannot be replayed.
+  It is the latest physical closure. This proves cue publication during live
+  polling, not mainline boot, timely physical replug or a UFS failure cause.
+  [Physical run](docs/reports/S22PLUS_MAINLINE_ML032_RUN_2026-11-09.md)
+  · [H0/adoption evidence](docs/reports/S22PLUS_MAINLINE_ML032_CUE_REFRESH_H0_2026-11-09.md).
 
 - **ML031 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   Its N transfer completed, but all 86 sealed USB censuses reported the
@@ -54,7 +52,7 @@ identities, goals, artifacts and authority remain separate.
   refusal when another identical absence census appears between checks;
   the exact live comparison ordinals were not recorded. Physical Download,
   one original-A recovery and seven final health reads completed. ML031 is
-  the latest physical closure and cannot be replayed.
+  a preceding healthy closure and cannot be replayed.
   [Physical run](docs/reports/S22PLUS_MAINLINE_ML031_RUN_2026-11-09.md)
   · [H0/adoption evidence](docs/reports/S22PLUS_MAINLINE_ML031_ATTACH_DWELL_H0_2026-11-07.md).
 
