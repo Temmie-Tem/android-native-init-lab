@@ -25,6 +25,8 @@ CUE_REFRESH_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml032-cue-re
 CUE_REFRESH_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md'
 TIMED_ATTACH_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml033-timed-attach-h0-20261110-1'
 TIMED_ATTACH_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md'
+USB_ADMISSION_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml034-usb-cover-h0-20261110-1'
+USB_ADMISSION_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md'
 DECLARATIONS = {
     'ML030': dict(ap=AP, archive=ARCHIVE, loader=LOADER, policy=POLICY,
         schema='s22plus-ml030-qualification-v1', evidence_sha256=EVIDENCE_SHA,
@@ -68,6 +70,20 @@ DECLARATIONS = {
             component=BASE/'transport-component-4/result.json', kernel=BASE/'transport-build-4/guard-result.json',
             review=TIMED_ATTACH_BASE/'review/independent-review-1.json', evidence=TIMED_ATTACH_BASE/'qualification-1.json',
             loader_tests=TIMED_ATTACH_BASE/'loader-tests-1/result.json', entry_tests=TIMED_ATTACH_BASE/'loader-entry-vm-1/result.json')),
+    'ML034': dict(ap='727a6b936ddcddac70d5a83110fd2bb0dada8133b1758e217a81fe6c0014cdce',
+        archive='3143c31b128a882dd66d08e9e565da480cac32357277801c6668554e2746e1a6',
+        loader='a8142f6b02db500b5901afc618c4a5ae5bad97468dd8134a54430dcfa31a2032',
+        kernel='6a6c1c65bc7a9ea1ae2121d72782f87e9149531e76fff3d8f857459f13b91e15',
+        module='d08217055d940bb55f330a63070eaad9827badfd47cffa8ea77fa13f9cd5002e', report_version=2,
+        policy=USB_ADMISSION_POLICY, schema='s22plus-ml034-qualification-v1',
+        review_sha256='e3f7bea72264b0937472c3c941e53fadf4625f10f2994dbc75f4324918719822',
+        inputs_sha256='20351ea8d9f90a0ffa84340b5df0fafc99ec5e24c34fbcb7352ed160fe5cce20',
+        evidence_sha256='ab37b4474a7a735acaeb028e572893b5c77b232c3784f765c05430dffddc241d',
+        paths=dict(manifest=USB_ADMISSION_BASE/'init-physical-1/result.json',
+            package=USB_ADMISSION_BASE/'package-1/result.json', loader=USB_ADMISSION_BASE/'loader-1/result.json',
+            component=USB_ADMISSION_BASE/'component-1/result.json', kernel=USB_ADMISSION_BASE/'transport-build-1/guard-result.json',
+            review=USB_ADMISSION_BASE/'review/independent-review-1.json', evidence=USB_ADMISSION_BASE/'qualification-1.json',
+            loader_tests=USB_ADMISSION_BASE/'loader-tests-1/result.json', entry_tests=USB_ADMISSION_BASE/'loader-entry-vm-1/result.json')),
 }
 
 
@@ -79,6 +95,11 @@ def selection(image):
 
 def policy_for(image):
     return selection(image)[1]['policy']
+
+
+def report_version_for(image):
+    """Only the exact admitted AP selects a report; never infer it from bytes."""
+    return selection(image)[1].get('report_version', 1)
 
 
 def checked(receipt):
@@ -107,7 +128,7 @@ def runtime(manifest,*,candidate='ML030'):
             {r['package']:(r['version'],r['sha256']) for r in lock['packages']}==d.PACKAGES and
             all(r['architecture']=='arm64' for r in lock['packages']), 'ML030 signed packages')
     module=root/'usr/lib/g0q_ml030.ko'
-    require(value['module']==d.pin(module) and value['module']['sha256']==MODULE and
+    require(value['module']==d.pin(module) and value['module']['sha256']==declaration.get('module',MODULE) and
             value['observer']==d.pin(root/d.OBSERVER), 'ML030 module/observer file')
     files.update({d.OBSERVER:profile.unchanged(value['observer']).read_bytes(),
                   'usr/lib/g0q_ml030.ko':module.read_bytes(),'etc/inittab':(root/'etc/inittab').read_bytes()})
@@ -130,6 +151,8 @@ def runtime(manifest,*,candidate='ML030'):
 def binding(image,*,artifact_bytes=False):
     candidate,declaration=selection(image)
     paths=declaration['paths']
+    kernel_sha=declaration.get('kernel',KERNEL)
+    module_sha=declaration.get('module',MODULE)
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification',
           'runtime_sources','ufs_link','debian_ram','download_return'}
     require(set(image)==keys and image['schema']=='s22plus-mainline-image-v1' and image['ufs_link'] is True and
@@ -169,7 +192,9 @@ def binding(image,*,artifact_bytes=False):
         require(evidence['retained_review']['path']==str(RETAINED_REVIEW) and
                 retained['status']=='PASS_GO' and retained['findings']==[] and retained['device_actions']==0,
                 f'{candidate} retained machinery review differs')
-        machinery={r['path']:r['sha256'] for r in retained['raw']}
+        # New admission code is reviewed with its own actual kernel/module.
+        # Retained legacy machinery keeps its original review and provenance.
+        machinery=reviewed if declaration.get('report_version',1)==2 else {r['path']:r['sha256'] for r in retained['raw']}
         for name in ('component','kernel'):
             require(machinery.get(bundle[name]['path'])==bundle[name]['sha256'], f'{candidate} machinery provenance differs')
     require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['activation'] is False and
@@ -178,8 +203,8 @@ def binding(image,*,artifact_bytes=False):
             'ML030 double package differs')
     require(package['copies'][0]['ap']==image['ap'] and image['ap']['sha256']==declaration['ap'] and
             package['loader_sha256']==loader['loader']['sha256']==declaration['loader'] and
-            loader['kernel']['sha256']==kernel['sha256']==component['selected_kernel']==KERNEL and
-            component['module_sha256']==MODULE and loader['initramfs_manifest']==str(paths['manifest']) and
+            loader['kernel']['sha256']==kernel['sha256']==component['selected_kernel']==kernel_sha and
+            component['module_sha256']==module_sha and loader['initramfs_manifest']==str(paths['manifest']) and
             'retained_marker' not in loader and 'retained_marker' not in kernel,
             'ML030 exact linked artifact join')
     for name,status,key in (('loader_tests','PASS_H0_ACTUAL_ARM64_LOADER','qualification_sha256'),
@@ -189,9 +214,9 @@ def binding(image,*,artifact_bytes=False):
                 package[key]==bundle[name]['sha256'], 'ML030 actual loader checks')
     value=runtime(manifest,candidate=candidate)
     kernel_file=pin(Path(kernel['image']),maximum=128*1024*1024)
-    require(kernel_file['sha256']==KERNEL and kernel_file['size']==kernel['file_size'], 'ML030 kernel bytes differ')
+    require(kernel_file['sha256']==kernel_sha and kernel_file['size']==kernel['file_size'], 'ML030 kernel bytes differ')
     if candidate!='ML030':
-        require(evidence['kernel']==kernel_file and evidence['module']['sha256']==MODULE,
+        require(evidence['kernel']==kernel_file and evidence['module']['sha256']==module_sha,
                 f'{candidate} qualified runtime machinery differs')
     expected={'loader':loader['loader'],'kernel':kernel_file,
               'init':manifest['init'],'initramfs':manifest['initramfs'],'dtb':manifest['dtb'],'observer':value['observer'],

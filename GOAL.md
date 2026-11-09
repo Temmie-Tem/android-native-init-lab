@@ -30,6 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML034 is independently reviewed and prepared, awaiting its exact finite
+  attended approval.** It retains all USB/PM/ICC/BCM predicates,
+  retries only four failed trylocks within 25 calls/250ms and the original 15s,
+  and adds explicitly selected 21-field rejection evidence. The fresh ARM64
+  Image/module/observer/loader/AP and actual host-collector VM paths are
+  qualified; candidate and owner/bridge reviews are `PASS_GO`. The fixed D0
+  preparation completed seven raw-derived health reads. No grant, operation
+  or transfer has been created. This does not establish ML033's historical
+  rejecting branch or physical UFS success; freshness is checked again when
+  the separately returned approval opens its grant.
+  [Correction and H0 evidence](docs/reports/S22PLUS_MAINLINE_ML034_USB_ADMISSION_H0_2026-11-10.md)
+  · [Exact prospective scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md).
+
 - **ML033 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
   authenticated first response arrived at N+74.463 seconds, within the original
   120-second window. A fresh same-socket witness proved a 300.422-second host
@@ -211,6 +224,17 @@ initialization before asynchronous SCSI discovery. The next design needs
 g0q-specific evidence for the L6/L9 upstream supply, vendor auxiliary votes
 and a defined limit on controller/device effects. ML029 used only retained
 data and has no physical grant.
+
+## Selected bounded unit: ML034 late link after USB admission
+
+The independently reviewed ML034 source/artifact/owner binding and fixed
+preparation are complete. Next perform its one separately approved attended experiment.
+The functional criterion remains an authenticated five-minute same-boot witness
+followed by one proved link completion and original-A healthy closure. A coverage
+rejection must identify its exact observed branch without being mistaken for a
+link failure or historical ML033 cause. No SCSI/media access is selected.
+The original 120/300/540/15-second limits, one N, one link attempt and one original
+A total remain; absence of proof requires the existing attended recovery route.
 
 ## Milestones toward the final server
 

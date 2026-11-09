@@ -33,7 +33,7 @@ class Ml030WireTests(unittest.TestCase):
     def tearDownClass(cls):
         prior.DownloadWireTests.tearDownClass()
 
-    def run_case(self,case):
+    def run_case(self,case,version=1):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         directory=Path(temp.name);folder=directory/('io-'+profile.SELECTION)
         fixture=self.helper.fixture;manifest=self.helper.manifest()
@@ -105,6 +105,8 @@ class Ml030WireTests(unittest.TestCase):
                     observed.append('GO');self.assertEqual(go,wire.frame(b'G030GO01',18,fixture.key,fixture.identity,fixture.nonce,n1,boot,t0,t1))
                     body=b'G030RES1'+go[8:wire.HEADER.size]
                     numbers=b'0 6 1073741824 1 6 1 8 1024 0 9 1 3 7 7 7 0 0 1 1\n'
+                    if version==2:numbers=numbers[:-1]+b' 132352 0\n'
+                    if case=='usb-rejection':numbers=b'-16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 65554 1\n'
                     body+=struct.pack('<III',0,0,len(numbers))+numbers.ljust(256,b'\0')
                     result=body+wire.tag(fixture.key,fixture.identity,20,body)
                     if case=='partial-result':c.sendall(result[:90]);return
@@ -133,6 +135,7 @@ class Ml030WireTests(unittest.TestCase):
                 (access,'capture_endpoint',endpoint_capture),(access,'endpoint',lambda *a:found),
                 (access,'configure',configure),(access,'require_host',lambda h:raw.require_success(h)),
                 (download.socket,'socket',Connected),(download.secrets,'token_bytes',mock.Mock(side_effect=[fixture.nonce,b'z'*32])),
+                (link,'report_version_for',lambda image:version),
                 (link.time,'sleep',sleep)):
                 stack.enter_context(mock.patch.object(obj,name,value))
             for module in (link,download,attach,records,prior.owner):stack.enter_context(mock.patch.object(module,'clock',clock))
@@ -159,6 +162,12 @@ class Ml030WireTests(unittest.TestCase):
                 self.assertTrue(facts['ufs_link_completed'])
             if case=='bad-ack':
                 with self.assertRaises(ValueError):download.rederive(adapter,request)
+            if case=='usb-rejection':
+                fact=link.rederive_link(adapter,request)['result']
+                self.assertEqual(fact['usb_reason'],'BCM_UNKNOWN')
+                self.assertEqual(fact['usb_detail'],1)
+                self.assertFalse(fact['normal_return'])
+                self.assertFalse((folder/'control-intent.json').exists())
             if case=='partial-result':
                 handle=raw.load_handle(folder/'link.capture.json')
                 self.assertEqual(len(raw.read_stdout(handle,maximum=436)),90)
@@ -175,6 +184,8 @@ class Ml030WireTests(unittest.TestCase):
     def test_expiry_after_durable_return_intent(self):self.run_case('expired-at-return')
 
     def test_full_success_and_rederived_late_return(self):self.run_case('success')
+    def test_diagnostic_success_and_rederived_late_return(self):self.run_case('success',version=2)
+    def test_diagnostic_rejection_preserves_raw_and_stops_return(self):self.run_case('usb-rejection',version=2)
     def test_scope_failure_before_permit(self):self.run_case('before-permit')
     def test_durable_permit_without_send_never_replays(self):self.run_case('intent-only')
     def test_partial_result_is_sealed_and_stops_return(self):self.run_case('partial-result')

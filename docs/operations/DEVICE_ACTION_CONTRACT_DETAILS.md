@@ -381,6 +381,30 @@ permission to perform host-only work.
    ICE/key effect is added. Consumed ML028 and ML030–ML032 retain all original
    artifacts, approvals, source bindings and journals and cannot replay.
    Another successor requires its own scope.
+   The distinct [ML034 USB-admission followup](S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md),
+   adopted for the operator's 2026-11-10 correction/next-experiment request,
+   delegates one new exact ML034 candidate on the same S22+ FYG8 target.
+   It inherits the complete preceding ML030 hardware, observation, dispatch,
+   normal-return and physical-recovery conditions with its separately reviewed
+   new Image/module and own qualified artifact, source-bound task and grant.
+   All existing USB/PM/ICC/BCM guard predicates remain mandatory. Before any
+   overlay/rail/probe effect, at most 25 whole coverage attempts within a
+   250-millisecond admission interval and the original 15-second deadline may
+   retry only unsuccessful USB-device, ICC-bandwidth, global-BCM-voter or
+   selected-voter trylocks. Failed attempts fully release locks/references;
+   all other failures stop immediately. Late success releases its references
+   without admitting hardware. No resume, vote, hardware retry or second begin
+   is added. Two fixed scalar diagnostic words use the existing bounded
+   authenticated payload and are selected only by ML034's exact qualification.
+   The original 120/300/540/15-second bounds, six local UniPro commands,
+   one link attempt, one N and one original A total remain unchanged. A fresh
+   separately returned finite attended approval permits one operation in
+   1800 seconds. Exact common/target adoption, independent source/artifact
+   review, fresh health/rollback and usable physical Download recovery remain
+   required. The retained cue caller/interlock and no-replay rules remain.
+   No SCSI/media, partition, filesystem, ICE/key or unattended effect is added.
+   Consumed ML028 and ML030–ML033 retain their original artifact, approval,
+   source and journal identities. A further successor requires its own scope.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

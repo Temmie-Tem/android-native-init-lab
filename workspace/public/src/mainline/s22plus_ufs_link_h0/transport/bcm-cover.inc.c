@@ -67,29 +67,49 @@ static void g0q_trace_finish(struct bcm_voter *voter,
 	}
 }
 
-int g0q_bcm_confirm_usb(void)
+int g0q_bcm_confirm_usb(struct g0q_usb_report *report)
 {
 	struct bcm_voter *voter;
-	int rc = -EBUSY;
+	int rc = g0q_rpmh_remaining();
 
-	if (g0q_rpmh_remaining() || !mutex_trylock(&bcm_voter_lock))
-		return rc;
+	if (rc)
+		return g0q_usb_fail(report, G0Q_USB_RUN_STATE, (u32)rc, rc);
+	if (!mutex_trylock(&bcm_voter_lock))
+		return g0q_usb_fail(report, G0Q_BCM_GLOBAL_LOCK, 0, -EBUSY);
+	rc = g0q_usb_fail(report, G0Q_BCM_VOTER, 0, -ENODEV);
 	list_for_each_entry(voter, &bcm_voters, voter_node) {
 		if (!voter->g0q_primary)
 			continue;
-		if (!mutex_trylock(&voter->lock))
+		if (!mutex_trylock(&voter->lock)) {
+			rc = g0q_usb_fail(report, G0Q_BCM_LOCK, 0, -EBUSY);
 			break;
-		if (!list_empty(&voter->commit_list))
+		}
+		if (!list_empty(&voter->commit_list)) {
+			rc = g0q_usb_fail(report, G0Q_BCM_PENDING, 1, -EBUSY);
 			goto unlock;
+		}
 		for (int i = 0; i < 2; i++) {
 			const struct g0q_bcm_confirmation *row = &voter->g0q_applied[i];
-			if (!row->known || row->y[QCOM_ICC_BUCKET_AMC] != 1 ||
+			if (!row->known) {
+				rc = g0q_usb_fail(report, G0Q_BCM_UNKNOWN, i, -EBUSY);
+				goto unlock;
+			}
+			if (row->y[QCOM_ICC_BUCKET_AMC] != 1 ||
 			    row->y[QCOM_ICC_BUCKET_WAKE] != 1 || row->y[QCOM_ICC_BUCKET_SLEEP] != 1 ||
 			    row->x[QCOM_ICC_BUCKET_AMC] != i || row->x[QCOM_ICC_BUCKET_WAKE] != i ||
-			    row->x[QCOM_ICC_BUCKET_SLEEP] != 0)
+			    row->x[QCOM_ICC_BUCKET_SLEEP] != 0) {
+				/* Two bits per protected scalar: 0, 1, 2, or >=3. */
+				u32 detail = i << 16;
+				for (int b = 0; b < QCOM_ICC_NUM_BUCKETS; b++) {
+					detail |= (u32)(row->x[b] < 3 ? row->x[b] : 3) << (b * 4);
+					detail |= (u32)(row->y[b] < 3 ? row->y[b] : 3) << (b * 4 + 2);
+				}
+				rc = g0q_usb_fail(report, G0Q_BCM_VALUES, detail, -EBUSY);
 				goto unlock;
+			}
 		}
 		rc = g0q_rpmh_remaining();
+		g0q_usb_fail(report, rc ? G0Q_USB_RUN_STATE : G0Q_USB_OK, (u32)rc, rc);
 unlock:
 		mutex_unlock(&voter->lock);
 		break;

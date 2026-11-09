@@ -127,6 +127,25 @@ Approximate timing targets grant no exception or new device effect. Consumed
 ML028 and ML030–ML032 cannot be repinned or replayed; this adoption admits no
 further successor.
 
+### ML034 mainline UFS link USB-admission followup V1
+
+The operator-adopted [ML034 followup](../S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md)
+selects its separate common boundary-3 delegation for one fresh candidate on
+this exact target. Its new Image/module retain every USB/PM/ICC/BCM predicate
+and add only the fixed diagnostic report and pre-hardware trylock-only whole
+coverage recheck described by that policy. At most 25 attempts in 250ms and
+the original 15-second budget, complete unwind, immediate non-lock failure
+and late-success release are mandatory. No PM resume, vote, hardware retry or
+second begin is admitted. Exact independent review and source/artifact binding
+select version 2; legacy candidates retain their original report schemas.
+The closed ML030 hardware, witness, permit, normal-return and physical-recovery
+scope remains unchanged: 120/300/540/15-second bounds, one link attempt, one N
+and one original A total. Fresh target/health/rollback checks, usable Download
+recovery, a separately returned one-operation 1800-second approval and current
+attendance remain mandatory. The retained cue caller and physical interlock
+remain unchanged. Consumed ML028 and ML030–ML033 keep their original bindings
+and cannot replay; this adoption admits no further successor.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

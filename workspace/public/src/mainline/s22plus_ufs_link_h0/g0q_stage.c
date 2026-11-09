@@ -15,6 +15,7 @@
 #include <soc/qcom/g0q-ml030.h>
 #include "waipio_hci.h"
 #include "overlay-data.h"
+#include "usb-admission.h"
 
 extern int ml030_register_rails(void);
 extern void ml030_open_rail_requests(void);
@@ -34,6 +35,7 @@ static unsigned int stage;
 static atomic_t probe_taken = ATOMIC_INIT(0);
 static struct g0q_rpmh_report power;
 static bool usb_covered, usb_released;
+static u32 usb_reason, usb_detail;
 
 static int remaining(void)
 {
@@ -44,12 +46,13 @@ static int report(char *buf, const struct kernel_param *kp)
 {
 	struct g0q_link *link = &board.link;
 
-	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u\n",
+	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u %u %u\n",
 			 operation_rc, stage, link->version, link->hw.pcs_ready,
 			 link->local_commands, link->link_issued, link->before,
 			 link->interrupt, link->result, link->after, link->hce_started,
 			 power.records, power.claimed, power.triggered, power.acknowledged,
-			 power.reclaimed, power.error, usb_covered, usb_released);
+			 power.reclaimed, power.error, usb_covered, usb_released,
+			 usb_reason, usb_detail);
 }
 static const struct kernel_param_ops report_ops = { .get = report };
 module_param_cb(result, &report_ops, NULL, 0444);
@@ -406,7 +409,7 @@ static int __init start(void)
 	rc = g0q_rpmh_begin(board.link.hw.deadline_ns);
 	if (rc)
 		return rc;
-	rc = g0q_usb_cover(&usb);
+	rc = cover_usb(&usb, &usb_reason, &usb_detail, board.link.hw.deadline_ns);
 	usb_covered = !rc;
 	if (!rc)
 		rc = remaining();

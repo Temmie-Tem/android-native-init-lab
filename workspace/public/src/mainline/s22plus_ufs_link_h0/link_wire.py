@@ -9,6 +9,11 @@ HEADER = struct.Struct("<8s32s32s32s16sQQ")
 RESULT_SIZE = HEADER.size + 12 + 256 + 32
 GAP_MS = 300000
 END_MS = 540000
+USB_REASONS = ('OK', 'USB_HELD', 'RUN_STATE', 'USB_NODE', 'USB_DEVICE', 'USB_LOCK',
+               'USB_DRIVER', 'USB_DATA', 'USB_PM', 'ICC_NODE', 'ICC_PATH', 'ICC_LENGTH',
+               'ICC_LOCK', 'ICC_REQUEST', 'BCM_GLOBAL_LOCK', 'BCM_VOTER', 'BCM_LOCK',
+               'BCM_PENDING', 'BCM_UNKNOWN', 'BCM_VALUES', 'COVER_CEILING')
+USB_LOCKS = {5, 12, 14, 16}
 
 
 def check(value, message):
@@ -37,7 +42,57 @@ def witness(raw, key, identity, first, second, boot, t0):
     return t1
 
 
-def result(raw, verified_witness, key, identity):
+def usb_diagnostics(values):
+    rc, *_, usb, release, word, detail = values
+    check(0 <= word < 1 << 24 and 0 <= detail < 1 << 32, 'USB report word range')
+    code, first, attempts = word & 255, (word >> 8) & 255, word >> 16
+    check(code < len(USB_REASONS) and first in ({0} | USB_LOCKS) and attempts <= 25,
+          'USB reason or attempt range')
+    check((attempts > 0 or (code in (2, 20) and first == 0)) and
+          (attempts <= 1 or first in USB_LOCKS) and
+          (code not in USB_LOCKS or first in USB_LOCKS) and
+          (attempts != 1 or first == 0 or code in (2, 20) or first == code),
+          'USB retry history')
+    if code == 0:
+        check(usb == release == 1 and detail == 0 and attempts > 0, 'USB successful coverage')
+    else:
+        check(rc < 0 and usb == release == 0 and not any(values[1:16]),
+              'USB rejected before hardware')
+        check(values[16] == 0 or (code == 2 and values[16] == rc), 'USB run-state error')
+        fixed = {1:22, 3:19, 4:19, 5:16, 6:19, 7:19, 9:19, 11:22, 12:16,
+                 13:16, 14:16, 15:19, 16:16, 17:16, 18:16, 19:16, 20:110}
+        check(code not in fixed or rc == -fixed[code], 'USB branch errno')
+        if code in USB_LOCKS or code in (1, 4, 15, 20):
+            check(detail == 0, 'USB unexpected detail')
+        elif code == 2:
+            check(detail == rc % (1 << 32), 'USB run-state errno')
+        elif code in (3, 6, 7):
+            check(detail in (1, 2), 'USB identity detail')
+        elif code == 8:
+            check(detail == 0 and rc == -16 or detail >= (1 << 31) and detail == rc % (1 << 32),
+                  'USB PM API return')
+        elif code == 9:
+            check(detail in (1, 2, 3), 'ICC missing-node detail')
+        elif code == 10:
+            check(detail == 0 and rc == -19 or -4095 <= rc < 0 and detail == rc % (1 << 32),
+                  'ICC path errno')
+        elif code == 11:
+            check(detail != 4, 'ICC path length')
+        elif code == 13:
+            check(detail >> 16 < 4 and 0 < (detail & 65535) < 128, 'ICC request flags')
+        elif code == 17:
+            check(detail == 1, 'BCM pending detail')
+        elif code == 18:
+            check(detail in (0, 1), 'BCM unknown index')
+        elif code == 19:
+            check(detail & ~0x10fff == 0 and (detail & 0xfff) != (0x455 if detail >> 16 else 0x444),
+                  'BCM protected scalar snapshot')
+    return dict(usb_reason=USB_REASONS[code], usb_first_lock=USB_REASONS[first],
+                usb_attempts=attempts, usb_detail=detail)
+
+
+def result(raw, verified_witness, key, identity, *, report_version=1):
+    check(report_version in (1, 2), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -51,9 +106,12 @@ def result(raw, verified_witness, key, identity):
     if load or read:
         return dict(status="NO_PROOF",load_errno=load,read_errno=read,report_bytes=size,normal_return=False)
     numbers = payload[:size]
-    check(re.fullmatch(rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){18}\n", numbers),
+    fields = 19 if report_version == 1 else 21
+    pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
+    check(re.fullmatch(pattern, numbers),
           "invalid module status line")
-    rc,stage,version,pcs,local,issued,before,irq,code,after,hce,count,claimed,triggered,acked,reclaimed,error,usb,release = map(int,numbers.split())
+    values = list(map(int, numbers.split()))
+    rc,stage,version,pcs,local,issued,before,irq,code,after,hce,count,claimed,triggered,acked,reclaimed,error,usb,release = values[:19]
     check(-(1<<31)<=rc<=0 and -(1<<31)<=error<=0 and all(0<=v<2**32 for v in
           (stage,version,pcs,local,issued,before,irq,code,after,hce,count,claimed,triggered,acked,reclaimed,usb,release))
           and count<=32 and stage<=6 and local<=6 and all(v in (0,1) for v in (pcs,issued,hce,usb,release)),
@@ -64,6 +122,8 @@ def result(raw, verified_witness, key, identity):
     facts = dict(operation_errno=-rc,stage=stage,records=count,claimed=claimed,triggered=triggered,
                  acknowledged=acked,reclaimed=reclaimed,usb_covered=bool(usb),usb_released=bool(release),
                  local_commands=local,link_issued=bool(issued),status="NO_PROOF",normal_return=False)
+    if report_version == 2:
+        facts.update(usb_diagnostics(values))
     if rc:
         return facts
     check(stage == 6 and version>>28 == 4 and pcs == hce == issued == usb == release == 1 and

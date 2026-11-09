@@ -12,7 +12,7 @@ CASES = ("success", "busy", "expired", "old-enable", "old-irq", "payload-expiry"
 
 
 def compile_fixture(out, compiler, flags, source="s22plus_ml030_rsc_fixture.c"):
-    for name in ("linux/ktime.h", "soc/qcom/g0q-ml030.h"):
+    for name in ("linux/ktime.h", "linux/of_platform.h", "soc/qcom/g0q-ml030.h"):
         path = out/name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()

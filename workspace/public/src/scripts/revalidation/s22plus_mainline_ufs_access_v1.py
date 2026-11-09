@@ -12,6 +12,7 @@ import s22plus_mainline_download_access_v1 as download
 import s22plus_mainline_profile_v1 as profile
 from s22plus_native_records_v3 import Journal, clock, host_boot, pin, publish, read, require, verify
 from mainline.s22plus_ufs_link_h0 import link_wire as wire
+from s22plus_mainline_ufs_image_v1 import report_version_for
 
 LATE_NS=540_000_000_000
 GAP_NS=300_000_000_000
@@ -117,7 +118,8 @@ def rederive_link(adapter,request):
             'ML030 dispatch endpoint changed')
     key,identity,_,_,_=wire_identity(manifest,base)
     data=bytes_for(folder,'link',wire.RESULT_SIZE)
-    facts=wire.result(data,bytes_for(folder,'witness',wire.HEADER.size+32),key,identity)
+    facts=wire.result(data,bytes_for(folder,'witness',wire.HEADER.size+32),key,identity,
+                      report_version=report_version_for(request['N']))
     if 'control_nonce' in facts:facts=dict(facts,control_nonce=facts['control_nonce'].hex())
     return dict(base=base,witness=intent['witness'],result=facts,response=done['response'],complete=pin(folder/'link-complete.json'))
 
