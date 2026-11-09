@@ -364,6 +364,23 @@ permission to perform host-only work.
    SCSI/media, partition, filesystem or ICE/key effect. Consumed ML030/ML031
    artifacts, approvals, journals and source bindings retain their identities;
    neither may replay, and a further successor requires its own scope.
+   The distinct [ML033 timely-attach followup](S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md),
+   adopted by the operator on 2026-11-10, delegates one new exact ML033
+   candidate on this same S22+ FYG8 target. It inherits the complete preceding
+   ML030 hardware, observation, dispatch, normal-return and physical-recovery
+   conditions with its separately qualified artifact and own source-bound
+   task/grant. The 120/300/540/15-second bounds, six fixed local UniPro
+   commands, one link attempt, one N and one original A total remain unchanged.
+   Its separately returned attended approval permits one operation in 1800
+   seconds. Exact common/target adoption, reviewed source/artifact admission,
+   fresh health/rollback and usable physical Download recovery remain required.
+   It uses the unchanged reviewed cue caller and original physical interlock;
+   approximate invocation/completion targets are operational planning, never
+   readiness proof, new admission gates or permission to bypass current checks.
+   No device command, window extension, SCSI/media, partition, filesystem or
+   ICE/key effect is added. Consumed ML028 and ML030–ML032 retain all original
+   artifacts, approvals, source bindings and journals and cannot replay.
+   Another successor requires its own scope.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

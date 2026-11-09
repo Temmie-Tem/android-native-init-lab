@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **67** (supersedes revision 66; 2026-11-09)
+Contract-Revision: **68** (supersedes revision 67; 2026-11-10)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`06ff03e948717ecb319f29d457fc1c982ec0ecd3e86da13a980cd8c186e48af5`.
+`36dc5a06027ae25a608cb64951754c78bbd57734c71081cee1ccc54531c6e93f`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -77,6 +77,8 @@ Read an exception's complete conditions before considering it applicable.
    effects for its one fresh candidate; consumed ML030 remains consumed.
    The separate exact ML032 followup retains the same effects for its one
    fresh candidate and corrected cue caller; ML030 and ML031 remain consumed.
+   The separate exact ML033 followup retains those effects and the reviewed
+   cue caller for one fresh candidate; consumed ML028 and ML030–ML032 stay consumed.
    The exact S22+ inspection, userspace, preflight, witness, Debian and
    journal-recovery profiles are linked in the routing table below. Their
    complete closed effects, admission, attendance, budgets, evidence and
@@ -306,6 +308,7 @@ linked policy; an abbreviated routing cell does not remove a limit or grant.
 | F2/T1/T2 or fastboot exception | Complete permanent-boundary exception and tier/target conditions; consumed actions remain consumed. |
 | S22+ ML030 mainline UFS link | [One late link after the five-minute witness](docs/operations/S22PLUS_MAINLINE_UFS_LINK_V1.md) |
 | S22+ ML032 mainline UFS link followup | [Same bounded link with refreshed attach census](docs/operations/S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md) |
+| S22+ ML033 mainline UFS link followup | [Same bounded link with prepared timely attachment](docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md) |
 | S22+ G2 GPT reservation/reset | [Exact reservation and Android32 successor](docs/operations/S22PLUS_NATIVE_GPT_RESERVATION_V1.md) |
 | S22+ native ext4 | [Exact native_data filesystem and witness](docs/operations/S22PLUS_NATIVE_EXT4_V1.md) |
 | S22+ Debian first boot | [Exact native_data installation and PID 1 handoff](docs/operations/S22PLUS_DEBIAN_FIRST_BOOT_V1.md) |

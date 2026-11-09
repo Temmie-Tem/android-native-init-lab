@@ -112,6 +112,21 @@ and the existing interlock. It adds no device effect or time extension.
 ML030 and ML031 remain consumed, and no old approval, source binding or journal
 may be repinned. No further successor is admitted by this adoption.
 
+### ML033 mainline UFS link timely-attach followup V1
+
+The operator-adopted [ML033 followup](../S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md)
+selects its separate common boundary-3 delegation for one fresh candidate on
+this exact target. The closed ML030 hardware, witness, permit, return and
+recovery scope remains unchanged: 120/300/540/15-second bounds, one link attempt,
+one N and one original A total. Exact reviewed source/artifact admission,
+fresh target/health/rollback checks, usable Download recovery, a separately
+returned one-operation 1800-second approval and current attendance remain
+mandatory. The unchanged cue caller retains all owner, latest-census,
+raw-integrity, state and deadline checks and its physical-action interlock.
+Approximate timing targets grant no exception or new device effect. Consumed
+ML028 and ML030–ML032 cannot be repinned or replayed; this adoption admits no
+further successor.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

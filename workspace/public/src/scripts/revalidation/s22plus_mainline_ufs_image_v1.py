@@ -23,6 +23,8 @@ FOLLOWUP_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml031-attach-dw
 FOLLOWUP_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_FOLLOWUP_V1.md'
 CUE_REFRESH_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml032-cue-refresh-h0-20261109-1'
 CUE_REFRESH_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_CUE_REFRESH_V1.md'
+TIMED_ATTACH_BASE = ROOT/'workspace/private/outputs/s22plus-mainline-ml033-timed-attach-h0-20261110-1'
+TIMED_ATTACH_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md'
 DECLARATIONS = {
     'ML030': dict(ap=AP, archive=ARCHIVE, loader=LOADER, policy=POLICY,
         schema='s22plus-ml030-qualification-v1', evidence_sha256=EVIDENCE_SHA,
@@ -54,6 +56,18 @@ DECLARATIONS = {
             component=BASE/'transport-component-4/result.json', kernel=BASE/'transport-build-4/guard-result.json',
             review=CUE_REFRESH_BASE/'review/independent-review-1.json', evidence=CUE_REFRESH_BASE/'qualification-1.json',
             loader_tests=CUE_REFRESH_BASE/'loader-tests-1/result.json', entry_tests=CUE_REFRESH_BASE/'loader-entry-vm-1/result.json')),
+    'ML033': dict(ap='2b4582480df278eb9d704e7356d9c19111d5130764afd968ca644b079ca4ad44',
+        archive='b87ee934f39329305d36d027f1721c19cf84f698afb7329b7d0b5ab024aa00a6',
+        loader='0f4278b2739eadb7bb6b7f7b36343dfa214f97dcef08ea6335715bcea1863a89',
+        policy=TIMED_ATTACH_POLICY, schema='s22plus-ml033-qualification-v1',
+        review_sha256='ead43fc443d190c8172acce60ca760e4674e5122edabec5d2fb3c8c3a24b8503',
+        inputs_sha256='1939dcab33c87019c708c038a8ffb627a15a1285a9950b9c2ad5103cfdb13a2c',
+        evidence_sha256='7d30b921f7544a1e8f7e64a7ed5e0ec80a91032a1fb8132d4618be958c499575',
+        paths=dict(manifest=TIMED_ATTACH_BASE/'init-physical-1/result.json',
+            package=TIMED_ATTACH_BASE/'package-1/result.json', loader=TIMED_ATTACH_BASE/'loader-1/result.json',
+            component=BASE/'transport-component-4/result.json', kernel=BASE/'transport-build-4/guard-result.json',
+            review=TIMED_ATTACH_BASE/'review/independent-review-1.json', evidence=TIMED_ATTACH_BASE/'qualification-1.json',
+            loader_tests=TIMED_ATTACH_BASE/'loader-tests-1/result.json', entry_tests=TIMED_ATTACH_BASE/'loader-entry-vm-1/result.json')),
 }
 
 

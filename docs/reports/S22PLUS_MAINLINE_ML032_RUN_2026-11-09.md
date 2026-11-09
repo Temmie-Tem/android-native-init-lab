@@ -100,3 +100,14 @@ action was repeated. The successful rederivation is `run-audit-2.json`.
 The 63 protected ML030/ML031 records and 11 unrelated work files still match
 the before snapshot. The current candidate remains consumed; any successor
 requires its own applicable scope, qualification and authority.
+
+## Post-closure host-journal observation, 2026-11-10
+
+A bounded read of the retained host journal found ML032's exact candidate USB
+serial at N+180.621 seconds and NCM registration at +180.685 seconds, after the
+original first-response window ended at +120.252 seconds. The raw host boot
+and monotonic timestamps join the original grant and N launch. This is late
+host enumeration evidence, not a measured physical reconnect time or an
+authenticated PID1/base/witness result. The terminal result, consumption and
+original private run remain unchanged. The [comparison and ML033 preparation](S22PLUS_MAINLINE_ML033_USB_COMPARISON_H0_2026-11-10.md)
+retain the raw digest, method, limitations and next bounded experiment.

@@ -30,6 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML033 candidate and exact adoption have independent `PASS_GO`.** It retains
+  ML032's functional kernel/module/guest/cue behavior with fresh keys, observer,
+  archive, loader and AP. The existing cue is prepared for timely use under
+  unchanged guards and 120/300/540/15-second bounds. Exact admission, the
+  reviewed owner and immutable V37 bridge are prepared; no grant or F1 effect
+  has occurred. Current health, the generated finite approval, attendance and
+  usable Download recovery remain the physical frontier.
+  [Comparison, evidence and preparation](docs/reports/S22PLUS_MAINLINE_ML033_USB_COMPARISON_H0_2026-11-10.md)
+  · [Adopted scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md).
+
 - **ML032 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   The corrected caller issued one cue with 101.163 seconds remaining, but all
   86 sealed USB censuses reported the selected path absent. No base request,
@@ -41,6 +51,10 @@ identities, goals, artifacts and authority remain separate.
   N/A each transferred once, no F1 owner remains, and ML032 cannot be replayed.
   It is the latest physical closure. This proves cue publication during live
   polling, not mainline boot, timely physical replug or a UFS failure cause.
+  Later retained host-journal analysis found its exact USB identity/NCM at
+  N+180.621/+180.685 seconds, outside the original first-response window.
+  That passive enumeration does not upgrade authenticated proof or establish
+  the physical reconnect time; the terminal result remains unchanged.
   [Physical run](docs/reports/S22PLUS_MAINLINE_ML032_RUN_2026-11-09.md)
   · [H0/adoption evidence](docs/reports/S22PLUS_MAINLINE_ML032_CUE_REFRESH_H0_2026-11-09.md).
 
