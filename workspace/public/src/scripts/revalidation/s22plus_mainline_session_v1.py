@@ -119,6 +119,8 @@ def link_fact(adapter,request,result):
         result.update(ufs_link_completed=complete,ufs_evidence=link)
         if complete:
             result['status']='PASS_MAINLINE_UFS_LINK'
+        elif link['result'].get('return_reason') == 'PRE_EFFECT_REJECTION':
+            result.update(status='NO_PROOF',ufs_pre_effect_rejection=True)
     except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
         result['ufs_evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
     return result

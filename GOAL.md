@@ -279,7 +279,27 @@ admission is created. The ARM64 module build, 28 focused tests, 210 comparative
 trace cases and retained v1/v2 decoding passed; independent review returned
 PASS_GO for this H0 change only. [H0 report](docs/reports/S22PLUS_MAINLINE_STAGE2_DIAGNOSTICS_H0_2026-11-10.md)
 records the result and isolated commit scope. Normal-return expansion and capability identity separation
-remain [separate unimplemented proposals](docs/plans/S22PLUS_MAINLINE_RETURN_AND_CAPABILITY_IMPROVEMENTS_H0_2026-11-10.md).
+are implemented by the separate H0 unit below, without live adoption.
+
+
+## Completed host-only unit: candidate reuse and pre-effect return
+
+The isolated `codex/s22-mainline-efficiency-h0` branch implements report-v4
+normal Download after a proved, settled pre-overlay coverage refusal, and a
+key-only V2 capability/candidate split through the existing image/task paths.
+Existing guards, same-boot 300-second witness, deadlines, original-A owner and
+no-replay semantics remain mandatory; stage-two failures remain excluded from
+the return extension. The UFS result after refusal stays `NO_PROOF`.
+
+Two fresh H0 candidates have actual ARM64 observer/archive/loader/AP artifacts,
+loader and exception-level qualification, with unchanged kernel/module and
+shared capability inputs. Both passed complete producer reproduction and
+fresh qualification with the same independent capability `PASS_GO`. The
+102-case focused suite and final 16-case V2 check passed; this bounded H0 unit
+is closed. The shared policy remains `H0_NOT_ADOPTED`;
+there is no connected read, grant, activation, transfer or physical result.
+[Implementation and validation](docs/reports/S22PLUS_MAINLINE_EFFICIENCY_H0_2026-11-10.md)
+
 
 ## Milestones toward the final server
 

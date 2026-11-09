@@ -29,6 +29,33 @@ MODULES=('s22plus_mainline_task_v1','s22plus_mainline_profile_v1','s22plus_mainl
     'consumed_candidate_registry_v1','device_action_raw_capture_v1','device_action_read_dependencies_v1')
 
 
+IMAGE_V2 = 's22plus-mainline-ufs-image-v2'
+CAPABILITY_SCHEMA = 's22plus-mainline-ufs-capability-v2'
+CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_KEY_ONLY_V2'
+CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md'
+# Historical policies do not authorize v2. The common/target boundaries remain
+# pinned, and adoption of the shared policy is separately checked at live use.
+V2_RETIRED = {
+    'docs/operations/S22PLUS_MAINLINE_UFS_LINK' + suffix + '.md' for suffix in
+    ('_V1', '_FOLLOWUP_V1', '_CUE_REFRESH_V1', '_TIMED_ATTACH_V1',
+     '_USB_ADMISSION_V1', '_BCM_ALIAS_V1')}
+V2_BUILD = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
+    ('build_evidence.py', 'build_module.py', 'cold_phy_tables.py', 'late_overlay.py', 'late_rails.py',
+     'link_initramfs.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'g0q_stage.c',
+     'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h')) + tuple(
+    'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
+    ('init.c', 'protocol.h', 'download-return.h', 'build_loader.py', 'package_loader.py',
+     'qualify_loader.py', 'loader_entry_vm.py', 'uniloader-g0q-entry.patch', 'sources.json')) + (
+    'workspace/public/src/scripts/revalidation/s22plus_mainline_ufs_candidate_v2.py',
+    'workspace/public/src/native-init/s22plus_fyg8_max77705_result_parser.inc.c',
+    'workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_boot_only_packager.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_fyg8_r4w1c_watchdog_carrier.py')
+
+
+def candidate_v2(image):
+    return image is not None and image.get('schema') == IMAGE_V2
+
+
 def selected_profile(image):
     if image.get('profile')==profile.PROFILE:return profile
     if image.get('profile')=='loader-android-v1':
@@ -37,7 +64,7 @@ def selected_profile(image):
     require(False,'unselected mainline-project comparison profile')
 
 
-def source_paths(root,selected=profile):
+def source_paths(root,selected=profile,*,image=None):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
@@ -76,12 +103,16 @@ def source_paths(root,selected=profile):
         paths += ['workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
                   ('build_loader.py','build_kernel.py','prepare_marked.py','retained-marker.S',
                    'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
+    if candidate_v2(image):
+        require(selected is profile, 'v2 requires the mainline profile')
+        paths = [path for path in paths if path not in V2_RETIRED]
+        paths += [CAPABILITY_POLICY, *V2_BUILD]
     return tuple(root/path for path in sorted(set(paths)))
 
 
-def source_pins(root,selected=profile):
+def source_pins(root,selected=profile,*,image=None):
     root=Path(root)
-    return [dict(pin(path),path=str(path.relative_to(root))) for path in source_paths(root,selected)]
+    return [dict(pin(path),path=str(path.relative_to(root))) for path in source_paths(root,selected,image=image)]
 
 
 def loader_build_only(path):
@@ -112,8 +143,28 @@ def marker_only(path):
                     'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py')
 
 
-def capability(root,*,recovery=False,selected=profile):
-    root=Path(root);path=root/selected.REVIEW;value=read(path)
+def capability(root,*,recovery=False,selected=profile,image=None):
+    root=Path(root)
+    if candidate_v2(image):
+        # This metadata branch deliberately does not import any v2 builder or
+        # candidate validator: the original A owner never requalifies N.
+        cap=read(verify(image['capability']))
+        receipt=image['capability_review'];value=read(verify(receipt))
+        require(set(value)=={'schema','verdict','scope','capability','reviewer','findings'} and
+            value['schema']=='s22plus-mainline-ufs-capability-review-v2' and
+            value['scope']==CAPABILITY_SCOPE and value['verdict']=='PASS_GO' and
+            value['capability']==image['capability'] and value['findings']==[] and
+            type(value['reviewer']) is str and value['reviewer'].strip(), 'v2 capability review differs')
+        require(set(cap)=={'schema','scope','policy','sources','fixed','evidence','device_actions'} and
+            cap['schema']==CAPABILITY_SCHEMA and cap['scope']==CAPABILITY_SCOPE and
+            cap['policy']==CAPABILITY_POLICY and cap['device_actions']==0, 'v2 capability scope differs')
+        expected=[str(p.relative_to(root)) for p in source_paths(root,selected,image=image)]
+        require([r['path'] for r in cap['sources']]==expected, 'v2 selected source closure differs')
+        for row in cap['sources']:
+            if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD):continue
+            tasks.unchanged(dict(row,path=str(root/row['path'])))
+        return receipt
+    path=root/selected.REVIEW;value=read(path)
     require(set(value)=={'schema','verdict','scope','sources','reviewer','findings'} and
         value['schema']==selected.REVIEW_SCHEMA and value['verdict']=='PASS_GO' and
         value['scope']==selected.REVIEW_SCOPE and value['findings']==[] and
@@ -156,7 +207,7 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
         re.fullmatch('[A-Za-z0-9._:-]{1,128}',task['target']['serial']) and
         task['target']['topology']==target.lane.SOURCE_TOPOLOGY,'mainline target binding differs')
     target.lane.validate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
-    require(task['review']==capability(root,recovery=recovery,selected=selected),'mainline capability changed')
+    require(task['review']==capability(root,recovery=recovery,selected=selected,image=task['N']),'mainline capability changed')
     require(task['runtime_scope']==task['N']['runtime_sources'],'mainline runtime scope differs')
     if not recovery:
         manifest=selected.image_binding(task['N'])
@@ -312,7 +363,7 @@ def prepare(root,output,image,retained_task):
     ident=str(uuid.uuid4())
     task=dict(selected,schema=selected_profile_value.TASK_SCHEMA,N=image,E=None,A=tasks.android_artifact(root),
         adb=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024*1024),
-        odin=read(root/tasks.PROFILE)['transport']['odin'],review=capability(root,selected=selected_profile_value),
+        odin=read(root/tasks.PROFILE)['transport']['odin'],review=capability(root,selected=selected_profile_value,image=image),
         operations=[selected_profile_value.OPERATION],seconds=selected_profile_value.SECONDS,
         operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
         usb_reconnect=False,admission=None,prior_terminal=None,runtime_scope=image['runtime_sources'])
@@ -326,7 +377,8 @@ def prepare(root,output,image,retained_task):
     # Source provenance is ordinary private preparation output, not a new
     # authority gate. Preserve the bytes named by the review before effects.
     snapshot=[]
-    for source in (*source_paths(root,selected_profile_value),root/selected_profile_value.REVIEW):
+    for source in (*source_paths(root,selected_profile_value,image=image),Path(task['review']['path']),
+                   *([Path(image['capability']['path'])] if candidate_v2(image) else [])):
         destination=output/'source-snapshot'/source.relative_to(root)
         destination.parent.mkdir(mode=0o700,parents=True,exist_ok=True)
         shutil.copyfile(source,destination);os.chmod(destination,0o400)

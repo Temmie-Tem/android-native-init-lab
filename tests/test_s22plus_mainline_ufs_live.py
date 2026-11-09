@@ -61,7 +61,7 @@ class Ml030WireTests(unittest.TestCase):
         found={'interface':'lo'}
         def endpoint_capture(dest,name):
             if (case=='expired-at-permit' and name=='usb-before-permit' or
-                    case=='expired-at-return' and name=='usb-before-control'):
+                    case in ('expired-at-return','pre-effect-expired-at-return') and name=='usb-before-control'):
                 current[0]=start+540*10**9
             return raw.publish_captured_bytes(dest,name,stdout=b'fixture USB',stderr=b'')
         def configure(plan,m,endpoint,dest,guard,deadline_ns):
@@ -108,11 +108,19 @@ class Ml030WireTests(unittest.TestCase):
                     numbers=b'0 6 1073741824 1 6 1 8 1024 0 9 1 3 7 7 7 0 0 1 1\n'
                     if version>=2:numbers=numbers[:-1]+b' 132352 0\n'
                     if version==3:numbers=numbers[:-1]+b' 0 2047\n'
+                    if version==4:numbers=numbers[:-1]+b' 1073741824 2047\n'
                     if case=='usb-rejection':numbers=b'-16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 65554 1\n'
                     if case=='stage2-rejection':
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
                         exe=compile_stage_fixture(directory/'stage2-producer')
                         numbers=subprocess.check_output([exe,'0','1','-16','1','0'],stderr=subprocess.DEVNULL,timeout=5)
+                    if case.startswith('pre-effect-'):
+                        from test_s22plus_pre_effect_return import compile_pre_effect, module_report
+                        exe=compile_pre_effect(directory/'pre-effect-producer')
+                        numbers=module_report(exe,'stage2' if case=='pre-effect-stage2' else 'refuse')
+                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True)
+                        gate=int(subprocess.check_output([guest],input=numbers,timeout=5))
+                        self.assertEqual(gate==0,case!='pre-effect-stage2')
                     body+=struct.pack('<III',0,0,len(numbers))+numbers.ljust(256,b'\0')
                     result=body+wire.tag(fixture.key,fixture.identity,20,body)
                     if case=='partial-result':c.sendall(result[:90]);return
@@ -124,7 +132,7 @@ class Ml030WireTests(unittest.TestCase):
                     self.assertEqual(control,codec.control(fixture.key,fixture.identity,nonce,str(__import__('uuid').UUID(bytes=boot))))
                     head=codec.ACK_MAGIC+fixture.identity+nonce+boot
                     ack=head+codec.tag(fixture.key,fixture.identity,3,head)
-                    if case=='bad-ack':ack=ack[:-1]+bytes([ack[-1]^1])
+                    if case in ('bad-ack','pre-effect-bad-ack'):ack=ack[:-1]+bytes([ack[-1]^1])
                     c.sendall(ack);c.shutdown(socket.SHUT_WR);c.recv(1)
             except (BrokenPipeError,ConnectionResetError):pass
             except Exception as error:errors.append(error)
@@ -149,14 +157,15 @@ class Ml030WireTests(unittest.TestCase):
             try:value=link.observe(adapter,request,session.check,before_permit)
             except (ValueError,OSError,raw.RawCaptureError) as e:error=e
             thread.join(4);self.assertFalse(thread.is_alive());self.assertFalse(errors)
-            if case=='success':
+            if case in ('success','pre-effect-success'):
                 self.assertIsNone(error)
                 self.assertEqual(value,download.rederive(adapter,request))
                 records.publish(directory/(profile.SELECTION+'.json'),value)
                 ready=download.return_request(adapter,request,create=True)
                 self.assertEqual(ready['requested_ns'],records.read(folder/'control-intent.json')['requested_ns'])
                 with mock.patch.object(link,'host_boot',return_value='later-host'):
-                    self.assertEqual(link.rederive_link(adapter,request)['result']['status'],'UFS_LINK_COMPLETED')
+                    self.assertEqual(link.rederive_link(adapter,request)['result']['status'],
+                                     'NO_PROOF' if case=='pre-effect-success' else 'UFS_LINK_COMPLETED')
             else:self.assertIsNotNone(error)
             independent=prior.session.link_fact(adapter,request,{'status':'NO_PROOF'})
             self.assertTrue(independent['five_minute_same_boot'])
@@ -166,7 +175,7 @@ class Ml030WireTests(unittest.TestCase):
                 self.assertEqual(link.rederive_link(adapter,request)['result']['status'],'UFS_LINK_COMPLETED')
                 facts=prior.session.link_fact(adapter,request,{'status':'NO_PROOF','automatic_download_return_proved':False})
                 self.assertTrue(facts['ufs_link_completed'])
-            if case=='bad-ack':
+            if case in ('bad-ack','pre-effect-bad-ack'):
                 with self.assertRaises(ValueError):download.rederive(adapter,request)
             if case=='usb-rejection':
                 fact=link.rederive_link(adapter,request)['result']
@@ -181,6 +190,16 @@ class Ml030WireTests(unittest.TestCase):
                 self.assertEqual(fact['stage2_conditions']['HCS'],'UNOBSERVED')
                 self.assertFalse(fact['normal_return'])
                 self.assertFalse((folder/'control-intent.json').exists())
+            if case.startswith('pre-effect-'):
+                fact=link.rederive_link(adapter,request)['result']
+                self.assertEqual(fact['normal_return'],case!='pre-effect-stage2')
+                self.assertEqual(fact['status'],'NO_PROOF')
+                final=prior.session.link_fact(adapter,request,{'status':'PASS_MAINLINE_DOWNLOAD_RAM'})
+                self.assertFalse(final['ufs_link_completed'])
+                if case!='pre-effect-stage2':
+                    self.assertEqual(final['status'],'NO_PROOF')
+                    self.assertTrue(final['ufs_pre_effect_rejection'])
+                else:self.assertFalse((folder/'control-intent.json').exists())
             if case=='partial-result':
                 handle=raw.load_handle(folder/'link.capture.json')
                 self.assertEqual(len(raw.read_stdout(handle,maximum=436)),90)
@@ -191,7 +210,7 @@ class Ml030WireTests(unittest.TestCase):
                 with self.assertRaises(ValueError):prior.owner.Session.intent(session,prior.owner.Step(profile.SELECTION,download.ACTION,'N'),detail={})
             with self.assertRaises(FileExistsError):link.observe(adapter,request,session.check,before_permit)
         self.assertEqual(observed.count('GO'),int(case not in ('before-permit','intent-only','expired-at-permit')))
-        self.assertEqual(observed.count('Download'),int(case in ('success','bad-ack')))
+        self.assertEqual(observed.count('Download'),int(case in ('success','bad-ack','pre-effect-success','pre-effect-bad-ack')))
 
     def test_expiry_at_actual_permit_capture(self):self.run_case('expired-at-permit')
     def test_expiry_after_durable_return_intent(self):self.run_case('expired-at-return')
@@ -200,6 +219,10 @@ class Ml030WireTests(unittest.TestCase):
     def test_diagnostic_success_and_rederived_late_return(self):self.run_case('success',version=2)
     def test_stage2_schema_success_keeps_original_return_conditions(self):self.run_case('success',version=3)
     def test_actual_stage2_report_preserves_raw_and_stops_return(self):self.run_case('stage2-rejection',version=3)
+    def test_pre_effect_actual_guest_host_return(self):self.run_case('pre-effect-success',version=4)
+    def test_pre_effect_failed_ack_does_not_prove_return(self):self.run_case('pre-effect-bad-ack',version=4)
+    def test_pre_effect_does_not_extend_return_deadline(self):self.run_case('pre-effect-expired-at-return',version=4)
+    def test_pre_effect_stage2_remains_excluded(self):self.run_case('pre-effect-stage2',version=4)
     def test_diagnostic_rejection_preserves_raw_and_stops_return(self):self.run_case('usb-rejection',version=2)
     def test_scope_failure_before_permit(self):self.run_case('before-permit')
     def test_durable_permit_without_send_never_replays(self):self.run_case('intent-only')

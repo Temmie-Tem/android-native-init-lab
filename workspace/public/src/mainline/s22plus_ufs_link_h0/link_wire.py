@@ -145,7 +145,7 @@ def stage2_diagnostics(values):
 
 
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3), 'unselected module report schema')
+    check(report_version in (1, 2, 3, 4), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -159,7 +159,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
     if load or read:
         return dict(status="NO_PROOF",load_errno=load,read_errno=read,report_bytes=size,normal_return=False)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23}[report_version]
+    fields = {1:19, 2:21, 3:23, 4:23}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -177,8 +177,21 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
                  local_commands=local,link_issued=bool(issued),status="NO_PROOF",normal_return=False)
     if report_version >= 2:
         facts.update(usb_diagnostics(values[:21]))
-    if report_version == 3:
-        facts.update(stage2_diagnostics(values))
+    pre_effect = False
+    if report_version >= 3:
+        diagnostic = values.copy()
+        if report_version == 4:
+            check(0 <= values[21] < 1 << 32 and values[21] & ~0x1ffff == 0x40000000,
+                  'pre-effect report version tag')
+            pre_effect = bool(values[21] & 0x10000)
+            diagnostic[21] &= 0xffff
+            if pre_effect:
+                check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
+                      and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
+        facts.update(stage2_diagnostics(diagnostic))
+    if pre_effect:
+        return dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
+                    control_nonce=hashlib.sha256(raw).digest())
     if rc:
         return facts
     check(stage == 6 and version>>28 == 4 and pcs == hce == issued == usb == release == 1 and

@@ -110,11 +110,17 @@ def selection(image):
 
 
 def policy_for(image):
+    if image.get('schema')=='s22plus-mainline-ufs-image-v2':
+        from s22plus_mainline_ufs_candidate_v2 import selection as selected
+        return selected(image)[0]['policy']
     return selection(image)[1]['policy']
 
 
 def report_version_for(image):
     """Only the exact admitted AP selects a report; never infer it from bytes."""
+    if image.get('schema')=='s22plus-mainline-ufs-image-v2':
+        from s22plus_mainline_ufs_candidate_v2 import selection as selected
+        return selected(image)[0]['fixed']['report_version']
     return selection(image)[1].get('report_version', 1)
 
 
@@ -123,9 +129,12 @@ def checked(receipt):
 
 
 def runtime(manifest,*,candidate='ML030'):
-    from mainline.s22plus_canary_h0 import debian_ram as d
     require(candidate in DECLARATIONS, 'unselected UFS-link runtime')
-    declaration=DECLARATIONS[candidate]
+    return _runtime(manifest, DECLARATIONS[candidate])
+
+
+def _runtime(manifest, declaration):
+    from mainline.s22plus_canary_h0 import debian_ram as d
     require(manifest['debian_ram']['schema']==SCHEMA and manifest['vm'] is False and
             manifest['physical_admitted'] is False and manifest['status']=='H0_ML030_FIXED_RAM_ARCHIVE',
             'ML030 physical archive declaration')
@@ -158,13 +167,17 @@ def runtime(manifest,*,candidate='ML030'):
     producer=read(Path(manifest['initramfs']['path']).parent/'producer.json')
     key=Path(manifest['key_path']).read_bytes()
     recipe=producer['recipe']
-    require(len(key)==32 and recipe==dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],
-            key_digest=hashlib.sha256(key).hexdigest()) and hashlib.sha256(json.dumps(recipe,
+    expected=dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],key_digest=hashlib.sha256(key).hexdigest())
+    if declaration.get('report_version')==4:expected['pre_effect_return']=True
+    require(len(key)==32 and recipe==expected and hashlib.sha256(json.dumps(recipe,
             sort_keys=True,separators=(',',':')).encode()).hexdigest()==manifest['candidate_id'], 'ML030 key/recipe binding')
     return value
 
 
 def binding(image,*,artifact_bytes=False):
+    if image.get('schema')=='s22plus-mainline-ufs-image-v2':
+        from s22plus_mainline_ufs_candidate_v2 import binding as selected
+        return selected(image,artifact_bytes=artifact_bytes)
     candidate,declaration=selection(image)
     paths=declaration['paths']
     kernel_sha=declaration.get('kernel',KERNEL)

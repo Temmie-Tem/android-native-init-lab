@@ -3,6 +3,9 @@
  * and the separate late permit on its original connected descriptor.
  */
 #include <sys/syscall.h>
+#ifdef G0Q_PRE_EFFECT_RETURN
+#include "link-report.h"
+#endif
 
 #define ML030_MODULE_PATH "/usr/lib/g0q_ml030.ko"
 #define ML030_RESULT_PATH "/sys/module/g0q_ml030/parameters/result"
@@ -92,7 +95,15 @@ static int ml030_module_result(int fd, const uint8_t witness[ML030_FRAME])
     /* Only run() success on this one-shot module yields an operation_rc of 0.
      * The host also verifies every field before signing a return command.
      */
+#ifdef G0Q_PRE_EFFECT_RETURN
+    long long values[G0Q_REPORT_FIELDS];
+    if (g0q_report_parse(record + ML030_BODY + 12, (unsigned int)size, values) ||
+        (values[21] & ~0x1ffffLL) != G0Q_REPORT_V4_TAG ||
+        (values[0] == 0 && (values[21] & G0Q_PRE_EFFECT_CERT)) ||
+        (values[0] != 0 && !g0q_pre_effect_fields(values))) return EPROTO;
+#else
     if (size < 2 || memcmp(record + ML030_BODY + 12, "0 ", 2)) return EPROTO;
+#endif
     g_hash(record, sizeof(record), ml030_result_digest);
     return 0;
 }

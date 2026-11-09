@@ -37,6 +37,16 @@ static atomic_t probe_taken = ATOMIC_INIT(0);
 static struct g0q_rpmh_report power;
 static bool usb_covered, usb_released;
 static u32 usb_reason, usb_detail;
+#ifdef G0Q_PRE_EFFECT_RETURN
+#include "link-report.h"
+/* Published only after coverage refusal, its complete unwind and arena end.
+ * No overlay/rail/probe call can have run on this rc<0 path.
+ */
+static bool pre_effect_rejected;
+#define G0Q_REPORT_SITE (board.stage2.site | G0Q_REPORT_V4_TAG | (pre_effect_rejected ? G0Q_PRE_EFFECT_CERT : 0))
+#else
+#define G0Q_REPORT_SITE board.stage2.site
+#endif
 
 static int remaining(void)
 {
@@ -53,7 +63,7 @@ static int report(char *buf, const struct kernel_param *kp)
 			 link->interrupt, link->result, link->after, link->hce_started,
 			 power.records, power.claimed, power.triggered, power.acknowledged,
 			 power.reclaimed, power.error, usb_covered, usb_released,
-			 usb_reason, usb_detail, board.stage2.site, board.stage2.checks);
+			 usb_reason, usb_detail, G0Q_REPORT_SITE, board.stage2.checks);
 }
 static const struct kernel_param_ops report_ops = { .get = report };
 module_param_cb(result, &report_ops, NULL, 0444);
@@ -404,6 +414,9 @@ static int __init start(void)
 	struct device *usb = NULL;
 	u64 now = ktime_get_boottime_ns();
 	int id = 0, rc;
+#ifdef G0Q_PRE_EFFECT_RETURN
+	bool coverage_refused;
+#endif
 
 	if (!of_machine_is_compatible("samsung,g0q") || !original_board())
 		return -ENODEV;
@@ -415,6 +428,9 @@ static int __init start(void)
 		return rc;
 	rc = cover_usb(&usb, &usb_reason, &usb_detail, board.link.hw.deadline_ns);
 	usb_covered = !rc;
+#ifdef G0Q_PRE_EFFECT_RETURN
+	coverage_refused = rc < 0 && !usb && (usb_reason & 255) > G0Q_USB_RUN_STATE;
+#endif
 	if (!rc)
 		rc = remaining();
 	if (!rc)
@@ -438,6 +454,12 @@ static int __init start(void)
 	}
 	g0q_rpmh_status(&power);
 	g0q_rpmh_end();
+#ifdef G0Q_PRE_EFFECT_RETURN
+	pre_effect_rejected = coverage_refused && operation_rc < 0 && !stage &&
+		!usb_covered && !usb_released && !board.stage2.site && !board.stage2.checks &&
+		!power.records && !power.claimed && !power.triggered && !power.acknowledged &&
+		!power.reclaimed && !power.error;
+#endif
 	/* Returning 0 retains the one-shot owner and its read-only terminal report. */
 	return 0;
 }
