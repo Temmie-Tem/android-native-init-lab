@@ -111,7 +111,11 @@ fresh raw rederivation. At that observation there was no F1 owner, ML034 grant,
 operation, saved approval or transfer. The latest readiness must still satisfy
 its existing freshness rule when the returned approval opens the grant. All
 1291 protected consumed records and 11 unrelated files remained byte-identical.
-No physical UFS result exists. A90 and S20+ were untouched.
+At that preparation stage no physical UFS result existed. The subsequently
+approved [ML034 physical run](S22PLUS_MAINLINE_ML034_RUN_2026-11-10.md) closed
+`NO_PROOF / ANDROID_CLOSED_HEALTHY`, identifying the SH1 confirmation-value
+rejection before UFS work. Its grant and candidate are now consumed.
+A90 and S20+ were untouched.
 
 Checklist application: ABI/SEMANTIC/WIRE/IO are covered by exact target APIs,
 real producer/consumer code, bounded records and explicit proof limits;

@@ -30,17 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML034 is independently reviewed and prepared, awaiting its exact finite
-  attended approval.** It retains all USB/PM/ICC/BCM predicates,
-  retries only four failed trylocks within 25 calls/250ms and the original 15s,
-  and adds explicitly selected 21-field rejection evidence. The fresh ARM64
-  Image/module/observer/loader/AP and actual host-collector VM paths are
-  qualified; candidate and owner/bridge reviews are `PASS_GO`. The fixed D0
-  preparation completed seven raw-derived health reads. No grant, operation
-  or transfer has been created. This does not establish ML033's historical
-  rejecting branch or physical UFS success; freshness is checked again when
-  the separately returned approval opens its grant.
-  [Correction and H0 evidence](docs/reports/S22PLUS_MAINLINE_ML034_USB_ADMISSION_H0_2026-11-10.md)
+- **ML034 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
+  authenticated base arrived at N+67.704s; the same-socket witness proved a
+  300.355s host gap and 300.495s guest uptime advance. One coverage attempt
+  reported `BCM_VALUES`, with no trylock failure: SH1's confirmation cache had
+  Y values 0/0/0 instead of the required 1/1/1. No overlay/UFS probe, local
+  UniPro or link command followed. This identifies ML034's rejecting branch,
+  not the cause of the zero cache values or ML033's historical branch.
+  Physical Download and one original A restored Android. After a closed-channel
+  readiness-read failure, health-only continuation passed seven fresh reads.
+  N/A each transferred once, the owned network profile is absent and no F1
+  owner remains. It is the latest physical closure and cannot replay.
+  [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML034_RUN_2026-11-10.md)
+  · [Correction and H0 evidence](docs/reports/S22PLUS_MAINLINE_ML034_USB_ADMISSION_H0_2026-11-10.md)
   · [Exact prospective scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md).
 
 - **ML033 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
@@ -54,7 +56,7 @@ identities, goals, artifacts and authority remain separate.
   health read, the permitted health-only continuation passed seven fresh reads.
   N/A each transferred once, the owned network profile is absent, and no F1
   owner remains. First-response and five-minute proof are retained independently
-  from the unproved UFS link. It is the latest physical closure and cannot replay.
+  from the unproved UFS link. It is a preceding physical closure and cannot replay.
   [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML033_RUN_2026-11-10.md)
   · [Comparison, evidence and preparation](docs/reports/S22PLUS_MAINLINE_ML033_USB_COMPARISON_H0_2026-11-10.md)
   · [Adopted scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_TIMED_ATTACH_V1.md).
@@ -225,16 +227,15 @@ g0q-specific evidence for the L6/L9 upstream supply, vendor auxiliary votes
 and a defined limit on controller/device effects. ML029 used only retained
 data and has no physical grant.
 
-## Selected bounded unit: ML034 late link after USB admission
+## Closed bounded experiment: ML034 USB admission
 
-The independently reviewed ML034 source/artifact/owner binding and fixed
-preparation are complete. Next perform its one separately approved attended experiment.
-The functional criterion remains an authenticated five-minute same-boot witness
-followed by one proved link completion and original-A healthy closure. A coverage
-rejection must identify its exact observed branch without being mistaken for a
-link failure or historical ML033 cause. No SCSI/media access is selected.
-The original 120/300/540/15-second limits, one N, one link attempt and one original
-A total remain; absence of proof requires the existing attended recovery route.
+The approved experiment and original-A healthy closure are complete. The
+five-minute witness and exact rejection branch are proved; the selected UFS
+link criterion remains `NO_PROOF`. The next H0 question is why the ordinary
+SH1 command/confirmation history supplies zero Y values while the USB consumer
+passes its preceding checks. Distinguish the confirmation producer, expected
+values and actual device state before proposing a correction. No guard is
+relaxed and no additional device effect or replay is authorized by this goal.
 
 ## Milestones toward the final server
 
