@@ -164,6 +164,29 @@ and current attendance are required. The cue caller and physical interlock
 remain unchanged. Consumed ML028 and ML030–ML034 retain their original bindings
 and cannot replay. No further successor is admitted by this adoption.
 
+### Reusable mainline UFS capability V2
+
+The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
+adopts the separate common boundary-3 delegation for the fixed reviewed
+Image, diagnostic/report-v4 module and key-only candidate schema. The exact
+capability and its independent review bind common/target authority, fixed
+artifacts, reachable source and retained evidence. New keys and deterministic
+derived identities need fresh machine qualification; unchanged capability
+review is reusable. Other functional, authority, recovery or health changes
+and new hazards require scoped review. Each operation retains a separately
+returned exact one-operation 1800-second approval, current attendance, fresh
+target/health/rollback binding and usable physical Download recovery.
+
+All original guards, 120/300/540/15-second bounds, one module permit, six local
+UniPro commands, at most one link command and one N/original-A total remain.
+Only the shared policy's certified settled pre-overlay coverage refusal gains
+its narrow normal Download path; stage two and later remain excluded.
+Unobserved predicates remain unobserved, and refusal retains UFS NO_PROOF.
+The existing foreground mainline preapproval D0 applies to a prepared V2 task.
+There is no standing effect grant, replay or transfer of another target's
+authority. A new candidate requires prior validated healthy closure and no
+unresolved owner. All consumed artifacts, approvals and journals stay intact.
+
 ### Mainline RAM/USB first boot V1
 
 The [mainline RAM/USB policy](../S22PLUS_MAINLINE_RAM_V1.md) adopts one ordinary

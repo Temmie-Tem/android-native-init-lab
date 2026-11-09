@@ -181,6 +181,12 @@ retains those same effects and limits for its one exact fresh candidate, with
 its own finite attended approval. The corrected attach caller adds no device
 effect; ML030 and ML031 remain consumed.
 
+The separately common/target-adopted [shared UFS V2](S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
+retains that attended F1 hardware scope for fresh key-only candidates under
+one unchanged reviewed capability. Its narrow certified pre-effect normal
+return, exact per-operation approval, qualification and original-A recovery
+are governed by that shared scope; no standing grant or consumed replay follows.
+
 The separately common-incorporated [S22+ Debian first-boot V1](S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
 uses its own reviewed owner for one embedded rootfs installation and initial
 PID 1 handoff, one ordinary Debian reboot and physical original-A return. Its

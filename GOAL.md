@@ -30,6 +30,16 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **Shared UFS V2 is reviewed and ML036 is prepared, not executed.** The
+  adopted common/target scope uses the completed stage-two diagnostics,
+  key-only candidate qualification and narrow pre-effect normal return.
+  The unchanged fixed Image/module and evidence are reused; fresh observer,
+  loader/AP reproduction and actual ARM64/EL checks passed. Independent
+  adoption review is PASS_GO and backend v40 is selected with the existing
+  worker. Current connected readiness, the separately returned exact attended
+  approval and physical execution remain distinct. No ML035 authority is
+  reused. [Adoption and preparation](docs/reports/S22PLUS_MAINLINE_UFS_V2_ADOPTION_H0_2026-11-10.md)
+
 - **ML035 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   The corrected BCM producer passed the unchanged USB/PM/ICC/SH1/CN0 admission
   on the first attempt, with its USB reference released. Authenticated base
@@ -299,8 +309,10 @@ loader and exception-level qualification, with unchanged kernel/module and
 shared capability inputs. Both passed complete producer reproduction and
 fresh qualification with the same independent capability `PASS_GO`. The
 102-case focused suite and final 16-case V2 check passed; this bounded H0 unit
-is closed. The shared policy remains `H0_NOT_ADOPTED`;
-there is no connected read, grant, activation, transfer or physical result.
+is closed. At that H0 completion the shared policy remained `H0_NOT_ADOPTED`,
+with no connected read, grant, activation, transfer or physical result.
+The subsequent reviewed adoption and first candidate preparation are recorded
+in the current-state section above; the H0 evidence itself stays unchanged.
 [Implementation and validation](docs/reports/S22PLUS_MAINLINE_EFFICIENCY_H0_2026-11-10.md)
 
 

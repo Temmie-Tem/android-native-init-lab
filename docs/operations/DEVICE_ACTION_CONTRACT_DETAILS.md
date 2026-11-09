@@ -426,6 +426,48 @@ permission to perform host-only work.
    physical interlock and no-replay rules remain binding. Consumed ML028 and
    ML030–ML034 retain their original artifact, approval, source and journal
    identities. A further successor requires its own scope.
+   The separately reviewed [reusable late-UFS capability V2](S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md),
+   selected by the operator on 2026-11-10, delegates the same closed late
+   hardware scope to fresh key-only candidates on this exact S22+ FYG8 target.
+   The target must adopt the shared scope and each candidate must bind the
+   same independently reviewed immutable capability: its fixed ML035 Image,
+   reduced no-display DT/configuration, stage-two diagnostic/report-v4 module,
+   four-package RAM userspace, protocol, network and producer/toolchain inputs.
+   Only a new authentication key, deterministic derived identity and their
+   unchanged-producer artifacts may vary without a new capability review or
+   per-candidate policy. Other changes and new hazards require scoped review.
+   The fixed artifact hashes and retained source provenance are declared in
+   the shared policy and machine-bound capability. This is a reusable scope,
+   not a standing grant: every operation needs a fresh qualified unconsumed
+   candidate, exact returned one-operation 1800-second approval, current
+   attendance, exact target/host/health/rollback, usable physical Download and
+   validated prior healthy closure with no unresolved owner.
+   All ML030 late-hardware and ML034 USB-admission predicates, original
+   120/300/540/15-second bounds, six fixed local UniPro commands, at most one
+   DME_LINK_STARTUP, one N and one original A total remain mandatory. Stage-two
+   diagnostics retain the original short-circuit reads and errno; an
+   unevaluated predicate remains unobserved. No extra diagnostic MMIO read,
+   relaxed admission, slot replay, display client, SCSI/media, fDeviceInit,
+   LU/partition/filesystem access, ICE/key or unattended effect is admitted.
+   Report v4 additionally permits the existing authenticated normal Download
+   transaction after a certified USB-coverage refusal before overlay dispatch,
+   with no outstanding USB reference, stage-two work, fixed RPMh request/error,
+   and with actual RPMh arena teardown complete. The fixed module certifies
+   that path; both guest and host independently validate the exact bounded
+   report. A zero stage/count or a failed call alone is insufficient. Overlay
+   attempts, stage two or later, partial/unknown work, malformed or unauthenticated
+   evidence and expired windows are excluded and retain physical recovery.
+   The complete-result digest, original socket/nonce/boot, one durable control
+   intent, EOF and final deadline check, fixed reboot-mode/SCM NODUMP/PSCI path,
+   exact Download ticket and original-A health/cleanup conditions remain.
+   This normal return preserves UFS NO_PROOF for refusal and grants no
+   automatic-failure-recovery claim. Normal and physical return share the
+   same original-A consumption; uncertain control or transfer never repeats.
+   Existing physical-attach cue/interlock and original-owner health-only
+   continuation remain unchanged. The fixed foreground preapproval D0 may
+   validate a prepared V2 task under the current research request; it grants
+   no control or transfer. Consumed ML028 and ML030–ML035 retain all original
+   artifacts, approvals, source provenance and journals and cannot replay.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

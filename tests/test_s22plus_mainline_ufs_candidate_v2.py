@@ -1,8 +1,9 @@
-"""Capability/data separation, recovery closure and dormant adoption behavior."""
+"""Capability/data separation, recovery closure and explicit adoption fixtures."""
 import builtins
 from contextlib import ExitStack
 import copy
 import hashlib
+import importlib.util
 import os
 from pathlib import Path
 import sys
@@ -153,6 +154,21 @@ class TaskRouteTests(unittest.TestCase):
         self.stack.enter_context(mock.patch.object(task.tasks,'unchanged',side_effect=unchanged))
         import s22plus_mainline_ufs_image_v1 as ufs
         self.stack.enter_context(mock.patch.object(ufs,'policy_for',return_value=task.CAPABILITY_POLICY))
+        self.adoption_fixture()
+
+    def adoption_fixture(self,*,common=False,target=False,policy=False):
+        # Fixed synthetic authority, independent of the checkout's activation.
+        name=Path(task.CAPABILITY_POLICY).name
+        details=self.root/task.tasks.DETAILS
+        details.write_text('UNIT TEST COMMON\n'+(name+'\n' if common else ''))
+        (self.root/'AGENTS.md').write_text('UNIT TEST ROOT\n'+hashlib.sha256(details.read_bytes()).hexdigest()+'\n')
+        (self.root/task.tasks.TARGET_CONTRACT).write_text('UNIT TEST TARGET\n'+
+            Path(task.profile.POLICY).name+'\n'+(name+'\n' if target else ''))
+        (self.root/task.profile.POLICY).write_text('Status: **REVIEW_GATED_CAPABILITY**\n')
+        (self.root/task.CAPABILITY_POLICY).write_text(
+            'Status: **REVIEW_GATED_CAPABILITY**\n' if policy else 'Status: **H0_NOT_ADOPTED**\n')
+        self.cap['sources']=task.source_pins(self.root,image=self.image)
+        self.bind(self.cap)
 
     def prepare(self,name):
         image=publish(self.private/(name+'-image.json'),self.image)
@@ -192,6 +208,21 @@ class TaskRouteTests(unittest.TestCase):
         with mock.patch.object(task.profile,'image_binding',side_effect=AssertionError('requalified N')):
             self.assertEqual(task.validate_task(self.root,value,live=True,recovery=True),value)
             self.assertEqual(task.validate_task(self.root,value,live=True,recovery=True,require_android=False),value)
+
+    def test_adopted_selected_review_route_and_missing_authority_layers(self):
+        self.adoption_fixture(common=True,target=True,policy=True)
+        record=self.prepare('adopted');value=read(Path(record['path']))
+        self.assertEqual(task.validate_task(self.root,value,live=True),value)
+        self.assertEqual(value['review'],self.image['capability_review'])
+        self.assertFalse((Path(record['path']).parent/'grant.json').exists())
+        self.assertFalse((self.root/task.profile.REVIEW).exists())
+        for missing in ('common','target','policy'):
+            with self.subTest(missing=missing):
+                flags=dict(common=True,target=True,policy=True);flags[missing]=False
+                self.adoption_fixture(**flags)
+                record=self.prepare('missing-'+missing);value=read(Path(record['path']))
+                with self.assertRaisesRegex(ValueError,'common/target adoption'):
+                    task.validate_task(self.root,value,live=True)
 
 
 
@@ -251,10 +282,22 @@ class RealArtifactTests(unittest.TestCase):
         with self.assertRaises(ValueError):candidate.fixed_binding(dict(fixed=fixed,evidence=[]))
         declaration=self.declarations[0];manifest,producer,_=self.runtime(declaration)
         fixed=copy.deepcopy(self.fixed);fixed['observer_auxiliary']['specs_sha256']='0'*64
+        # Retained recipes include their actual builder's absolute include paths.
+        # Bind that byte-identical producer instead of silently transplanting it
+        # into the checkout that is running this historical fixture.
+        source=candidate.profile.unchanged(next(row for row in manifest['inputs']
+            if Path(row['path']).name=='link_initramfs.py'))
+        self.assertEqual(source.read_bytes(),
+            (ROOT/'workspace/public/src/mainline/s22plus_ufs_link_h0/link_initramfs.py').read_bytes())
+        spec=importlib.util.spec_from_file_location('link_initramfs',source)
+        builder=importlib.util.module_from_spec(spec)
+        with mock.patch.object(sys,'path',[str(source.parent),*sys.path]):
+            spec.loader.exec_module(builder)
         with tempfile.TemporaryDirectory() as name:
             output=Path(name)/'reproduction'
-            with self.assertRaisesRegex(ValueError,'auxiliary/specs'):
-                candidate.reproduce(self.folder/'draft-a.json',manifest,producer,fixed,output)
+            with mock.patch.dict(sys.modules,{'link_initramfs':builder}):
+                with self.assertRaisesRegex(ValueError,'auxiliary/specs'):
+                    candidate.reproduce(self.folder/'draft-a.json',manifest,producer,fixed,output)
             self.assertFalse((output/'observer').exists())
 
     def test_mixed_candidate_loader_is_rejected(self):

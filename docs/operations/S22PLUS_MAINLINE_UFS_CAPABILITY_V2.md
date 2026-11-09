@@ -1,13 +1,16 @@
 # S22+ reusable late-UFS capability V2
 
-Status: **H0_NOT_ADOPTED**.
+Status: **REVIEW_GATED_CAPABILITY**
 
-This is an implemented H0 capability specification for SM-S906N / g0q /
-S906NKSS7FYG8. It grants no connected read, control, transfer, recovery,
-attendance waiver or live admission. Neither the common details nor the
-binding target contract adopts it. The existing owner rejects a new V2 task
-at live validation, including readiness before any D0 read. H0 qualification
-and a capability `PASS_GO` do not change that state.
+On 2026-11-10 the operator selected application of the completed H0 changes
+and one next attended physical experiment on SM-S906N / g0q / S906NKSS7FYG8.
+The common boundary-3 delegation and the binding S22+ target adopt this shared
+scope. It admits separately qualified, unconsumed key-only candidates through
+one reviewed capability, without a new policy copy or capability review for
+each key. Each physical operation still requires its own exact returned
+one-operation 1800-second approval, current attendance and usable physical
+Download recovery. This policy, H0 qualification and `PASS_GO` alone grant
+no device effect. All source, artifact and runtime bindings must pass.
 
 ## Fixed reviewed capability and variable candidate data
 
@@ -29,6 +32,23 @@ userspace extension in this schema. Kernel/module/configuration/DTB, package,
 network, control, privilege, recovery, health, authority or evidence-acceptance
 changes exceed key-only reuse and invalidate the affected capability binding.
 
+The adopted fixed hardware artifacts are:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| Mainline Image with the reviewed six unused display BCM producers removed | `c4f8d9b0fad688d1a9682dc9c3aac2fd4ab2abfde9d14da858b2b89190ac7e72` |
+| Stage-two diagnostic and pre-effect-return module | `8e969ae4e9ce8cbb826395d2faa0e2edadea85c723e8c928d86eb757c4c93bfc` |
+| Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
+| Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
+
+The capability's exact fixed inputs bind these bytes and their retained build
+provenance. An independently reviewed adoption receipt binds the complete
+reachable source closure, including the common/target policy and original-A
+owner; the earlier H0-only review is supporting evidence, not that adoption
+receipt. The stage-two site and evaluated/failed masks preserve the original
+short-circuit reads, error semantics and guards. Unevaluated conditions remain
+unobserved; no extra diagnostic MMIO read or historical cause is inferred.
+
 Candidate qualification uses the existing image/task preparation path. It
 reproduces the complete observer ELF from its generated source and key,
 validates the canonical CPIO and exact package members, and proves actual
@@ -46,6 +66,39 @@ They are reused as evidence of that unchanged machinery; they are not renamed
 as fresh device, health, recovery or candidate-boot proof. Reproduction runs
 only during H0 qualification. Session guards revalidate immutable records and
 current source/artifact bindings; they never recompile or run a VM.
+
+## Closed hardware scope and one-operation admission
+
+This shared scope adopts the complete late hardware, witness, permit,
+original-deadline and physical-recovery conditions of common boundary 3's
+ML030 delegation. The existing ML034 bounded USB coverage conditions and
+ML035 no-display producer correction also apply. This adopts those conditions,
+not earlier artifact tables, approvals or consumed authority. The only return
+specialization is the narrow report-v4 class below.
+
+One healthy-Android-origin operation may transfer one boot-only N, authenticate
+the first response within 120 seconds of its launch, then obtain a fresh
+same-socket witness at least 300 seconds after sealing that response. It must
+prove the same boot, kernel, DT, RAM SysVinit PID 1 and observer, at least
+300 seconds of additional guest uptime and zero block devices before the
+single durable module permit. The original 540-second host and guest ceilings
+and 15-second module submission/command budget remain unchanged.
+
+The sole fixed module retains the held-USB SH1/CN0 confirmation, fixed GDSC,
+clock, PM8350 supply and already-output reset-pin preparation, qualified v4
+Waipio PHY, six fixed local UniPro commands and at most one DME_LINK_STARTUP.
+No generic UFS host/PHY/ICE or SCSI discovery path may bind the device. The
+common SCSI library may remain compiled; this module registers no host or LU.
+SCSI/media commands, fDeviceInit, LU/partition access, media-backed filesystems,
+ICE/key operations, display clients, general commands and unattended effects
+remain excluded. Uncertain requests retain their slots and never replay.
+
+The existing prepared physical-attach caller and cue/control interlock remain
+unchanged. Current health, exact target/lane/host and original-A/recovery
+checks precede effects. A new candidate requires validated prior healthy
+closure and no unresolved owner. One N and one original A total are shared by
+normal and physical return; neither failure nor later observation creates a
+second attempt. There is no standing grant or same-candidate repeat lane.
 
 ## Narrow normal-return extension
 
@@ -72,15 +125,18 @@ Functional UFS status remains `NO_PROOF` for pre-effect refusal, even when
 normal return succeeds. No earlier ML033–035 result is reclassified and no
 consumed action gains replay authority.
 
-## Authority, recovery and eventual adoption
+## Authority, recovery and review reuse
 
 The common permanent boundaries, selected target, exact rollback and usable
 Download route, attendance, finite grant, lease/owner exclusion, durable
-consumption and no-replay checks are unchanged. No new approval ceremony or
-per-candidate policy copy is introduced by this H0 design. A future live
-adoption must expressly incorporate this shared scope at the applicable common
-and target levels and independently review the resulting reachable closure.
-That adoption is outside this H0 task; existing grants cannot be repinned.
+consumption and no-replay checks are unchanged. The existing mainline foreground
+`ready` D0 profile applies to an exactly prepared V2 task; it creates no grant,
+control or transfer. The returned finite approval and current physical
+attendance remain required before dispatch. Review reuse covers only the
+unchanged named capability; new hazards or changes outside its key-only scope
+require review before use. Existing grants, source receipts and consumed
+journals cannot be repinned. The immutable backend review must cover the
+actual selected owner and recovery code before its selector advances.
 
 Original-owner recovery obtains the selected review from the original immutable
 task and capability metadata. It does not require candidate artifacts, keys,

@@ -30,6 +30,12 @@ from current observer provenance. Changed execution-critical inputs or a new
 hazard require the common independent review. Retained reviews and consumed
 grants are never repinned.
 
+The separately adopted [reusable UFS V2](S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
+schema instead selects its exact immutable capability/review from the candidate
+declaration. Its own common/target adoption, complete source closure and fresh
+candidate qualification are required; the legacy review path above does not
+substitute for that selected review or gain new authority.
+
 The operator must return the generated exact approval and a statement of
 physical attendance and usable Download recovery. One grant permits **one
 operation in 1800 seconds**, on the same host boot, including suspend. Its
@@ -83,6 +89,11 @@ retains the same bounded hardware/protocol scope for its exact candidate and
 own grant, with corrected cue ordering and unchanged final checks. ML030 and
 ML031 stay consumed; their approvals and source bindings are not renewed.
 The variants described below retain their own runtime and time bounds.
+
+The shared UFS V2 scope retains that late hardware/witness scope with its
+reviewed stage-two diagnostics and narrow pre-effect return extension. Its
+key-only candidate qualification reuses unchanged capability evidence; every
+operation retains the exact finite attended grant and original-A owner.
 
 The base candidate executes its reviewed RAM PID1 and fixed one-client NCM
 evidence responder; the schema-exact packaged SSH variant below adds only its
