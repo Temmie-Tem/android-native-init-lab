@@ -48,8 +48,10 @@ def context(operation):
     return adapter, session.request, guard
 
 
-def inspect(adapter, request, guard):
+def inspect(adapter, request, guard, *, diagnostics=None):
     """Recheck the existing cue conditions using the real retained consumers."""
+    diagnostics = diagnostics if diagnostics is not None else {}
+    diagnostics['phase'] = 'owner-guard-initial'
     guard()
     operation = adapter.directory
     folder = adapter.folder('mainline-evidence')
@@ -76,13 +78,26 @@ def inspect(adapter, request, guard):
         'mainline-attach-resolution.json', 'mainline-attach-closed.json')]
     require(not any(path.exists() for path in forbidden), 'selection, return or cue already exists')
     require(window['deadline_ns'] - clock() > MIN_REMAINING_NS, 'cue needs more than 60 seconds')
+    # Finish the potentially expensive source/artifact/owner guard before
+    # selecting current raw evidence. The normal observer keeps publishing
+    # while that guard runs; an older ordinal is not an identity boundary.
+    diagnostics['phase'] = 'owner-guard-final'
+    guard()
+    diagnostics['phase'] = 'state-after-guard'
+    require(Journal(operation / 'journal').rows() == rows and
+            not any(path.exists() for path in forbidden), 'selection changed before cue')
+    diagnostics['phase'] = 'census-selection'
     captures = sorted(path for path in folder.glob('usb-*.capture.json')
                       if re.fullmatch(r'usb-\d{3}\.capture\.json', path.name))
     require(bool(captures), 'no complete sealed census')
     latest = captures[-1]
+    diagnostics['selected_census_path'] = str(latest)
+    diagnostics['phase'] = 'census-load'
     handle = raw.load_handle(latest)
+    diagnostics['selected_census'] = pin(latest)
     raw.require_success(handle)
     require(not raw.read_stderr(handle, maximum=16384), 'census has diagnostics')
+    diagnostics['phase'] = 'census-parse'
     data = [json.loads(line) for line in raw.read_stdout(handle, maximum=access.MAX_SYSFS).splitlines()]
     require(len(data) == 3 and data[0]['kind'] == 'begin' and
             data[0]['topology'] == access.target.lane.CANDIDATE_TOPOLOGY and
@@ -90,13 +105,16 @@ def inspect(adapter, request, guard):
             data[2]['kind'] == 'end' and data[2]['related'] == 0 and
             window['opened_ns'] <= data[0]['boottime_ns'] <= data[2]['boottime_ns'] <= clock(),
             'latest sealed census is not exact absent-without-children evidence')
-    guard()
+    diagnostics['phase'] = 'state-after-census'
     require(Journal(operation / 'journal').rows() == rows and
             not any(path.exists() for path in forbidden), 'selection changed before cue')
+    diagnostics['phase'] = 'census-tail'
     current = sorted(path for path in folder.glob('usb-*.capture.json')
                      if re.fullmatch(r'usb-\d{3}\.capture\.json', path.name))
-    require(current[-1] == latest and raw.load_handle(latest) == handle,
-            'latest sealed census changed during check')
+    diagnostics['latest_census_path'] = str(current[-1]) if current else None
+    require(current and current[-1] == latest, 'new sealed census arrived during final cue check')
+    require(raw.load_handle(latest) == handle, 'selected sealed census changed during final cue check')
+    diagnostics['phase'] = 'final-window'
     checked = clock()
     require(window['deadline_ns'] - checked > MIN_REMAINING_NS,
             'cue issuance window elapsed during validation')
@@ -106,14 +124,16 @@ def inspect(adapter, request, guard):
                 checked_ns=checked, remaining_seconds=(window['deadline_ns'] - checked) / 1e9)
 
 
-def issue(adapter, request, guard):
+def issue(adapter, request, guard, *, diagnostics=None):
+    diagnostics = diagnostics if diagnostics is not None else {}
     operation = adapter.directory
     window = pin(adapter.folder('mainline-evidence') / 'window.json')
     evidence = {}
 
     def check():
-        evidence.update(inspect(adapter, request, guard))
+        evidence.update(inspect(adapter, request, guard, diagnostics=diagnostics))
         require(evidence['window'] == window, 'cue window changed')
+        diagnostics['phase'] = 'cue-publication'
 
     error_type = None
     try:
@@ -159,15 +179,26 @@ def main():
             command.add_argument('resolution', choices=('completed', 'cancelled'))
             command.add_argument('operator_statement')
     args = parser.parse_args()
-    if args.verb == 'resolve':
-        result = resolve(args.operation, args.resolution, args.operator_statement)
-    else:
-        adapter, request, guard = context(args.operation)
-        result = inspect(adapter, request, guard) if args.verb == 'check' else issue(adapter, request, guard)
-    if args.verb == 'issue' and result['instruction'] is not None:
-        window = read(verify(read(verify(result['cue']))['window']))
-        if window['deadline_ns'] - clock() <= MIN_REMAINING_NS:
-            result.update(status='CUE_RECORDED_DO_NOT_DISPLAY', instruction=None)
+    diagnostics = dict(phase='context', operation=str(args.operation), verb=args.verb)
+    try:
+        if args.verb == 'resolve':
+            result = resolve(args.operation, args.resolution, args.operator_statement)
+        else:
+            adapter, request, guard = context(args.operation)
+            result = (inspect(adapter, request, guard, diagnostics=diagnostics) if args.verb == 'check'
+                      else issue(adapter, request, guard, diagnostics=diagnostics))
+        if args.verb == 'issue' and result['instruction'] is not None:
+            diagnostics['phase'] = 'display-window'
+            window = read(verify(read(verify(result['cue']))['window']))
+            if window['deadline_ns'] - clock() <= MIN_REMAINING_NS:
+                result.update(status='CUE_RECORDED_DO_NOT_DISPLAY', instruction=None)
+    except (ValueError, OSError, KeyError, TypeError, raw.RawCaptureError) as error:
+        # The caller's stdout/stderr must be retained by the prepared invocation.
+        # A refusal is not proof that a cue was never published. No diagnostic
+        # failure removes a cue, grants a retry, or resolves physical action.
+        diagnostics.update(error_type=type(error).__name__, error=str(error))
+        sys.stderr.write(canonical(dict(status='CUE_CALL_REFUSED', diagnostics=diagnostics)).decode())
+        raise SystemExit(1) from error
     print(canonical(result).decode(), end='')
 
 

@@ -30,6 +30,17 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML032 H0 preparation is complete with independent `PASS_GO`.** The attach
+  caller now completes its expensive owner checks before selecting the latest sealed
+  census, while retaining the final latest/raw/state/deadline checks. A fresh
+  observer, RAM archive, loader and boot-only AP passed producer reproduction,
+  ARM64 loader checks and the five-minute host/guest fixtures. This is not
+  physical survival or UFS proof. The review has no open findings. Its exact
+  prospective scope is unadopted; ML030/ML031 authority and consumed records
+  do not transfer to it.
+  [H0 repair and evidence](docs/reports/S22PLUS_MAINLINE_ML032_CUE_REFRESH_H0_2026-11-09.md)
+  · [proposed scope](docs/plans/S22PLUS_ML032_CUE_REFRESH_DWELL_LINK_SCOPE_2026-11-09.md).
+
 - **ML031 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   Its N transfer completed, but all 86 sealed USB censuses reported the
   selected path absent. Two prepared cue calls failed the latest-census
