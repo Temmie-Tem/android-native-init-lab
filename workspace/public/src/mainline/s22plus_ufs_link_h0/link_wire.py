@@ -14,6 +14,14 @@ USB_REASONS = ('OK', 'USB_HELD', 'RUN_STATE', 'USB_NODE', 'USB_DEVICE', 'USB_LOC
                'ICC_LOCK', 'ICC_REQUEST', 'BCM_GLOBAL_LOCK', 'BCM_VOTER', 'BCM_LOCK',
                'BCM_PENDING', 'BCM_UNKNOWN', 'BCM_VALUES', 'COVER_CEILING')
 USB_LOCKS = {5, 12, 14, 16}
+STAGE2_COMPONENTS = ('NONE', 'HCI', 'RESET', 'CORE', 'UNIPRO', 'VCC', 'VCCQ', 'REF_PAD', 'PARENT')
+STAGE2_OPERATIONS = ('NONE', 'DEADLINE', 'UFS_VERSION', 'HW_VERSION', 'QUIESCENT',
+                     'PIN_GUARD', 'SET_RATE', 'RATE_READBACK', 'GET_SUPPLY', 'BEFORE_LOAD',
+                     'SET_LOAD', 'BEFORE_VOLTAGE', 'SET_VOLTAGE', 'BEFORE_ENABLE', 'ENABLE',
+                     'VOLTAGE_READBACK', 'SEED_GET', 'SEED_DEADLINE', 'SEED_VOLTAGE',
+                     'PARENT_READBACK', 'AFTER_SUPPLY')
+STAGE2_CHECKS = ('HCE', 'HCS', 'TRANSFER_DOORBELL', 'TASK_DOORBELL', 'TRANSFER_RUN',
+                 'TASK_RUN', 'IRQ_ENABLE', 'IRQ_STATUS', 'AUTO_HIBERNATE', 'RESET_OUTPUT', 'RESET_HIGH')
 
 
 def check(value, message):
@@ -91,8 +99,53 @@ def usb_diagnostics(values):
                 usb_attempts=attempts, usb_detail=detail)
 
 
+def stage2_diagnostics(values):
+    """Decode observed short-circuit predicates, never infer unobserved reads."""
+    rc, stage, version = values[:3]
+    site, word = values[21:]
+    check(0 <= site < 1 << 16 and 0 <= word < 1 << 28, 'stage-two report word range')
+    observed, failed, hcs = word & 0x7ff, (word >> 11) & 0x7ff, word >> 22
+    check(not (observed & (observed + 1)) and not (failed & ~observed) and
+          not (failed & (failed - 1)), 'stage-two short-circuit history')
+    check(not hcs & ~0x39 and bool(hcs) == bool(failed & 2), 'stage-two HCS predicate bits')
+    failure = None
+    if not site:
+        check(not failed and (stage < 2 and observed == 0 or stage > 2 and observed == 0x7ff),
+              'stage-two missing or unexpected evidence')
+    else:
+        component, operation = site >> 8, site & 255
+        allowed = {1:{1,2,3,4}, 2:{5}, 3:{1,6,7}, 4:{1,6,7},
+                   5:{8,9,10,11,12,13,14,15,20}, 6:{8,9,10,11,12,13,14,15,20},
+                   7:{8,9,10,11,12,13,14,15,20}, 8:{8,9,10,13,14,16,17,18,19,20}}
+        check(component in allowed and operation in allowed[component], 'stage-two failure site')
+        check(stage == 2 and -4095 <= rc < 0 and not any(values[3:11]),
+              'stage-two failure before later hardware')
+        fixed_errno = {1:110, 2:19, 3:19, 4:16, 5:16, 7:34, 9:110,
+                       11:110, 13:110, 15:34, 17:110, 19:34}
+        check(operation not in fixed_errno or rc == -fixed_errno[operation], 'stage-two branch errno')
+        if component == 1 and operation <= 3:
+            check(observed == failed == 0, 'stage-two early HCI evidence')
+            check(version == 0 if operation < 3 else version >> 28 != 4, 'stage-two HCI version')
+        elif component == 1:
+            check(0 < observed <= 0x1ff and failed == (observed ^ (observed >> 1)),
+                  'stage-two first HCI rejection')
+        elif component == 2:
+            check(observed in (0x3ff, 0x7ff) and failed == (observed ^ (observed >> 1)),
+                  'stage-two first reset rejection')
+        else:
+            check(observed == 0x7ff and failed == 0, 'stage-two completed guards')
+        if component != 1 or operation == 4:
+            check(version >> 28 == 4, 'stage-two admitted HCI version')
+        failure = dict(component=STAGE2_COMPONENTS[component], operation=STAGE2_OPERATIONS[operation])
+    return dict(stage2_site=site, stage2_failure=failure, stage2_observed=observed, stage2_failed=failed,
+                stage2_hcs_masked=hcs if observed & 2 else None,
+                stage2_conditions={name:('UNOBSERVED' if not observed & (1 << i) else
+                                        'FAIL' if failed & (1 << i) else 'PASS')
+                                   for i, name in enumerate(STAGE2_CHECKS)})
+
+
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2), 'unselected module report schema')
+    check(report_version in (1, 2, 3), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -106,7 +159,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
     if load or read:
         return dict(status="NO_PROOF",load_errno=load,read_errno=read,report_bytes=size,normal_return=False)
     numbers = payload[:size]
-    fields = 19 if report_version == 1 else 21
+    fields = {1:19, 2:21, 3:23}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -122,8 +175,10 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
     facts = dict(operation_errno=-rc,stage=stage,records=count,claimed=claimed,triggered=triggered,
                  acknowledged=acked,reclaimed=reclaimed,usb_covered=bool(usb),usb_released=bool(release),
                  local_commands=local,link_issued=bool(issued),status="NO_PROOF",normal_return=False)
-    if report_version == 2:
-        facts.update(usb_diagnostics(values))
+    if report_version >= 2:
+        facts.update(usb_diagnostics(values[:21]))
+    if report_version == 3:
+        facts.update(stage2_diagnostics(values))
     if rc:
         return facts
     check(stage == 6 and version>>28 == 4 and pcs == hce == issued == usb == release == 1 and

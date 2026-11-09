@@ -269,6 +269,18 @@ with H0 examination of that later boundary; this goal grants no successor
 device effect. [H0 evidence and progress](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md)
 · [Exact prospective scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md).
 
+## Completed host-only unit: stage-two diagnostics
+
+The host-only unit adds stage-two diagnostic reporting after ML035.
+It preserves the existing guards, short-circuit MMIO reads, five-minute witness
+and success-only return conditions. The implementation and validation are
+isolated on `codex/s22-stage2-diagnostics-h0`; no successor candidate or live
+admission is created. The ARM64 module build, 28 focused tests, 210 comparative
+trace cases and retained v1/v2 decoding passed; independent review returned
+PASS_GO for this H0 change only. [H0 report](docs/reports/S22PLUS_MAINLINE_STAGE2_DIAGNOSTICS_H0_2026-11-10.md)
+records the result and isolated commit scope. Normal-return expansion and capability identity separation
+remain [separate unimplemented proposals](docs/plans/S22PLUS_MAINLINE_RETURN_AND_CAPABILITY_IMPROVEMENTS_H0_2026-11-10.md).
+
 ## Milestones toward the final server
 
 1. **Mainline boot and access:** close the RAM-only canary with separate boot,

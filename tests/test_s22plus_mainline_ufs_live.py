@@ -4,6 +4,7 @@ import copy
 import hashlib
 import socket
 import struct
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -105,8 +106,13 @@ class Ml030WireTests(unittest.TestCase):
                     observed.append('GO');self.assertEqual(go,wire.frame(b'G030GO01',18,fixture.key,fixture.identity,fixture.nonce,n1,boot,t0,t1))
                     body=b'G030RES1'+go[8:wire.HEADER.size]
                     numbers=b'0 6 1073741824 1 6 1 8 1024 0 9 1 3 7 7 7 0 0 1 1\n'
-                    if version==2:numbers=numbers[:-1]+b' 132352 0\n'
+                    if version>=2:numbers=numbers[:-1]+b' 132352 0\n'
+                    if version==3:numbers=numbers[:-1]+b' 0 2047\n'
                     if case=='usb-rejection':numbers=b'-16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 65554 1\n'
+                    if case=='stage2-rejection':
+                        from test_s22plus_stage2_diagnostics import compile_stage_fixture
+                        exe=compile_stage_fixture(directory/'stage2-producer')
+                        numbers=subprocess.check_output([exe,'0','1','-16','1','0'],stderr=subprocess.DEVNULL,timeout=5)
                     body+=struct.pack('<III',0,0,len(numbers))+numbers.ljust(256,b'\0')
                     result=body+wire.tag(fixture.key,fixture.identity,20,body)
                     if case=='partial-result':c.sendall(result[:90]);return
@@ -168,6 +174,13 @@ class Ml030WireTests(unittest.TestCase):
                 self.assertEqual(fact['usb_detail'],1)
                 self.assertFalse(fact['normal_return'])
                 self.assertFalse((folder/'control-intent.json').exists())
+            if case=='stage2-rejection':
+                fact=link.rederive_link(adapter,request)['result']
+                self.assertEqual(fact['stage2_failure'],{'component':'HCI','operation':'QUIESCENT'})
+                self.assertEqual(fact['stage2_conditions']['HCE'],'FAIL')
+                self.assertEqual(fact['stage2_conditions']['HCS'],'UNOBSERVED')
+                self.assertFalse(fact['normal_return'])
+                self.assertFalse((folder/'control-intent.json').exists())
             if case=='partial-result':
                 handle=raw.load_handle(folder/'link.capture.json')
                 self.assertEqual(len(raw.read_stdout(handle,maximum=436)),90)
@@ -185,6 +198,8 @@ class Ml030WireTests(unittest.TestCase):
 
     def test_full_success_and_rederived_late_return(self):self.run_case('success')
     def test_diagnostic_success_and_rederived_late_return(self):self.run_case('success',version=2)
+    def test_stage2_schema_success_keeps_original_return_conditions(self):self.run_case('success',version=3)
+    def test_actual_stage2_report_preserves_raw_and_stops_return(self):self.run_case('stage2-rejection',version=3)
     def test_diagnostic_rejection_preserves_raw_and_stops_return(self):self.run_case('usb-rejection',version=2)
     def test_scope_failure_before_permit(self):self.run_case('before-permit')
     def test_durable_permit_without_send_never_replays(self):self.run_case('intent-only')

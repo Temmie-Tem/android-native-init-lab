@@ -20,31 +20,39 @@ static int budget(struct g0q_link *link)
 	return ktime_get_boottime_ns() < link->hw.deadline_ns ? 0 : -ETIMEDOUT;
 }
 
-int g0q_hci_quiescent(struct g0q_link *link)
+int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *diag)
 {
 	void __iomem *hci = link->hw.hci;
 	u32 version;
 
 	if (budget(link))
-		return -ETIMEDOUT;
+		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_DEADLINE, -ETIMEDOUT);
 	version = readl(hci + REG_UFS_VERSION);
 	/* The fixed legacy request/task lists do not cover UFSHCI 4 MCQ. */
 	if (version < 0x200 || version > 0x310)
-		return -ENODEV;
+		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_UFS_VERSION, -ENODEV);
 	link->version = readl(hci + HCI_HW_VERSION);
 	if ((link->version >> 28) != 4)
-		return -ENODEV;
-	if (readl(hci + REG_CONTROLLER_ENABLE) ||
-	    (readl(hci + REG_CONTROLLER_STATUS) &
+		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_HW_VERSION, -ENODEV);
+	/* Preserve short-circuit evaluation and the original read order. */
+	if (g0q_stage2_condition(diag, G0Q_S2_HCE, readl(hci + REG_CONTROLLER_ENABLE)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_HCS, readl(hci + REG_CONTROLLER_STATUS) &
 	     (DEVICE_PRESENT | UIC_COMMAND_READY | HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR)) ||
-	    readl(hci + REG_UTP_TRANSFER_REQ_DOOR_BELL) ||
-	    readl(hci + REG_UTP_TASK_REQ_DOOR_BELL) ||
-	    readl(hci + REG_UTP_TRANSFER_REQ_LIST_RUN_STOP) ||
-	    readl(hci + REG_UTP_TASK_REQ_LIST_RUN_STOP) ||
-	    readl(hci + REG_INTERRUPT_ENABLE) || readl(hci + REG_INTERRUPT_STATUS) ||
-	    readl(hci + REG_AUTO_HIBERNATE_IDLE_TIMER))
-		return -EBUSY;
+	    g0q_stage2_condition(diag, G0Q_S2_TRANSFER_DOORBELL, readl(hci + REG_UTP_TRANSFER_REQ_DOOR_BELL)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_TASK_DOORBELL, readl(hci + REG_UTP_TASK_REQ_DOOR_BELL)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_TRANSFER_RUN, readl(hci + REG_UTP_TRANSFER_REQ_LIST_RUN_STOP)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_TASK_RUN, readl(hci + REG_UTP_TASK_REQ_LIST_RUN_STOP)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_IRQ_ENABLE, readl(hci + REG_INTERRUPT_ENABLE)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_IRQ_STATUS, readl(hci + REG_INTERRUPT_STATUS)) ||
+	    g0q_stage2_condition(diag, G0Q_S2_AUTO_HIBERNATE, readl(hci + REG_AUTO_HIBERNATE_IDLE_TIMER)))
+		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_QUIESCENT, -EBUSY);
 	return 0;
+}
+
+int g0q_hci_quiescent(struct g0q_link *link)
+{
+	/* The later pre-link check must not overwrite stage-two evidence. */
+	return g0q_hci_quiescent_observed(link, NULL);
 }
 
 static int command(struct g0q_link *link, u32 opcode, u32 attribute, u32 argument,

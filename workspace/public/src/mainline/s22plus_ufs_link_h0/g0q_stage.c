@@ -22,6 +22,7 @@ extern void ml030_open_rail_requests(void);
 
 struct board {
 	struct g0q_link link;
+	struct g0q_stage2_diag stage2;
 	void __iomem *reset_io;
 	struct clk *core, *unipro, *ref, *aggr, *iface;
 	struct regulator *analog, *pll, *vcc, *vccq, *pad, *parent;
@@ -46,13 +47,13 @@ static int report(char *buf, const struct kernel_param *kp)
 {
 	struct g0q_link *link = &board.link;
 
-	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u %u %u\n",
+	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u %u %u %u %u\n",
 			 operation_rc, stage, link->version, link->hw.pcs_ready,
 			 link->local_commands, link->link_issued, link->before,
 			 link->interrupt, link->result, link->after, link->hce_started,
 			 power.records, power.claimed, power.triggered, power.acknowledged,
 			 power.reclaimed, power.error, usb_covered, usb_released,
-			 usb_reason, usb_detail);
+			 usb_reason, usb_detail, board.stage2.site, board.stage2.checks);
 }
 static const struct kernel_param_ops report_ops = { .get = report };
 module_param_cb(result, &report_ops, NULL, 0444);
@@ -83,37 +84,37 @@ static int clock_on(const char *name, struct clk **held)
 }
 
 static int supply(const char *name, int min_uv, int max_uv, int load,
-		  struct regulator **held)
+		  struct regulator **held, u32 component)
 {
 	struct regulator *reg = devm_regulator_get_optional(board.dev, name);
 	int rc;
 
 	if (IS_ERR(reg))
-		return PTR_ERR(reg);
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_GET_SUPPLY, PTR_ERR(reg));
 	if (remaining())
-		return -ETIMEDOUT;
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_BEFORE_LOAD, -ETIMEDOUT);
 	rc = regulator_set_load(reg, load);
 	if (rc)
-		return rc;
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_SET_LOAD, rc);
 	if (min_uv) {
 		if (remaining())
-			return -ETIMEDOUT;
+			return g0q_stage2_error(&board.stage2, component, G0Q_S2_BEFORE_VOLTAGE, -ETIMEDOUT);
 		rc = regulator_set_voltage(reg, min_uv, max_uv);
 		if (rc)
-			return rc;
+			return g0q_stage2_error(&board.stage2, component, G0Q_S2_SET_VOLTAGE, rc);
 	}
 	if (remaining())
-		return -ETIMEDOUT;
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_BEFORE_ENABLE, -ETIMEDOUT);
 	rc = regulator_enable(reg);
 	if (rc)
-		return rc;
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_ENABLE, rc);
 	*held = reg;
 	if (min_uv) {
 		rc = regulator_get_voltage(reg);
 		if (rc < min_uv || rc > max_uv)
-			return -ERANGE;
+			return g0q_stage2_error(&board.stage2, component, G0Q_S2_VOLTAGE_READBACK, -ERANGE);
 	}
-	return remaining();
+	return g0q_stage2_error(&board.stage2, component, G0Q_S2_AFTER_SUPPLY, remaining());
 }
 
 static int access_power(struct platform_device *pdev)
@@ -144,26 +145,27 @@ static int access_power(struct platform_device *pdev)
 	return rc;
 }
 
-static int rate(struct clk *clk)
+static int rate(struct clk *clk, u32 component)
 {
 	int rc;
 
 	if (remaining())
-		return -ETIMEDOUT;
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_DEADLINE, -ETIMEDOUT);
 	rc = clk_set_rate(clk, 300000000);
 	if (rc)
-		return rc;
-	return clk_get_rate(clk) == 300000000 ? 0 : -ERANGE;
+		return g0q_stage2_error(&board.stage2, component, G0Q_S2_SET_RATE, rc);
+	return g0q_stage2_error(&board.stage2, component, G0Q_S2_RATE_READBACK,
+			       clk_get_rate(clk) == 300000000 ? 0 : -ERANGE);
 }
 
 static int host_supplies(void)
 {
-	int rc = supply("vcc", 2504000, 2504000, 1100000, &board.vcc);
+	int rc = supply("vcc", 2504000, 2504000, 1100000, &board.vcc, G0Q_S2_VCC);
 
 	if (!rc)
-		rc = supply("vccq", 1200000, 1200000, 1200000, &board.vccq);
+		rc = supply("vccq", 1200000, 1200000, 1200000, &board.vccq, G0Q_S2_VCCQ);
 	if (!rc)
-		rc = supply("ref-pad", 1200000, 1200000, 100, &board.pad);
+		rc = supply("ref-pad", 1200000, 1200000, 100, &board.pad, G0Q_S2_REF_PAD);
 	if (!rc) {
 		/* The stock provider initial vote is 1.256 V. The separate UFS
 		 * parent consumer carries load/enable without a voltage request.
@@ -171,14 +173,15 @@ static int host_supplies(void)
 		struct regulator *seed = devm_regulator_get_optional(board.dev, "parent");
 
 		if (IS_ERR(seed))
-			return PTR_ERR(seed);
+			return g0q_stage2_error(&board.stage2, G0Q_S2_PARENT, G0Q_S2_SEED_GET, PTR_ERR(seed));
 		if (remaining())
-			return -ETIMEDOUT;
+			return g0q_stage2_error(&board.stage2, G0Q_S2_PARENT, G0Q_S2_SEED_DEADLINE, -ETIMEDOUT);
 		rc = regulator_set_voltage(seed, 1256000, 1256000);
+		g0q_stage2_error(&board.stage2, G0Q_S2_PARENT, G0Q_S2_SEED_VOLTAGE, rc);
 		if (!rc)
-			rc = supply("parent", 0, 0, 210000, &board.parent);
+			rc = supply("parent", 0, 0, 210000, &board.parent, G0Q_S2_PARENT);
 		if (!rc && regulator_get_voltage(board.parent) != 1256000)
-			rc = -ERANGE;
+			rc = g0q_stage2_error(&board.stage2, G0Q_S2_PARENT, G0Q_S2_PARENT_READBACK, -ERANGE);
 	}
 	return rc;
 }
@@ -245,7 +248,7 @@ static int phy_on(void)
 	if (!rc)
 		rc = g0q_phy_analog_on(&board.link.hw);
 	if (!rc)
-		rc = supply("vdda-pll", 1200000, 1200000, 24900, &board.pll);
+		rc = supply("vdda-pll", 1200000, 1200000, 24900, &board.pll, 0);
 	if (!rc)
 		rc = clock_on("phy-qref", NULL);
 	if (!rc)
@@ -326,15 +329,16 @@ static int run(struct platform_device *pdev)
 	if (rc)
 		return rc;
 	stage = 2;
-	rc = g0q_hci_quiescent(&board.link);
+	rc = g0q_hci_quiescent_observed(&board.link, &board.stage2);
 	if (rc)
 		return rc;
-	if (!(readl(board.reset_io) & BIT(31)) || !(readl(board.reset_io + 4) & BIT(0)))
-		return -EBUSY;
+	if (g0q_stage2_condition(&board.stage2, G0Q_S2_RESET_OUTPUT, !(readl(board.reset_io) & BIT(31))) ||
+	    g0q_stage2_condition(&board.stage2, G0Q_S2_RESET_HIGH, !(readl(board.reset_io + 4) & BIT(0))))
+		return g0q_stage2_error(&board.stage2, G0Q_S2_RESET, G0Q_S2_PIN_GUARD, -EBUSY);
 	ml030_open_rail_requests();
-	rc = rate(board.core);
+	rc = rate(board.core, G0Q_S2_CORE);
 	if (!rc)
-		rc = rate(board.unipro);
+		rc = rate(board.unipro, G0Q_S2_UNIPRO);
 	if (!rc)
 		rc = host_supplies();
 	if (rc)
