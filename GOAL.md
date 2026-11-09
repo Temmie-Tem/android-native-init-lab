@@ -30,12 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML035 is qualified and prepared, not dispatched.** The exact no-display
-  BCM producer correction passed native/ARM64 full-table tests, fresh artifact
-  qualification and independent candidate/owner reviews. Fixed foreground D0
-  passed seven fresh original-A health reads; no run approval, grant or operation
-  exists. Current attendance and the separately returned finite approval remain
-  required. [H0 evidence and preparation](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md).
+- **ML035 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
+  The corrected BCM producer passed the unchanged USB/PM/ICC/SH1/CN0 admission
+  on the first attempt, with its USB reference released. Authenticated base
+  arrived at N+90.749s; the same-boot witness proved a 300.405s host interval
+  and 300.525s guest uptime advance. The one module permit returned `EBUSY(16)`
+  at stage 2, with no fixed RPMh request or local UniPro/link command. Earlier
+  PM/clock preparation occurred; the precise stage-two rejecting predicate is
+  unobserved. Physical Download and one original A restored Android. After an
+  ADB disappearance in the first health bracket, health-only continuation
+  completed seven fresh reads. N/A each transferred once, the network profile
+  is absent and no F1 owner remains. It is the latest physical closure and
+  cannot replay. [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML035_RUN_2026-11-10.md)
+  · [H0 correction and preparation](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md).
 
 - **ML034 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
   authenticated base arrived at N+67.704s; the same-socket witness proved a
@@ -47,7 +54,7 @@ identities, goals, artifacts and authority remain separate.
   Physical Download and one original A restored Android. After a closed-channel
   readiness-read failure, health-only continuation passed seven fresh reads.
   N/A each transferred once, the owned network profile is absent and no F1
-  owner remains. It is the latest physical closure and cannot replay.
+  owner remains. It is a preceding physical closure and cannot replay.
   [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML034_RUN_2026-11-10.md)
   · [Correction and H0 evidence](docs/reports/S22PLUS_MAINLINE_ML034_USB_ADMISSION_H0_2026-11-10.md)
   · [Exact prospective scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md).
@@ -242,7 +249,7 @@ link criterion remains `NO_PROOF`. Its known-zero SH1 confirmation is a
 software command observation; the historical producing object/order and
 electrical state remain unobserved. It cannot replay.
 
-## Selected bounded unit: ML035 ordinary BCM producer correction
+## Completed bounded unit: ML035 ordinary BCM producer correction
 
 Argon and Opus discussion plus full-table H0 execution identified a reachable
 duplicate-producer defect: unused display BCM objects can submit zero votes
@@ -253,13 +260,13 @@ The exact reduced DT has no active DISP consumer or normal-to-DISP path.
 Host and ARM64 cases reproduce the old failure and qualify the correction;
 they do not establish ML034's historical physical cause.
 
-The selected completion criterion is the qualified fresh candidate and one
-separately approved attended physical run through original-A health closure.
-Fresh Image/module/archive/loader qualification, independent source/scope
-review, concrete task preparation and fixed D0 health are complete. Physical
-execution still awaits its returned finite approval and attendance. The original 120/300/540/15-second
-bounds, one link attempt, one N and one original A total remain unchanged.
-This goal grants no device effect or replay. [H0 evidence and progress](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md)
+The selected correction and next attended experiment are complete. USB admission
+passed on the corrected candidate; the five-minute witness and healthy original-A
+return are proved. UFS link completion remains `NO_PROOF` after the stage-two
+stop. Its exact HCI/reset/rate/supply rejection is not identified by this run.
+No guard was relaxed and no consumed action may replay. Further work starts
+with H0 examination of that later boundary; this goal grants no successor
+device effect. [H0 evidence and progress](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md)
 · [Exact prospective scope](docs/operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md).
 
 ## Milestones toward the final server

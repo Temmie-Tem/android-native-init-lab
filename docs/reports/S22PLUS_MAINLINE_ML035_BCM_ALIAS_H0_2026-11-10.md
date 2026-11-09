@@ -110,10 +110,10 @@ pointer was corrected during review; no earlier receipt was repinned.
 
 The new capability and immutable backend v39 were published under the existing
 admission/target locks; the ordinary-terminal worker is unchanged and connected.
-The exact ML035 task/proposal and cue caller commands are prepared. Its fixed
+The exact ML035 task/proposal and cue caller commands were prepared. Its fixed
 foreground D0 completed seven fresh original-A health reads, which were
-revalidated from raw evidence. No device control, partition transfer, run
-approval, grant or operation exists. Readiness is not run authority.
+revalidated from raw evidence. At that preparation boundary no run approval,
+grant or operation existed; readiness supplied no run authority.
 The [prospective scope](../operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md)
 retains the original 120-second first response, same-boot 300-second witness,
 540-second total ceiling, 15-second module budget, one late link attempt,
@@ -149,3 +149,18 @@ Private evidence roots:
 
 A90, S20+ and unrelated Debian journal work remain untouched. Nothing has been
 pushed by this task.
+
+## Attended result
+
+After the exact finite approval and current attendance were supplied,
+[ML035 ran once](S22PLUS_MAINLINE_ML035_RUN_2026-11-10.md). Its unchanged USB
+admission passed on the first attempt and the same-boot five-minute witness
+passed. The module then stopped at stage 2 with `EBUSY(16)`, no fixed RPMh
+request and no local UniPro/link command. Earlier runtime-PM/clock preparation
+had occurred; the precise stage-two predicate remains unobserved.
+
+One original A and a complete health-only continuation returned
+`ANDROID_CLOSED_HEALTHY`; N/A each transferred once. The failed first ADB health
+read and all 553 indexed raw captures remain retained. The selected correction
+and next attended experiment are complete; UFS link completion remains
+`NO_PROOF`. ML035 is consumed and cannot replay.
