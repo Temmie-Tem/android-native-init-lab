@@ -75,6 +75,10 @@ static int report(char *buf, const struct kernel_param *kp)
 	for (unsigned int i = 0; i < 6; i++)
 		size += scnprintf(buf + size, PAGE_SIZE - size, " %u", board.stage2.raw[i]);
 #endif
+#ifdef G0Q_CFG1_DIAGNOSTICS
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %u %u %u",
+		link->cfg1_outcome, link->cfg1_pre, link->cfg1_post);
+#endif
 	return size + scnprintf(buf + size, PAGE_SIZE - size, "\n");
 }
 static const struct kernel_param_ops report_ops = { .get = report };

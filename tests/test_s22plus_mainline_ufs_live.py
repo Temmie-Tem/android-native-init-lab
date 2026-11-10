@@ -38,7 +38,7 @@ class Ml030WireTests(unittest.TestCase):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         directory=Path(temp.name);folder=directory/('io-'+profile.SELECTION)
         fixture=self.helper.fixture;manifest=self.helper.manifest()
-        completed_failure=version in (6,7,8,9) and (case.startswith(('handoff-','ack-')) or case in ('load-error','read-error'))
+        completed_failure=version in (6,7,8,9,10) and (case.startswith(('handoff-','ack-','cfg1-')) or case in ('load-error','read-error'))
         manifest=copy.deepcopy(manifest);manifest['debian_ram']['schema']=profile.codec.LINK_SCHEMA
         manifest.update(network={'host_ip':'127.0.0.1','device_ip':'127.0.0.1'},port=1)
         response=self.helper.raw();t0=struct.unpack_from('<Q',response,216)[0];boot=response[72:88]
@@ -97,7 +97,7 @@ class Ml030WireTests(unittest.TestCase):
                 with listener.accept()[0] as c:
                     c.settimeout(3);q=exact(c,72);observed.append('W0');self.assertEqual(q[8:40],fixture.nonce)
                     c.sendall(response)
-                    if version in (6,7,8,9):
+                    if version in (6,7,8,9,10):
                         if case=='missing-arm':return
                         armed=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,fixture.nonce,boot)
                         if case=='wrong-arm':armed=armed[:-1]+bytes([armed[-1]^1])
@@ -106,7 +106,7 @@ class Ml030WireTests(unittest.TestCase):
                     if not q:return
                     n1=wire.HEADER.unpack_from(q)[3];t1=t0+301000
                     self.assertGreaterEqual(clock()-start,300*10**9)
-                    if version in (6,7,8,9):
+                    if version in (6,7,8,9,10):
                         live=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,n1,boot,late=True)
                         if case=='wrong-live':live=live[:-1]+bytes([live[-1]^1])
                         c.sendall(live)
@@ -120,7 +120,8 @@ class Ml030WireTests(unittest.TestCase):
                     if version==3:numbers=numbers[:-1]+b' 0 2047\n'
                     if version==4:numbers=numbers[:-1]+b' 1073741824 2047\n'
                     if version==5:numbers=numbers[:-1]+b' 1342177280 2047 1 0 0 0 0 0 0\n'
-                    if version in (6,7,8,9):numbers=numbers[:-1]+f' {version << 28} {2047 | ((8 << 22) if version in (8,9) else 0) | (0xf0000000 if version == 9 else 0)} 2113535 1 271 1024 0 0 0\n'.encode()
+                    if version in (6,7,8,9,10):numbers=numbers[:-1]+f' {version << 28} {2047 | ((8 << 22) if version in (8,9,10) else 0) | (0xf0000000 if version in (9,10) else 0)} 2113535 1 271 1024 0 0 0\n'.encode()
+                    if version==10:numbers=numbers[:-1]+b' 3 0 1\n'
                     if case=='usb-rejection':numbers=b'-16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 65554 1\n'
                     if case=='stage2-rejection':
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
@@ -128,21 +129,26 @@ class Ml030WireTests(unittest.TestCase):
                         numbers=subprocess.check_output([exe,'0','1','-16','1','0'],stderr=subprocess.DEVNULL,timeout=5)
                     if case.startswith('handoff-'):
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
-                        exe=compile_stage_fixture(directory/'handoff-producer',handoff=True,reset_config=version in (7,8,9),disabled_ucrdy=version in (8,9),stale_uccs_ack=version==9)
+                        exe=compile_stage_fixture(directory/'handoff-producer',handoff=True,reset_config=version in (7,8,9,10),disabled_ucrdy=version in (8,9,10),stale_uccs_ack=version in (9,10),cfg1_diagnostics=version==10)
                         guard=3 if case=='handoff-ucrdy-next' else 2 if case=='handoff-post-rejection' else 0
                         scenario={'handoff-refusal':2,'handoff-post-rejection':1,'handoff-timeout':11,'handoff-config-refusal':8,'handoff-latch-refusal':9,'handoff-ucrdy-next':22}[case]
                         numbers=subprocess.check_output([exe,'0',str(guard),'-16','1','0',str(scenario)],
                                                         stderr=subprocess.DEVNULL,timeout=5)
                     if case.startswith('ack-'):
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
-                        exe=compile_stage_fixture(directory/'ack-producer',handoff=True,reset_config=True,disabled_ucrdy=True,stale_uccs_ack=True)
+                        exe=compile_stage_fixture(directory/'ack-producer',handoff=True,reset_config=True,disabled_ucrdy=True,stale_uccs_ack=True,cfg1_diagnostics=version==10)
                         scenario={'ack-zero':1,'ack-drift':7,'ack-nonzero':9,'ack-late-zero':11}[case]
                         numbers=subprocess.check_output([exe,*map(str,(0,0,-16,8,0,22,0,0,0,scenario))],stderr=subprocess.DEVNULL,timeout=5)
+                    if case.startswith('cfg1-'):
+                        from test_s22plus_cfg1_diagnostics import compile_cfg1
+                        exe=compile_cfg1(directory/'cfg1-producer')
+                        post,expiry={'cfg1-readback':(0,0),'cfg1-budget':(1,1),'cfg1-passed':(1,0)}[case]
+                        numbers=subprocess.check_output([exe,*map(str,(8,8,8,0,0,1,0,post,expiry))],stderr=subprocess.DEVNULL,timeout=5)
                     if case.startswith('pre-effect-'):
                         from test_s22plus_pre_effect_return import compile_pre_effect, module_report
-                        exe=compile_pre_effect(directory/'pre-effect-producer',snapshot=version==5,handoff=version in (6,7,8,9),reset_config=version in (7,8,9),disabled_ucrdy=version in (8,9),stale_uccs_ack=version==9)
+                        exe=compile_pre_effect(directory/'pre-effect-producer',snapshot=version==5,handoff=version in (6,7,8,9,10),reset_config=version in (7,8,9,10),disabled_ucrdy=version in (8,9,10),stale_uccs_ack=version in (9,10),cfg1_diagnostics=version==10)
                         numbers=module_report(exe,'stage2' if case=='pre-effect-stage2' else 'refuse')
-                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True,snapshot=version==5,handoff=version in (6,7,8,9),reset_config=version in (7,8,9),disabled_ucrdy=version in (8,9),stale_uccs_ack=version==9)
+                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True,snapshot=version==5,handoff=version in (6,7,8,9,10),reset_config=version in (7,8,9,10),disabled_ucrdy=version in (8,9,10),stale_uccs_ack=version in (9,10),cfg1_diagnostics=version==10)
                         gate=int(subprocess.check_output([guest],input=numbers,timeout=5))
                         self.assertEqual(gate==0,case!='pre-effect-stage2')
                     load=5 if case=='load-error' else 0;read=5 if case=='read-error' else 0
@@ -236,6 +242,13 @@ class Ml030WireTests(unittest.TestCase):
                 self.assertTrue((folder/'control-intent.json').exists())
                 self.assertIn('Download',observed)
                 self.assertEqual(independent['status'],'NO_PROOF')
+            if case.startswith('cfg1-'):
+                fact=link.rederive_link(adapter,request)['result']
+                self.assertEqual(fact['cfg1']['outcome'],{'cfg1-readback':'READBACK_BIT_CLEAR',
+                    'cfg1-budget':'BUDGET_EXPIRED','cfg1-passed':'CHECK_PASSED'}[case])
+                self.assertFalse(fact['normal_return']);self.assertTrue(fact['recovery_return'])
+                self.assertEqual(consumed,['permit']);self.assertIn('Download',observed)
+
             if case.startswith('ack-'):
                 fact=link.rederive_link(adapter,request)['result']
                 self.assertEqual(fact['initial_uccs_ack']['status'],{'ack-zero':'ZERO_OBSERVED_IN_TIME','ack-drift':'DRIFT','ack-nonzero':'NONZERO_READBACK','ack-late-zero':'DEADLINE'}[case])
@@ -305,6 +318,11 @@ class Ml030WireTests(unittest.TestCase):
         for case in ('success','bad-ack','pre-effect-success','ack-zero','ack-drift','ack-nonzero','ack-late-zero',
                      'load-error','read-error','partial-result','malformed-result','missing-arm','wrong-live','expired-at-return'):
             with self.subTest(case=case):self.run_case(case,version=9)
+    def test_v10_actual_producer_socket_return_and_failures(self):
+        for case in ('success','bad-ack','pre-effect-success','ack-zero','ack-nonzero','cfg1-readback',
+                     'cfg1-budget','cfg1-passed','load-error','read-error','partial-result',
+                     'malformed-result','missing-arm','wrong-live','expired-at-return'):
+            with self.subTest(case=case):self.run_case(case,version=10)
     def test_pre_effect_actual_guest_host_return(self):self.run_case('pre-effect-success',version=4)
     def test_pre_effect_failed_ack_does_not_prove_return(self):self.run_case('pre-effect-bad-ack',version=4)
     def test_pre_effect_does_not_extend_return_deadline(self):self.run_case('pre-effect-expired-at-return',version=4)

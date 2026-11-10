@@ -160,6 +160,10 @@ class V9WindowTests(WindowTests):
     report_version=9
 
 
+class V10WindowTests(WindowTests):
+    report_version=10
+
+
 class OwnerTests(prior.DownloadOwnerTests):
     def automatic(self,fault='after-control',status='EXACT_DOWNLOAD_OBSERVED'):
         current,device=self.operation(fault=fault)

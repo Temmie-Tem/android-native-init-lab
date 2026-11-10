@@ -365,5 +365,93 @@ class CueTests(unittest.TestCase):
         self.periodic_producer(present=True)
 
 
+class CapturedCallerTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='cue-capture-', dir=ROOT/'workspace/private/outputs')
+        self.addCleanup(self.temp.cleanup)
+        self.folder = Path(self.temp.name)
+        self.operation = self.folder/'operation'; self.operation.mkdir()
+
+    def directory(self, name):
+        p = self.folder/name;p.mkdir();return p
+
+    def test_real_cli_help_guard_refusal_and_no_overwrite(self):
+        directory = self.directory('help')
+        argv = [sys.executable,cue.__file__,'capture-help',str(directory)]
+        result = subprocess.run(argv,capture_output=True,check=True,cwd='/',timeout=10)
+        record = json.loads(result.stdout);self.assertEqual(record['status'],'PASS_CAPTURE_HELP')
+        handle = cue.raw.load_handle(cue.verify(record['raw_capture']))
+        self.assertIn(b'check,issue,resolve',cue.raw.read_stdout(handle,maximum=16384))
+        before = cue.pin(handle.receipt_path)
+        duplicate = subprocess.run(argv,capture_output=True,cwd='/',timeout=10)
+        self.assertEqual(duplicate.returncode,1);self.assertEqual(cue.pin(handle.receipt_path),before)
+        bad = subprocess.run([sys.executable,cue.__file__,'issue',str(self.operation),
+                '--capture-directory',str(self.directory('refusal'))],capture_output=True,cwd='/',timeout=10)
+        self.assertEqual(bad.returncode,1);self.assertFalse(bad.stdout)
+        info = json.loads(bad.stderr);self.assertEqual(info['diagnostics']['phase'],'capture-result')
+        handle = cue.raw.load_handle(cue.verify(info['diagnostics']['raw_capture']))
+        self.assertEqual(handle.returncode,1)
+        self.assertEqual(json.loads(cue.raw.read_stderr(handle,maximum=16384))['status'],'CUE_CALL_REFUSED')
+        self.assertFalse((self.operation/'mainline-attach-cue.json').exists())
+
+    def test_invalid_capture_arguments_never_spawn(self):
+        directory=self.directory('invalid')
+        with patch.object(cue.raw,'acquire_command',side_effect=AssertionError('unexpected spawn')):
+            for verb,op,kw in (('issue',None,{}),('help',self.operation,{}),
+                              ('check',self.operation,dict(statement='unused')),
+                              ('issue',Path('/tmp'),{}),
+                              ('resolve',self.operation,dict(resolution='completed',statement=''))):
+                with self.assertRaises(ValueError):cue.captured_call(verb,op,directory,**kw)
+        self.assertEqual(list(directory.iterdir()),[])
+
+    def child(self, data, *, stderr=b'', returncode=0, delay=0):
+        # Fixed fixture child tests the real acquisition/sealing/parsing path.
+        # Production always calls its own reviewed __file__, never a user argv.
+        path=self.folder/'child.py'
+        path.write_text('import sys,time\n'+'sys.stdout.buffer.write('+repr(data)+');sys.stdout.flush()\n'+
+                        'sys.stderr.buffer.write('+repr(stderr)+');sys.stderr.flush()\n'+
+                        'time.sleep('+repr(delay)+')\n'+'raise SystemExit('+str(returncode)+')\n')
+        return path
+
+    def test_real_child_capture_before_failure_parsing_and_timeout(self):
+        for name,data,stderr,rc,delay in (('malformed',b'{bad',b'',0,0),
+             ('refused',b'',b'preserved refusal',1,0),('diagnostic',b'{}',b'warning',0,0),
+             ('timeout',b'partial stdout',b'partial stderr',0,1)):
+            directory=self.directory(name);diagnostics={};child=self.child(data,stderr=stderr,returncode=rc,delay=delay)
+            acquire=cue.raw.acquire_command
+            def bounded(*args,**kwargs):
+                self.assertEqual(kwargs,dict(timeout=35,stdout_maximum=16384,stderr_maximum=16384,cwd=ROOT))
+                return acquire(*args,**dict(kwargs,timeout=0.1 if delay else 5))
+            with patch.object(cue,'__file__',str(child)),patch.object(cue.raw,'acquire_command',side_effect=bounded):
+                with self.assertRaises((ValueError,cue.raw.RawCaptureError)):
+                    cue.captured_call('issue',self.operation,directory,diagnostics=diagnostics)
+            handle=cue.raw.load_handle(cue.verify(diagnostics['raw_capture']))
+            self.assertEqual(cue.raw.read_stdout(handle,maximum=16384),data)
+            self.assertEqual(cue.raw.read_stderr(handle,maximum=16384),stderr)
+            self.assertEqual(handle.timed_out,bool(delay))
+            self.assertFalse((self.operation/'mainline-attach-resolution.json').exists())
+
+    def test_captured_issue_final_window_and_resolution_statement(self):
+        window=publish(self.operation/'window.json',dict(deadline_ns=200_000_000_000))
+        issued=publish(self.operation/'mainline-attach-cue.json',dict(window=window))
+        original=dict(status='CUE_RECORDED_DISPLAY_NOW',cue=issued,instruction=cue.INSTRUCTION,resolution_required=True)
+        for name,now,status in (('timely',139_999_999_999,'CUE_RECORDED_DISPLAY_NOW'),
+                                ('late',140_000_000_000,'CUE_RECORDED_DO_NOT_DISPLAY')):
+            child=self.child(cue.canonical(original));directory=self.directory(name)
+            with patch.object(cue,'__file__',str(child)),patch.object(cue,'clock',return_value=now):
+                result=cue.captured_call('issue',self.operation,directory)
+            self.assertEqual(result['result']['status'],status)
+            self.assertEqual(result['result']['instruction'],cue.INSTRUCTION if name=='timely' else None)
+            handle=cue.raw.load_handle(cue.verify(result['raw_capture']))
+            self.assertEqual(json.loads(cue.raw.read_stdout(handle,maximum=16384)),original)
+            self.assertEqual(cue.pin(self.operation/'mainline-attach-cue.json'),issued)
+            self.assertFalse((self.operation/'mainline-attach-resolution.json').exists())
+        child=self.folder/'resolve.py'
+        child.write_text('import json,sys\nassert sys.argv[1:]=='+repr(['resolve',str(self.operation),'cancelled','Actual fixture operator cancellation.'])+'\nprint(json.dumps({"fixture_resolution":True}))\n')
+        with patch.object(cue,'__file__',str(child)):
+            result=cue.captured_call('resolve',self.operation,self.directory('resolve'),resolution='cancelled',statement='Actual fixture operator cancellation.')
+        self.assertTrue(result['result']['fixture_resolution'])
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -35,7 +35,7 @@ def return_allowed(facts):
 
 
 def recovery_result(facts, raw, report_version):
-    if report_version not in (6, 7, 8, 9):
+    if report_version not in (6, 7, 8, 9, 10):
         return facts
     return dict(facts, recovery_return=True, recovery_mode=RECOVERY_MODE,
                 control_nonce=hashlib.sha256(raw).digest())
@@ -214,7 +214,7 @@ def hci_snapshot(values):
 
 def hce_handoff(values, *, reset_config=False, stale_ack=False):
     """Versioned stop history; V8 permits UCRDY in disabled-state checks."""
-    word, pre_hce, pre_hcs, pre_is, last_hce, index, raw = values[23:]
+    word, pre_hce, pre_hcs, pre_is, last_hce, index, raw = values[23:30]
     check(0 <= word < 1 << 32, 'handoff metadata range')
     flags, polls, elapsed = word & 8191, (word >> 13) & 127, word >> 20
     check(0 <= flags <= 8191 and not flags & (flags + 1) and
@@ -370,8 +370,37 @@ def initial_ack(values):
         readback_raw=raw if site in ack_sites and flags & 4 else 0 if flags == 15 else None))
 
 
+def cfg1_diagnostics(values):
+    """V10 records existing CFG1 samples and the branch taken, not its cause."""
+    outcome, before, after = values[30:33]
+    check(outcome in (0, 1, 2, 3) and 0 <= before < 2**32 and 0 <= after < 2**32,
+          'CFG1 diagnostic range')
+    rc, stage, _, pcs, local, issued = values[:6]
+    if outcome == 0:
+        check(before == after == values[10] == local == issued == 0 and rc < 0,
+              'unreached CFG1 has reached state')
+    else:
+        check(stage == 6 and pcs == values[10] == 1 and
+              values[21] == 0xa0000000 and
+              values[22] & 0x3fffff == 0x7ff and values[27:30] == [0, 0, 0],
+              'CFG1 reached before its prerequisites')
+        if outcome in (1, 2):
+            check(rc == -5 and local == issued == 0 and not any(values[6:10]) and
+                  bool(after & 1) == (outcome == 2), 'CFG1 failed-branch contradiction')
+        else:
+            check(after & 1, 'CFG1 passed without selected bit')
+            if not local:
+                check(issued == 0 and not any(values[6:10]) and rc in (-110, -16),
+                      'CFG1 passed but impossible pre-command result')
+    return dict(cfg1=dict(outcome=('UNREACHED', 'READBACK_BIT_CLEAR',
+                     'BUDGET_EXPIRED', 'CHECK_PASSED')[outcome],
+        pre=before if outcome else None, post=after if outcome else None,
+        budget_evaluated=outcome in (2, 3),
+        budget_expired=True if outcome == 2 else False if outcome == 3 else None))
+
+
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3, 4, 5, 6, 7, 8, 9), 'unselected module report schema')
+    check(report_version in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -386,7 +415,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         return recovery_result(dict(status="NO_PROOF",load_errno=load,read_errno=read,
                                     report_bytes=size,normal_return=False), raw, report_version)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30, 8:30, 9:30}[report_version]
+    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30, 8:30, 9:30, 10:33}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -409,20 +438,22 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         diagnostic = values[:23]
         if report_version >= 4:
             check(0 <= values[21] < 1 << 32 and
-                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000, 8:0x80000000, 9:0x90000000}[report_version],
+                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000, 8:0x80000000, 9:0x90000000, 10:0xa0000000}[report_version],
                   'pre-effect report version tag')
             pre_effect = bool(values[21] & 0x10000)
             diagnostic[21] &= 0xffff
             if pre_effect:
                 check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
                       and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
-        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7, 8, 9), reset_config=report_version in (7, 8, 9), disabled_ucrdy=report_version in (8, 9), stale_ack=report_version == 9))
+        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7, 8, 9, 10), reset_config=report_version in (7, 8, 9, 10), disabled_ucrdy=report_version in (8, 9, 10), stale_ack=report_version in (9, 10)))
         if report_version == 5:
             facts.update(hci_snapshot(values))
-        elif report_version in (6, 7, 8, 9):
-            facts.update(hce_handoff(values, reset_config=report_version in (7, 8, 9), stale_ack=report_version == 9))
-        if report_version == 9:
+        elif report_version in (6, 7, 8, 9, 10):
+            facts.update(hce_handoff(values, reset_config=report_version in (7, 8, 9, 10), stale_ack=report_version in (9, 10)))
+        if report_version in (9, 10):
             facts.update(initial_ack(values))
+        if report_version == 10:
+            facts.update(cfg1_diagnostics(values))
     if pre_effect:
         return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest()), raw, report_version)

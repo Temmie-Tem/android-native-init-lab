@@ -30,6 +30,18 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML045 V10 H0 preparation is validated; physical execution remains pending.**
+  Argon discussed ML044's first CFG1 bit-readback-or-budget EIO in two bounded
+  rounds. The new 33-field diagnostic preserves existing accesses and splits
+  those branches; the fixed reconnect capture CLI is preflighted before N.
+  The fresh module/observer/loader/AP and 159 tests passed, including six real
+  artifact cases; retained V9 raw facts remain identical. Final exact independent
+  review returned PASS_GO with no findings, and the reviewed v46 backend/fresh
+  ML045 task are prepared. Fixed current-health D0 passed all seven raw reads
+  without a grant/control/transfer. The fresh exact attended one-operation
+  approval remains required before physical execution.
+  [Analysis, diagnostic scope and validation](docs/reports/S22PLUS_MAINLINE_ML045_CFG1_DIAGNOSTICS_H0_2026-11-11.md)
+
 - **ML044 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** V9
   completed one exact initial `0x400` acknowledgement and observed timely full
   IS zero after all eleven guards. One HCE stop completed in one poll (reported

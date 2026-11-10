@@ -27,6 +27,10 @@
 #error "Initial completion acknowledgement requires the V8 handoff mode"
 #endif
 
+#if defined(G0Q_CFG1_DIAGNOSTICS) && !defined(G0Q_STALE_UCCS_ACK)
+#error "CFG1 diagnostics require the V9 initial acknowledgement mode"
+#endif
+
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
 #define PHY_LINECFG_DISABLE 0xd48
@@ -425,9 +429,28 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 	    (readl(hci + REG_CONTROLLER_STATUS) & (G0Q_DISABLED_UCRDY_MASK | DEVICE_PRESENT)))
 		return -EBUSY;
 	link->hce_started = true;
+#ifdef G0Q_CFG1_DIAGNOSTICS
+	/* Retain the same two reads, one write and short-circuit clock access.
+	 * These scalar stores classify this run only; neither sample proves the
+	 * cause of a missing bit or a state transition between the samples.
+	 */
+	link->cfg1_pre = readl(hci + HCI_CFG1);
+	writel(link->cfg1_pre | BIT(0), hci + HCI_CFG1);
+	link->cfg1_post = readl(hci + HCI_CFG1);
+	if (!(link->cfg1_post & BIT(0))) {
+		link->cfg1_outcome = 1;
+		return -EIO;
+	}
+	if (budget(link)) {
+		link->cfg1_outcome = 2;
+		return -EIO;
+	}
+	link->cfg1_outcome = 3;
+#else
 	writel(readl(hci + HCI_CFG1) | BIT(0), hci + HCI_CFG1);
 	if (!(readl(hci + HCI_CFG1) & BIT(0)) || budget(link))
 		return -EIO;
+#endif
 	writel(CONTROLLER_ENABLE, hci + REG_CONTROLLER_ENABLE);
 	until = min(link->hw.deadline_ns, ktime_get_boottime_ns() + 50 * NSEC_PER_MSEC);
 	/* FYG8 and mainline wait 1 ms before polling the 1 -> 0 -> 1 HCE transition. */

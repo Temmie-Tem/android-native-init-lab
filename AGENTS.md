@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **76** (supersedes revision 75; 2026-11-11)
+Contract-Revision: **77** (supersedes revision 76; 2026-11-11)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`06b4b4e76e4fad17b28e45f78206b9ad10e7190568667207ab746ba532649d09`.
+`5e9d044cb7ac769ae19d04e40ce0ae4763c59bc63e82e84b3f2a596c4ee58db0`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -86,7 +86,7 @@ Read an exception's complete conditions before considering it applicable.
    The separately adopted reusable UFS V2 scope retains those fixed effects
    for independently qualified key-only candidates, with separately reviewed
    report-v4, bounded HCI-snapshot v5, one-stop HCE-handoff v6 or dedicated
-   reset-configuration v7, disabled-readiness v8 or initial-completion-ack v9 modules, exact attended grants
+   reset-configuration v7, disabled-readiness v8 or initial-completion-ack v9 or CFG1-diagnostic v10 modules, exact attended grants
    and a narrow certified pre-overlay normal return in V4/V5. V6/V7/V8/V9 also admit
    the fixed single-owner automatic Download attempt and bounded original-A
    recovery, including unclear experiment results, under the complete shared
@@ -100,7 +100,11 @@ Read an exception's complete conditions before considering it applicable.
    W1C after a timely HCE stop and all eleven guards, with fresh HCE/IS checks,
    one whole-word-zero readback and the original deadline, under the pinned
    common/shared conditions. Later IS-zero admission remains unchanged.
-   No fault-bit clear or retry is added. ML028 and ML030–ML043 remain consumed.
+   No fault-bit clear or retry is added. V10 inherits V9 and records only the
+   existing first HCI_CFG1 samples and readback/budget branch under its reviewed
+   schema, with no added hardware access or changed predicate. Its fixed cue
+   capture wrapper retains the original window/interlock. ML028 and
+   ML030–ML044 remain consumed.
    The exact S22+ inspection, userspace, preflight, witness, Debian and
    journal-recovery profiles are linked in the routing table below. Their
    complete closed effects, admission, attendance, budgets, evidence and

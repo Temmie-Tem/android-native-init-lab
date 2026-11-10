@@ -106,6 +106,10 @@ struct g0q_link {
 	bool hce_started, link_issued;
 	bool handoff_taken;
 	bool initial_ack_taken;
+#ifdef G0Q_CFG1_DIAGNOSTICS
+	/* Zero-initialized with the module's static board; never reset or retried. */
+	u32 cfg1_outcome, cfg1_pre, cfg1_post;
+#endif
 };
 
 bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,

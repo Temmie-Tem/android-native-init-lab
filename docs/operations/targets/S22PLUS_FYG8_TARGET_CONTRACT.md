@@ -168,7 +168,7 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, one reviewed report-v4, v5, v6, v7, v8 or v9 module and key-only candidate schema. The exact
+Image, one reviewed report-v4, v5, v6, v7, v8, v9 or v10 module and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -177,7 +177,7 @@ and new hazards require scoped review. Each operation retains a separately
 returned exact one-operation 1800-second approval, current attendance, fresh
 target/health/rollback binding and usable physical Download recovery.
 
-Except for the explicit V6 handoff, V7 pin, V8 readiness and V9 initial-ack specializations below,
+Except for the explicit V6 handoff, V7 pin, V8 readiness, V9 initial-ack and V10 diagnostic specializations below,
 all original guards remain. The 120/300/540/15-second bounds, one module permit,
 six local UniPro commands, at most one link command and one N/original-A total remain.
 In V4/V5 only the shared policy's certified settled pre-overlay coverage refusal
@@ -243,6 +243,17 @@ handling stay unchanged. No fault-bit clear, extra command/reset, new deadline
 or unattended effect is adopted. The shared fixed V9 module, coherent review,
 fresh exact qualification and returned finite attended approval are required.
 ML043 remains consumed; observed samples do not prove event origin or W1C cause.
+The separately reviewed V10 successor retains V9 and adds only the shared
+policy's first HCI_CFG1 existing-read branch evidence. The two reads, one OR
+write, short-circuited budget, EIO and subsequent HCE-one ordering are unchanged.
+Its exact new tag/33-field decoder distinguishes bit-readback, budget and pass
+without added access, retry or cause/old-run inference. The fixed self-capture
+cue CLI uses the existing raw acquisition API, separate prepared directories
+and original-window display suppression; all attach predicates, one cue and
+actual operator-resolution interlocks remain. Exact module/capability review,
+fresh artifact qualification and a separately returned finite attended grant
+remain required. ML044 stays consumed and all original recovery/no-replay
+conditions remain binding.
 Its exact common delegation, fixed artifact, independent capability/owner
 review and fresh candidate qualification are required before selection.
 There is no standing effect grant, replay or transfer of another target's

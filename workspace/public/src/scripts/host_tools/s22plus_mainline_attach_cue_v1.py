@@ -169,18 +169,84 @@ def resolve(operation, resolution, statement):
                           resolution=resolution, operator_statement=statement)
 
 
+def captured_call(verb, operation, directory, *, resolution=None, statement=None,
+                  diagnostics=None):
+    """Capture one fixed self-invocation before interpreting either stream.
+
+    The help probe exercises this same API/signature and storage path before N.
+    This wrapper never retries a caller, schedules a cue, or resolves an action.
+    """
+    diagnostics = diagnostics if diagnostics is not None else {}
+    directory = private_path(ROOT, Path(directory))
+    require(directory.is_dir(), 'prepare the capture directory before N')
+    require(verb in ('check', 'issue', 'resolve', 'help'), 'unknown captured verb')
+    if verb == 'help':
+        require(operation is None, 'help does not select an operation')
+    else:
+        require(operation is not None, 'captured operation is required')
+        operation = private_path(ROOT, Path(operation))
+    if verb != 'resolve':
+        require(resolution is None and statement is None, 'unexpected resolution arguments')
+    argv = [sys.executable, str(Path(__file__).resolve(strict=True))]
+    if verb == 'help':
+        argv.append('--help')
+    else:
+        argv += [verb, str(operation)]
+        if verb == 'resolve':
+            require(resolution in ('completed', 'cancelled') and
+                    type(statement) is str and statement.strip(),
+                    'actual resolution and operator statement required')
+            argv += [resolution, statement]
+    diagnostics['phase'] = 'capture-child'
+    # Even an interrupted acquisition has this fixed evidence location. Do not
+    # relabel a pre-existing receipt as the result of an uncertain invocation.
+    diagnostics['capture_directory'] = str(directory)
+    diagnostics['capture_name'] = verb
+    handle = raw.acquire_command(argv, directory, verb, timeout=35,
+        stdout_maximum=16384, stderr_maximum=16384, cwd=ROOT)
+    diagnostics['raw_capture'] = pin(handle.receipt_path)
+    diagnostics['phase'] = 'capture-result'
+    raw.require_success(handle)
+    data = raw.read_stdout(handle, maximum=16384)
+    if verb == 'help':
+        require(bool(data), 'empty captured help')
+        return dict(status='PASS_CAPTURE_HELP', raw_capture=diagnostics['raw_capture'],
+                    device_actions=0)
+    result = json.loads(data)
+    require(type(result) is dict, 'captured caller result is not an object')
+    if verb == 'issue' and result.get('instruction') is not None:
+        diagnostics['phase'] = 'captured-display-window'
+        expected = Path(operation) / 'mainline-attach-cue.json'
+        require(result.get('cue') == pin(expected), 'captured cue belongs elsewhere')
+        window = read(verify(read(verify(result['cue']))['window']))
+        if window['deadline_ns'] - clock() <= MIN_REMAINING_NS:
+            result.update(status='CUE_RECORDED_DO_NOT_DISPLAY', instruction=None)
+    return dict(raw_capture=diagnostics['raw_capture'], result=result)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='verb', required=True)
     for name in ('check', 'issue', 'resolve'):
         command = commands.add_parser(name)
         command.add_argument('operation', type=Path)
+        command.add_argument('--capture-directory', type=Path)
         if name == 'resolve':
             command.add_argument('resolution', choices=('completed', 'cancelled'))
             command.add_argument('operator_statement')
+    probe = commands.add_parser('capture-help')
+    probe.add_argument('capture_directory', type=Path)
     args = parser.parse_args()
-    diagnostics = dict(phase='context', operation=str(args.operation), verb=args.verb)
+    operation = getattr(args, 'operation', None)
+    diagnostics = dict(phase='context', operation=str(operation), verb=args.verb)
     try:
+        if args.verb == 'capture-help' or args.capture_directory is not None:
+            result = captured_call('help' if args.verb == 'capture-help' else args.verb,
+                operation, args.capture_directory,
+                resolution=getattr(args, 'resolution', None),
+                statement=getattr(args, 'operator_statement', None), diagnostics=diagnostics)
+            print(canonical(result).decode(), end='')
+            return
         if args.verb == 'resolve':
             result = resolve(args.operation, args.resolution, args.operator_statement)
         else:

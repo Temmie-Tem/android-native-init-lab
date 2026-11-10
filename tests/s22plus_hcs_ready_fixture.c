@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 typedef uint32_t u32;
 typedef uint64_t u64;
 #define __iomem
@@ -44,7 +45,17 @@ static u32 final_hce,enabled_hce;
 static unsigned int hce_reads;
 static unsigned int hcs_reads,enable_writes,uic_writes,write_count;
 static u64 ticks;
-static u64 ktime_get_boottime_ns(void) { return ++ticks; }
+#ifdef CFG1_FIXTURE
+static u32 cfg1_after;
+static unsigned int cfg1_reads, cfg1_expired;
+#endif
+static u64 ktime_get_boottime_ns(void) {
+#ifdef CFG1_FIXTURE
+ fprintf(stderr,"clock\n");
+ if (cfg1_reads == 2 && cfg1_expired) return 1000000000ULL;
+#endif
+ return ++ticks;
+}
 static void usleep_range(unsigned int lo,unsigned int hi)
 {
  assert((lo==1000&&hi==1100)||(lo==100&&hi==200));ticks+=(u64)lo*1000;
@@ -55,6 +66,9 @@ static u32 readl(const void *addr)
  if ((uintptr_t)addr>=(uintptr_t)hci && (uintptr_t)addr<(uintptr_t)(hci+1024)) {
   off=(unsigned int)((uintptr_t)addr-(uintptr_t)hci);
   fprintf(stderr,"read hci:%x\n",off);
+#ifdef CFG1_FIXTURE
+  if(off==0xdc && ++cfg1_reads==2)return cfg1_after;
+#endif
   if(off==REG_CONTROLLER_ENABLE) { hce_reads++;if(enable_writes)return enabled_hce;if(hce_reads==2 && final_hce)return final_hce; }
   if(off==REG_CONTROLLER_STATUS) { hcs_reads++;return enable_writes?enabled_hcs:hcs_reads==1?first_hcs:second_hcs; }
  } else {
@@ -74,12 +88,49 @@ static void writel(u32 value,void *addr)
  else *(u32 *)addr=value;
 }
 #include "waipio_hci.c"
+#ifdef CFG1_FIXTURE
+#define PAGE_SIZE 4096
+struct kernel_param { int unused; };
+static struct { struct g0q_link link; struct g0q_stage2_diag stage2; } board;
+static struct { unsigned int records,claimed,triggered,acknowledged,reclaimed; int error; } power;
+static int operation_rc;
+static unsigned int stage=6,usb_reason=1U<<16,usb_detail;
+static bool usb_covered=true,usb_released=true;
+#include "link-report.h"
+#define G0Q_REPORT_SITE G0Q_REPORT_TAG
+static int scnprintf(char *buf,size_t n,const char *format,...) {
+ va_list args;va_start(args,format);int rc=vsnprintf(buf,n,format,args);va_end(args);
+ return rc<(int)n?rc:(int)n-1;
+}
+#include "formatter.inc"
+#endif
 int main(int argc,char **argv)
 {
- assert(argc==7);final_hce=strtoul(argv[5],NULL,0);enabled_hce=strtoul(argv[6],NULL,0);first_hcs=strtoul(argv[1],NULL,0);second_hcs=strtoul(argv[2],NULL,0);enabled_hcs=strtoul(argv[3],NULL,0);
+#ifdef CFG1_FIXTURE
+ assert(argc==10);hci[0xdc/4]=strtoul(argv[7],NULL,0);
+ cfg1_after=strtoul(argv[8],NULL,0);cfg1_expired=strtoul(argv[9],NULL,0);
+#else
+ assert(argc==7);
+#endif
+ final_hce=strtoul(argv[5],NULL,0);enabled_hce=strtoul(argv[6],NULL,0);first_hcs=strtoul(argv[1],NULL,0);second_hcs=strtoul(argv[2],NULL,0);enabled_hcs=strtoul(argv[3],NULL,0);
  hci[REG_UFS_VERSION/4]=0x310;hci[0xe4/4]=0x40040000;hci[REG_CONTROLLER_ENABLE/4]=strtoul(argv[4],NULL,0);phy[0xd80/4]=1;
  struct g0q_link link={0};link.hw.hci=hci;link.hw.phy=phy;link.hw.deadline_ns=1000000000ULL;link.hw.pcs_ready=true;link.reset_io=pins;
  int rc=g0q_hci_link_once(&link,300000000,300000000);
+#ifdef CFG1_FIXTURE
+ board.link=link;operation_rc=rc;
+ board.stage2=(struct g0q_stage2_diag){.checks=0xf20007ff,.handoff_flags=8191,
+   .pre_hce=1,.pre_hcs=0x10f,.pre_is=0x400,.handoff_polls=1,.handoff_elapsed_us=2};
+ power.records=11;power.claimed=power.triggered=power.acknowledged=0x7ff;
+ char buf[PAGE_SIZE];int size=report(buf,NULL);assert(size<256);
+ fwrite(buf,1,size,stdout);
+ fprintf(stderr,"STATS %u %u %u %u\n",enable_writes,uic_writes,cfg1_reads,write_count);
+ if(link.hce_started){
+  unsigned int saved_writes=write_count,saved_reads=cfg1_reads;
+  assert(g0q_hci_link_once(&link,300000000,300000000)==-EPERM);
+  assert(write_count==saved_writes && cfg1_reads==saved_reads);
+ }
+#else
  printf("%d %u %u %u %u %u\n",rc,hcs_reads,enable_writes,uic_writes,write_count,link.handoff_taken);
+#endif
  return 0;
 }

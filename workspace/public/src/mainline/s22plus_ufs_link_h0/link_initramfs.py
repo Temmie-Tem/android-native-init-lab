@@ -56,7 +56,9 @@ def seal_text(identity, key, net, mod):
     return "\n".join(seal)+"\n"
 
 
-def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, destination=None):
+def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, cfg1_diagnostics=False, destination=None):
+    require(type(cfg1_diagnostics) is bool and (not cfg1_diagnostics or stale_uccs_ack),
+            'CFG1 diagnostics require initial acknowledgement mode')
     require(type(stale_uccs_ack) is bool and (not stale_uccs_ack or disabled_ucrdy),
             'initial completion acknowledgement requires disabled UCRDY mode')
     require(type(disabled_ucrdy) is bool and (not disabled_ucrdy or reset_config),
@@ -73,6 +75,7 @@ def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_hando
            *(["-DG0Q_RESET_CONFIG"] if reset_config else []),
            *(["-DG0Q_DISABLED_UCRDY"] if disabled_ucrdy else []),
            *(["-DG0Q_STALE_UCCS_ACK"] if stale_uccs_ack else []),
+           *(["-DG0Q_CFG1_DIAGNOSTICS"] if cfg1_diagnostics else []),
            *(["-DCANARY_H0_VM"] if vm else []),"-I",out,"-I",HERE,"-I",CANARY,
            out/"observer.c","-o",exe]
     return list(map(str, cmd))
@@ -89,12 +92,13 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     kernel = json.loads((kr/"guard-result.json").read_bytes())
     record = json.loads(component.read_bytes())
     require(record.get('pre_effect_return', False) is pre_effect_return and
-            (not pre_effect_return or record.get('report_version') in (4, 5, 6, 7, 8, 9)), 'module/observer return mode differs')
+            (not pre_effect_return or record.get('report_version') in (4, 5, 6, 7, 8, 9, 10)), 'module/observer return mode differs')
     hci_snapshot = record.get('report_version') == 5
-    hce_handoff = record.get('report_version') in (6, 7, 8, 9)
-    reset_config = record.get('report_version') in (7, 8, 9)
-    disabled_ucrdy = record.get('report_version') in (8, 9)
-    stale_uccs_ack = record.get('report_version') == 9
+    hce_handoff = record.get('report_version') in (6, 7, 8, 9, 10)
+    reset_config = record.get('report_version') in (7, 8, 9, 10)
+    disabled_ucrdy = record.get('report_version') in (8, 9, 10)
+    stale_uccs_ack = record.get('report_version') in (9, 10)
+    cfg1_diagnostics = record.get('report_version') == 10
     mod = Path(record["module_path"])
     require(kernel["sha256"] == digest(Path(kernel["image"])) == record["selected_kernel"] and
             record["transport"] == kernel["transport_sha256"] == digest(kr/"transport.json") and
@@ -128,7 +132,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     with (out/"key.bin").open("xb") as file: file.write(key)
     exe = out/"observer"
     cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return,
-                          hci_snapshot=hci_snapshot, hce_handoff=hce_handoff, reset_config=reset_config, disabled_ucrdy=disabled_ucrdy, stale_uccs_ack=stale_uccs_ack)
+                          hci_snapshot=hci_snapshot, hce_handoff=hce_handoff, reset_config=reset_config, disabled_ucrdy=disabled_ucrdy, stale_uccs_ack=stale_uccs_ack, cfg1_diagnostics=cfg1_diagnostics)
     import build_evidence
     provenance = build_evidence.compile_observer(cmd, out)
     info = subprocess.check_output(["file",exe])

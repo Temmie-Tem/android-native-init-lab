@@ -387,6 +387,9 @@ int main(int argc, char **argv)
 #ifdef G0Q_STALE_UCCS_ACK
 		board.stage2.checks |= 0xf0000000U;
 #endif
+#ifdef G0Q_CFG1_DIAGNOSTICS
+		board.link.cfg1_outcome=3;board.link.cfg1_pre=board.link.cfg1_post=0xffffffff;
+#endif
 	}
 #endif
 	produced_size=(size_t)report(produced,NULL);
