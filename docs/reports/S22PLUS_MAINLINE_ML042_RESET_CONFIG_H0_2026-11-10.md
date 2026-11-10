@@ -99,13 +99,15 @@ The reviewer independently repeated all 102 tests without skips, verified the
 actual artifact and retained V6 decoding, and confirmed the unchanged paged
 H0 finalizer remains reusable after a proven healthy owner-free closure.
 
-Fresh candidate qualification and exact task preparation completed. The
+Before the physical run, fresh candidate qualification and exact task preparation completed. The
 reviewed v43 backend was selected with its stable ordinary-terminal worker
 unchanged. The fixed foreground D0 completed with current healthy Android;
-no grant, operation, control or partition transfer was created. The next step
-requires the generated exact approval, current attendance and usable physical
-Download, as required by the selected mainline policy. Preparation and review
-do not authorize the physical run.
+no grant, operation, control or partition transfer was created by preparation.
+The subsequent physical run used the returned exact approval, current attendance
+and usable physical Download required by the selected mainline policy.
+Preparation and review alone did not authorize it. The consumed outcome and
+healthy original-A closure are recorded in the
+[ML042 run report](S22PLUS_MAINLINE_ML042_RUN_2026-11-11.md).
 
 H0 corrections preserved their failed logs: the first test parameterization had
 an import/bytes-decoder typo; the reset fixture initially used a word pointer

@@ -30,18 +30,24 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML042 V7 is qualified and prepared; physical execution awaits its exact
-  attended approval.** Mythos analysis and source comparison resolved the
-  unsupported generic output-enable interpretation of the dedicated reset
-  group. The four existing checks now require whole CTL `0xb` and the unchanged
-  IO bit-0 high latch, with no added read, CTL write, pulse or retry. The
-  coherent independent review passed without findings, including 102 tests
-  and exact V6 compatibility. One fresh V7 candidate, task and reviewed v43
-  backend are prepared; foreground D0 confirmed healthy Android. No grant or
-  operation is open. The unchanged HCE handoff and automatic Download attempt
-  retain attended physical fallback and one original-A return. This is no
-  electrical-state, UFS progress or unattended-recovery proof.
-  [Source analysis, implementation and review](docs/reports/S22PLUS_MAINLINE_ML042_RESET_CONFIG_H0_2026-11-10.md).
+- **ML042 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
+  reviewed V7 candidate passed authenticated USB, child liveness and the
+  five-minute same-boot witness. Its pre-stop exact CTL `0xb` and IO bit-0
+  high-latch predicates passed; one HCE-zero write then observed full zero
+  in one poll within the original limits (reported interval 2 microseconds).
+  The next HCS check refused raw `0x8`, the UIC_COMMAND_READY bit; later
+  post-stop predicates remain unobserved. No fixed RPMh request, device-reset
+  pulse, local UniPro or link command followed. The authenticated negative
+  result selected automatic Download and one original-A transfer. One failed
+  ADB health read was preserved; the same executor's existing health-only
+  recovery passed all seven reads. No physical Download was requested or
+  reported; the owned profile is absent and no F1 owner remains. The 537 raw
+  captures and three-page closure were rederived offline.
+  HCE stop is now physically observed; UFS link, timer/hang recovery and
+  electrical reset state remain unproved. The next bounded H0 question is the
+  post-stop HCS readiness predicate, without changing it or replaying ML042.
+  [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML042_RUN_2026-11-11.md)
+  · [Mythos analysis, implementation and independent review](docs/reports/S22PLUS_MAINLINE_ML042_RESET_CONFIG_H0_2026-11-10.md).
 
 - **ML041 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
   second requested physical experiment reused the unchanged V6 capability and
