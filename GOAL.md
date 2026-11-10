@@ -30,6 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML043 V8 is qualified and prepared, awaiting its exact attended approval.**
+  Two Mythos discussions and source comparison found no supplied basis for
+  requiring UIC_COMMAND_READY clear while HCE is zero; the cause of ML042's
+  sampled bit remains unknown. V8 removes only that bit from the three existing
+  disabled-HCS predicates and records its same-read value. All enabled command
+  checks and original deadlines/recovery remain. The complete suite passed 113
+  tests without skips; independent PASS_GO verified 60 focused tests, actual
+  artifacts and retained V7 compatibility, with no open findings. A fresh task
+  and reviewed v44 backend are prepared; current fixed D0 confirmed healthy
+  Android. No grant or F1 operation is open. Physical outcome and final health
+  remain separate from H0 qualification.
+  [Source analysis, discussion and review](docs/reports/S22PLUS_MAINLINE_ML043_DISABLED_HCS_H0_2026-11-11.md).
+
 - **ML042 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
   reviewed V7 candidate passed authenticated USB, child liveness and the
   five-minute same-boot witness. Its pre-stop exact CTL `0xb` and IO bit-0

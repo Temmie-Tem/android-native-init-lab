@@ -41,6 +41,7 @@ The adopted fixed hardware artifacts are:
 | Report-v5 same-read HCE and bounded HCI snapshot module | `f05ceefe7197dd7e914051bb7351879e457a3a19790688e7044cbc5055d9c8a5` |
 | Report-v6 bounded HCE handoff module | `fd956216b5fa28eb9554947dbbeee2638b3f374916c893896818da5fdbf3bb9f` |
 | Report-v7 dedicated reset configuration module | `24edd7cf011634fccc55e0cc90280d68349bab9234c284145fd44ecbc91c3f30` |
+| Report-v8 disabled-HCS readiness module | `60cf605af0fda73615103480934e60b2e34f3a5f35494cf960b48401ee98a97b` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -53,7 +54,8 @@ short-circuit predicate evaluation, error semantics and guards. Unevaluated
 conditions remain unobserved. V4 adds no MMIO read; the separately reviewed
 V5 module adds only the five fixed reads below. V6 separately adds the bounded
 handoff described below; V7 separately specializes its four reset-pin predicates
-as specified below. V4/V5 do not inherit either change. Each immutable capability binds
+as specified below. V8 separately changes only the disabled-state UCRDY
+predicates and same-read evidence below. V4/V5 do not inherit these changes. Each immutable capability binds
 exactly one report mode and matching module/observer; mode is not candidate data.
 
 ### Report-v5 bounded HCI snapshot
@@ -95,6 +97,59 @@ proved recovery coverage for every new access failure. Changed producer,
 schema, guest/host consumers, common/target adoption and exact artifacts need
 one coherent independent review before a new capability can be selected.
 The existing v4 capability, ML036 approval and consumed records are not repinned.
+
+### Report-v8 disabled-HCS readiness
+
+The operator's 2026-11-11 request to analyze ML042 with Mythos and proceed to
+one next physical experiment selects this separately reviewed successor.
+ML042 proved a timely single HCE stop, then sampled HCS `0x8` and refused
+before later initialization. This is UIC_COMMAND_READY, not a host/device-error
+bit. Its electrical/internal cause and persistence are unknown. Neither that
+observation nor an advisory discussion grants a run or replay.
+
+V8 inherits V7 and changes only UCRDY membership in three existing disabled-
+state checks: initial stage-two cold/post-handoff quiescence, later stage-six
+quiescence, and the final pre-enable HCS check. The first two masks change
+from `0x39` to `0x31` (DEVICE_PRESENT and the two existing error indicators);
+the last changes from `0x9` to `0x1` (DEVICE_PRESENT). No error check is added
+or removed from the last site. One shared compile-time readiness mask governs
+all three, including cold entry and the post-GCC-reset path. Each retains its
+existing full-HCE-zero prerequisite, short-circuit order and remaining guards.
+Doorbells, list RUN, IE, IS, AHIT, pin predicates, resources, pulse release and
+all subsequent behavior remain unchanged. Unknown readiness origin is not
+accepted as proof of inactivity, DMA ownership or complete hardware reset.
+
+No MMIO read, poll, sleep, HCS/status clear, interrupt change, reset reorder,
+retry or new slot is added. The same stage-two HCS read additionally retains
+`raw & 0x39` in the existing bits 22–27 of the diagnostic word, on both passing
+and failing paths. Its failure predicate is independently `raw & 0x31`.
+Only an actual HCS evaluation can populate that slot; later stages cannot
+rewrite it. A passing sample therefore reports UCRDY 0 or 1 without asserting
+the full HCS word. Existing raw refusal fields still carry the full failing
+word. The distinct tag `0x80000000U`, 30 fields and 256-byte envelope select
+this interpretation. V1–V7 meaning and retained raw records stay unchanged;
+V7's ready-only failure cannot be relabeled as a valid V8 failure.
+
+Allowing UCRDY already high removes its previous clear-before-enable
+corroboration. The unchanged final full HCE check, one HCE-start write, one-ms
+post-write delay and 50-ms poll still require HCE exactly 1 and UCRDY set
+before any local command. The existing enabled-command HCS/IE/IS predicate,
+500-ms command deadline, first exact local-result check, six-local/one-link
+limits and no retry remain. A passing poll proves sampled enabled/readiness
+levels, not an independently observed UCRDY 0-to-1 transition or every internal
+initialization event. Stage-six bare EBUSY remains unattributed; no telemetry
+extension or speculative later guard relaxation is bundled.
+
+The original 120/300/540/15-second research and 555/570/660-second recovery
+bounds, one N and original A, attendance and usable physical Download remain.
+A later attributed refusal is valid NO_PROOF evidence; complete link proof
+retains every existing criterion. New physical reach into the existing
+power/reset/PHY path does not imply automatic hang recovery. Conditional
+unattended F1 remains inactive. The selected kernel, DTB, configuration and
+late overlay are unchanged. Coherent common/target/producer/consumer/owner
+review, actual fresh artifact qualification and the exact returned finite
+approval are required before dispatch. Review changed inputs or concrete new
+hazards under the existing common rules; this section adds no new gate.
 
 ### Report-v7 dedicated reset configuration
 
@@ -234,7 +289,7 @@ with equivalent target, no-replay, effect-time and recovery guarantees; a new
 observation cannot silently broaden this scope. The existing original-A owner,
 all research deadlines, one module permit, one N/A total and target isolation remain.
 
-### V6/V7 automatic Download attempt and original-owner recovery
+### V6/V7/V8 automatic Download attempt and original-owner recovery
 
 The operator selected automatic return as the default on 2026-11-10, including
 unclear experiment results where automatic recovery can still be attempted.
@@ -260,7 +315,7 @@ control, ACK, EOF and original final research deadline.
 The child accepts the early IPC commit only before guest BOOTTIME 540 seconds;
 after that, only the already armed timer remains. Once committed, its sole
 recovery syscall still has the fixed 570-second latest-invocation bound.
-Any complete valid authenticated V6/V7 result may select return, including load/read errors or later
+Any complete valid authenticated V6/V7/V8 result may select return, including load/read errors or later
 guard failures; successful return never upgrades the experiment result.
 Malformed/partial/lost results send no new control and leave the timer armed.
 
@@ -336,9 +391,9 @@ original-deadline and physical-recovery conditions of common boundary 3's
 ML030 delegation. The existing ML034 bounded USB coverage conditions and
 ML035 no-display producer correction also apply. This adopts those conditions,
 not earlier artifact tables, approvals or consumed authority. The only return
-specialization for V4/V5 is the narrow pre-overlay class below. V6/V7 additionally
+specialization for V4/V5 is the narrow pre-overlay class below. V6/V7/V8 additionally
 select the fixed automatic attempt above. The V5 diagnostic access, V6 HCE
-handoff and V7 exact reset-configuration specializations are limited to their
+handoff, V7 exact reset-configuration and V8 disabled-readiness specializations are limited to their
 preceding fixed conditions; earlier report modes retain their meanings.
 
 One healthy-Android-origin operation may transfer one boot-only N, authenticate
@@ -351,7 +406,7 @@ and 15-second module submission/command budget remain unchanged.
 
 The sole fixed module retains the held-USB SH1/CN0 confirmation, fixed GDSC,
 clock, PM8350 supply and the selected report mode's reset-pin preparation
-(V7 exact configuration/latch, earlier modes legacy output/high), qualified v4
+(V7/V8 exact configuration/latch, earlier modes legacy output/high), qualified v4
 Waipio PHY, six fixed local UniPro commands and at most one DME_LINK_STARTUP.
 No generic UFS host/PHY/ICE or SCSI discovery path may bind the device. The
 common SCSI library may remain compiled; this module registers no host or LU.
@@ -368,11 +423,11 @@ second attempt. There is no standing grant or same-candidate repeat lane.
 
 ## Narrow normal-return extension
 
-Report v4, v5, v6 or v7 is selected by the reviewed capability and matching module/guest
+Report v4, v5, v6, v7 or v8 is selected by the reviewed capability and matching module/guest
 mode. It retains the 256-byte result envelope, authenticated result binding,
 original one-shot controls and the 120/300/540/15-second limits. All existing
 USB/PM/ICC/BCM and later UFS admission predicates remain in force, subject
-to the explicitly reviewed V6/V7 specializations above.
+to the explicitly reviewed V6/V7/V8 specializations above.
 
 A normal Download may be represented by the H0 implementation after either
 the existing successful link result or the new `PRE_EFFECT_REJECTION` class.
@@ -380,12 +435,12 @@ The new class requires an actual USB-coverage refusal before overlay dispatch,
 no outstanding USB reference, no stage-two or later work, no fixed RPMh request
 or error, and completed RPMh arena teardown. The module produces the certificate
 only on that exact path; guest and host independently validate the matching
-strict v4/v5/v6/v7 encoding, including zero extra snapshot/handoff fields for v5/v6/v7. A bare
+strict v4/v5/v6/v7/v8 encoding, including zero extra snapshot/handoff fields for v5/v6/v7/v8. A bare
 stage-zero number, zero command count, failed function return
 or `usb_released=false` is insufficient. Overlay attempts, partial preparation,
 stage two and later failures, malformed/partial responses, unknown work and
 expired windows remain outside that certified normal-return class. The separate
-V6/V7 recovery attempt does not reinterpret them as safe-idle or successful results.
+V6/V7/V8 recovery attempt does not reinterpret them as safe-idle or successful results.
 
 Normal Download is still authenticated to the complete exact result, follows
 one durable intent, requires the existing EOF and final deadline check, and

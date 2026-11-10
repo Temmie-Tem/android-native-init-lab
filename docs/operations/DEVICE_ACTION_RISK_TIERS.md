@@ -193,7 +193,10 @@ The separately reviewed V7 successor retains that transaction while replacing
 only four reset-pin CTL direction predicates with exact `0x0000000b`
 configuration and the existing bit-0 high-latch condition. It adds no CTL write
 or electrical-state claim; its complete conditions remain in the shared policy.
-V6/V7's separately reviewed single-child ordinary Download attempt and fixed
+V8 separately changes only the three disabled-HCS readiness predicates and
+retains their same-read diagnostic sample under the shared policy; enabled
+command readiness and all other guards remain. It adds no access or effect slot.
+V6/V7/V8's separately reviewed single-child ordinary Download attempt and fixed
 original-owner recovery apply even when the handoff result is unclear; only
 proved exact arrival admits A, with no replay or renewed automatic window.
 Physical Download remains its fallback, and conditional unattended F1 remains

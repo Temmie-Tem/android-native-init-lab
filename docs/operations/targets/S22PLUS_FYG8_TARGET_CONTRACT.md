@@ -168,7 +168,7 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, one reviewed report-v4, v5, v6 or v7 module and key-only candidate schema. The exact
+Image, one reviewed report-v4, v5, v6, v7 or v8 module and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -177,7 +177,7 @@ and new hazards require scoped review. Each operation retains a separately
 returned exact one-operation 1800-second approval, current attendance, fresh
 target/health/rollback binding and usable physical Download recovery.
 
-Except for the explicit V6 handoff and V7 pin-predicate specializations below,
+Except for the explicit V6 handoff, V7 pin and V8 readiness specializations below,
 all original guards remain. The 120/300/540/15-second bounds, one module permit,
 six local UniPro commands, at most one link command and one N/original-A total remain.
 In V4/V5 only the shared policy's certified settled pre-overlay coverage refusal
@@ -218,6 +218,18 @@ reinterpreting old records. All shared-policy V7 conditions and unchanged
 kernel/DT/overlay identities, coherent review and fresh exact qualification
 are mandatory. ML040/ML041 stay consumed; no review or healthy closure grants
 an unattended run or transfers an old approval to the successor.
+The separately reviewed V8 successor admits UCRDY 0 or 1 at the three existing
+disabled-HCS sites under the shared policy's exact mask changes (0x39 to 0x31
+at both quiescence calls, 0x9 to 0x1 at final pre-enable). All other conditions,
+existing full-HCE-zero checks, order and budgets remain. It retains the initial
+same-read 0x39-masked HCS sample separately from the 0x31 failure predicate,
+with a distinct unsigned V8 tag and unchanged field/byte bounds. It does not
+prove the cause of ML042's ready bit, electrical state or a new UCRDY 0-to-1
+transition after enable. Enabled command readiness and exact local/link proof
+remain unchanged. No extra read, wait, status write, retry or new effect is
+adopted. V7 automatic-attempt and attended original-A rules remain; the shared
+V8 conditions, independent review and fresh artifact qualification are required.
+ML042 remains consumed and this adoption alone grants no physical execution.
 Its exact common delegation, fixed artifact, independent capability/owner
 review and fresh candidate qualification are required before selection.
 There is no standing effect grant, replay or transfer of another target's

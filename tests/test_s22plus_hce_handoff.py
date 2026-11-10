@@ -19,6 +19,7 @@ def line(values):
 
 class HceHandoffTest(unittest.TestCase):
     reset_config = False
+    disabled_ucrdy = False
     report_version = 6
 
     def decode(self, data):
@@ -39,9 +40,9 @@ class HceHandoffTest(unittest.TestCase):
 
     def exercise(self, compiler, runner=()):
         folder = self.out/compiler
-        exe = compile_stage_fixture(folder/'stage', compiler, handoff=True, reset_config=self.reset_config)
-        guest = compile_pre_effect(folder/'guest', compiler=compiler, guest=True, handoff=True, reset_config=self.reset_config)
-        module = compile_pre_effect(folder/'module', compiler=compiler, handoff=True, reset_config=self.reset_config)
+        exe = compile_stage_fixture(folder/'stage', compiler, handoff=True, reset_config=self.reset_config, disabled_ucrdy=self.disabled_ucrdy)
+        guest = compile_pre_effect(folder/'guest', compiler=compiler, guest=True, handoff=True, reset_config=self.reset_config, disabled_ucrdy=self.disabled_ucrdy)
+        module = compile_pre_effect(folder/'module', compiler=compiler, handoff=True, reset_config=self.reset_config, disabled_ucrdy=self.disabled_ucrdy)
         if runner:
             for path in (exe, guest, module):
                 self.assertIn('ARM aarch64', subprocess.check_output(['file', path], text=True))
@@ -196,7 +197,7 @@ class HceHandoffTest(unittest.TestCase):
             bad=base.copy();bad[index]=value
             with self.subTest(index=index,value=value), self.assertRaises(ValueError):
                 self.decode(line(bad))
-        for version in set(range(1,8)) - {self.report_version}:
+        for version in set(range(1,9)) - {self.report_version}:
             with self.assertRaises(ValueError):
                 w.result(record(base),WIT,KEY,ID,report_version=version)
 
@@ -208,7 +209,7 @@ class DedicatedResetHandoffTest(HceHandoffTest):
     def test_config_and_latch_matrix_before_and_after_stop(self):
         for compiler, runner in (('cc', ()), ('aarch64-linux-gnu-gcc', ('qemu-aarch64',))):
             exe = compile_stage_fixture(self.out/(compiler+'-matrix'), compiler,
-                                        handoff=True, reset_config=True)
+                                        handoff=True, reset_config=True, disabled_ucrdy=self.disabled_ucrdy)
             for after in (0, 1):
                 for ctl in (0xb, 0x8000000b, 0x3, 0xa, 0, 0xffffffff):
                     for io in (0, 1, 3, 0x80000001):

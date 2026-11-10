@@ -15,7 +15,7 @@ BASE = tables.PRIVATE / "outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105
 FILES = ("waipio_phy.c", "waipio_phy.h", "waipio_hci.c", "waipio_hci.h", "g0q_stage.c", "usb-admission.h", "link-report.h", "reset-pin.h")
 
 
-def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=False, hce_handoff=False, reset_config=False):
+def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=False, hce_handoff=False, reset_config=False, disabled_ucrdy=False):
     tables.require(type(pre_effect_return) is bool, "explicit return mode required")
     tables.require(type(hci_snapshot) is bool and (not hci_snapshot or pre_effect_return),
                    "HCI snapshot requires the explicit pre-effect return mode")
@@ -24,6 +24,8 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
                    "HCE handoff is a distinct explicit return/report mode")
     tables.require(type(reset_config) is bool and (not reset_config or hce_handoff),
                    "dedicated reset configuration requires the handoff mode")
+    tables.require(type(disabled_ucrdy) is bool and (not disabled_ucrdy or reset_config),
+                   "disabled UCRDY semantics require dedicated reset configuration")
     tables.require(output.resolve().is_relative_to(tables.PRIVATE.resolve()), "private output required")
     output = output.resolve()
     output.mkdir(mode=0o700)
@@ -70,7 +72,8 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
                             ("ccflags-y += -DG0Q_PRE_EFFECT_RETURN\n" if pre_effect_return else "") +
                             ("ccflags-y += -DG0Q_HCI_SNAPSHOT\n" if hci_snapshot else "") +
                             ("ccflags-y += -DG0Q_HCE_HANDOFF\n" if hce_handoff else "") +
-                            ("ccflags-y += -DG0Q_RESET_CONFIG\n" if reset_config else ""))
+                            ("ccflags-y += -DG0Q_RESET_CONFIG\n" if reset_config else "") +
+                            ("ccflags-y += -DG0Q_DISABLED_UCRDY\n" if disabled_ucrdy else ""))
     kbuild = output/"kbuild"
     subprocess.run(["cp", "-a", "--reflink=auto", baseline, kbuild], check=True)
     shutil.copyfile(kbuild/"vmlinux.symvers", kbuild/"Module.symvers")
@@ -98,7 +101,7 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
         selected_kernel=patched["sha256"], transport=tables.digest(transport/"transport.json"),
         inputs={p.name:tables.digest(p) for p in (kbuild/"vmlinux.symvers",kbuild/".config",header)},
         module_sha256=tables.digest(module), module_path=str(module), vermagic=version,
-        report_version=7 if reset_config else 6 if hce_handoff else 5 if hci_snapshot else 4 if pre_effect_return else 3,
+        report_version=8 if disabled_ucrdy else 7 if reset_config else 6 if hce_handoff else 5 if hci_snapshot else 4 if pre_effect_return else 3,
         pre_effect_return=pre_effect_return, physical_admitted=False, device_actions=0)
     (output/"result.json").write_text(json.dumps(receipt, indent=2)+"\n")
     return receipt
@@ -114,7 +117,8 @@ if __name__ == "__main__":
     cli.add_argument("--hci-snapshot",action="store_true")
     cli.add_argument("--hce-handoff",action="store_true")
     cli.add_argument("--reset-config",action="store_true")
+    cli.add_argument("--disabled-ucrdy",action="store_true")
     args=cli.parse_args()
     print(build(args.header, args.output, args.transport, pre_effect_return=args.pre_effect_return,
                 hci_snapshot=args.hci_snapshot, hce_handoff=args.hce_handoff,
-                reset_config=args.reset_config)["status"])
+                reset_config=args.reset_config, disabled_ucrdy=args.disabled_ucrdy)["status"])

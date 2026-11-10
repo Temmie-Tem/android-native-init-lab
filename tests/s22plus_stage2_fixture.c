@@ -133,6 +133,7 @@ static void writel(u32 value, void *addr)
 	for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
 	if (handoff_case == 11) hci[REG_CONTROLLER_ENABLE/4]=1;
 	if (handoff_case == 12) hci[REG_CONTROLLER_ENABLE/4]=2;
+	if (handoff_case == 22) hci[REG_CONTROLLER_STATUS/4]=8;
 #ifdef G0Q_RESET_CONFIG
 	if (matrix_after_stop) { pins[0]=matrix_ctl; pins[1]=matrix_io; }
 #endif
@@ -292,9 +293,14 @@ int main(int argc, char **argv)
 		if (argc==8) expire_clock=(unsigned int)strtoul(argv[7],NULL,0);
 		for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
 		pins[0]=G0Q_RESET_CTL_EXPECTED;pins[1]=1;
-		if (handoff_case) {
+		if (handoff_case && handoff_case != 23) {
 			hci[REG_CONTROLLER_ENABLE/4]=1;hci[REG_CONTROLLER_STATUS/4]=0x10f;
 			hci[REG_INTERRUPT_STATUS/4]=0x400;
+		}
+		/* Cold entry needs the same explicit HCS/following-guard injection. */
+		if (!handoff_case && guard_bit) for (unsigned int i=guard_bit-1;i<11;i++) {
+			if (i<9) hci[offsets[i]/4]=i==1 ? hcs_fault : 1;
+			else pins[i-9]=0;
 		}
 		switch (handoff_case) {
 		case 2:hci[REG_CONTROLLER_ENABLE/4]=2;break;
@@ -314,6 +320,7 @@ int main(int argc, char **argv)
 		case 19:hci[REG_INTERRUPT_STATUS/4]=0;break;
 		case 20:hci[REG_CONTROLLER_ENABLE/4]=3;break;
 		case 21:hci[REG_CONTROLLER_ENABLE/4]=0xffffffff;break;
+		case 23:hci[REG_CONTROLLER_STATUS/4]=8;break;
 		default:break;
 		}
 	}
@@ -330,6 +337,18 @@ int main(int argc, char **argv)
 	struct platform_device pdev={0};
 	operation_rc=run(&pdev);
 	usb_covered=usb_released=true;usb_reason=1U<<16;
+#ifdef G0Q_DISABLED_UCRDY
+	/* Synthetic maximum-width accepted state through the actual formatter/reader. */
+	if (handoff_case==24) {
+		operation_rc=0;stage=6;board.link.version=0x4fffffff;
+		board.link.hw.pcs_ready=true;board.link.local_commands=6;board.link.link_issued=true;
+		board.link.before=0xffffffc8;board.link.interrupt=0x500;board.link.result=0;
+		board.link.after=0xffffffcf;board.link.hce_started=true;
+		power=(struct g0q_rpmh_report){.records=32,.claimed=0xffffffff,.triggered=0xffffffff,.acknowledged=0xffffffff};
+		board.stage2=(struct g0q_stage2_diag){.checks=0x7ff|(8U<<22),.handoff_flags=8191,
+			.pre_hce=1,.pre_hcs=0xffffffcf,.pre_is=0x400,.handoff_polls=100,.handoff_elapsed_us=999};
+	}
+#endif
 	produced_size=(size_t)report(produced,NULL);
 	assert(produced_size<256);
 	uint8_t readback[256]={0};size_t size=0;

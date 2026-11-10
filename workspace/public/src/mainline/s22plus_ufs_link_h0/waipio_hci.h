@@ -38,6 +38,8 @@ struct g0q_stage2_diag {
 	/* V6 is a separate pre-handoff admission, not a failed predicate
 	 * overwritten after an effect. checks describes only the actual
 	 * post-handoff/cold-path evaluation. Every valid prefix is explicit.
+	 * V8 also retains the same-read UCRDY sample in checks bit 25,
+	 * independently of its HCS failure bit; older modes keep their meaning.
 	 */
 	u32 handoff_flags, pre_hce, pre_hcs, pre_is, last_hce;
 	u32 refusal_index, refusal_raw;

@@ -35,7 +35,7 @@ def return_allowed(facts):
 
 
 def recovery_result(facts, raw, report_version):
-    if report_version not in (6, 7):
+    if report_version not in (6, 7, 8):
         return facts
     return dict(facts, recovery_return=True, recovery_mode=RECOVERY_MODE,
                 control_nonce=hashlib.sha256(raw).digest())
@@ -133,7 +133,7 @@ def usb_diagnostics(values):
                 usb_attempts=attempts, usb_detail=detail)
 
 
-def stage2_diagnostics(values, *, handoff=False, reset_config=False):
+def stage2_diagnostics(values, *, handoff=False, reset_config=False, disabled_ucrdy=False):
     """Decode observed short-circuit predicates, never infer unobserved reads."""
     rc, stage, version = values[:3]
     site, word = values[21:]
@@ -141,7 +141,9 @@ def stage2_diagnostics(values, *, handoff=False, reset_config=False):
     observed, failed, hcs = word & 0x7ff, (word >> 11) & 0x7ff, word >> 22
     check(not (observed & (observed + 1)) and not (failed & ~observed) and
           not (failed & (failed - 1)), 'stage-two short-circuit history')
-    check(not hcs & ~0x39 and bool(hcs) == bool(failed & 2), 'stage-two HCS predicate bits')
+    hazard = hcs & (0x31 if disabled_ucrdy else 0x39)
+    check(not hcs & ~0x39 and bool(hazard) == bool(failed & 2) and
+          (not hcs or observed & 2), 'stage-two HCS sample and predicate bits')
     failure = None
     if not site:
         check(not failed and (stage < 2 and observed == 0 or stage > 2 and observed == 0x7ff),
@@ -205,7 +207,7 @@ def hci_snapshot(values):
 
 
 def hce_handoff(values, *, reset_config=False):
-    """V6/V7 one-shot stop history; V7 binds configuration, not OE direction."""
+    """Versioned stop history; V8 permits UCRDY in disabled-state checks."""
     word, pre_hce, pre_hcs, pre_is, last_hce, index, raw = values[23:]
     check(0 <= word < 1 << 32, 'handoff metadata range')
     flags, polls, elapsed = word & 8191, (word >> 13) & 127, word >> 20
@@ -301,7 +303,7 @@ def hce_handoff(values, *, reset_config=False):
 
 
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3, 4, 5, 6, 7), 'unselected module report schema')
+    check(report_version in (1, 2, 3, 4, 5, 6, 7, 8), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -316,7 +318,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         return recovery_result(dict(status="NO_PROOF",load_errno=load,read_errno=read,
                                     report_bytes=size,normal_return=False), raw, report_version)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30}[report_version]
+    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30, 8:30}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -339,18 +341,18 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         diagnostic = values[:23]
         if report_version >= 4:
             check(0 <= values[21] < 1 << 32 and
-                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000}[report_version],
+                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000, 8:0x80000000}[report_version],
                   'pre-effect report version tag')
             pre_effect = bool(values[21] & 0x10000)
             diagnostic[21] &= 0xffff
             if pre_effect:
                 check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
                       and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
-        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7), reset_config=report_version == 7))
+        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7, 8), reset_config=report_version in (7, 8), disabled_ucrdy=report_version == 8))
         if report_version == 5:
             facts.update(hci_snapshot(values))
-        elif report_version in (6, 7):
-            facts.update(hce_handoff(values, reset_config=report_version == 7))
+        elif report_version in (6, 7, 8):
+            facts.update(hce_handoff(values, reset_config=report_version in (7, 8)))
     if pre_effect:
         return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest()), raw, report_version)

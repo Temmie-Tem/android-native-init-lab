@@ -38,7 +38,7 @@ class Ml030WireTests(unittest.TestCase):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         directory=Path(temp.name);folder=directory/('io-'+profile.SELECTION)
         fixture=self.helper.fixture;manifest=self.helper.manifest()
-        completed_failure=version in (6,7) and (case.startswith('handoff-') or case in ('load-error','read-error'))
+        completed_failure=version in (6,7,8) and (case.startswith('handoff-') or case in ('load-error','read-error'))
         manifest=copy.deepcopy(manifest);manifest['debian_ram']['schema']=profile.codec.LINK_SCHEMA
         manifest.update(network={'host_ip':'127.0.0.1','device_ip':'127.0.0.1'},port=1)
         response=self.helper.raw();t0=struct.unpack_from('<Q',response,216)[0];boot=response[72:88]
@@ -97,7 +97,7 @@ class Ml030WireTests(unittest.TestCase):
                 with listener.accept()[0] as c:
                     c.settimeout(3);q=exact(c,72);observed.append('W0');self.assertEqual(q[8:40],fixture.nonce)
                     c.sendall(response)
-                    if version in (6,7):
+                    if version in (6,7,8):
                         if case=='missing-arm':return
                         armed=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,fixture.nonce,boot)
                         if case=='wrong-arm':armed=armed[:-1]+bytes([armed[-1]^1])
@@ -106,7 +106,7 @@ class Ml030WireTests(unittest.TestCase):
                     if not q:return
                     n1=wire.HEADER.unpack_from(q)[3];t1=t0+301000
                     self.assertGreaterEqual(clock()-start,300*10**9)
-                    if version in (6,7):
+                    if version in (6,7,8):
                         live=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,n1,boot,late=True)
                         if case=='wrong-live':live=live[:-1]+bytes([live[-1]^1])
                         c.sendall(live)
@@ -120,7 +120,7 @@ class Ml030WireTests(unittest.TestCase):
                     if version==3:numbers=numbers[:-1]+b' 0 2047\n'
                     if version==4:numbers=numbers[:-1]+b' 1073741824 2047\n'
                     if version==5:numbers=numbers[:-1]+b' 1342177280 2047 1 0 0 0 0 0 0\n'
-                    if version in (6,7):numbers=numbers[:-1]+f' {version << 28} 2047 2113535 1 271 1024 0 0 0\n'.encode()
+                    if version in (6,7,8):numbers=numbers[:-1]+f' {version << 28} {2047 | ((8 << 22) if version == 8 else 0)} 2113535 1 271 1024 0 0 0\n'.encode()
                     if case=='usb-rejection':numbers=b'-16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 65554 1\n'
                     if case=='stage2-rejection':
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
@@ -128,16 +128,16 @@ class Ml030WireTests(unittest.TestCase):
                         numbers=subprocess.check_output([exe,'0','1','-16','1','0'],stderr=subprocess.DEVNULL,timeout=5)
                     if case.startswith('handoff-'):
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
-                        exe=compile_stage_fixture(directory/'handoff-producer',handoff=True,reset_config=version==7)
-                        guard=2 if case=='handoff-post-rejection' else 0
-                        scenario={'handoff-refusal':2,'handoff-post-rejection':1,'handoff-timeout':11,'handoff-config-refusal':8,'handoff-latch-refusal':9}[case]
+                        exe=compile_stage_fixture(directory/'handoff-producer',handoff=True,reset_config=version in (7,8),disabled_ucrdy=version==8)
+                        guard=3 if case=='handoff-ucrdy-next' else 2 if case=='handoff-post-rejection' else 0
+                        scenario={'handoff-refusal':2,'handoff-post-rejection':1,'handoff-timeout':11,'handoff-config-refusal':8,'handoff-latch-refusal':9,'handoff-ucrdy-next':22}[case]
                         numbers=subprocess.check_output([exe,'0',str(guard),'-16','1','0',str(scenario)],
                                                         stderr=subprocess.DEVNULL,timeout=5)
                     if case.startswith('pre-effect-'):
                         from test_s22plus_pre_effect_return import compile_pre_effect, module_report
-                        exe=compile_pre_effect(directory/'pre-effect-producer',snapshot=version==5,handoff=version in (6,7),reset_config=version==7)
+                        exe=compile_pre_effect(directory/'pre-effect-producer',snapshot=version==5,handoff=version in (6,7,8),reset_config=version in (7,8),disabled_ucrdy=version==8)
                         numbers=module_report(exe,'stage2' if case=='pre-effect-stage2' else 'refuse')
-                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True,snapshot=version==5,handoff=version in (6,7),reset_config=version==7)
+                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True,snapshot=version==5,handoff=version in (6,7,8),reset_config=version in (7,8),disabled_ucrdy=version==8)
                         gate=int(subprocess.check_output([guest],input=numbers,timeout=5))
                         self.assertEqual(gate==0,case!='pre-effect-stage2')
                     load=5 if case=='load-error' else 0;read=5 if case=='read-error' else 0
@@ -225,7 +225,7 @@ class Ml030WireTests(unittest.TestCase):
                 fact=link.rederive_link(adapter,request)['result']
                 self.assertEqual(fact['hce_handoff']['status'],{
                     'handoff-refusal':'REFUSED','handoff-post-rejection':'STOP_COMPLETE',
-                    'handoff-timeout':'STOP_TIMEOUT','handoff-config-refusal':'REFUSED','handoff-latch-refusal':'REFUSED'}[case])
+                    'handoff-timeout':'STOP_TIMEOUT','handoff-config-refusal':'REFUSED','handoff-latch-refusal':'REFUSED','handoff-ucrdy-next':'STOP_COMPLETE'}[case])
                 self.assertFalse(fact['normal_return'])
                 self.assertTrue(fact['recovery_return'])
                 self.assertTrue((folder/'control-intent.json').exists())
@@ -284,6 +284,12 @@ class Ml030WireTests(unittest.TestCase):
                      'load-error','read-error','partial-result','malformed-result',
                      'missing-arm','wrong-arm','wrong-live','expired-at-return'):
             with self.subTest(case=case):self.run_case(case,version=7)
+    def test_v8_actual_producer_socket_return_and_failure_paths(self):
+        for case in ('success','bad-ack','pre-effect-success','handoff-config-refusal',
+                     'handoff-latch-refusal','handoff-ucrdy-next','handoff-post-rejection','handoff-timeout',
+                     'load-error','read-error','partial-result','malformed-result',
+                     'missing-arm','wrong-arm','wrong-live','expired-at-return'):
+            with self.subTest(case=case):self.run_case(case,version=8)
     def test_pre_effect_actual_guest_host_return(self):self.run_case('pre-effect-success',version=4)
     def test_pre_effect_failed_ack_does_not_prove_return(self):self.run_case('pre-effect-bad-ack',version=4)
     def test_pre_effect_does_not_extend_return_deadline(self):self.run_case('pre-effect-expired-at-return',version=4)

@@ -10,6 +10,19 @@
 #include "waipio_hci.h"
 #include "reset-pin.h"
 
+/* UCRDY gates enabled UIC submission; it is not a disabled-state hazard.
+ * V8 changes only its membership in the existing disabled-state masks.
+ * Exact HCE, device-present/error, list, interrupt and later ready checks stay.
+ */
+#if defined(G0Q_DISABLED_UCRDY) && !defined(G0Q_RESET_CONFIG)
+#error "Disabled UCRDY semantics require the dedicated-reset handoff mode"
+#endif
+#ifdef G0Q_DISABLED_UCRDY
+#define G0Q_DISABLED_UCRDY_MASK 0U
+#else
+#define G0Q_DISABLED_UCRDY_MASK UIC_COMMAND_READY
+#endif
+
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
 #define PHY_LINECFG_DISABLE 0xd48
@@ -32,6 +45,11 @@ bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
 		diag->refusal_index = bit + 1;
 		diag->refusal_raw = raw;
 	}
+#endif
+#ifdef G0Q_DISABLED_UCRDY
+	/* Same sample, existing diagnostic slot: readiness is data, not failure. */
+	if (diag && bit == G0Q_S2_HCS)
+		diag->checks |= (raw & UIC_COMMAND_READY) << 22;
 #endif
 	return g0q_stage2_condition(diag, bit, failure);
 }
@@ -218,7 +236,7 @@ int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *di
 	/* Preserve short-circuit evaluation and the original read order. */
 	if (g0q_stage2_condition(diag, G0Q_S2_HCE, hce) ||
 	    g0q_stage2_read_condition(diag, G0Q_S2_HCS, hci + REG_CONTROLLER_STATUS,
-	     DEVICE_PRESENT | UIC_COMMAND_READY | HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR, 0) ||
+	     DEVICE_PRESENT | G0Q_DISABLED_UCRDY_MASK | HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR, 0) ||
 	    g0q_stage2_read_condition(diag, G0Q_S2_TRANSFER_DOORBELL, hci + REG_UTP_TRANSFER_REQ_DOOR_BELL, ~0U, 0) ||
 	    g0q_stage2_read_condition(diag, G0Q_S2_TASK_DOORBELL, hci + REG_UTP_TASK_REQ_DOOR_BELL, ~0U, 0) ||
 	    g0q_stage2_read_condition(diag, G0Q_S2_TRANSFER_RUN, hci + REG_UTP_TRANSFER_REQ_LIST_RUN_STOP, ~0U, 0) ||
@@ -339,7 +357,7 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 	if (err)
 		return err;
 	if (!(readl(link->hw.phy + 0xd80) & BIT(0)) || readl(hci + REG_CONTROLLER_ENABLE) ||
-	    (readl(hci + REG_CONTROLLER_STATUS) & (UIC_COMMAND_READY | DEVICE_PRESENT)))
+	    (readl(hci + REG_CONTROLLER_STATUS) & (G0Q_DISABLED_UCRDY_MASK | DEVICE_PRESENT)))
 		return -EBUSY;
 	link->hce_started = true;
 	writel(readl(hci + HCI_CFG1) | BIT(0), hci + HCI_CFG1);
