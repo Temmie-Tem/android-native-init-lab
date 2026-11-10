@@ -30,6 +30,21 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML041 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
+  second requested physical experiment reused the unchanged V6 capability and
+  its unused qualified peer, with a fresh exact attended grant. Its predeclared
+  no-cue branch produced 88 absent first-window censuses and no protocol request,
+  child-arm receipt, witness or module permit. Exact new-generation Download
+  arrived automatically at N+587.921 seconds inside the original 660-second cap;
+  one original-A transfer and all seven first-bracket health reads completed.
+  No physical fallback was requested or reported, no profile was created and no
+  F1 owner remains. Arrival and healthy recovery are proved; the guest trigger,
+  PID1/UFS progress and kernel-stall recovery remain unproved. Conditional
+  unattended F1 stays inactive. A post-terminal 2 MiB raw-index overflow is
+  handled by a separate reviewed H0 paged finalizer, preserving original raw
+  evidence, execution sources and consumed state without replay.
+  [Run, proof limits and reporting repair](docs/reports/S22PLUS_MAINLINE_ML041_RUN_2026-11-10.md).
+
 - **ML040 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
   reviewed V6 candidate passed USB, child-arm/liveness and the five-minute
   same-boot witness. HCE handoff stopped before its write at RESET_OUTPUT,
