@@ -57,11 +57,12 @@ class ChildTests(unittest.TestCase):
 
 
 class WindowTests(unittest.TestCase):
+    report_version=6
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name);self.now=records.clock();self.epoch=records.host_boot()
         cap=records.publish(self.root/'cap.json',dict(schema='s22plus-mainline-ufs-capability-v2',
-            scope='S22PLUS_LATE_UFS_KEY_ONLY_V2',fixed=dict(report_version=6)))
+            scope='S22PLUS_LATE_UFS_KEY_ONLY_V2',fixed=dict(report_version=self.report_version)))
         grant=records.publish(self.root/'grant.json',dict(host_boot=self.epoch,deadline_ns=self.now+1))
         self.request=dict(operation='mainline-ram',grant=grant,N=dict(schema='s22plus-mainline-ufs-image-v2',
             capability=cap,ap={'immutable':'N'},member='boot.img'))
@@ -145,6 +146,10 @@ class WindowTests(unittest.TestCase):
              mock.patch.object(auto.transition,'wait_for_single_live_endpoint') as wait:
             self.assertEqual(auto.observe(self.session,receipt,folder)['status'],'ATTACH_UNRESOLVED')
             wait.assert_not_called()
+
+
+class V7WindowTests(WindowTests):
+    report_version=7
 
 
 class OwnerTests(prior.DownloadOwnerTests):

@@ -56,7 +56,9 @@ def seal_text(identity, key, net, mod):
     return "\n".join(seal)+"\n"
 
 
-def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_handoff=False, destination=None):
+def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_handoff=False, reset_config=False, destination=None):
+    require(type(reset_config) is bool and (not reset_config or hce_handoff and pre_effect_return and not hci_snapshot),
+            'dedicated reset report requires handoff and return')
     exe = destination or out/"observer"
     cmd = ["aarch64-linux-gnu-gcc", "-std=c11","-Os","-static","-Wall","-Wextra","-Werror",
            "-Wno-unused-function","-Wno-unused-const-variable","-ffunction-sections","-fdata-sections",
@@ -64,6 +66,7 @@ def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_hando
            "-DML030_G0Q_MODULE",*(["-DG0Q_PRE_EFFECT_RETURN"] if pre_effect_return else []),
            *(["-DG0Q_HCI_SNAPSHOT"] if hci_snapshot else []),
            *(["-DG0Q_HCE_HANDOFF", "-DG0Q_AUTOMATIC_RECOVERY"] if hce_handoff else []),
+           *(["-DG0Q_RESET_CONFIG"] if reset_config else []),
            *(["-DCANARY_H0_VM"] if vm else []),"-I",out,"-I",HERE,"-I",CANARY,
            out/"observer.c","-o",exe]
     return list(map(str, cmd))
@@ -80,9 +83,10 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     kernel = json.loads((kr/"guard-result.json").read_bytes())
     record = json.loads(component.read_bytes())
     require(record.get('pre_effect_return', False) is pre_effect_return and
-            (not pre_effect_return or record.get('report_version') in (4, 5, 6)), 'module/observer return mode differs')
+            (not pre_effect_return or record.get('report_version') in (4, 5, 6, 7)), 'module/observer return mode differs')
     hci_snapshot = record.get('report_version') == 5
-    hce_handoff = record.get('report_version') == 6
+    hce_handoff = record.get('report_version') in (6, 7)
+    reset_config = record.get('report_version') == 7
     mod = Path(record["module_path"])
     require(kernel["sha256"] == digest(Path(kernel["image"])) == record["selected_kernel"] and
             record["transport"] == kernel["transport_sha256"] == digest(kr/"transport.json") and
@@ -116,7 +120,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     with (out/"key.bin").open("xb") as file: file.write(key)
     exe = out/"observer"
     cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return,
-                          hci_snapshot=hci_snapshot, hce_handoff=hce_handoff)
+                          hci_snapshot=hci_snapshot, hce_handoff=hce_handoff, reset_config=reset_config)
     import build_evidence
     provenance = build_evidence.compile_observer(cmd, out)
     info = subprocess.check_output(["file",exe])

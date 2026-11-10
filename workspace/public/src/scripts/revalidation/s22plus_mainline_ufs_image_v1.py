@@ -168,8 +168,8 @@ def _runtime(manifest, declaration):
     key=Path(manifest['key_path']).read_bytes()
     recipe=producer['recipe']
     expected=dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],key_digest=hashlib.sha256(key).hexdigest())
-    if declaration.get('report_version') in (4,5,6):expected['pre_effect_return']=True
-    if declaration.get('report_version') in (5,6):expected['report_version']=declaration['report_version']
+    if declaration.get('report_version') in (4,5,6,7):expected['pre_effect_return']=True
+    if declaration.get('report_version') in (5,6,7):expected['report_version']=declaration['report_version']
     require(len(key)==32 and recipe==expected and hashlib.sha256(json.dumps(recipe,
             sort_keys=True,separators=(',',':')).encode()).hexdigest()==manifest['candidate_id'], 'ML030 key/recipe binding')
     return value

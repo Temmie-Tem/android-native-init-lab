@@ -40,6 +40,7 @@ The adopted fixed hardware artifacts are:
 | Retained report-v4 diagnostic and pre-effect-return module | `8e969ae4e9ce8cbb826395d2faa0e2edadea85c723e8c928d86eb757c4c93bfc` |
 | Report-v5 same-read HCE and bounded HCI snapshot module | `f05ceefe7197dd7e914051bb7351879e457a3a19790688e7044cbc5055d9c8a5` |
 | Report-v6 bounded HCE handoff module | `fd956216b5fa28eb9554947dbbeee2638b3f374916c893896818da5fdbf3bb9f` |
+| Report-v7 dedicated reset configuration module | `24edd7cf011634fccc55e0cc90280d68349bab9234c284145fd44ecbc91c3f30` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -51,7 +52,8 @@ receipt. The stage-two site and evaluated/failed masks preserve the original
 short-circuit predicate evaluation, error semantics and guards. Unevaluated
 conditions remain unobserved. V4 adds no MMIO read; the separately reviewed
 V5 module adds only the five fixed reads below. V6 separately adds the bounded
-handoff described below; V4/V5 do not inherit it. Each immutable capability binds
+handoff described below; V7 separately specializes its four reset-pin predicates
+as specified below. V4/V5 do not inherit either change. Each immutable capability binds
 exactly one report mode and matching module/observer; mode is not candidate data.
 
 ### Report-v5 bounded HCI snapshot
@@ -93,6 +95,61 @@ proved recovery coverage for every new access failure. Changed producer,
 schema, guest/host consumers, common/target adoption and exact artifacts need
 one coherent independent review before a new capability can be selected.
 The existing v4 capability, ML036 approval and consumed records are not repinned.
+
+### Report-v7 dedicated reset configuration
+
+The operator's 2026-11-10 request to discuss ML040/ML041 with Mythos and proceed
+to the next physical experiment selects this separately reviewed successor.
+V7 inherits the complete V6 one-stop HCE transaction and automatic return/recovery
+below, specializing only the four existing reset-pin configuration predicates.
+ML040 observed CTL `0x0000000b` and refused before reading IO or writing HCE;
+ML041 proved exact automatic Download arrival and original-A health without a
+first protocol response, but did not identify the guest reset trigger. Neither
+run grants V7 authority. Both remain consumed with their original evidence.
+
+For this exact dedicated UFS_RESET group, V7 replaces the legacy CTL bit-31
+output-direction test with whole-word `CTL == 0x0000000b`. IO still requires
+only output-latch bit 0 set. This is an explicitly changed admission predicate,
+not an assertion that the old masks were preserved. The complete CTL value
+binds the ML040-observed configuration; its origin, electrical direction and
+pad voltage remain unproved. A changed bit, including `0x8000000b`, refuses.
+Unknown IO upper bits remain outside the predicate and are preserved by the
+existing pulse read-modify-write. No whole-word `IO == 1` claim is made.
+
+One shared definition governs the initial HCE-handoff precheck, the stage-two
+post-handoff/cold check and both stage-three checks before and after the GCC
+reset. Each site's existing read order, short-circuiting and budget checks stay
+unchanged. Cold HCE entry also uses the exact configuration predicate; no
+historical observation of that cold path is implied. No CTL write, generic TLMM
+enabling, new pin read, extra pulse, status clear, hardware retry, sleep or
+reset reordering is added. The existing active-low bit-0 pulse remains at its
+original stage and always releases after an attempted low write, including a
+failed low readback. A stage-three pin refusal stays bare `EBUSY`; the report
+does not identify which side of the GCC reset refused.
+
+V7 has the same 30 fields and 256-byte bound with distinct tag `0x70000000`.
+Condition indices 10/11 decode as `RESET_CONFIG` and `RESET_LATCH_HIGH` only
+for V7; earlier report modes retain their original meanings. A passed masked
+latch predicate follows from the read prefix and progression, not a capture
+flag alone. Existing raw refusal fields retain failing CTL/IO values. No new
+telemetry field or electrical readback is added. Mixed versions refuse, and
+all handoff fields must remain zero for the pre-overlay return certificate.
+Legacy C enum/flag names containing OUTPUT are numeric slots, not a V7 direction
+claim. The retained `S22PLUS_UFS_V6_CHILD_RESTART2_V1` recovery identifier names
+the unchanged child mechanism and does not select the report schema.
+
+The scope admits the existing pulse with CTL bit 31 clear; it does not prove
+that the pulse reaches the device or that bit 31 has no electrical function.
+Exact MMIO ownership is only among Linux resource users, not every possible
+hardware actor. Newly reached HCE, reset, PHY and link behavior, and automatic
+return after partial execution, remain physical questions. Current attendance,
+usable physical Download, the original single-A owner, fixed 120/300/540/15-second
+research bounds and 555/570/660-second automatic-recovery bounds remain required.
+Conditional unattended F1 stays inactive. The kernel, DTB, configuration and
+late overlay are unchanged. Changed producer, interpretation, common/target
+adoption and actual owner branches require one coherent independent review,
+fresh full artifact qualification and the exact returned finite approval.
+V6 records are preserved by their original hashes, not relabeled as V7 proof.
 
 ### Report-v6 bounded HCE handoff
 
@@ -177,7 +234,7 @@ with equivalent target, no-replay, effect-time and recovery guarantees; a new
 observation cannot silently broaden this scope. The existing original-A owner,
 all research deadlines, one module permit, one N/A total and target isolation remain.
 
-### V6 automatic Download attempt and original-owner recovery
+### V6/V7 automatic Download attempt and original-owner recovery
 
 The operator selected automatic return as the default on 2026-11-10, including
 unclear experiment results where automatic recovery can still be attempted.
@@ -203,7 +260,7 @@ control, ACK, EOF and original final research deadline.
 The child accepts the early IPC commit only before guest BOOTTIME 540 seconds;
 after that, only the already armed timer remains. Once committed, its sole
 recovery syscall still has the fixed 570-second latest-invocation bound.
-Any complete valid authenticated V6 result may select return, including load/read errors or later
+Any complete valid authenticated V6/V7 result may select return, including load/read errors or later
 guard failures; successful return never upgrades the experiment result.
 Malformed/partial/lost results send no new control and leave the timer armed.
 
@@ -279,10 +336,10 @@ original-deadline and physical-recovery conditions of common boundary 3's
 ML030 delegation. The existing ML034 bounded USB coverage conditions and
 ML035 no-display producer correction also apply. This adopts those conditions,
 not earlier artifact tables, approvals or consumed authority. The only return
-specialization for V4/V5 is the narrow pre-overlay class below. V6 additionally
-selects the fixed automatic attempt above. The V5 diagnostic access
-and separate V6 HCE handoff specializations are limited to their preceding
-fixed conditions; neither changes the other report modes.
+specialization for V4/V5 is the narrow pre-overlay class below. V6/V7 additionally
+select the fixed automatic attempt above. The V5 diagnostic access, V6 HCE
+handoff and V7 exact reset-configuration specializations are limited to their
+preceding fixed conditions; earlier report modes retain their meanings.
 
 One healthy-Android-origin operation may transfer one boot-only N, authenticate
 the first response within 120 seconds of its launch, then obtain a fresh
@@ -293,7 +350,8 @@ single durable module permit. The original 540-second host and guest ceilings
 and 15-second module submission/command budget remain unchanged.
 
 The sole fixed module retains the held-USB SH1/CN0 confirmation, fixed GDSC,
-clock, PM8350 supply and already-output reset-pin preparation, qualified v4
+clock, PM8350 supply and the selected report mode's reset-pin preparation
+(V7 exact configuration/latch, earlier modes legacy output/high), qualified v4
 Waipio PHY, six fixed local UniPro commands and at most one DME_LINK_STARTUP.
 No generic UFS host/PHY/ICE or SCSI discovery path may bind the device. The
 common SCSI library may remain compiled; this module registers no host or LU.
@@ -310,10 +368,11 @@ second attempt. There is no standing grant or same-candidate repeat lane.
 
 ## Narrow normal-return extension
 
-Report v4, v5 or v6 is selected by the reviewed capability and matching module/guest
+Report v4, v5, v6 or v7 is selected by the reviewed capability and matching module/guest
 mode. It retains the 256-byte result envelope, authenticated result binding,
 original one-shot controls and the 120/300/540/15-second limits. All existing
-USB/PM/ICC/BCM and later UFS admission predicates remain in force.
+USB/PM/ICC/BCM and later UFS admission predicates remain in force, subject
+to the explicitly reviewed V6/V7 specializations above.
 
 A normal Download may be represented by the H0 implementation after either
 the existing successful link result or the new `PRE_EFFECT_REJECTION` class.
@@ -321,12 +380,12 @@ The new class requires an actual USB-coverage refusal before overlay dispatch,
 no outstanding USB reference, no stage-two or later work, no fixed RPMh request
 or error, and completed RPMh arena teardown. The module produces the certificate
 only on that exact path; guest and host independently validate the matching
-strict v4/v5/v6 encoding, including zero extra snapshot/handoff fields for v5/v6. A bare
+strict v4/v5/v6/v7 encoding, including zero extra snapshot/handoff fields for v5/v6/v7. A bare
 stage-zero number, zero command count, failed function return
 or `usb_released=false` is insufficient. Overlay attempts, partial preparation,
 stage two and later failures, malformed/partial responses, unknown work and
 expired windows remain outside that certified normal-return class. The separate
-V6 recovery attempt does not reinterpret them as safe-idle or successful results.
+V6/V7 recovery attempt does not reinterpret them as safe-idle or successful results.
 
 Normal Download is still authenticated to the complete exact result, follows
 one durable intent, requires the existing EOF and final deadline check, and

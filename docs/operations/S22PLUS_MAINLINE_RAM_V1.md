@@ -35,10 +35,11 @@ schema instead selects its exact immutable capability/review from the candidate
 declaration. Its own common/target adoption, complete source closure and fresh
 candidate qualification are required; the legacy review path above does not
 substitute for that selected review or gain new authority.
-The independently reviewed V6 UFS capability also selects its fixed child-owned
+The independently reviewed V6 UFS capability and its V7 successor also select
+the fixed child-owned
 automatic Download attempt and original-owner recovery, including an unclear
 experiment result. Its separately incorporated recovery timing and exact
-arrival conditions apply only to that capability; the legacy variants below
+arrival conditions apply only to those reviewed capabilities; the legacy variants below
 retain their physical-fallback rules. It does not activate unattended F1.
 
 The operator must return the generated exact approval and a statement of

@@ -14,6 +14,7 @@
 #include <linux/reset.h>
 #include <soc/qcom/g0q-ml030.h>
 #include "waipio_hci.h"
+#include "reset-pin.h"
 #include "overlay-data.h"
 #include "usb-admission.h"
 
@@ -216,7 +217,7 @@ static int reset_host_and_device(void)
 		return -ETIMEDOUT;
 	/* Claim the dedicated UFS output only. No generic TLMM driver or CTL write. */
 	pin = readl(board.reset_io + 4);
-	if (!(readl(board.reset_io) & BIT(31)) || !(pin & BIT(0)))
+	if (!g0q_reset_ctl_admitted(readl(board.reset_io)) || !(pin & BIT(0)))
 		return -EBUSY;
 	rc = reset_control_assert(board.reset);
 	if (rc)
@@ -229,7 +230,7 @@ static int reset_host_and_device(void)
 	if (remaining())
 		return -ETIMEDOUT;
 	pin = readl(board.reset_io + 4);
-	if (!(readl(board.reset_io) & BIT(31)) || !(pin & BIT(0)))
+	if (!g0q_reset_ctl_admitted(readl(board.reset_io)) || !(pin & BIT(0)))
 		return -EBUSY;
 	writel(pin & ~BIT(0), board.reset_io + 4);
 	/* Always release the single pulse even if its readback fails. */
@@ -354,7 +355,8 @@ static int run(struct platform_device *pdev)
 	rc = g0q_hci_quiescent_observed(&board.link, &board.stage2);
 	if (rc)
 		return rc;
-	if (g0q_stage2_read_condition(&board.stage2, G0Q_S2_RESET_OUTPUT, board.reset_io, BIT(31), BIT(31)) ||
+	if (g0q_stage2_read_condition(&board.stage2, G0Q_S2_RESET_OUTPUT, board.reset_io,
+			G0Q_RESET_CTL_MASK, G0Q_RESET_CTL_EXPECTED) ||
 	    g0q_stage2_read_condition(&board.stage2, G0Q_S2_RESET_HIGH, board.reset_io + 4, BIT(0), BIT(0)))
 		return g0q_stage2_error(&board.stage2, G0Q_S2_RESET, G0Q_S2_PIN_GUARD, -EBUSY);
 	ml030_open_rail_requests();

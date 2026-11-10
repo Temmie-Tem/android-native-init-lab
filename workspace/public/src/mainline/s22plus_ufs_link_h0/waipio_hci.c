@@ -8,6 +8,7 @@
 #include <ufs/ufshci.h>
 #include <ufs/unipro.h>
 #include "waipio_hci.h"
+#include "reset-pin.h"
 
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
@@ -114,7 +115,7 @@ static int hce_handoff(struct g0q_link *link, struct g0q_stage2_diag *diag, u32 
 	rc = handoff_sample(link, diag, link->reset_io, G0Q_HO_PIN_OUTPUT, &value);
 	if (rc)
 		return rc;
-	if (!(value & BIT(31)))
+	if (!g0q_reset_ctl_admitted(value))
 		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 10, value);
 	rc = handoff_sample(link, diag, link->reset_io + 4, G0Q_HO_PIN_HIGH, &value);
 	if (rc)

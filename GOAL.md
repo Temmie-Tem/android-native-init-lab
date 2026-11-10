@@ -30,6 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML042 V7 is qualified and prepared; physical execution awaits its exact
+  attended approval.** Mythos analysis and source comparison resolved the
+  unsupported generic output-enable interpretation of the dedicated reset
+  group. The four existing checks now require whole CTL `0xb` and the unchanged
+  IO bit-0 high latch, with no added read, CTL write, pulse or retry. The
+  coherent independent review passed without findings, including 102 tests
+  and exact V6 compatibility. One fresh V7 candidate, task and reviewed v43
+  backend are prepared; foreground D0 confirmed healthy Android. No grant or
+  operation is open. The unchanged HCE handoff and automatic Download attempt
+  retain attended physical fallback and one original-A return. This is no
+  electrical-state, UFS progress or unattended-recovery proof.
+  [Source analysis, implementation and review](docs/reports/S22PLUS_MAINLINE_ML042_RESET_CONFIG_H0_2026-11-10.md).
+
 - **ML041 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
   second requested physical experiment reused the unchanged V6 capability and
   its unused qualified peer, with a fresh exact attended grant. Its predeclared

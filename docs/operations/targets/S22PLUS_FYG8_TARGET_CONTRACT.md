@@ -168,7 +168,7 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, one reviewed report-v4, v5 or v6 module and key-only candidate schema. The exact
+Image, one reviewed report-v4, v5, v6 or v7 module and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -177,8 +177,9 @@ and new hazards require scoped review. Each operation retains a separately
 returned exact one-operation 1800-second approval, current attendance, fresh
 target/health/rollback binding and usable physical Download recovery.
 
-All original guards, 120/300/540/15-second bounds, one module permit, six local
-UniPro commands, at most one link command and one N/original-A total remain.
+Except for the explicit V6 handoff and V7 pin-predicate specializations below,
+all original guards remain. The 120/300/540/15-second bounds, one module permit,
+six local UniPro commands, at most one link command and one N/original-A total remain.
 In V4/V5 only the shared policy's certified settled pre-overlay coverage refusal
 gains its narrow normal Download path; stage two and later remain excluded.
 Unobserved predicates remain unobserved, and refusal retains UFS NO_PROOF.
@@ -205,6 +206,18 @@ attempt. Exact new-generation Download may admit original A independently of
 functional proof. Existing A intents never replay; failed automatic arrival
 retains attended physical Download. Research 120/300/540/15-second bounds and
 conditional unattended F1's NOT ACTIVE state remain unchanged.
+The separately reviewed V7 successor inherits the V6 handoff and automatic
+return/recovery, replacing only the four CTL direction checks with exact
+`0x0000000b` configuration and preserving the IO bit-0 latch-high check. Their
+existing pre/post-handoff and pre/post-GCC order, budgets and pulse/release
+remain. This admits the existing pulse with CTL bit 31 clear, without a CTL
+write, generic TLMM activation or electrical/pulse-efficacy claim. Whole CTL
+drift refuses; unknown upper IO bits remain preserved. The distinct V7 tag
+changes condition 10/11 meanings to RESET_CONFIG/RESET_LATCH_HIGH without
+reinterpreting old records. All shared-policy V7 conditions and unchanged
+kernel/DT/overlay identities, coherent review and fresh exact qualification
+are mandatory. ML040/ML041 stay consumed; no review or healthy closure grants
+an unattended run or transfers an old approval to the successor.
 Its exact common delegation, fixed artifact, independent capability/owner
 review and fresh candidate qualification are required before selection.
 There is no standing effect grant, replay or transfer of another target's

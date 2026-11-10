@@ -189,7 +189,11 @@ are governed by that shared scope; no standing grant or consumed replay follows.
 Its separately reviewed report-v6 handoff additionally permits only the shared
 policy's one stage-two HCE-zero write after exact enabled-state admission,
 bounded one-ms/original-deadline polling and unchanged post-state guards.
-V6's separately reviewed single-child ordinary Download attempt and fixed
+The separately reviewed V7 successor retains that transaction while replacing
+only four reset-pin CTL direction predicates with exact `0x0000000b`
+configuration and the existing bit-0 high-latch condition. It adds no CTL write
+or electrical-state claim; its complete conditions remain in the shared policy.
+V6/V7's separately reviewed single-child ordinary Download attempt and fixed
 original-owner recovery apply even when the handoff result is unclear; only
 proved exact arrival admits A, with no replay or renewed automatic window.
 Physical Download remains its fallback, and conditional unattended F1 remains

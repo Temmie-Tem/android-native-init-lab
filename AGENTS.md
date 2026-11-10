@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **73** (supersedes revision 72; 2026-11-10)
+Contract-Revision: **74** (supersedes revision 73; 2026-11-10)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`68c2bd4d7d0a04c74696e8750c0d345b929e96c95245a8d79fc5a840f300bff4`.
+`ae653721ef16d8af7f5377abdb590fa19b4d453d607130d2f8b879ce4133e576`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -85,13 +85,16 @@ Read an exception's complete conditions before considering it applicable.
    reviewed no-display BCM producer correction; ML028 and ML030–ML034 remain consumed.
    The separately adopted reusable UFS V2 scope retains those fixed effects
    for independently qualified key-only candidates, with separately reviewed
-   report-v4, bounded HCI-snapshot v5 or one-stop HCE-handoff v6 modules, exact attended grants
-   and a narrow certified pre-overlay normal return in V4/V5. V6 also admits
-   its fixed single-owner automatic Download attempt and bounded original-A
+   report-v4, bounded HCI-snapshot v5, one-stop HCE-handoff v6 or dedicated
+   reset-configuration v7 modules, exact attended grants
+   and a narrow certified pre-overlay normal return in V4/V5. V6/V7 also admit
+   the fixed single-owner automatic Download attempt and bounded original-A
    recovery, including unclear experiment results, under the complete shared
-   conditions. This does not activate unattended F1. V6 alone admits its reviewed initial-stage HCE-zero write and
-   bounded polling before unchanged post-state guards; no retry, status clear
-   or reset reordering is added. ML028 and ML030–ML039 remain consumed.
+   conditions. This does not activate unattended F1. V6/V7 admit the reviewed initial-stage HCE-zero write and
+   bounded polling. V7 alone replaces four CTL direction tests with exact
+   observed configuration and unchanged latch-high checks, without a CTL write
+   or electrical-state claim. No retry, status clear or reset reordering is
+   added. ML028 and ML030–ML041 remain consumed.
    The exact S22+ inspection, userspace, preflight, witness, Debian and
    journal-recovery profiles are linked in the routing table below. Their
    complete closed effects, admission, attendance, budgets, evidence and

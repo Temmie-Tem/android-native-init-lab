@@ -70,6 +70,10 @@ static unsigned int handoff_case, handoff_writes, hce_reads;
 static u64 model_ns = 1000000;
 static bool after_handoff;
 #endif
+#ifdef G0Q_RESET_CONFIG
+static bool matrix_after_stop;
+static u32 matrix_ctl, matrix_io;
+#endif
 static int event(const char *kind, const char *name)
 {
 	event_count++;
@@ -129,6 +133,9 @@ static void writel(u32 value, void *addr)
 	for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
 	if (handoff_case == 11) hci[REG_CONTROLLER_ENABLE/4]=1;
 	if (handoff_case == 12) hci[REG_CONTROLLER_ENABLE/4]=2;
+#ifdef G0Q_RESET_CONFIG
+	if (matrix_after_stop) { pins[0]=matrix_ctl; pins[1]=matrix_io; }
+#endif
 	if (guard_bit) for (unsigned int i=guard_bit-1;i<11;i++) {
 		if (i<9) hci[offsets[i]/4]=i==1 ? hcs_fault : 1;
 		else pins[i-9]=0;
@@ -250,6 +257,9 @@ int main(int argc, char **argv)
 #ifdef G0Q_HCE_HANDOFF
 		|| argc==7 || argc==8
 #endif
+#ifdef G0Q_RESET_CONFIG
+		|| argc==10
+#endif
 	);
 	fault_event=(unsigned int)strtoul(argv[1],NULL,0);
 	guard_bit=(unsigned int)strtoul(argv[2],NULL,0);
@@ -259,7 +269,7 @@ int main(int argc, char **argv)
 	hci[REG_UFS_VERSION/4]=early==1 ? 0x400 : 0x310;
 	hci[0xe4/4]=early==2 ? 0x30000000 : 0x40000000;
 	hci_expired=early==3;
-	pins[0]=BIT(31);pins[1]=1;
+	pins[0]=G0Q_RESET_CTL_EXPECTED;pins[1]=1;
 	const unsigned int offsets[]={REG_CONTROLLER_ENABLE,REG_CONTROLLER_STATUS,
 		REG_UTP_TRANSFER_REQ_DOOR_BELL,REG_UTP_TASK_REQ_DOOR_BELL,REG_UTP_TRANSFER_REQ_LIST_RUN_STOP,
 		REG_UTP_TASK_REQ_LIST_RUN_STOP,REG_INTERRUPT_ENABLE,REG_INTERRUPT_STATUS,REG_AUTO_HIBERNATE_IDLE_TIMER};
@@ -277,11 +287,11 @@ int main(int argc, char **argv)
 		for (unsigned int i=0;i<ARRAY_SIZE(samples);i++) hci[samples[i]/4]=fill;
 	}
 #ifdef G0Q_HCE_HANDOFF
-	if (argc==7 || argc==8) {
+	if (argc==7 || argc==8 || argc==10) {
 		handoff_case=(unsigned int)strtoul(argv[6],NULL,0);
 		if (argc==8) expire_clock=(unsigned int)strtoul(argv[7],NULL,0);
 		for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
-		pins[0]=BIT(31);pins[1]=1;
+		pins[0]=G0Q_RESET_CTL_EXPECTED;pins[1]=1;
 		if (handoff_case) {
 			hci[REG_CONTROLLER_ENABLE/4]=1;hci[REG_CONTROLLER_STATUS/4]=0x10f;
 			hci[REG_INTERRUPT_STATUS/4]=0x400;
@@ -306,6 +316,14 @@ int main(int argc, char **argv)
 		case 21:hci[REG_CONTROLLER_ENABLE/4]=0xffffffff;break;
 		default:break;
 		}
+	}
+#endif
+#ifdef G0Q_RESET_CONFIG
+	if (argc==10) {
+		matrix_ctl=(u32)strtoul(argv[7],NULL,0);
+		matrix_io=(u32)strtoul(argv[8],NULL,0);
+		matrix_after_stop=atoi(argv[9]);
+		if (!matrix_after_stop) { pins[0]=matrix_ctl; pins[1]=matrix_io; }
 	}
 #endif
 	board.link.hw.deadline_ns=5000000000ULL;

@@ -9,8 +9,8 @@ from test_s22plus_pre_effect_return import compile_pre_effect, module_report
 from test_s22plus_ml030_wire import KEY, ID, WIT, GOOD, record, w
 
 
-def decode(data):
-    return w.result(record(raw_bytes=data), WIT, KEY, ID, report_version=6)
+def decode(data, report_version=6):
+    return w.result(record(raw_bytes=data), WIT, KEY, ID, report_version=report_version)
 
 
 def line(values):
@@ -18,6 +18,16 @@ def line(values):
 
 
 class HceHandoffTest(unittest.TestCase):
+    reset_config = False
+    report_version = 6
+
+    def decode(self, data):
+        return decode(data, self.report_version)
+
+    @property
+    def checks(self):
+        return w.RESET_CONFIG_CHECKS if self.reset_config else w.STAGE2_CHECKS
+
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory(prefix='s22-hce-handoff-')
@@ -29,9 +39,9 @@ class HceHandoffTest(unittest.TestCase):
 
     def exercise(self, compiler, runner=()):
         folder = self.out/compiler
-        exe = compile_stage_fixture(folder/'stage', compiler, handoff=True)
-        guest = compile_pre_effect(folder/'guest', compiler=compiler, guest=True, handoff=True)
-        module = compile_pre_effect(folder/'module', compiler=compiler, handoff=True)
+        exe = compile_stage_fixture(folder/'stage', compiler, handoff=True, reset_config=self.reset_config)
+        guest = compile_pre_effect(folder/'guest', compiler=compiler, guest=True, handoff=True, reset_config=self.reset_config)
+        module = compile_pre_effect(folder/'module', compiler=compiler, handoff=True, reset_config=self.reset_config)
         if runner:
             for path in (exe, guest, module):
                 self.assertIn('ARM aarch64', subprocess.check_output(['file', path], text=True))
@@ -42,7 +52,7 @@ class HceHandoffTest(unittest.TestCase):
                 args.append(expiry)
             p = subprocess.run([*runner, exe, *map(str, args)], check=True,
                                capture_output=True, timeout=5)
-            facts = decode(p.stdout)
+            facts = self.decode(p.stdout)
             rows = p.stderr.decode().splitlines()
             first, later = rows[:rows.index('REPORT_DONE')], rows[rows.index('REPORT_DONE')+1:]
             self.assertFalse(any(' write ' in row for row in later))
@@ -85,7 +95,7 @@ class HceHandoffTest(unittest.TestCase):
 
         expected = {2:('HCE',1), 3:('HCS',3), 4:('TRANSFER_DOORBELL',7),
                     5:('TASK_DOORBELL',15), 6:('IRQ_ENABLE',31), 7:('IRQ_STATUS',63),
-                    8:('RESET_OUTPUT',127), 9:('RESET_HIGH',255),
+                    8:(self.checks[9],127), 9:(self.checks[10],255),
                     16:('HCE',1), 17:('HCS',3), 20:('HCE',1), 21:('HCE',1)}
         for case, (condition, flags) in expected.items():
             with self.subTest(case=case):
@@ -103,7 +113,7 @@ class HceHandoffTest(unittest.TestCase):
                 h = facts['hce_handoff']
                 self.assertEqual(h['status'], 'STOP_COMPLETE')
                 self.assertEqual(h['refusal_phase'], 'POST_CHECKS')
-                self.assertEqual(h['refusal_condition'], w.STAGE2_CHECKS[guard-1])
+                self.assertEqual(h['refusal_condition'], self.checks[guard-1])
                 self.assertEqual(facts['stage2_observed'], (1 << guard)-1)
                 self.assertEqual(facts['stage2_failed'], 1 << (guard-1))
                 self.assertEqual(sum(' write ' in row for row in trace), 1)
@@ -144,31 +154,31 @@ class HceHandoffTest(unittest.TestCase):
                 self.assertEqual(h['poll_reads'], 1)
 
         certificate = module_report(module, 'refuse', runner)
-        self.assertTrue(decode(certificate)['normal_return'])
+        self.assertTrue(self.decode(certificate)['normal_return'])
         self.assertTrue(accepted(certificate))
         for index in range(23,30):
             values = list(map(int, certificate.split())); values[index] = 1
             self.assertFalse(accepted(line(values)))
             with self.assertRaises(ValueError):
-                decode(line(values))
+                self.decode(line(values))
 
         # Exercise the real guest return gate with complete synthetic link records.
         for extra in ([1,0,0,0,0,0,0], [8191 | (1 << 13) | (2 << 20),1,0x10f,0x400,0,0,0]):
-            good = GOOD + [1 << 16,0,0x60000000,0x7ff] + extra
-            self.assertTrue(decode(line(good))['normal_return'])
+            good = GOOD + [1 << 16,0,(self.report_version << 28),0x7ff] + extra
+            self.assertTrue(self.decode(line(good))['normal_return'])
             self.assertTrue(accepted(line(good)))
             for index, value in ((23,0),(23,4095 | (1 << 13)),(24,3),(27,1),(28,2),(29,1)):
                 bad = good.copy(); bad[index] = value
                 self.assertFalse(accepted(line(bad)))
                 with self.assertRaises(ValueError):
-                    decode(line(bad))
+                    self.decode(line(bad))
 
         # High preHCS must coexist with the largest reached power/link fields.
-        worst = GOOD + [1 << 16,0,0x60000000,0x7ff] + [8191 | (100 << 13) | (999 << 20),1,0xffffffcf,0x400,0,0,0]
+        worst = GOOD + [1 << 16,0,(self.report_version << 28),0x7ff] + [8191 | (100 << 13) | (999 << 20),1,0xffffffcf,0x400,0,0,0]
         for index, value in {2:0x4fffffff,6:0xffffffc8,7:0x500,9:0xffffffcf,
                              11:32,12:0xffffffff,13:0xffffffff,14:0xffffffff}.items():
             worst[index] = value
-        self.assertTrue(decode(line(worst))['normal_return'])
+        self.assertTrue(self.decode(line(worst))['normal_return'])
         self.assertTrue(accepted(line(worst)))
         self.assertLessEqual(len(line(worst)),256)
 
@@ -179,16 +189,48 @@ class HceHandoffTest(unittest.TestCase):
         self.exercise('aarch64-linux-gnu-gcc', ('qemu-aarch64',))
 
     def test_malformed_transition_history(self):
-        base = [-16,2,0x40040000] + [0]*14 + [1,1,1 << 16,0,0x60000115,0] + [3,1,0x11f,0,0,2,0x11f]
-        self.assertEqual(decode(line(base))['hce_handoff']['status'],'REFUSED')
+        base = [-16,2,0x40040000] + [0]*14 + [1,1,1 << 16,0,((self.report_version << 28) | 0x115),0] + [3,1,0x11f,0,0,2,0x11f]
+        self.assertEqual(self.decode(line(base))['hce_handoff']['status'],'REFUSED')
         for index, value in ((23,2),(24,0),(24,3),(25,0x10f),(26,0x400),
-                             (27,1),(28,3),(29,0x10f),(22,1),(21,0x60000118)):
+                             (27,1),(28,3),(29,0x10f),(22,1),(21,((self.report_version << 28) | 0x118))):
             bad=base.copy();bad[index]=value
             with self.subTest(index=index,value=value), self.assertRaises(ValueError):
-                decode(line(bad))
-        for version in (1,2,3,4,5):
+                self.decode(line(bad))
+        for version in set(range(1,8)) - {self.report_version}:
             with self.assertRaises(ValueError):
                 w.result(record(base),WIT,KEY,ID,report_version=version)
+
+
+class DedicatedResetHandoffTest(HceHandoffTest):
+    reset_config = True
+    report_version = 7
+
+    def test_config_and_latch_matrix_before_and_after_stop(self):
+        for compiler, runner in (('cc', ()), ('aarch64-linux-gnu-gcc', ('qemu-aarch64',))):
+            exe = compile_stage_fixture(self.out/(compiler+'-matrix'), compiler,
+                                        handoff=True, reset_config=True)
+            for after in (0, 1):
+                for ctl in (0xb, 0x8000000b, 0x3, 0xa, 0, 0xffffffff):
+                    for io in (0, 1, 3, 0x80000001):
+                        with self.subTest(compiler=compiler, after=after, ctl=ctl, io=io):
+                            p = subprocess.run([*runner, exe, *map(str, (0,0,-16,1,0,1,ctl,io,after))],
+                                               check=True, capture_output=True, timeout=5)
+                            facts = self.decode(p.stdout)
+                            h = facts['hce_handoff']
+                            expected = ('RESET_CONFIG' if ctl != 0xb else
+                                        'RESET_LATCH_HIGH' if not io & 1 else None)
+                            self.assertEqual(h['refusal_condition'], expected)
+                            if expected:
+                                self.assertEqual(h['refusal_raw'], ctl if ctl != 0xb else io)
+                                self.assertEqual(h['refusal_phase'], 'POST_CHECKS' if after else 'PRE_ADMISSION')
+                            trace = p.stderr.decode().split('REPORT_DONE')[0]
+                            self.assertEqual(trace.count(' write '), int(bool(after or expected is None)))
+                            if expected:
+                                self.assertNotIn(' open rails', trace)
+                            self.assertTrue(facts['recovery_return'])
+                            for version in (5,6):
+                                with self.assertRaises(ValueError):
+                                    decode(p.stdout, version)
 
 
 if __name__ == '__main__':

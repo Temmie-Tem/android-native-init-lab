@@ -42,7 +42,7 @@ V2_RETIRED = {
 V2_BUILD = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
     ('build_evidence.py', 'build_module.py', 'cold_phy_tables.py', 'late_overlay.py', 'late_rails.py',
      'link_initramfs.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'recovery.h', 'g0q_stage.c',
-     'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h')) + tuple(
+     'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h', 'reset-pin.h')) + tuple(
     'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
     ('init.c', 'protocol.h', 'download-return.h', 'build_loader.py', 'package_loader.py',
      'qualify_loader.py', 'loader_entry_vm.py', 'uniloader-g0q-entry.patch', 'sources.json')) + (
