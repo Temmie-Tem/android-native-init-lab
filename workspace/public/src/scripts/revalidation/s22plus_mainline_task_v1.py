@@ -103,6 +103,9 @@ def source_paths(root,selected=profile,*,image=None):
         paths += ['workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
                   ('build_loader.py','build_kernel.py','prepare_marked.py','retained-marker.S',
                    'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
+    if image is not None and 'udc_observation' in image:
+        require(selected is profile, 'UDC observation requires the mainline RAM profile')
+        paths.extend([profile.UDC_DECLARATION, 'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py'])
     if candidate_v2(image):
         require(selected is profile, 'v2 requires the mainline profile')
         paths = [path for path in paths if path not in V2_RETIRED]
@@ -164,18 +167,22 @@ def capability(root,*,recovery=False,selected=profile,image=None):
             if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD):continue
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
-    path=root/selected.REVIEW;value=read(path)
+    udc = image is not None and 'udc_observation' in image
+    path = root / (profile.UDC_REVIEW if udc else selected.REVIEW)
+    value = read(path)
     require(set(value)=={'schema','verdict','scope','sources','reviewer','findings'} and
         value['schema']==selected.REVIEW_SCHEMA and value['verdict']=='PASS_GO' and
         value['scope']==selected.REVIEW_SCOPE and value['findings']==[] and
         type(value['reviewer']) is str and value['reviewer'].strip(),'mainline independent review is not PASS_GO')
-    expected=[str(path.relative_to(root)) for path in source_paths(root,selected)]
+    expected=[str(path.relative_to(root)) for path in source_paths(root,selected,image=image)]
     require([r['path'] for r in value['sources']]==expected,'mainline review source closure differs')
     for row in value['sources']:
         # Loader comparison recovery neither rebuilds nor requalifies N. Keep
         # only its actually imported owner/observer/transport/authority closure
         # mandatory after a stop; candidate build/checker files are not A inputs.
-        if recovery and (marker_only(row['path']) or selected is not profile and loader_build_only(row['path'])):continue
+        if recovery and (marker_only(row['path']) or selected is not profile and loader_build_only(row['path']) or
+                         udc and row['path'] in (profile.UDC_DECLARATION,
+                             'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py')):continue
         tasks.unchanged(dict(row,path=str(root/row['path'])))
     return pin(path)
 

@@ -41,7 +41,10 @@ def issue(operation,window,*,evidence,check):
     deadline=read(verify(window))['deadline_ns']
     with locked(operation,deadline):
         require(not (operation/'mainline-attach-closed.json').exists(),'attach issuance is closed')
-        value=binding(operation,window);check()
+        value=binding(operation,window)
+        require('udc_observation' not in read(verify(value['operation']))['N'],
+                'ML049 requires a continuously connected cable')
+        check()
         require(clock()<read(verify(window))['deadline_ns'],'attach window expired')
         receipt=publish(operation/'mainline-attach-cue.json',dict(value,evidence=evidence,issued_ns=clock()))
         require(clock()<deadline,'attach issuance publication exceeded original window')

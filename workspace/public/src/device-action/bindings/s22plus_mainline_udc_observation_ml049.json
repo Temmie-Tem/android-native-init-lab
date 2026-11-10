@@ -1,0 +1,6 @@
+{
+  "schema": "s22plus-mainline-udc-observation-exact-v1",
+  "observation_sha256": "af690a6deb62fba158e8f6fb7b01c2e3e4204cb7a34c3f8b1c1139188184b3ba",
+  "kernel_sha256": "bd698eb32680520050f6cb4e2ba72d70462acf7764d2489b39df929d308673d1",
+  "ap_sha256": "a5167afe716d6d140513127e2cc476b027aed1c740a8a58f96918a0abf0128a2"
+}

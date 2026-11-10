@@ -1045,6 +1045,56 @@ this variant again if package links, evidence, privilege, dispatch, deadlines
 or return semantics change; retire its extra stage checks only with equivalent
 service proof or removal of the service-cycle variant.
 
+### ML049 retained UDC observation
+
+ML049 uses the existing packaged Debian RAM SysVinit/read-only NCM observer
+and the ordinary attended physical Download/original-A return. Its exact AP,
+kernel and qualification are in the [ML049 declaration](../../workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_ml049.json).
+The [ML049 review](../../workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_v1_review.json)
+must cover this scope and the exact package review must cover the physical
+and VM artifacts. Only this image selects the late recorder. The host keeps
+the original N+120-second census and existing one-shot authenticated base
+exchange. The operator keeps the cable and buttons untouched until a separate
+physical Download request, including if the endpoint appears early. No attach
+cue is eligible. To allow the guest clock to reach its final sample, the
+operator instructions for this run defer the requested physical return until
+at least N+180 seconds and within the owner's original recovery deadline.
+This timing is an observation plan and never delays urgent recovery. Record
+actual handling and timing independently. No UFS module, normal Download
+control, automatic reset child or additional USB request is included.
+
+The kernel observes only the exact configfs store on the existing gadget and
+controller. It preserves the original callback and its return. Its work item
+takes up to six readings at nominal guest boot times of 7, 17, 27, 60, 90
+and 119 seconds. A missed slot stays empty. The measured timestamp and
+binding snapshot are serialized with the bind hooks and the read must
+finish before guest boot time 120 seconds. The software USB state and the
+absent-controller and busy-list outcomes remain distinct. Each cumulative
+128-byte record authenticates candidate, boot tag, bind count, entry, return
+code, and actual sampled times/states under its private per-image key.
+Each frame stands alone. A state sample is post-bind only if its timestamp
+strictly follows the single successful bind return. Samples establish state
+at those instants only. Guest boot and host N clocks are separate. The
+callback return does not attest the userspace close, PHY wiring or CC state.
+
+The only new firmware-shared stores occupy the existing 256-byte diagnostic
+window in the FYG8 Samsung retained-log payload. They alternate two 128-byte
+slots. The live g0q DT must declare the exact enabled nonreusable no-map
+reservation. Map only the four-word header and one slot, with write-combining
+attributes and both end PFNs outside linear memory. Require a valid header
+and enough prior payload. Latch its four words, recheck before stores and
+before prefix-last commit, and unmap after use. A failed mapping, guard or
+publication ends this recorder. It preserves the firmware header and cursor.
+Firmware can still overwrite these records. The existing fixed post-closure
+D0 collector may acquire and project ML049 only after the same original-A
+health and owner/closure checks below. An absent, damaged or foreign record
+gives no device-side result. Recovery proceeds independently of capture.
+
+The exact-image selection, no-cue rule and slot checks apply to this one
+experiment to prevent unreviewed firmware-shared writes and preserve the
+untouched-cable condition. The physical scope expires on consumption. Changes
+to the writer, sites, mapping, evidence acceptance or recovery require review.
+
 ### Fixed post-closure retained-marker D0
 
 The named `s22plus_mainline_retention_v1.py` capture is a foreground D0 profile

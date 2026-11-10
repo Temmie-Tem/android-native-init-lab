@@ -25,6 +25,10 @@ OBSERVATION_NS=120_000_000_000
 TASK_SCHEMA='s22plus-mainline-task-v1'
 REVIEW_SCHEMA='s22plus-mainline-ram-review-v1'
 REVIEW_SCOPE='MAINLINE_RAM_F1_CAPABILITY'
+UDC_DECLARATION = 'workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_ml049.json'
+UDC_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_v1_review.json'
+UDC_KERNEL = 'bd698eb32680520050f6cb4e2ba72d70462acf7764d2489b39df929d308673d1'
+
 
 
 def unchanged(receipt,maximum=128*1024*1024):
@@ -41,6 +45,7 @@ def image_binding(image,*,artifact_bytes=False):
         except (ImportError,SyntaxError) as error:
             raise ValueError('reviewed ML030 candidate validator is unavailable') from error
     keys={'schema','profile','namespace','version','run_id_hex','ap','member','key','qualification','runtime_sources'}
+    if 'udc_observation' in image:keys.add('udc_observation')
     if 'retained_marker' in image:keys.add('retained_marker')
     if 'entry_park' in image:keys.add('entry_park')
     if 'debian_ram' in image:keys.add('debian_ram')
@@ -89,6 +94,20 @@ def image_binding(image,*,artifact_bytes=False):
                 'candidate evidence was not covered by retained entry review')
     require(('retained_marker' in image)==('retained_marker' in loader)==('retained_marker' in loader['kernel']),
             'instrumented loader lacks its marker admission')
+    require(('udc_observation' in image) == (loader['kernel']['sha256'] == UDC_KERNEL),
+            'late UDC measurement declaration differs from kernel')
+    if 'udc_observation' in image:
+        declaration = read(ROOT / UDC_DECLARATION)
+        measured = read(unchanged(image['udc_observation']))
+        require(set(image) == {'schema','profile','namespace','version','run_id_hex','ap','member','key',
+                               'qualification','runtime_sources','debian_ram','udc_observation'} and
+                declaration == dict(schema='s22plus-mainline-udc-observation-exact-v1',
+                                    observation_sha256=image['udc_observation']['sha256'],
+                                    kernel_sha256=UDC_KERNEL, ap_sha256=image['ap']['sha256']) and
+                measured['ap'] == image['ap'] and measured['kernel'] == image['runtime_sources']['kernel'] and
+                measured['debian'] == image['debian_ram'] and
+                reviewed.get(str(Path(image['udc_observation']['path']).relative_to(ROOT)), {}).get('sha256')
+                == image['udc_observation']['sha256'], 'exact ML049 observation qualification differs')
     if 'retained_marker' in image:
         marked=marker_binding(image,manifest,loader)
         receipts=[image['retained_marker'],marked['config'],marked['tests'],marked['entry_vm']]
@@ -145,7 +164,7 @@ def image_binding(image,*,artifact_bytes=False):
 
 def debian_ram_binding(image,manifest,manifest_pin,kernel):
     from s22plus_mainline_task_v1 import capability
-    capability(ROOT)
+    capability(ROOT,image=image)
     try:
         from mainline.s22plus_canary_h0 import debian_ram
         runtime=debian_ram.validate(manifest)
@@ -676,7 +695,8 @@ def trace_binding(config,tests,vm,image):
 
 
 def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker_qualification=None,
-            entry_park_qualification=None,debian_ram_qualification=None,download_return_qualification=None):
+            entry_park_qualification=None,debian_ram_qualification=None,download_return_qualification=None,
+            udc_observation=None):
     """Revalidate existing immutable artifacts, without building or contacting a device."""
     package_dir,loader_dir,output=[Path(p).resolve() for p in (package_dir,loader_dir,output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),'fresh private qualification required')
@@ -707,6 +727,7 @@ def qualify(package_dir,loader_dir,output,*,loader_qualification,entry_vm,marker
     image=dict(schema='s22plus-mainline-image-v1',profile=PROFILE,namespace=NAMESPACE,version=VERSION,
         run_id_hex=manifest['candidate_id'][:32],ap=ap,member=member,key=pin(Path(manifest['key_path']),maximum=32),
         runtime_sources=runtime)
+    if udc_observation is not None:image['udc_observation']=pin(Path(udc_observation).resolve())
     if marker_qualification is not None:image['retained_marker']=pin(Path(marker_qualification).resolve())
     if entry_park_qualification is not None:image['entry_park']=pin(Path(entry_park_qualification).resolve())
     if debian_ram_qualification is not None:image['debian_ram']=pin(Path(debian_ram_qualification).resolve())

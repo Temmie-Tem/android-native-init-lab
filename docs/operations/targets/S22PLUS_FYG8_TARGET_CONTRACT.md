@@ -428,6 +428,17 @@ is required within the unchanged slot/store ceilings. Positive return classes
 add no GPIO-correction causality, same-boot pairing, missing-frame localization
 or retention-coverage claim. Original-A recovery and finite attended authority
 remain unchanged; earlier artifacts retain their original provenance.
+For the one exact ML049 AP and kernel, the same policy's
+[retained UDC observation](../S22PLUS_MAINLINE_RAM_V1.md#ml049-retained-udc-observation)
+specializes the RAM-only profile with its fixed late configfs binding and UDC
+state observations, two authenticated slots in the same 256-byte Samsung log
+window, and its post-closure projection. This scope requires the ML049 and
+exact artifact reviews, a cable left untouched, one finite attended grant,
+the ordinary physical Download/original-A path and complete final health.
+The named post-closure read below also admits this exact image. The older
+early marker formats, UFS capabilities and consumed runs retain their own
+scope.
+
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

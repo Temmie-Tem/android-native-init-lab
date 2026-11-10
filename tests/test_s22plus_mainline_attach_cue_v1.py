@@ -99,6 +99,17 @@ class CueTests(unittest.TestCase):
             self.issue()
         self.assertFalse((self.op / 'mainline-attach-cue.json').exists())
 
+    def test_untouched_cable_profile_cannot_issue_a_cue(self):
+        # Use a fresh operation/window pair so the actual durable binding matches.
+        operation = self.fixture_root / 'udc-operation'
+        operation.mkdir()
+        owner = publish(operation / 'operation.json', {'N': {'udc_observation': {}}})
+        window = publish(operation / 'window.json', dict(operation=owner, host_boot=cue.host_boot(),
+                         deadline_ns=self.now + 120_000_000_000))
+        with self.assertRaisesRegex(ValueError, 'continuously connected'):
+            cue.attach.issue(operation, window, evidence={}, check=lambda: self.fail('cue evidence collected'))
+        self.assertFalse((operation / 'mainline-attach-cue.json').exists())
+
     def test_validation_delay_cannot_extend_window(self):
         calls = []
         def guard():

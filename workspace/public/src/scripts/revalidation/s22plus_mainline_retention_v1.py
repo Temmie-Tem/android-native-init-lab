@@ -23,7 +23,7 @@ def closed_binding(root,task_directory):
     task_pin=pin(directory/'task.json');task=read(verify(task_pin));closed_pin=pin(directory/'closed.json')
     closed=read(verify(closed_pin))
     require(task['schema']==profile.TASK_SCHEMA and task['N']['profile']==profile.PROFILE and
-            task['operations']==[profile.OPERATION] and 'retained_marker' in task['N'],
+            task['operations']==[profile.OPERATION] and ('retained_marker' in task['N'] or 'udc_observation' in task['N']),
             'not an instrumented mainline task')
     manifest=profile.image_binding(task['N'])
     require(closed['schema']=='s22plus-comparison-task-closed-v1' and closed['task']==task_pin and
@@ -82,10 +82,17 @@ def projection(root,directory,task_directory):
             'retained read is not on the exact returned Android boot')
     census.require_shell_v2(pin(directory/'transport/features.capture.json'))
     capture=raw.load_handle(directory/'last-kmsg.capture.json');raw.require_success(capture)
-    qualified=read(profile.unchanged(task['N']['retained_marker']))
-    config=read(profile.unchanged(qualified['config']))
-    result=marker.decode(raw.read_stdout(capture,maximum=MAXIMUM),bound['manifest']['candidate_id'],
-        verify(task['N']['key'],maximum=32).read_bytes(),version=marker.version(config),config=config)
+    if 'udc_observation' in task['N']:
+        from mainline.s22plus_udc_observation_h0.decode import project
+        measured = read(profile.unchanged(task['N']['udc_observation']))
+        result = project(raw.read_stdout(capture, maximum=MAXIMUM),
+                         verify(measured['candidate'], maximum=16).read_bytes(),
+                         verify(measured['key'], maximum=32).read_bytes())
+    else:
+        qualified=read(profile.unchanged(task['N']['retained_marker']))
+        config=read(profile.unchanged(qualified['config']))
+        result=marker.decode(raw.read_stdout(capture,maximum=MAXIMUM),bound['manifest']['candidate_id'],
+            verify(task['N']['key'],maximum=32).read_bytes(),version=marker.version(config),config=config)
     result.update(task=bound['task_receipt'],closed=bound['closed'],terminal=bound['terminal'],
         capture=pin(capture.receipt_path),before=pin(directory/'before/health.json'),after=pin(directory/'after/health.json'),
         same_returned_android_boot=True,device_controls=0,partition_transfers=0)
@@ -96,14 +103,16 @@ def capture(root,directory,task_directory):
     require(not directory.exists(),'fresh mainline retention invocation required')
     # A fixed reobservation is a new invocation; no partial capture is retried.
     with registry.target_session_lease(root):
-        registry.require_no_f1_owner(root);review=tasks.capability(root)
+        registry.require_no_f1_owner(root)
         bound=closed_binding(root,task_directory);task=bound['task']
+        selected_image = task['N'] if 'udc_observation' in task['N'] else None
+        review = tasks.capability(root, image=selected_image)
         tool=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024**2)
         require(tool==task['adb'],'retention ADB differs')
         directory.mkdir(mode=0o700)
         def guard():
             registry.require_no_f1_owner(root)
-            require(tasks.capability(root)==review and pin(Path(bound['task_receipt']['path']))==bound['task_receipt'] and
+            require(tasks.capability(root,image=selected_image)==review and pin(Path(bound['task_receipt']['path']))==bound['task_receipt'] and
                     pin(Path(bound['closed']['path']))==bound['closed'],'retention binding changed')
         publish(directory/'started.json',dict(schema='s22plus-mainline-retention-d0-v1',task=bound['task_receipt'],
             closed=bound['closed'],terminal=bound['terminal'],review=review,source=pin(Path(__file__)),device_controls=0,partition_transfers=0))

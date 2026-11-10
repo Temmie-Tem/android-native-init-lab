@@ -30,6 +30,17 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML049 is prepared for the S22+ untouched-cable UDC experiment.** A new
+  Debian RAM-only boot image records configfs bind outcomes and timed device
+  states in the small Samsung retained-log window. In the actual-kernel ARM64
+  fixtures the returned records distinguished EBUSY/controller absent,
+  successful bind/not attached, and successful bind/configured. The
+  independent review passed for the exact package, reader and terminal
+  backend. This ordinary RAM owner requires attended physical Download for
+  original-A return and healthy closure before the fixed log read. Physical
+  UDC state and retention are unproved.
+  [Candidate and evidence](docs/reports/S22PLUS_MAINLINE_ML049_UDC_OBSERVATION_H0_2026-11-11.md)
+
 - **ML048 reached the original 120-second USB deadline with the cable and
   buttons untouched, as confirmed by the operator after the window.** All 88
   host samples reported the selected USB path absent with zero related

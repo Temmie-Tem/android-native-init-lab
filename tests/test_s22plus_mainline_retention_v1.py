@@ -57,6 +57,29 @@ class RetentionTests(unittest.TestCase):
             stack.enter_context(mock.patch.object(retention.raw,'acquire_command',side_effect=acquire))
             return retention.capture(self.root,self.private/name,self.owner)
 
+    def test_udc_collector_preserves_absent_and_authenticated_results(self):
+        import hmac
+        import struct
+        self.setup_owner()
+        candidate = self.owner / 'udc.id'
+        candidate.write_bytes(bytes(range(16)))
+        key = self.task['N'].pop('key')
+        self.task['N'].pop('retained_marker')
+        self.task['N']['udc_observation'] = publish(self.owner / 'udc.json',
+            dict(candidate=pin(candidate), key=key))
+        body = bytearray(96)
+        body[:40] = b'G0QUDC01' + candidate.read_bytes() + bytes(range(16))
+        struct.pack_into('<IIiIh', body, 40, 1000, 2000, 11, 7010, 0)
+        struct.pack_into('<II', body, 88, 1, 1)
+        frame = body + hmac.digest(bytes(range(32)), body, 'sha256')
+        for label, raw, count in [('absent', b'ordinary log', 0), ('bound', frame, 1)]:
+            result = read(Path(self.run_capture(label, data=bytes(raw))['path']))
+            self.assertEqual(len(result['frames']), count)
+            self.assertTrue(result['same_returned_android_boot'])
+            if count:
+                self.assertEqual(result['frames'][0]['bind'], 'bound')
+                self.assertEqual(result['frames'][0]['samples'][0]['state'], 'not attached')
+
     def test_fixed_command_raw_health_projection_and_offline_reopen(self):
         self.setup_owner();result=self.run_capture('capture')
         value=read(Path(result['path']));self.assertEqual(value['observed_stages'],['loader-handoff'])
