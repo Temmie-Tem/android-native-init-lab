@@ -30,18 +30,22 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML046 V11 is in validated H0 preparation; no physical authority is open.**
-  Two Argon discussions compared ML045's bit-clear sample with the selected
-  drivers and upstream's final ordered-write rationale. V11 preserves the
-  existing CFG1 write/reads but retires its unsupported immediate bit-0 gate,
-  checking the original budget before HCE for either sample. Later predicates
-  and the attended recovery scope remain. Fresh module/observer/loader/AP
-  qualification and exact V10 raw parity passed; 168 tests and final independent
-  PASS_GO have no open findings. The v47 backend and fresh exact task are
-  prepared. Current-health D0 passed all seven raw reads without a grant or
-  control/transfer. A separately returned exact attended one-operation
-  approval remains required before physical execution.
-  [Source analysis, bounded correction and validation](docs/reports/S22PLUS_MAINLINE_ML046_CFG1_SELECTION_H0_2026-11-11.md)
+- **ML046 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** V11
+  again sampled CFG1 pre/post `0x1c00052c`, with bit 0 clear, but passed the
+  original budget and progressed through all six local UniPro commands and
+  the one permitted link-start command. The result was EIO. Source inference
+  narrows it to unexpected IRQ_STATUS bits during link polling; the actual
+  failing word was not recorded, and the terminal zero fields are unfilled,
+  not observed successful values. The 300-second same-boot witness and all
+  initial guards passed. Automatic result-bound Download, one original A and
+  the same owner's health-only continuation completed all seven final reads,
+  retaining the initial ADB failure. All 497 task captures/two pages and both
+  cue captures were audited; the owned profile is absent and no F1 owner
+  remains. Local-command/link-attempt progress is proved; link success,
+  bit-clear cause and hang recovery remain unproved. No further device action
+  is opened.
+  [Physical result and raw audit](docs/reports/S22PLUS_MAINLINE_ML046_RUN_2026-11-11.md)
+  · [Argon analysis, bounded correction and validation](docs/reports/S22PLUS_MAINLINE_ML046_CFG1_SELECTION_H0_2026-11-11.md)
 
 - **ML045 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
   V10 diagnostic identified the first CFG1 bit-readback branch: both existing
