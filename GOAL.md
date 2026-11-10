@@ -30,6 +30,23 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML039 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`, with a
+  complete physical HCE snapshot.** A fresh key-only candidate reused the
+  unchanged v5 capability/review and v41 owner. The host popup/beep accompanied
+  the one attach cue; authenticated base arrived at N+63.839s and the operator's
+  completion reply at N+73.953s. The same-boot witness passed with 300.336s
+  host and 300.423s guest advance. One module permit returned stage 2 / HCI
+  QUIESCENT / HCE FAIL, with raw HCE `0x1`, HCS `0x10f`, both doorbells zero,
+  interrupt enable zero and interrupt status `0x400`. All six snapshot fields
+  were captured; later guard predicates remain unevaluated. No fixed RPMh
+  request, local UniPro or link command followed. Physical Download and one
+  original-A transfer restored Android; after one failed ADB health read,
+  the existing health-only continuation passed all seven fresh reads. The
+  owned profile is absent and no F1 owner remains. HCE's full value is now
+  observed, while its origin and any safe initialization change remain separate
+  H0 questions. No guard, deadline or hardware scope changed and this run cannot
+  replay. [Physical snapshot and raw audit](docs/reports/S22PLUS_MAINLINE_ML039_RUN_2026-11-10.md).
+
 - **ML038 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** It
   reused the already qualified unused peer and unchanged v5 capability/review,
   with a fresh exact attended task. N transferred once; all 88 selected USB
@@ -40,9 +57,9 @@ identities, goals, artifacts and authority remain separate.
   channel ADB health read was preserved; a health-only continuation passed all
   seven fresh reads. No profile or F1 owner remains. A host popup/beep test
   requested by the operator was noticed successfully; it is an attention signal,
-  not device authority or proof of the USB failure cause. Repeated first-response
-  absence is the immediate issue before another experiment. HCE diagnostics
-  remain physically unexercised, and this consumed run cannot replay.
+  not device authority or proof of the USB failure cause. Its first-response
+  failure cause remains unproved. This run did not exercise HCE diagnostics
+  and cannot replay.
   [Physical run, reuse and raw audit](docs/reports/S22PLUS_MAINLINE_ML038_RUN_2026-11-10.md).
 
 - **ML037 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
@@ -56,7 +73,7 @@ identities, goals, artifacts and authority remain separate.
   resolved before separate physical Download; original A transferred once and
   the first seven-read health bracket passed. No profile was created and no F1
   owner remains. The H0 implementation and one attended experiment are complete;
-  the HCE-state question remains unproved. A future fresh candidate may reuse
+  this run left the HCE-state question unproved. A future fresh candidate may reuse
   the unchanged reviewed capability but needs its own current attended
   admission. No guard or deadline was relaxed and ML037 cannot replay.
   [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML037_RUN_2026-11-10.md)
