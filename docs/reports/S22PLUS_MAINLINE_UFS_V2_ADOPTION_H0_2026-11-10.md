@@ -1,6 +1,6 @@
 # S22+ shared UFS V2: reviewed adoption and ML036 preparation
 
-Status: **PASS_GO / PREPARED_H0 — NO PHYSICAL RUN YET**.
+Status: **PASS_GO / H0 PREPARATION COMPLETE — ML036 SUBSEQUENTLY CLOSED**.
 
 The operator requested applying the completed H0 improvements through the next
 attended S22+ experiment. The shared V2 scope is now connected to common
@@ -101,3 +101,14 @@ package joins; WIRE/SEMANTIC reuse the strict authenticated report and preserve
 unknown predicates; RETURN preserves original-A independence and one-shot
 recovery; AUDIT retains original source/raw provenance. No new diagnostic
 hardware operation or validation layer is introduced.
+
+## Attended outcome
+
+[ML036 ran once](S22PLUS_MAINLINE_ML036_RUN_2026-11-10.md) through the selected
+V2 capability and backend v40. The five-minute witness and USB admission
+passed; the new report identified HCE as the first stage-two refusing
+predicate. No link command was issued. Physical original-A return and one
+health-only continuation completed `NO_PROOF / ANDROID_CLOSED_HEALTHY`, with
+N/A each transferred once and no remaining owner. The narrow pre-effect
+normal-return extension was not exercised. The preparation evidence above
+retains its original H0 meaning; the actual grant/candidate is now consumed.

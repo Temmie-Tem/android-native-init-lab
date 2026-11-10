@@ -30,15 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **Shared UFS V2 is reviewed and ML036 is prepared, not executed.** The
-  adopted common/target scope uses the completed stage-two diagnostics,
-  key-only candidate qualification and narrow pre-effect normal return.
-  The unchanged fixed Image/module and evidence are reused; fresh observer,
-  loader/AP reproduction and actual ARM64/EL checks passed. Independent
-  adoption review is PASS_GO and backend v40 is selected with the existing
-  worker. Current connected readiness, the separately returned exact attended
-  approval and physical execution remain distinct. No ML035 authority is
-  reused. [Adoption and preparation](docs/reports/S22PLUS_MAINLINE_UFS_V2_ADOPTION_H0_2026-11-10.md)
+- **ML036 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The first
+  shared-V2 physical run passed USB admission and the five-minute same-boot
+  witness. Its new diagnostic identifies stage 2 / HCI QUIESCENT / HCE FAIL:
+  the original controller-enable predicate observed a nonzero value, while
+  all later guard predicates remain unobserved. No fixed RPMh request, local
+  UniPro or link command followed. Its origin and ML035's historical predicate
+  remain unproved. Physical Download, one original A and a fresh seven-read
+  health-only continuation closed the run after one failed ADB health read.
+  N/A each transferred once; the owned network profile is absent and no F1
+  owner remains. The grant/candidate cannot replay. Further work starts with
+  H0 study of the HCE handoff/initialization condition, without relaxing the
+  guard. [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML036_RUN_2026-11-10.md)
+  · [V2 adoption and preparation](docs/reports/S22PLUS_MAINLINE_UFS_V2_ADOPTION_H0_2026-11-10.md)
 
 - **ML035 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.**
   The corrected BCM producer passed the unchanged USB/PM/ICC/SH1/CN0 admission
@@ -50,7 +54,7 @@ identities, goals, artifacts and authority remain separate.
   unobserved. Physical Download and one original A restored Android. After an
   ADB disappearance in the first health bracket, health-only continuation
   completed seven fresh reads. N/A each transferred once, the network profile
-  is absent and no F1 owner remains. It is the latest physical closure and
+  is absent and no F1 owner remains. It is a preceding physical closure and
   cannot replay. [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML035_RUN_2026-11-10.md)
   · [H0 correction and preparation](docs/reports/S22PLUS_MAINLINE_ML035_BCM_ALIAS_H0_2026-11-10.md).
 
