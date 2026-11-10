@@ -30,6 +30,18 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML048 reached the original 120-second USB deadline with the cable and
+  buttons untouched, as confirmed by the operator after the window.** All 88
+  host samples reported the selected USB path absent with zero related
+  children. No endpoint, first request, authenticated response or UFS permit
+  followed. The fresh candidate reused ML047's exact V12 capability. The
+  original owner observed new-generation Download at N+588.979 seconds,
+  transferred original A once and closed `ANDROID_CLOSED_HEALTHY` after
+  seven successful final health reads through its health-only continuation.
+  One failed ADB read is preserved. The audit verified 7,005 raw captures
+  across 28 pages and owner release. ML048 is consumed with UFS `NO_PROOF`.
+  [No-replug experiment and raw audit](docs/reports/S22PLUS_MAINLINE_ML048_NO_REPLUG_RUN_2026-11-11.md)
+
 - **ML047 captured UIC_ERROR and is consumed with `NO_PROOF` and
   `ANDROID_CLOSED_HEALTHY`.** Six local UniPro commands succeeded and
   one DME_LINK_STARTUP was issued with pre-command HCS `0x8`. The first
