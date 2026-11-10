@@ -74,3 +74,5 @@ The reviewed v48 backend and prepared one-operation task use the existing
 ordinary-terminal worker.
 Current foreground D0 passed all seven raw Android health reads. The exact
 finite attended approval is required before the grant opens.
+
+The subsequent [attended physical result and healthy Android closure](S22PLUS_MAINLINE_ML047_RUN_2026-11-11.md) record the consumed ML047 run.
