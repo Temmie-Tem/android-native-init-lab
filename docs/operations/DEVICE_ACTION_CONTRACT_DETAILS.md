@@ -431,7 +431,7 @@ permission to perform host-only work.
    hardware scope to fresh key-only candidates on this exact S22+ FYG8 target.
    The target must adopt the shared scope and each candidate must bind the
    same independently reviewed immutable capability: its fixed ML035 Image,
-   reduced no-display DT/configuration, one fixed reviewed report-v4 or v5 module,
+   reduced no-display DT/configuration, one fixed reviewed report-v4, v5 or v6 module,
    four-package RAM userspace, protocol, network and producer/toolchain inputs.
    Only a new authentication key, deterministic derived identity and their
    unchanged-producer artifacts may vary without a new capability review or
@@ -457,15 +457,40 @@ permission to perform host-only work.
    PHY or UIC-error read is admitted. No added HCE write, status clear, reset reordering,
    relaxed admission, slot replay, display client, SCSI/media, fDeviceInit,
    LU/partition/filesystem access, ICE/key or unattended effect is admitted.
-   Reports v4/v5 additionally permit the existing authenticated normal Download
+   The separately reviewed V6 handoff scope permits, only at initial stage two
+   after the existing USB/access/version admission, one whole-word HCE-zero
+   write for an HCE word exactly `1`. HCE `0` uses the unchanged cold path;
+   other/crypto-enabled words refuse. The fixed pre-reads require HCS UIC-ready
+   with no host/device error, zero transfer/task doorbells and IE, IS exactly
+   `0` or `0x400`, and the existing reset-pin output/high conditions, followed
+   by a final exact HCE-`1` read and effect-time budget check. No pre-stop
+   RUN/AHIT, UIC-error, pointer or PHY read is added. The two pin pre-reads are
+   part of this new access scope. A static one-shot latch precedes the sole
+   write; HCE-only polling with 10–20 microsecond sleeps must observe full-word
+   zero before both the original module deadline and a one-ms local ceiling.
+   Known expiry forbids further reads; late zero is recorded but cannot admit
+   continuation. Unexpected state or timeout stops without retry or re-enable.
+   Only timely completion enters the original short-circuit quiescent and
+   fresh reset-pin checks, with their original masks/order and all later
+   hardware limits unchanged. Residual state stops without clearing. Stage six
+   cannot perform handoff. V6 adds no status/RUN/AHIT/IE write, reset reordering,
+   SCSI/media/ICE/key operation. Its separately
+   tagged bounded report keeps pre-admission, one stop and actual post-check
+   history distinct; poll/time diagnostics do not drive authority. The fixed
+   module hash, full transition/encoding conditions, scope-review trigger and
+   exact independent capability/owner review are in the shared policy. V4/V5
+   do not inherit this exception and their consumed provenance stays intact.
+   Reports v4/v5/v6 additionally permit the existing authenticated normal Download
    transaction after a certified USB-coverage refusal before overlay dispatch,
    with no outstanding USB reference, stage-two work, fixed RPMh request/error,
    and with actual RPMh arena teardown complete. The fixed module certifies
    that path; both guest and host independently validate the exact bounded
-   report; v5 requires all additional snapshot fields to be zero on that path.
+   report; v5/v6 require all additional snapshot/handoff fields zero on that path.
    A zero stage/count or a failed call alone is insufficient. Overlay
    attempts, stage two or later, partial/unknown work, malformed or unauthenticated
-   evidence and expired windows are excluded and retain physical recovery.
+   evidence and expired windows are excluded from this certified normal-return
+   class. V4/V5 retain physical recovery; V6 separately uses the fixed automatic
+   attempt below without turning those unknown results into functional proof.
    The complete-result digest, original socket/nonce/boot, one durable control
    intent, EOF and final deadline check, fixed reboot-mode/SCM NODUMP/PSCI path,
    exact Download ticket and original-A health/cleanup conditions remain.
@@ -475,8 +500,37 @@ permission to perform host-only work.
    Existing physical-attach cue/interlock and original-owner health-only
    continuation remain unchanged. The fixed foreground preapproval D0 may
    validate a prepared V2 task under the current research request; it grants
-   no control or transfer. Consumed ML028 and ML030–ML036 retain all original
+   no control or transfer. Consumed ML028 and ML030–ML039 retain all original
    artifacts, approvals, source provenance and journals and cannot replay.
+   V6 additionally adopts the operator's 2026-11-10 automatic-return/recovery
+   selection. One independently reviewed child is forked before USB setup,
+   after the exact reboot-mode driver and fixed OF cell/magic binding, and
+   solely owns one ordinary `RESTART2(download)`. A complete authenticated
+   result, including a negative/load/read result, may select early commit only
+   after the fresh child/late witness, result-bound control, ACK and EOF. Missing,
+   malformed or lost results do not cancel the already armed fallback: the child
+   attempts that same slot at guest BOOTTIME 555 seconds, with no invocation at
+   or after 570 seconds. The research ceiling remains 540 seconds, with no new
+   UFS effect after expiry. Parent death/EOF does not disarm or respawn it;
+   returned or uncertain reset never retries. No emergency restart, panic/RDX,
+   hardware watchdog or separate PMIC write is admitted. Failed ordinary
+   restart may still require physical Download; blocked probe/notifier/driver,
+   PID1 or whole-kernel failure is not claimed recovered merely by this design.
+   The original host owner may observe exact Download independently of link,
+   ACK or arm proof within one fixed N-intent-launch-plus-660-second window,
+   retaining the original host epoch. With an intended N it must observe a
+   different USB generation from that N's Download launch. Pre-N recovery uses
+   only the original Android Download arrival window. It then invokes the
+   existing original-A transfer/health machinery once, with the same fixed
+   automatic cap checked at dispatch. No A intent means only observation has
+   occurred; timeout permits the existing separately attended physical path.
+   An existing A intent permits only raw reconstruction and health, never
+   redispatch. The finite preauthorized recovery survives research-grant expiry
+   without renewing that grant. Unknown work remains NO_PROOF, raw evidence
+   precedes interpretation, and RAM-only evidence may be lost on reset. Current
+   attendance, physical fallback, the cue/control interlock and exact finite
+   approval remain; conditional unattended F1 is not activated. The shared
+   policy supplies the complete reviewed child/host and proof conditions.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

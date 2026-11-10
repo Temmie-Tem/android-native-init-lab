@@ -30,6 +30,22 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML040 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
+  reviewed V6 candidate passed USB, child-arm/liveness and the five-minute
+  same-boot witness. HCE handoff stopped before its write at RESET_OUTPUT,
+  raw control word `0xb`; HCE/HCS/IS remained observed as `1`/`0x10f`/`0x400`.
+  No HCE stop, fixed RPMh or local/link command followed. The complete negative
+  result triggered automatic Download and one original-A return; all seven
+  final-health reads passed on the first bracket. No physical Download or
+  recovery/health continuation was needed, the owned profile is absent and no
+  F1 owner remains. This proves the new completed-refusal return path, not the
+  timer or kernel/probe-stall recovery. Conditional unattended F1 stays inactive.
+  One cue-wrapper output-directory failure occurred before caller spawn and
+  was repaired without replay; the actual cue and completion were timely.
+  Pin-direction semantics and no-response automatic recovery are the next
+  bounded questions. [Run and raw audit](docs/reports/S22PLUS_MAINLINE_ML040_RUN_2026-11-10.md)
+  · [Implementation and review](docs/reports/S22PLUS_MAINLINE_ML040_HCE_AUTORECOVERY_H0_2026-11-10.md).
+
 - **ML039 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`, with a
   complete physical HCE snapshot.** A fresh key-only candidate reused the
   unchanged v5 capability/review and v41 owner. The host popup/beep accompanied

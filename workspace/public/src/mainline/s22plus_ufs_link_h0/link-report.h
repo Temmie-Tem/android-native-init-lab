@@ -6,8 +6,15 @@
 #define G0Q_LINK_REPORT_H
 #define G0Q_REPORT_V4_TAG 0x40000000U
 #define G0Q_REPORT_V5_TAG 0x50000000U
+#define G0Q_REPORT_V6_TAG 0x60000000U
 #define G0Q_PRE_EFFECT_CERT 0x00010000U
-#ifdef G0Q_HCI_SNAPSHOT
+#if defined(G0Q_HCE_HANDOFF) && defined(G0Q_HCI_SNAPSHOT)
+#error "HCE handoff and diagnostic-only snapshot are distinct report modes"
+#endif
+#ifdef G0Q_HCE_HANDOFF
+#define G0Q_REPORT_TAG G0Q_REPORT_V6_TAG
+#define G0Q_REPORT_FIELDS 30
+#elif defined(G0Q_HCI_SNAPSHOT)
 #define G0Q_REPORT_TAG G0Q_REPORT_V5_TAG
 #define G0Q_REPORT_FIELDS 30
 #else
@@ -62,4 +69,21 @@ static inline int g0q_pre_effect_fields(const long long values[G0Q_REPORT_FIELDS
 			return 0;
 	return 1;
 }
+
+#ifdef G0Q_HCE_HANDOFF
+static inline int g0q_handoff_complete_fields(const long long values[G0Q_REPORT_FIELDS])
+{
+	unsigned int flags = (unsigned int)values[23] & 8191;
+	unsigned int polls = ((unsigned int)values[23] >> 13) & 127;
+	unsigned int elapsed = (unsigned int)values[23] >> 20;
+	if (values[1] != 6 || values[21] != G0Q_REPORT_V6_TAG || values[22] != 0x7ff ||
+	    values[27] || values[28] || values[29])
+		return 0;
+	if (values[23] == 1)
+		return !values[24] && !values[25] && !values[26];
+	return flags == 8191 && polls > 0 && elapsed < 1000 && values[24] == 1 &&
+		(values[25] & 8) && !(values[25] & 0x30) &&
+		(values[26] == 0 || values[26] == 0x400);
+}
+#endif
 #endif

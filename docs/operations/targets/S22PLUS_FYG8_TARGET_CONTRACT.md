@@ -168,7 +168,7 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, one reviewed report-v4 or v5 module and key-only candidate schema. The exact
+Image, one reviewed report-v4, v5 or v6 module and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -179,15 +179,34 @@ target/health/rollback binding and usable physical Download recovery.
 
 All original guards, 120/300/540/15-second bounds, one module permit, six local
 UniPro commands, at most one link command and one N/original-A total remain.
-Only the shared policy's certified settled pre-overlay coverage refusal gains
-its narrow normal Download path; stage two and later remain excluded.
+In V4/V5 only the shared policy's certified settled pre-overlay coverage refusal
+gains its narrow normal Download path; stage two and later remain excluded.
 Unobserved predicates remain unobserved, and refusal retains UFS NO_PROOF.
 The separately reviewed V5 scope preserves the original HCE read and permits
 only the shared policy's five bounded additional HCI reads after a defined
 nonzero HCE value. Raw captures are separate from predicate evaluation, and
-all such refusals retain physical Download/original-A recovery. No added HCE write,
-status clear, reset reordering, guard relaxation or new return class is adopted.
+all such refusals retain physical Download/original-A recovery. V5 adopts no
+added HCE write, status clear, reset reordering, guard relaxation or new return class.
 The existing foreground mainline preapproval D0 applies to a prepared V2 task.
+The separately reviewed V6 scope adopts only the shared policy's initial
+stage-two HCE handoff: exact enabled-state admission, two pre-stop pin reads,
+final HCE continuity, one HCE-zero write, one-ms/original-budget HCE polling,
+and unchanged post-state guards before the existing later hardware path.
+HCE zero keeps the cold path; crypto/unknown state, drift, late completion or
+failure refuses without retry, status clear, reset reordering or failed-stop
+re-enable. Stage six cannot repeat handoff. The tagged report separates
+pre-admission, stop issuance/completion and post-predicate evidence, and
+retains the 256-byte envelope. V6 separately adopts the shared policy's one
+pre-USB recovery child, fresh authenticated arm/liveness evidence, single
+ordinary Download slot, 555/570-second guest recovery schedule and original
+N-launch-plus-660-second host arrival cap. Result-bound early return is the
+default after completed results; unclear results retain the same finite child
+attempt. Exact new-generation Download may admit original A independently of
+functional proof. Existing A intents never replay; failed automatic arrival
+retains attended physical Download. Research 120/300/540/15-second bounds and
+conditional unattended F1's NOT ACTIVE state remain unchanged.
+Its exact common delegation, fixed artifact, independent capability/owner
+review and fresh candidate qualification are required before selection.
 There is no standing effect grant, replay or transfer of another target's
 authority. A new candidate requires prior validated healthy closure and no
 unresolved owner. All consumed artifacts, approvals and journals stay intact.

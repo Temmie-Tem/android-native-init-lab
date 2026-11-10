@@ -104,6 +104,40 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(len(intents),1)
         self.assertFalse(list(self.client.folder(step.name).glob('attempt-*/odin.capture.json')))
 
+    def test_automatic_recovery_cap_survives_transfer_and_slow_intent(self):
+        import s22plus_mainline_auto_recovery_v1 as automatic
+        current=[records.clock()];step=owner.Step('recover-android','transfer','A')
+        bound=dict(phase='PRE_N_DEPARTURE',deadline_ns=current[0]+5_000_000_000)
+        receipt=records.publish(self.directory/'auto-window.json',bound)
+        original=self.dispatch(step)
+        def delayed(detail):original(detail);current[0]+=6_000_000_000
+        with self.environment(),mock.patch.object(automatic,'window',return_value=bound), \
+             mock.patch.object(adapter,'clock',side_effect=lambda:current[0]), \
+             mock.patch.object(automatic,'clock',side_effect=lambda:current[0]), \
+             self.assertRaisesRegex(ValueError,'during intent publication'):
+            self.client.transfer(step,self.request,guard=lambda:None,before_launch=delayed,recovery_window=receipt)
+        intents=[r for r in records.Journal(self.directory/'journal').rows() if r['event']=='effect-intent']
+        self.assertEqual(len(intents),1)
+        launch=records.read(records.verify(intents[0]['data']['detail']['launch']))
+        self.assertEqual(launch['arrival_deadline_ns'],bound['deadline_ns'])
+        self.assertFalse(list(self.client.folder(step.name).glob('attempt-*/odin.capture.json')))
+
+    def test_automatic_recovery_actual_transfer_rejects_original_n_generation(self):
+        import s22plus_mainline_auto_recovery_v1 as automatic
+        from test_s22plus_automatic_recovery import measured_ticket
+        from dataclasses import asdict
+        step=owner.Step('recover-android','transfer','A');dispatch=mock.Mock()
+        ticket=measured_ticket(self.directory,'origin-ticket',100)
+        origin=records.publish(self.directory/'native-launch.json',dict(ticket=asdict(ticket)))
+        bound=dict(phase='N_INTENDED',basis=origin,deadline_ns=records.clock()+5_000_000_000)
+        receipt=records.publish(self.directory/'auto-window.json',bound)
+        with self.environment(),mock.patch.object(automatic,'window',return_value=bound), \
+             mock.patch.object(adapter.transition,'wait_for_single_live_endpoint',return_value=adapter.transition.WaitResult(ticket,1,False)), \
+             self.assertRaisesRegex(ValueError,'original N Download generation'):
+            self.client.transfer(step,self.request,guard=lambda:None,before_launch=dispatch,recovery_window=receipt)
+        dispatch.assert_not_called()
+        self.assertFalse(list(self.client.folder(step.name).glob('attempt-*/odin.capture.json')))
+
     def test_ticket_observers_do_not_repeat_full_guard_inside_ten_second_window(self):
         step=owner.Step('recover-android','transfer','A');calls=[]
         def guard():calls.append('guard')

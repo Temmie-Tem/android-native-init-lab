@@ -65,6 +65,11 @@ static int injected_errno;
 static u32 hcs_fault = 1;
 static bool hci_expired;
 static unsigned int clock_calls, expire_clock;
+#ifdef G0Q_HCE_HANDOFF
+static unsigned int handoff_case, handoff_writes, hce_reads;
+static u64 model_ns = 1000000;
+static bool after_handoff;
+#endif
 static int event(const char *kind, const char *name)
 {
 	event_count++;
@@ -75,9 +80,22 @@ static u64 ktime_get_boottime_ns(void)
 {
 	event("clock", "hci");
 	clock_calls++;
+#ifdef G0Q_HCE_HANDOFF
+	model_ns += 1000;
+	return hci_expired || (expire_clock && clock_calls >= expire_clock) ? 5000000000ULL : model_ns;
+#else
 	return hci_expired || (expire_clock && clock_calls >= expire_clock) ? 5000000000ULL : 10;
+#endif
 }
-static void usleep_range(unsigned int lo, unsigned int hi) { (void)lo; (void)hi; assert(0); }
+static void usleep_range(unsigned int lo, unsigned int hi)
+{
+#ifdef G0Q_HCE_HANDOFF
+	assert(after_handoff && lo == 10 && hi == 20);
+	model_ns += (u64)lo * 1000;
+#else
+	(void)lo; (void)hi; assert(0);
+#endif
+}
 static u32 readl(const void *addr)
 {
 	char name[40];
@@ -88,9 +106,37 @@ static u32 readl(const void *addr)
 		snprintf(name, sizeof(name), "pin:%u", (unsigned int)((const u32 *)addr-pins));
 	}
 	event("read", name);
+#ifdef G0Q_HCE_HANDOFF
+	if (addr == hci + REG_CONTROLLER_ENABLE / 4) {
+		hce_reads++;
+		if (handoff_case == 10 && hce_reads == 2)
+			return 0;
+	}
+#endif
 	return *(const u32 *)addr;
 }
-static void writel(u32 value, void *addr) { (void)value; (void)addr; assert(0); }
+static void writel(u32 value, void *addr)
+{
+#ifdef G0Q_HCE_HANDOFF
+	assert(addr == hci + REG_CONTROLLER_ENABLE / 4 && value == 0 && !handoff_writes);
+	handoff_writes++;
+	after_handoff = true;
+	event("write", "hci:34=0");
+	/* Controlled model responses, not claims about physical reset semantics. */
+	const unsigned int offsets[]={REG_CONTROLLER_ENABLE,REG_CONTROLLER_STATUS,
+		REG_UTP_TRANSFER_REQ_DOOR_BELL,REG_UTP_TASK_REQ_DOOR_BELL,REG_UTP_TRANSFER_REQ_LIST_RUN_STOP,
+		REG_UTP_TASK_REQ_LIST_RUN_STOP,REG_INTERRUPT_ENABLE,REG_INTERRUPT_STATUS,REG_AUTO_HIBERNATE_IDLE_TIMER};
+	for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
+	if (handoff_case == 11) hci[REG_CONTROLLER_ENABLE/4]=1;
+	if (handoff_case == 12) hci[REG_CONTROLLER_ENABLE/4]=2;
+	if (guard_bit) for (unsigned int i=guard_bit-1;i<11;i++) {
+		if (i<9) hci[offsets[i]/4]=i==1 ? hcs_fault : 1;
+		else pins[i-9]=0;
+	}
+#else
+	(void)value; (void)addr; assert(0);
+#endif
+}
 
 #include "waipio_hci.c"
 
@@ -200,7 +246,11 @@ static int model_close(int fd) { assert(fd==1);return 0; }
 
 int main(int argc, char **argv)
 {
-	assert(argc==6 || argc==9);
+	assert(argc==6 || argc==9
+#ifdef G0Q_HCE_HANDOFF
+		|| argc==7 || argc==8
+#endif
+	);
 	fault_event=(unsigned int)strtoul(argv[1],NULL,0);
 	guard_bit=(unsigned int)strtoul(argv[2],NULL,0);
 	injected_errno=atoi(argv[3]);
@@ -226,6 +276,38 @@ int main(int argc, char **argv)
 			REG_UTP_TASK_REQ_DOOR_BELL,REG_INTERRUPT_ENABLE,REG_INTERRUPT_STATUS};
 		for (unsigned int i=0;i<ARRAY_SIZE(samples);i++) hci[samples[i]/4]=fill;
 	}
+#ifdef G0Q_HCE_HANDOFF
+	if (argc==7 || argc==8) {
+		handoff_case=(unsigned int)strtoul(argv[6],NULL,0);
+		if (argc==8) expire_clock=(unsigned int)strtoul(argv[7],NULL,0);
+		for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
+		pins[0]=BIT(31);pins[1]=1;
+		if (handoff_case) {
+			hci[REG_CONTROLLER_ENABLE/4]=1;hci[REG_CONTROLLER_STATUS/4]=0x10f;
+			hci[REG_INTERRUPT_STATUS/4]=0x400;
+		}
+		switch (handoff_case) {
+		case 2:hci[REG_CONTROLLER_ENABLE/4]=2;break;
+		case 3:hci[REG_CONTROLLER_STATUS/4]|=HOST_ERROR_INDICATOR;break;
+		case 4:hci[REG_UTP_TRANSFER_REQ_DOOR_BELL/4]=1;break;
+		case 5:hci[REG_UTP_TASK_REQ_DOOR_BELL/4]=1;break;
+		case 6:hci[REG_INTERRUPT_ENABLE/4]=1;break;
+		case 7:hci[REG_INTERRUPT_STATUS/4]=0x800;break;
+		case 8:pins[0]=0;break;
+		case 9:pins[1]=0;break;
+		case 13:expire_clock=11;break;
+		case 14:expire_clock=12;break;
+		case 15:expire_clock=13;break;
+		case 16:hci[REG_CONTROLLER_ENABLE/4]=4;break;
+		case 17:hci[REG_CONTROLLER_STATUS/4]=0x107;break;
+		case 18:hci[REG_CONTROLLER_STATUS/4]=0xffffffcf;break;
+		case 19:hci[REG_INTERRUPT_STATUS/4]=0;break;
+		case 20:hci[REG_CONTROLLER_ENABLE/4]=3;break;
+		case 21:hci[REG_CONTROLLER_ENABLE/4]=0xffffffff;break;
+		default:break;
+		}
+	}
+#endif
 	board.link.hw.deadline_ns=5000000000ULL;
 	struct platform_device pdev={0};
 	operation_rc=run(&pdev);

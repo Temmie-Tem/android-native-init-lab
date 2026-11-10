@@ -15,10 +15,13 @@ BASE = tables.PRIVATE / "outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105
 FILES = ("waipio_phy.c", "waipio_phy.h", "waipio_hci.c", "waipio_hci.h", "g0q_stage.c", "usb-admission.h", "link-report.h")
 
 
-def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=False):
+def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=False, hce_handoff=False):
     tables.require(type(pre_effect_return) is bool, "explicit return mode required")
     tables.require(type(hci_snapshot) is bool and (not hci_snapshot or pre_effect_return),
                    "HCI snapshot requires the explicit pre-effect return mode")
+    tables.require(type(hce_handoff) is bool and
+                   (not hce_handoff or pre_effect_return and not hci_snapshot),
+                   "HCE handoff is a distinct explicit return/report mode")
     tables.require(output.resolve().is_relative_to(tables.PRIVATE.resolve()), "private output required")
     output = output.resolve()
     output.mkdir(mode=0o700)
@@ -63,7 +66,8 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
         "\n};\n")
     (obj/"Kbuild").write_text("obj-m += g0q_ml030.o\ng0q_ml030-y := g0q_stage.o waipio_phy.o waipio_hci.o rails.o\n" +
                             ("ccflags-y += -DG0Q_PRE_EFFECT_RETURN\n" if pre_effect_return else "") +
-                            ("ccflags-y += -DG0Q_HCI_SNAPSHOT\n" if hci_snapshot else ""))
+                            ("ccflags-y += -DG0Q_HCI_SNAPSHOT\n" if hci_snapshot else "") +
+                            ("ccflags-y += -DG0Q_HCE_HANDOFF\n" if hce_handoff else ""))
     kbuild = output/"kbuild"
     subprocess.run(["cp", "-a", "--reflink=auto", baseline, kbuild], check=True)
     shutil.copyfile(kbuild/"vmlinux.symvers", kbuild/"Module.symvers")
@@ -91,7 +95,7 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
         selected_kernel=patched["sha256"], transport=tables.digest(transport/"transport.json"),
         inputs={p.name:tables.digest(p) for p in (kbuild/"vmlinux.symvers",kbuild/".config",header)},
         module_sha256=tables.digest(module), module_path=str(module), vermagic=version,
-        report_version=5 if hci_snapshot else 4 if pre_effect_return else 3,
+        report_version=6 if hce_handoff else 5 if hci_snapshot else 4 if pre_effect_return else 3,
         pre_effect_return=pre_effect_return, physical_admitted=False, device_actions=0)
     (output/"result.json").write_text(json.dumps(receipt, indent=2)+"\n")
     return receipt
@@ -105,6 +109,7 @@ if __name__ == "__main__":
     cli.add_argument("--transport",required=True,type=Path)
     cli.add_argument("--pre-effect-return",action="store_true")
     cli.add_argument("--hci-snapshot",action="store_true")
+    cli.add_argument("--hce-handoff",action="store_true")
     args=cli.parse_args()
     print(build(args.header, args.output, args.transport, pre_effect_return=args.pre_effect_return,
-                hci_snapshot=args.hci_snapshot)["status"])
+                hci_snapshot=args.hci_snapshot, hce_handoff=args.hce_handoff)["status"])

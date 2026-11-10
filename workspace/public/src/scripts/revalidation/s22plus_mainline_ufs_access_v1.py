@@ -54,6 +54,22 @@ def wire_identity(manifest,base):
     return key,identity,first,boot,base['proof']['uptime_ms']
 
 
+def arm_receipt(adapter,request,base,*,late=False,nonce=None):
+    folder=adapter.folder(profile.SELECTION)
+    manifest=profile.image_binding(request['N'])
+    key,identity,n0,boot,_=wire_identity(manifest,base)
+    label='recovery-live' if late else 'recovery-arm'
+    done=read(folder/(label+'-complete.json'))
+    require(set(done)=={'capture','finished_ns'} and done['capture']==pin(folder/(label+'.capture.json')),
+            'recovery arm raw binding')
+    window=late_window(adapter,request) if late else read(verify(base['window']))
+    start=read(folder/'witness-intent.json')['requested_ns'] if late else read(verify(base['base']))['finished_ns']
+    require(start<=done['finished_ns']<window['deadline_ns'],'recovery arm original window')
+    facts=wire.recovery_arm(bytes_for(folder,label,wire.HEADER.size+32),key,identity,n0,
+                            nonce if late else n0,boot,late=late)
+    return dict(facts,complete=pin(folder/(label+'-complete.json')))
+
+
 def rederive_witness(adapter,request):
     require(selected(request),'ML030 witness selection')
     folder=adapter.folder(profile.SELECTION)
@@ -79,11 +95,17 @@ def rederive_witness(adapter,request):
     require(query==wire.frame(b'G030ASK1',16,key,identity,n0,n1,boot,t0,0),'ML030 fresh challenge')
     reply=bytes_for(folder,'witness',wire.HEADER.size+32)
     t1=wire.witness(reply,key,identity,n0,n1,boot,t0)
+    recovery={}
+    if report_version_for(request['N'])==6:
+        recovery=dict(recovery_arm=arm_receipt(adapter,request,base),
+                      recovery_live=arm_receipt(adapter,request,base,late=True,nonce=n1))
+        require(read(verify(recovery['recovery_live']['complete']))['finished_ns']<=completed['finished_ns'],
+                'recovery live receipt must precede witness')
     endpoint=read(verify(base['endpoint']))
     require(access.endpoint(raw.load_handle(folder/'usb-before-witness.capture.json'),manifest)==endpoint,
             'ML030 witness endpoint changed')
     return dict(base=base,window=pin(folder/'late-window.json'),witness=pin(folder/'witness-complete.json'),
-                boot_id=base['proof']['boot_id'],uptime_ms=t1,host_gap_ns=intent['requested_ns']-first_done)
+                boot_id=base['proof']['boot_id'],uptime_ms=t1,host_gap_ns=intent['requested_ns']-first_done,**recovery)
 
 
 def permit_intent(adapter,request):
@@ -126,7 +148,7 @@ def rederive_link(adapter,request):
 
 def return_intent(adapter,request):
     link=rederive_link(adapter,request);folder=adapter.folder(profile.SELECTION)
-    require(link['result']['normal_return'] is True,'ML030 link cannot authorize normal return')
+    require(wire.return_allowed(link['result']),'ML030 result cannot select return')
     value=read(folder/'control-intent.json');window=read(verify(link['witness']['window']))
     grant=read(verify(request['grant']))
     require(value==dict(operation=pin(adapter.directory/'operation.json'),link=link,control=pin(folder/'control.capture.json'),
@@ -185,6 +207,11 @@ def observe(adapter,request,guard,before_permit):
         checked_endpoint(phase,late['deadline_ns'] if phase=='before-control' else window['deadline_ns'])
     def after_base(client,proof,nonce):
         base=download.rederive_base(adapter,request);require(base['proof']==proof,'ML030 W0 changed')
+        automatic=report_version_for(request['N'])==6
+        if automatic:
+            armed=capture_frame(client,folder,'recovery-arm',wire.HEADER.size+32,window['deadline_ns'])
+            publish(folder/'recovery-arm-complete.json',dict(capture=pin(armed.receipt_path),finished_ns=clock()))
+            arm_receipt(adapter,request,base)
         closure=attach.close_issuance(adapter.directory,window_pin,guard=initial_guard)
         ready=read(verify(base['base']))['finished_ns']+GAP_NS
         require(ready<late['deadline_ns'],'ML030 witness cannot fit original window')
@@ -199,6 +226,10 @@ def observe(adapter,request,guard,before_permit):
                 query=pin(packet.receipt_path),requested_ns=clock()))
         require(clock()<late['deadline_ns'],'ML030 late query expired')
         client.settimeout(min(1,(late['deadline_ns']-clock())/1e9));client.sendall(query)
+        if automatic:
+            live=capture_frame(client,folder,'recovery-live',wire.HEADER.size+32,late['deadline_ns'])
+            publish(folder/'recovery-live-complete.json',dict(capture=pin(live.receipt_path),finished_ns=clock()))
+            arm_receipt(adapter,request,base,late=True,nonce=n1)
         reply=capture_frame(client,folder,'witness',wire.HEADER.size+32,late['deadline_ns'])
         publish(folder/'witness-complete.json',dict(intent=pin(folder/'witness-intent.json'),reply=pin(reply.receipt_path),finished_ns=clock()))
         witness=rederive_witness(adapter,request)
@@ -218,10 +249,10 @@ def observe(adapter,request,guard,before_permit):
         result=capture_frame(client,folder,'link',wire.RESULT_SIZE,late['deadline_ns'])
         publish(folder/'link-complete.json',dict(permit=pin(folder/'permit-sent.json'),response=pin(result.receipt_path),finished_ns=clock()))
         link=rederive_link(adapter,request)
-        require(link['result']['normal_return'],'ML030 hardware result stops normal control')
+        require(wire.return_allowed(link['result']),'ML030 hardware result stops normal control')
         return bytes.fromhex(link['result']['control_nonce']),late['deadline_ns']
     def before_return(proof,packet):
-        link=rederive_link(adapter,request);require(link['base']['proof']==proof and link['result']['normal_return'],'ML030 return condition')
+        link=rederive_link(adapter,request);require(link['base']['proof']==proof and wire.return_allowed(link['result']),'ML030 return condition')
         guard();now=clock();require(now<late['deadline_ns'],'ML030 return intent expired')
         grant=read(verify(request['grant']))
         value=dict(operation=pin(adapter.directory/'operation.json'),link=link,control=packet,requested_ns=now,

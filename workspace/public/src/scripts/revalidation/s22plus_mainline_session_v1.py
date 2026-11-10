@@ -105,6 +105,18 @@ def terminal(adapter,request,*,recovered):
 def link_fact(adapter,request,result):
     if request.get('N',{}).get('ufs_link') is not True:
         return result
+    # Recovery is separate from link success. A missing/ambiguous experiment
+    # result cannot erase an automatic arrival observation or upgrade it to
+    # blanket hang recovery. The transfer/health proof is supplied by Session.
+    path=adapter.directory/'io-mainline-auto-recovery'/'observation.json'
+    if path.exists():
+        try:
+            from s22plus_mainline_auto_recovery_v1 import deadline
+            observed=read(path);deadline(adapter,request,observed['window'])
+            result.update(automatic_recovery_attempted=True,automatic_recovery_observation=pin(path),
+                automatic_download_arrival_observed=observed['status']=='EXACT_DOWNLOAD_OBSERVED',
+                automatic_recovery_trigger_proved=False)
+        except (ValueError,OSError,KeyError,TypeError):pass
     try:
         from s22plus_mainline_ufs_access_v1 import rederive_witness, rederive_link
         witness=rederive_witness(adapter,request)
@@ -121,6 +133,8 @@ def link_fact(adapter,request,result):
             result['status']='PASS_MAINLINE_UFS_LINK'
         elif link['result'].get('return_reason') == 'PRE_EFFECT_REJECTION':
             result.update(status='NO_PROOF',ufs_pre_effect_rejection=True)
+        else:
+            result['status']='NO_PROOF'
     except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
         result['ufs_evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
     return result
@@ -138,11 +152,26 @@ class Coordinator(PhysicalCoordinator):
         download.return_request(self.session.adapter,self.session.request,create=True)
         return True
 
+    def stopped(self,error):
+        pending=super().stopped(error)
+        if pending.get('state')!='AWAITING_ATTENDED_RECOVERY':return pending
+        try:
+            from s22plus_mainline_auto_recovery_v1 import attempt
+            recovered=attempt(self.session)
+            return recovered if recovered is not None else pending
+        except Exception as recovery_error:
+            from s22plus_native_session_v3 import ResultPublicationError
+            if isinstance(recovery_error,ResultPublicationError) or getattr(recovery_error,'protocol_completed',False):
+                raise
+            self.session.journal.append('automatic-recovery-stopped',error_type=type(recovery_error).__name__,
+                error_message=str(recovery_error)[:4096],transfer_failure=getattr(recovery_error,'transfer_failure',None))
+            return pending
+
     def execute(self,*,attended):
         try:return super().execute(attended=attended)
         finally:
             if download.selected(self.session.request) and any(row['event']=='step-complete' and
-                row['data']['step']=='install-android' for row in self.session.rows()):
+                row['data']['step'] in ('install-android','recover-android') for row in self.session.rows()):
                 access.cleanup(self.session.adapter,self.session.request)
 
     def cleanup(self):

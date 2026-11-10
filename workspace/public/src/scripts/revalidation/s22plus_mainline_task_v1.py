@@ -17,7 +17,7 @@ from s22plus_native_records_v3 import SCHEMA,Journal,canonical,clock,digest,host
 # Selected mainline/Android/transport branches only. The shared modules also
 # contain vendor-native operations which this exact task cannot select.
 MODULES=('s22plus_mainline_task_v1','s22plus_mainline_profile_v1','s22plus_mainline_access_v1',
-    's22plus_mainline_ufs_image_v1','s22plus_mainline_ufs_access_v1',
+    's22plus_mainline_ufs_image_v1','s22plus_mainline_ufs_access_v1','s22plus_mainline_auto_recovery_v1',
     's22plus_mainline_download_access_v1','s22plus_mainline_attach_v1',
     's22plus_mainline_retention_v1',
     's22plus_native_android_storage_v1',
@@ -41,7 +41,7 @@ V2_RETIRED = {
      '_USB_ADMISSION_V1', '_BCM_ALIAS_V1')}
 V2_BUILD = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
     ('build_evidence.py', 'build_module.py', 'cold_phy_tables.py', 'late_overlay.py', 'late_rails.py',
-     'link_initramfs.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'g0q_stage.c',
+     'link_initramfs.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'recovery.h', 'g0q_stage.c',
      'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h')) + tuple(
     'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
     ('init.c', 'protocol.h', 'download-return.h', 'build_loader.py', 'package_loader.py',

@@ -186,6 +186,14 @@ retains that attended F1 hardware scope for fresh key-only candidates under
 one unchanged reviewed capability. Its narrow certified pre-effect normal
 return, exact per-operation approval, qualification and original-A recovery
 are governed by that shared scope; no standing grant or consumed replay follows.
+Its separately reviewed report-v6 handoff additionally permits only the shared
+policy's one stage-two HCE-zero write after exact enabled-state admission,
+bounded one-ms/original-deadline polling and unchanged post-state guards.
+V6's separately reviewed single-child ordinary Download attempt and fixed
+original-owner recovery apply even when the handoff result is unclear; only
+proved exact arrival admits A, with no replay or renewed automatic window.
+Physical Download remains its fallback, and conditional unattended F1 remains
+inactive. This is an F1 transaction, not a D0 read or an inherited v4/v5 effect.
 
 The separately common-incorporated [S22+ Debian first-boot V1](S22PLUS_DEBIAN_FIRST_BOOT_V1.md)
 uses its own reviewed owner for one embedded rootfs installation and initial

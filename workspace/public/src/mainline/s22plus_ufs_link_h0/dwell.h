@@ -32,6 +32,10 @@ static int ml030_dwell(int fd, const uint8_t base[G0Q_RESPONSE_SIZE]) {
     uint8_t frame[ML030_FRAME], witness[ML030_FRAME], next[G0Q_RESPONSE_SIZE], zero[32] = {0};
     uint64_t t0 = ml030_u64(base + 216);
     if (!t0 || t0 >= 120000 || now_ms() >= 120000) return ETIMEDOUT;
+#ifdef G0Q_AUTOMATIC_RECOVERY
+    int armed = recovery_frame(fd, base, base+40, 0);
+    if (armed) return armed;
+#endif
     /* Absolute guest BOOTTIME measured from this boot, never extended on I/O. */
     deadline = ML030_END_MS;
     int err = transfer(fd, frame, sizeof(frame), 0);
@@ -51,6 +55,9 @@ static int ml030_dwell(int fd, const uint8_t base[G0Q_RESPONSE_SIZE]) {
     memcpy(witness, "G030WIT1", 8);
     memcpy(witness + 128, next + 216, 8);
     g_tag(witness + ML030_BODY, canary_key, canary_id, 17, witness, ML030_BODY);
+#ifdef G0Q_AUTOMATIC_RECOVERY
+    if ((err = recovery_frame(fd, base, frame+72, 1))) return err;
+#endif
     if ((err = transfer(fd, witness, sizeof(witness), 1))) return err;
     /* A late witness alone cannot dispatch. Only the verified host can send this distinct permit. */
     if ((err = transfer(fd, frame, sizeof(frame), 0))) return err;

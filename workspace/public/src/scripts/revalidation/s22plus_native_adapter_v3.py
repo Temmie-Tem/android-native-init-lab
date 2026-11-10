@@ -489,14 +489,14 @@ class Adapter:
             self.admission(request['admission'],image,self.configuration(request))
         else: require(False,'unselected native restoration')
 
-    def transfer(self, step, request, *, guard, before_launch):
+    def transfer(self, step, request, *, guard, before_launch, recovery_window=None):
         base=self.folder(step.name); base.mkdir(mode=0o700,exist_ok=True)
         folder=base/('attempt-'+uuid.uuid4().hex); folder.mkdir(mode=0o700)
         started=clock(); phase=dict(name='preparation',started_ns=started)
         def mark(name):phase.update(name=name,started_ns=clock())
         try:
             return self._transfer(step,request,guard=guard,before_launch=before_launch,
-                folder=folder,mark=mark)
+                folder=folder,mark=mark,recovery_window=recovery_window)
         except Exception as error:
             # Persist private diagnostics before owner classification/cleanup.
             # No locals are captured, and a diagnostic failure never hides the
@@ -514,7 +514,7 @@ class Adapter:
                 error.add_note('Private transfer diagnostics failed: '+type(recording_error).__name__)
             raise
 
-    def _transfer(self, step, request, *, guard, before_launch, folder, mark):
+    def _transfer(self, step, request, *, guard, before_launch, folder, mark, recovery_window=None):
         if request.get('operation')!='mainline-ram' and request.get('operation') in inspection_session.OPERATIONS and step.role == 'A':
             inspection_session.android_basis(self, request)
         if request.get('operation')!='mainline-ram' and request['N'].get('profile') in fs.PROFILES and step.role=='A':
@@ -528,7 +528,11 @@ class Adapter:
         mark('initial-guard')
         guard()
         mark('arrival-binding')
-        if step.name in ('recover-android','recover-native'):
+        if recovery_window is not None:
+            from s22plus_mainline_auto_recovery_v1 import deadline as recovery_deadline, admit_ticket
+            require(step.name=='recover-android' and step.role=='A','automatic transfer scope differs')
+            arrival_deadline=recovery_deadline(self,request,recovery_window)
+        elif step.name in ('recover-android','recover-native'):
             arrival_deadline=clock()+90_000_000_000
         elif request['operation']=='loader-android':
             from s22plus_loader_android_session_v1 import arrival_deadline
@@ -583,6 +587,7 @@ class Adapter:
             require(found.ticket is not None and not found.timed_out,'exact Download arrival is unproved')
             ticket=found.ticket
             identity=target.download_identity(ticket.device)
+            if recovery_window is not None:admit_ticket(self,request,recovery_window,ticket)
             def launch():
                 mark('prelaunch-guard')
                 guard()
@@ -602,6 +607,10 @@ class Adapter:
                     sequence=found.next_sequence,lease=lease,timeout_sec=10,
                     endpoint_observer_factory=observer,monotonic=lambda:clock()/1e9)
                 require(target.download_identity(ticket.device)==identity,'Download target changed before launch')
+                if recovery_window is not None:
+                    require(recovery_deadline(self,request,recovery_window)==arrival_deadline,
+                            'automatic recovery bound changed before dispatch')
+                    admit_ticket(self,request,recovery_window,ticket)
                 require(clock()<arrival_deadline,'original Download arrival window expired before dispatch')
                 transport.revalidate_pinned_path(android)
                 mark('intent-publication')

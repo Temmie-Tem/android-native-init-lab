@@ -221,7 +221,9 @@ class Session:
             raise ResultPublicationError(step) from error
         return value
 
-    def perform(self, step, *, recovery=False):
+    def perform(self, step, *, recovery=False, recovery_window=None):
+        require(recovery_window is None or recovery and step.action=='transfer' and step.role=='A',
+                'automatic arrival window is recovery-A only')
         self.check(recovery=recovery)
         require(not (self.directory/(step.name+'.json')).exists(),'native step result already exists')
         self.journal.append('step-start',step=step.name,action=step.action,role=step.role)
@@ -232,7 +234,8 @@ class Session:
         elif step.action=='reboot':
             value=self.adapter.android_reboot(step,self.request,guard=guard,before_dispatch=dispatch)
         elif step.action=='transfer':
-            value=self.adapter.transfer(step,self.request,guard=guard,before_launch=dispatch)
+            options={} if recovery_window is None else dict(recovery_window=recovery_window)
+            value=self.adapter.transfer(step,self.request,guard=guard,before_launch=dispatch,**options)
         elif step.action=='observe':
             # OPEN and health retain their own attempt evidence. Operation
             # capacity normally starts at CONTROL; the fixed read-only census
@@ -397,7 +400,7 @@ class Session:
             return Coordinator(self).recover(attended=attended)
         return self._recover_android(attended=attended)
 
-    def _recover_android(self, *, attended):
+    def _recover_android(self, *, attended, recovery_window=None):
         require(attended is True,'original A recovery requires actual attendance')
         require(not (self.directory/'terminal.json').exists(),'terminal already published; only H0 close repair remains')
         normal=operation_steps(self.request)
@@ -434,7 +437,7 @@ class Session:
             # its result publication failed. An uncertain dispatch never retries.
             self.result(transfer,self.adapter.recover_transfer_result(transfer,self.request))
         else:
-            self.perform(transfer,recovery=True)
+            self.perform(transfer,recovery=True,recovery_window=recovery_window)
         if not (self.directory/(final.name+'.json')).exists():
             self.perform(final,recovery=True)
         return self.close((transfer,final),recovered=True)

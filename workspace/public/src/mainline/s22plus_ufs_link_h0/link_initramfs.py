@@ -20,7 +20,7 @@ MODULE = "usr/lib/g0q_ml030.ko"
 PINNED = {
     "init.c": "9ef8279659596de9120f6a7424476f76648b6fca5f975bb560727f1906fd5cfd",
     "protocol.h": "a38f17316c469f6fb3ae5e0e81a3d34e682f076141a8d4972322d0ef9d562ad5",
-    "download-return.h": "69809bba9c959d51c3d69f11be95b6dd45ecd68ea0ca048804fa190a7c6486c5",
+    "download-return.h": "e80cf76b194004b2acd67ff6adb7c3a9d4549a13a9854b8743562f1ffb7264b7",
 }
 SCHEMA = "s22plus-mainline-debian-ufs-link-ram-v1"
 
@@ -37,7 +37,10 @@ def observer_source():
          "    if(!error)error=transfer(client,fdt,fdt_size,1);\n    if(!error)error=ml030_dwell(client,response);"),
         ("    if(!error)error=download_finish(client,response);",
          "    if(!error) {\n        memcpy(response+40, ml030_result_digest, 32);\n"
-         "        error=download_finish(client,response);\n    }")):
+         "        error=download_finish(client,response);\n    }"),
+        ('    dprintf(2,"G0Q_RAM_PID1_BEGIN\\n");',
+         '#ifdef G0Q_AUTOMATIC_RECOVERY\n    { int armed = recovery_begin(); if (armed) park(armed); }\n#endif\n'
+         '    dprintf(2,"G0Q_RAM_PID1_BEGIN\\n");')):
         require(code.count(anchor) == 1, "observer insertion point differs")
         code = code.replace(anchor, addition)
     return code
@@ -53,13 +56,14 @@ def seal_text(identity, key, net, mod):
     return "\n".join(seal)+"\n"
 
 
-def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, destination=None):
+def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_handoff=False, destination=None):
     exe = destination or out/"observer"
     cmd = ["aarch64-linux-gnu-gcc", "-std=c11","-Os","-static","-Wall","-Wextra","-Werror",
            "-Wno-unused-function","-Wno-unused-const-variable","-ffunction-sections","-fdata-sections",
            "-Wl,--gc-sections","-Wl,--build-id=none","-DCANARY_DEBIAN_RAM","-DCANARY_DOWNLOAD_RAM",
            "-DML030_G0Q_MODULE",*(["-DG0Q_PRE_EFFECT_RETURN"] if pre_effect_return else []),
            *(["-DG0Q_HCI_SNAPSHOT"] if hci_snapshot else []),
+           *(["-DG0Q_HCE_HANDOFF", "-DG0Q_AUTOMATIC_RECOVERY"] if hce_handoff else []),
            *(["-DCANARY_H0_VM"] if vm else []),"-I",out,"-I",HERE,"-I",CANARY,
            out/"observer.c","-o",exe]
     return list(map(str, cmd))
@@ -76,8 +80,9 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     kernel = json.loads((kr/"guard-result.json").read_bytes())
     record = json.loads(component.read_bytes())
     require(record.get('pre_effect_return', False) is pre_effect_return and
-            (not pre_effect_return or record.get('report_version') in (4, 5)), 'module/observer return mode differs')
+            (not pre_effect_return or record.get('report_version') in (4, 5, 6)), 'module/observer return mode differs')
     hci_snapshot = record.get('report_version') == 5
+    hce_handoff = record.get('report_version') == 6
     mod = Path(record["module_path"])
     require(kernel["sha256"] == digest(Path(kernel["image"])) == record["selected_kernel"] and
             record["transport"] == kernel["transport_sha256"] == digest(kr/"transport.json") and
@@ -95,11 +100,13 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
         out/"observer.c", Path(lock["path"]), component, mod, kr/"guard-result.json", kr/"kernel-build/.config", dtb, net_file)]
     if pre_effect_return:
         inputs.append(debian.pin(HERE/'link-report.h'))
+    if hce_handoff:
+        inputs.append(debian.pin(HERE/'recovery.h'))
     recipe = dict(schema=SCHEMA, vm=vm, inputs=inputs, key_digest=hashlib.sha256(key).hexdigest())
     if pre_effect_return:
         recipe['pre_effect_return'] = True
-    if hci_snapshot:
-        recipe['report_version'] = 5
+    if hci_snapshot or hce_handoff:
+        recipe['report_version'] = record['report_version']
     identity = hashlib.sha256(json.dumps(recipe,sort_keys=True,separators=(",",":")).encode()).digest()
     net = json.loads(net_file.read_bytes())
     net.update(device_mac="02:"+":".join(f"{v:02x}" for v in identity[:5]),
@@ -108,7 +115,8 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     (out/"seal.h").write_text(seal_text(identity, key, net, mod))
     with (out/"key.bin").open("xb") as file: file.write(key)
     exe = out/"observer"
-    cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return, hci_snapshot=hci_snapshot)
+    cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return,
+                          hci_snapshot=hci_snapshot, hce_handoff=hce_handoff)
     import build_evidence
     provenance = build_evidence.compile_observer(cmd, out)
     info = subprocess.check_output(["file",exe])

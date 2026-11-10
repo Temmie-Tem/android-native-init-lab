@@ -20,9 +20,150 @@ static int budget(struct g0q_link *link)
 	return ktime_get_boottime_ns() < link->hw.deadline_ns ? 0 : -ETIMEDOUT;
 }
 
+bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
+		unsigned int bit, void __iomem *reg, u32 mask, u32 expected)
+{
+	u32 raw = readl(reg);
+	u32 failure = expected ? ((raw & mask) != expected) : (raw & mask);
+
+#ifdef G0Q_HCE_HANDOFF
+	if (diag && failure) {
+		diag->refusal_index = bit + 1;
+		diag->refusal_raw = raw;
+	}
+#endif
+	return g0q_stage2_condition(diag, bit, failure);
+}
+
+#ifdef G0Q_HCE_HANDOFF
+static int handoff_failure(struct g0q_stage2_diag *diag, u32 operation,
+		int rc, u32 index, u32 value)
+{
+	diag->refusal_index = index;
+	diag->refusal_raw = value;
+	return g0q_stage2_error(diag, G0Q_S2_HCI, operation, rc);
+}
+
+static int handoff_sample(struct g0q_link *link, struct g0q_stage2_diag *diag,
+		void __iomem *reg, u32 flag, u32 *value)
+{
+	if (budget(link))
+		return handoff_failure(diag, G0Q_S2_HANDOFF_DEADLINE, -ETIMEDOUT, 0, 0);
+	*value = readl(reg);
+	diag->handoff_flags |= flag;
+	return 0;
+}
+
+static u64 handoff_time(struct g0q_stage2_diag *diag, u64 start)
+{
+	u64 now = ktime_get_boottime_ns();
+	diag->handoff_elapsed_us = min((now - start) / 1000, 4095ULL);
+	return now;
+}
+
+/* Separate admission for a known enabled controller. No list, interrupt,
+ * AHIT or status write; a timeout never retries or re-enables the controller.
+ * Only stage two with a real diagnostic record can call this function.
+ */
+static int hce_handoff(struct g0q_link *link, struct g0q_stage2_diag *diag, u32 *hce)
+{
+	void __iomem *hci = link->hw.hci;
+	u64 now, until;
+	u32 value;
+	int rc;
+
+	if (link->handoff_taken)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_STATE, -EALREADY, 0, 0);
+	rc = handoff_sample(link, diag, hci + REG_CONTROLLER_ENABLE, G0Q_HO_HCE, &value);
+	if (rc)
+		return rc;
+	diag->pre_hce = value;
+	if (!value) {
+		*hce = value;
+		return 0;
+	}
+	if (value != CONTROLLER_ENABLE)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 1, value);
+	rc = handoff_sample(link, diag, hci + REG_CONTROLLER_STATUS, G0Q_HO_HCS, &value);
+	if (rc)
+		return rc;
+	diag->pre_hcs = value;
+	if (!(value & UIC_COMMAND_READY) || value & (HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR))
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 2, value);
+	rc = handoff_sample(link, diag, hci + REG_UTP_TRANSFER_REQ_DOOR_BELL, G0Q_HO_TRANSFER, &value);
+	if (rc)
+		return rc;
+	if (value)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 3, value);
+	rc = handoff_sample(link, diag, hci + REG_UTP_TASK_REQ_DOOR_BELL, G0Q_HO_TASK, &value);
+	if (rc)
+		return rc;
+	if (value)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 4, value);
+	rc = handoff_sample(link, diag, hci + REG_INTERRUPT_ENABLE, G0Q_HO_IE, &value);
+	if (rc)
+		return rc;
+	if (value)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 7, value);
+	rc = handoff_sample(link, diag, hci + REG_INTERRUPT_STATUS, G0Q_HO_IS, &value);
+	if (rc)
+		return rc;
+	diag->pre_is = value;
+	if (value & ~UIC_COMMAND_COMPL)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 8, value);
+	rc = handoff_sample(link, diag, link->reset_io, G0Q_HO_PIN_OUTPUT, &value);
+	if (rc)
+		return rc;
+	if (!(value & BIT(31)))
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 10, value);
+	rc = handoff_sample(link, diag, link->reset_io + 4, G0Q_HO_PIN_HIGH, &value);
+	if (rc)
+		return rc;
+	if (!(value & BIT(0)))
+		return handoff_failure(diag, G0Q_S2_HANDOFF_ADMISSION, -EBUSY, 11, value);
+	rc = handoff_sample(link, diag, hci + REG_CONTROLLER_ENABLE, G0Q_HO_FINAL_HCE, &value);
+	if (rc)
+		return rc;
+	diag->last_hce = value;
+	if (value != CONTROLLER_ENABLE)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_DRIFT, -EBUSY, 1, value);
+	now = ktime_get_boottime_ns();
+	if (now >= link->hw.deadline_ns)
+		return handoff_failure(diag, G0Q_S2_HANDOFF_DEADLINE, -ETIMEDOUT, 0, 0);
+	/* Retained ufshcd_hba_stop uses a 10-us interval and a 1-ms limit.
+	 * This owner rejects late completion and never repeats its single write.
+	 */
+	until = min(link->hw.deadline_ns, now + NSEC_PER_MSEC);
+	link->handoff_taken = true;
+	diag->handoff_flags |= G0Q_HO_ISSUED;
+	writel(0, hci + REG_CONTROLLER_ENABLE);
+	for (;;) {
+		if (handoff_time(diag, now) >= until)
+			return handoff_failure(diag, G0Q_S2_HANDOFF_TIMEOUT, -ETIMEDOUT, 0, 0);
+		value = readl(hci + REG_CONTROLLER_ENABLE);
+		diag->handoff_polls++;
+		diag->last_hce = value;
+		diag->handoff_flags |= G0Q_HO_READBACK;
+		if (!value)
+			diag->handoff_flags |= G0Q_HO_ZERO;
+		if (handoff_time(diag, now) >= until)
+			return handoff_failure(diag, G0Q_S2_HANDOFF_TIMEOUT, -ETIMEDOUT, 0, 0);
+		if (!value) {
+			diag->handoff_flags |= G0Q_HO_TIMELY;
+			*hce = value;
+			return 0;
+		}
+		if (value != CONTROLLER_ENABLE)
+			return handoff_failure(diag, G0Q_S2_HANDOFF_STATE, -EIO, 1, value);
+		usleep_range(10, 20);
+	}
+}
+#endif
+
 static u32 observed_hce(struct g0q_link *link, struct g0q_stage2_diag *diag)
 {
 	u32 value = readl(link->hw.hci + REG_CONTROLLER_ENABLE);
+	(void)diag; /* Used only by the separately compiled V5 snapshot branch. */
 
 #ifdef G0Q_HCI_SNAPSHOT
 	if (diag) {
@@ -54,7 +195,7 @@ static u32 observed_hce(struct g0q_link *link, struct g0q_stage2_diag *diag)
 int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *diag)
 {
 	void __iomem *hci = link->hw.hci;
-	u32 version;
+	u32 version, hce;
 
 	if (budget(link))
 		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_DEADLINE, -ETIMEDOUT);
@@ -65,17 +206,25 @@ int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *di
 	link->version = readl(hci + HCI_HW_VERSION);
 	if ((link->version >> 28) != 4)
 		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_HW_VERSION, -ENODEV);
+#ifdef G0Q_HCE_HANDOFF
+	if (diag) {
+		int rc = hce_handoff(link, diag, &hce);
+		if (rc)
+			return rc;
+	} else
+#endif
+		hce = observed_hce(link, diag);
 	/* Preserve short-circuit evaluation and the original read order. */
-	if (g0q_stage2_condition(diag, G0Q_S2_HCE, observed_hce(link, diag)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_HCS, readl(hci + REG_CONTROLLER_STATUS) &
-	     (DEVICE_PRESENT | UIC_COMMAND_READY | HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_TRANSFER_DOORBELL, readl(hci + REG_UTP_TRANSFER_REQ_DOOR_BELL)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_TASK_DOORBELL, readl(hci + REG_UTP_TASK_REQ_DOOR_BELL)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_TRANSFER_RUN, readl(hci + REG_UTP_TRANSFER_REQ_LIST_RUN_STOP)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_TASK_RUN, readl(hci + REG_UTP_TASK_REQ_LIST_RUN_STOP)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_IRQ_ENABLE, readl(hci + REG_INTERRUPT_ENABLE)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_IRQ_STATUS, readl(hci + REG_INTERRUPT_STATUS)) ||
-	    g0q_stage2_condition(diag, G0Q_S2_AUTO_HIBERNATE, readl(hci + REG_AUTO_HIBERNATE_IDLE_TIMER)))
+	if (g0q_stage2_condition(diag, G0Q_S2_HCE, hce) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_HCS, hci + REG_CONTROLLER_STATUS,
+	     DEVICE_PRESENT | UIC_COMMAND_READY | HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_TRANSFER_DOORBELL, hci + REG_UTP_TRANSFER_REQ_DOOR_BELL, ~0U, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_TASK_DOORBELL, hci + REG_UTP_TASK_REQ_DOOR_BELL, ~0U, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_TRANSFER_RUN, hci + REG_UTP_TRANSFER_REQ_LIST_RUN_STOP, ~0U, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_TASK_RUN, hci + REG_UTP_TASK_REQ_LIST_RUN_STOP, ~0U, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_IRQ_ENABLE, hci + REG_INTERRUPT_ENABLE, ~0U, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_IRQ_STATUS, hci + REG_INTERRUPT_STATUS, ~0U, 0) ||
+	    g0q_stage2_read_condition(diag, G0Q_S2_AUTO_HIBERNATE, hci + REG_AUTO_HIBERNATE_IDLE_TIMER, ~0U, 0))
 		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_QUIESCENT, -EBUSY);
 	return 0;
 }

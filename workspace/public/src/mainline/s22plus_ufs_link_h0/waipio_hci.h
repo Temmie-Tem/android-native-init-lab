@@ -20,6 +20,8 @@ enum g0q_stage2_operation {
 	G0Q_S2_BEFORE_ENABLE, G0Q_S2_ENABLE, G0Q_S2_VOLTAGE_READBACK,
 	G0Q_S2_SEED_GET, G0Q_S2_SEED_DEADLINE, G0Q_S2_SEED_VOLTAGE,
 	G0Q_S2_PARENT_READBACK, G0Q_S2_AFTER_SUPPLY,
+	G0Q_S2_HANDOFF_ADMISSION, G0Q_S2_HANDOFF_DEADLINE,
+	G0Q_S2_HANDOFF_DRIFT, G0Q_S2_HANDOFF_TIMEOUT, G0Q_S2_HANDOFF_STATE,
 };
 enum g0q_stage2_check {
 	G0Q_S2_HCE, G0Q_S2_HCS, G0Q_S2_TRANSFER_DOORBELL,
@@ -33,6 +35,33 @@ struct g0q_stage2_diag {
 	 * Order: HCE, HCS, transfer doorbell, task doorbell, IE, IS.
 	 */
 	u32 captured, raw[6];
+	/* V6 is a separate pre-handoff admission, not a failed predicate
+	 * overwritten after an effect. checks describes only the actual
+	 * post-handoff/cold-path evaluation. Every valid prefix is explicit.
+	 */
+	u32 handoff_flags, pre_hce, pre_hcs, pre_is, last_hce;
+	u32 refusal_index, refusal_raw;
+	u32 handoff_polls, handoff_elapsed_us;
+};
+
+static inline u32 g0q_handoff_word(const struct g0q_stage2_diag *diag)
+{
+	/* The upper fields are diagnostic, saturating lower bounds. They never
+	 * drive deadlines or authorize a transition. The live clocks do that.
+	 */
+	u32 polls = diag->handoff_polls > 127 ? 127 : diag->handoff_polls;
+	u32 elapsed = diag->handoff_elapsed_us > 4095 ? 4095 : diag->handoff_elapsed_us;
+	return diag->handoff_flags | (polls << 13) | (elapsed << 20);
+}
+
+enum g0q_handoff_flag {
+	G0Q_HO_HCE = 1U << 0, G0Q_HO_HCS = 1U << 1,
+	G0Q_HO_TRANSFER = 1U << 2, G0Q_HO_TASK = 1U << 3,
+	G0Q_HO_IE = 1U << 4, G0Q_HO_IS = 1U << 5,
+	G0Q_HO_PIN_OUTPUT = 1U << 6, G0Q_HO_PIN_HIGH = 1U << 7,
+	G0Q_HO_FINAL_HCE = 1U << 8, G0Q_HO_ISSUED = 1U << 9,
+	G0Q_HO_READBACK = 1U << 10, G0Q_HO_ZERO = 1U << 11,
+	G0Q_HO_TIMELY = 1U << 12,
 };
 
 static inline int g0q_stage2_error(struct g0q_stage2_diag *diag,
@@ -58,11 +87,16 @@ static inline bool g0q_stage2_condition(struct g0q_stage2_diag *diag,
 
 struct g0q_link {
 	struct g0q_waipio hw;
+	void __iomem *reset_io;
 	u32 version;
 	u32 before, interrupt, result, after;
 	unsigned int local_commands;
 	bool hce_started, link_issued;
+	bool handoff_taken;
 };
+
+bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
+		unsigned int bit, void __iomem *reg, u32 mask, u32 expected);
 
 int g0q_hci_quiescent(struct g0q_link *link);
 int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *diag);

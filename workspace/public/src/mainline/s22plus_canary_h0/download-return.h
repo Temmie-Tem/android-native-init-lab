@@ -32,6 +32,10 @@ static int download_ready(void) {
 #endif
 }
 
+#ifdef G0Q_AUTOMATIC_RECOVERY
+#include "recovery.h"
+#endif
+
 static int download_finish(int client,const uint8_t response[G0Q_RESPONSE_SIZE]) {
 #ifdef CANARY_RC_CYCLE
     const char cmd_magic[]="G0QRCQ1",ack_magic[]="G0QRCA1";
@@ -73,6 +77,9 @@ static int download_finish(int client,const uint8_t response[G0Q_RESPONSE_SIZE])
     }
     if(now_ms()>=deadline)return ETIMEDOUT;
     if(!download_ready())return ENODEV;
+#ifdef G0Q_AUTOMATIC_RECOVERY
+    return recovery_commit(response+40);
+#else
     dprintf(2,"G0Q_DOWNLOAD_RESTART2_PREPARED\n");
     /* Readiness and logging can block. Retain the original absolute deadline
      * at the effect, after those preparations, without another driver read. */
@@ -81,5 +88,6 @@ static int download_finish(int client,const uint8_t response[G0Q_RESPONSE_SIZE])
             LINUX_REBOOT_CMD_RESTART2,"download");
     /* There is deliberately no retry or alternate reset after any return. */
     return errno?errno:EIO;
+#endif
 }
 #endif

@@ -90,6 +90,14 @@ static int ml030_module_result(int fd, const uint8_t witness[ML030_FRAME])
     g_put32(record + ML030_BODY + 8, (uint32_t)size);
     g_tag(record + sizeof(record)-32, canary_key, canary_id, 20, record, sizeof(record)-32);
     int rc = transfer(fd, record, sizeof(record), 1);
+#ifdef G0Q_AUTOMATIC_RECOVERY
+    /* Complete raw delivery, including load/read failure, may select return.
+     * It never upgrades functional proof. The child timer survives partial or
+     * malformed results, blocked reads and a lost host/observer connection. */
+    if (rc) return rc;
+    g_hash(record, sizeof(record), ml030_result_digest);
+    return 0;
+#else
     if (rc || load_error || read_error)
         return rc ? rc : (load_error ? load_error : read_error);
     /* Only run() success on this one-shot module yields an operation_rc of 0.
@@ -101,9 +109,13 @@ static int ml030_module_result(int fd, const uint8_t witness[ML030_FRAME])
         (values[21] & ~0x1ffffLL) != G0Q_REPORT_TAG ||
         (values[0] == 0 && (values[21] & G0Q_PRE_EFFECT_CERT)) ||
         (values[0] != 0 && !g0q_pre_effect_fields(values))) return EPROTO;
+#ifdef G0Q_HCE_HANDOFF
+    if (values[0] == 0 && !g0q_handoff_complete_fields(values)) return EPROTO;
+#endif
 #else
     if (size < 2 || memcmp(record + ML030_BODY + 12, "0 ", 2)) return EPROTO;
 #endif
     g_hash(record, sizeof(record), ml030_result_digest);
     return 0;
+#endif
 }

@@ -64,7 +64,12 @@ static int report(char *buf, const struct kernel_param *kp)
 			 power.records, power.claimed, power.triggered, power.acknowledged,
 			 power.reclaimed, power.error, usb_covered, usb_released,
 			 usb_reason, usb_detail, G0Q_REPORT_SITE, board.stage2.checks);
-#ifdef G0Q_HCI_SNAPSHOT
+#ifdef G0Q_HCE_HANDOFF
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %u %u %u %u %u %u %u",
+		g0q_handoff_word(&board.stage2), board.stage2.pre_hce, board.stage2.pre_hcs,
+		board.stage2.pre_is, board.stage2.last_hce,
+		board.stage2.refusal_index, board.stage2.refusal_raw);
+#elif defined(G0Q_HCI_SNAPSHOT)
 	size += scnprintf(buf + size, PAGE_SIZE - size, " %u", board.stage2.captured);
 	for (unsigned int i = 0; i < 6; i++)
 		size += scnprintf(buf + size, PAGE_SIZE - size, " %u", board.stage2.raw[i]);
@@ -338,6 +343,7 @@ static int run(struct platform_device *pdev)
 	board.reset_io = window(pdev, "reset-pin", 0x0f1de000, 8);
 	if (IS_ERR(board.link.hw.hci) || IS_ERR(board.link.hw.phy) || IS_ERR(board.reset_io))
 		return -EBUSY;
+	board.link.reset_io = board.reset_io;
 	board.reset = devm_reset_control_get_exclusive(board.dev, "rst");
 	if (IS_ERR(board.reset))
 		return PTR_ERR(board.reset);
@@ -348,8 +354,8 @@ static int run(struct platform_device *pdev)
 	rc = g0q_hci_quiescent_observed(&board.link, &board.stage2);
 	if (rc)
 		return rc;
-	if (g0q_stage2_condition(&board.stage2, G0Q_S2_RESET_OUTPUT, !(readl(board.reset_io) & BIT(31))) ||
-	    g0q_stage2_condition(&board.stage2, G0Q_S2_RESET_HIGH, !(readl(board.reset_io + 4) & BIT(0))))
+	if (g0q_stage2_read_condition(&board.stage2, G0Q_S2_RESET_OUTPUT, board.reset_io, BIT(31), BIT(31)) ||
+	    g0q_stage2_read_condition(&board.stage2, G0Q_S2_RESET_HIGH, board.reset_io + 4, BIT(0), BIT(0)))
 		return g0q_stage2_error(&board.stage2, G0Q_S2_RESET, G0Q_S2_PIN_GUARD, -EBUSY);
 	ml030_open_rail_requests();
 	rc = rate(board.core, G0Q_S2_CORE);

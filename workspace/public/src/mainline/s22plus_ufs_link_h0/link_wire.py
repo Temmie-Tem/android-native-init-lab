@@ -9,6 +9,36 @@ HEADER = struct.Struct("<8s32s32s32s16sQQ")
 RESULT_SIZE = HEADER.size + 12 + 256 + 32
 GAP_MS = 300000
 END_MS = 540000
+RECOVERY_TRIGGER_MS = 555000
+RECOVERY_LAST_MS = 570000
+RECOVERY_MODE = 'S22PLUS_UFS_V6_CHILD_RESTART2_V1'
+
+
+def recovery_packet(key, identity, n0, nonce, boot, *, late=False):
+    check(len(n0)==len(nonce)==32 and len(boot)==16 and any(n0) and any(nonce) and any(boot)
+          and (n0!=nonce if late else n0==nonce), 'recovery identity fields')
+    body=HEADER.pack(b'G040LIV1' if late else b'G040ARM1',identity,n0,nonce,boot,
+                     RECOVERY_TRIGGER_MS,RECOVERY_LAST_MS)
+    return body+tag(key,identity,22 if late else 21,body)
+
+
+def recovery_arm(raw, key, identity, n0, nonce, boot, *, late=False):
+    """A fresh child IPC reply, not proof that a future reboot will complete."""
+    expected = recovery_packet(key,identity,n0,nonce,boot,late=late)
+    check(hmac.compare_digest(raw, expected), 'automatic recovery arm binding')
+    return dict(mode=RECOVERY_MODE, trigger_ms=RECOVERY_TRIGGER_MS, latest_syscall_ms=RECOVERY_LAST_MS,
+                child_reply_observed=True, reboot_completion_proved=False)
+
+
+def return_allowed(facts):
+    return facts.get('normal_return') is True or facts.get('recovery_return') is True
+
+
+def recovery_result(facts, raw, report_version):
+    if report_version != 6:
+        return facts
+    return dict(facts, recovery_return=True, recovery_mode=RECOVERY_MODE,
+                control_nonce=hashlib.sha256(raw).digest())
 USB_REASONS = ('OK', 'USB_HELD', 'RUN_STATE', 'USB_NODE', 'USB_DEVICE', 'USB_LOCK',
                'USB_DRIVER', 'USB_DATA', 'USB_PM', 'ICC_NODE', 'ICC_PATH', 'ICC_LENGTH',
                'ICC_LOCK', 'ICC_REQUEST', 'BCM_GLOBAL_LOCK', 'BCM_VOTER', 'BCM_LOCK',
@@ -19,7 +49,8 @@ STAGE2_OPERATIONS = ('NONE', 'DEADLINE', 'UFS_VERSION', 'HW_VERSION', 'QUIESCENT
                      'PIN_GUARD', 'SET_RATE', 'RATE_READBACK', 'GET_SUPPLY', 'BEFORE_LOAD',
                      'SET_LOAD', 'BEFORE_VOLTAGE', 'SET_VOLTAGE', 'BEFORE_ENABLE', 'ENABLE',
                      'VOLTAGE_READBACK', 'SEED_GET', 'SEED_DEADLINE', 'SEED_VOLTAGE',
-                     'PARENT_READBACK', 'AFTER_SUPPLY')
+                     'PARENT_READBACK', 'AFTER_SUPPLY', 'HANDOFF_ADMISSION',
+                     'HANDOFF_DEADLINE', 'HANDOFF_DRIFT', 'HANDOFF_TIMEOUT', 'HANDOFF_STATE')
 STAGE2_CHECKS = ('HCE', 'HCS', 'TRANSFER_DOORBELL', 'TASK_DOORBELL', 'TRANSFER_RUN',
                  'TASK_RUN', 'IRQ_ENABLE', 'IRQ_STATUS', 'AUTO_HIBERNATE', 'RESET_OUTPUT', 'RESET_HIGH')
 HCI_SAMPLES = ('HCE', 'HCS', 'TRANSFER_DOORBELL', 'TASK_DOORBELL', 'IRQ_ENABLE', 'IRQ_STATUS')
@@ -100,7 +131,7 @@ def usb_diagnostics(values):
                 usb_attempts=attempts, usb_detail=detail)
 
 
-def stage2_diagnostics(values):
+def stage2_diagnostics(values, *, handoff=False):
     """Decode observed short-circuit predicates, never infer unobserved reads."""
     rc, stage, version = values[:3]
     site, word = values[21:]
@@ -118,15 +149,21 @@ def stage2_diagnostics(values):
         allowed = {1:{1,2,3,4}, 2:{5}, 3:{1,6,7}, 4:{1,6,7},
                    5:{8,9,10,11,12,13,14,15,20}, 6:{8,9,10,11,12,13,14,15,20},
                    7:{8,9,10,11,12,13,14,15,20}, 8:{8,9,10,13,14,16,17,18,19,20}}
+        if handoff:
+            allowed[1] |= {21,22,23,24,25}
         check(component in allowed and operation in allowed[component], 'stage-two failure site')
         check(stage == 2 and -4095 <= rc < 0 and not any(values[3:11]),
               'stage-two failure before later hardware')
         fixed_errno = {1:110, 2:19, 3:19, 4:16, 5:16, 7:34, 9:110,
-                       11:110, 13:110, 15:34, 17:110, 19:34}
+                       11:110, 13:110, 15:34, 17:110, 19:34,
+                       21:16, 22:110, 23:16, 24:110, 25:5}
         check(operation not in fixed_errno or rc == -fixed_errno[operation], 'stage-two branch errno')
         if component == 1 and operation <= 3:
             check(observed == failed == 0, 'stage-two early HCI evidence')
             check(version == 0 if operation < 3 else version >> 28 != 4, 'stage-two HCI version')
+        elif component == 1 and operation >= 21:
+            check(observed == failed == hcs == 0 and version >> 28 == 4,
+                  'handoff failure must precede post-state predicates')
         elif component == 1:
             check(0 < observed <= 0x1ff and failed == (observed ^ (observed >> 1)),
                   'stage-two first HCI rejection')
@@ -165,8 +202,103 @@ def hci_snapshot(values):
                               for i, name in enumerate(HCI_SAMPLES)})
 
 
+def hce_handoff(values):
+    """V6 admission/one-shot stop history, separate from post-state checks."""
+    word, pre_hce, pre_hcs, pre_is, last_hce, index, raw = values[23:]
+    check(0 <= word < 1 << 32, 'handoff metadata range')
+    flags, polls, elapsed = word & 8191, (word >> 13) & 127, word >> 20
+    check(0 <= flags <= 8191 and not flags & (flags + 1) and
+          all(0 <= n < 1 << 32 for n in values[24:]) and index <= 11,
+          'handoff report shape or read prefix')
+    check(bool(polls) == bool(flags & 1024) and (flags & 512 or elapsed == 0) and
+          (not flags & 4096 or elapsed < 1000), 'handoff poll/time history')
+    site = values[21] & 0xffff
+    observed, failed = values[22] & 0x7ff, (values[22] >> 11) & 0x7ff
+    check((flags & 1 or pre_hce == 0) and (flags & 2 or pre_hcs == 0) and
+          (flags & 32 or pre_is == 0) and (flags & 256 or last_hce == 0) and
+          (index or raw == 0), 'handoff uncaptured values')
+    check(flags <= 1 or pre_hce == 1, 'handoff expanded a cold or unknown HCE')
+    check(bool(flags & 2048) == bool(flags & 1024 and last_hce == 0),
+          'handoff zero/readback history')
+    check(not flags & 512 or flags & 1024 or last_hce == 1,
+          'handoff issued without final enabled sample')
+    post = flags == 8191 or flags == 1 and pre_hce == 0
+    check(bool(observed) == post and not failed & 1,
+          'post-state predicates lack cold entry or timely stop')
+    # A completed pre-read only permits progression if its admission passed.
+    if flags >= 3 and site != 0x115:
+        check(pre_hcs & 8 and not pre_hcs & 0x30, 'handoff HCS admission')
+    if flags >= 63 and site != 0x115:
+        check(pre_is in (0, 0x400), 'handoff interrupt admission')
+    phase = None
+    if site == 0x115:
+        admission = {
+            1:(1, pre_hce not in (0,1), pre_hce),
+            3:(2, not pre_hcs & 8 or bool(pre_hcs & 0x30), pre_hcs),
+            7:(3, raw != 0, raw), 15:(4, raw != 0, raw),
+            31:(7, raw != 0, raw),
+            63:(8, pre_is not in (0,0x400), pre_is),
+            127:(10, not raw & (1 << 31), raw),
+            255:(11, not raw & 1, raw),
+        }
+        check(flags in admission, 'handoff admission failure prefix')
+        expected, rejected, sample = admission[flags]
+        check(index == expected and rejected and raw == sample, 'handoff admission refusal')
+        if flags > 3:
+            check(pre_hcs & 8 and not pre_hcs & 0x30, 'handoff prior HCS admission')
+        if flags > 63:
+            check(pre_is in (0,0x400), 'handoff prior interrupt admission')
+        status, phase = 'REFUSED', 'PRE_ADMISSION'
+    elif site == 0x116:
+        check(flags <= 511 and (not flags or pre_hce == 1) and index == raw == 0 and
+              (flags < 511 or last_hce == 1), 'handoff pre-write deadline')
+        status = 'PRE_WRITE_DEADLINE'
+    elif site == 0x117:
+        check(flags == 511 and last_hce != 1 and index == 1 and raw == last_hce,
+              'handoff final enabled-state drift')
+        status, phase = 'ENTRY_DRIFT', 'PRE_WRITE'
+    elif site == 0x118:
+        check(flags in (1023,2047,4095) and index == raw == 0,
+              'handoff timeout after one issued stop')
+        status = 'STOP_TIMEOUT'
+    elif site == 0x119:
+        check(flags == 2047 and last_hce not in (0,1) and index == 1 and raw == last_hce,
+              'handoff unexpected poll state')
+        status, phase = 'STOP_UNEXPECTED_STATE', 'POLL'
+    elif post:
+        status = 'STOP_COMPLETE' if flags == 8191 else 'COLD_ENTRY'
+        if failed:
+            check(index == failed.bit_length() and site in (0x104,0x205),
+                  'handoff post-state refusal index')
+            if index == 2:
+                check(raw & 0x39 == values[22] >> 22, 'handoff post-state HCS value')
+            elif index == 10:
+                check(not raw & (1 << 31), 'handoff post-state output pin')
+            elif index == 11:
+                check(not raw & 1, 'handoff post-state high pin')
+            else:
+                check(raw != 0, 'handoff post-state nonzero predicate')
+            phase = 'POST_CHECKS'
+        else:
+            check(index == raw == 0, 'handoff unexpected post-state refusal')
+    else:
+        check(flags == 0 and not any(values[24:]) and
+              (values[1] < 2 or site in (0x101,0x102,0x103)),
+              'handoff missing transition history')
+        status = 'NOT_REACHED'
+    return dict(hce_handoff=dict(status=status, flags=flags,
+        poll_reads=polls, poll_reads_saturated=polls == 127,
+        elapsed_us=elapsed if flags & 512 else None, elapsed_us_saturated=elapsed == 4095,
+        pre_hce=pre_hce if flags & 1 else None, pre_hcs=pre_hcs if flags & 2 else None,
+        pre_is=pre_is if flags & 32 else None, last_hce=last_hce if flags & 256 else None,
+        stop_issued=bool(flags & 512), stop_readback_observed=bool(flags & 1024),
+        stop_zero_observed=bool(flags & 2048), stop_completed_in_time=bool(flags & 4096),
+        refusal_phase=phase, refusal_condition=STAGE2_CHECKS[index-1] if index else None,
+        refusal_raw=raw if index else None))
+
+
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3, 4, 5), 'unselected module report schema')
+    check(report_version in (1, 2, 3, 4, 5, 6), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -178,9 +310,10 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
     check(size <= len(payload) and not any(payload[size:]) and not (load and (read or size)),
           "module result length")
     if load or read:
-        return dict(status="NO_PROOF",load_errno=load,read_errno=read,report_bytes=size,normal_return=False)
+        return recovery_result(dict(status="NO_PROOF",load_errno=load,read_errno=read,
+                                    report_bytes=size,normal_return=False), raw, report_version)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23, 4:23, 5:30}[report_version]
+    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -203,24 +336,26 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         diagnostic = values[:23]
         if report_version >= 4:
             check(0 <= values[21] < 1 << 32 and
-                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000}[report_version],
+                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000}[report_version],
                   'pre-effect report version tag')
             pre_effect = bool(values[21] & 0x10000)
             diagnostic[21] &= 0xffff
             if pre_effect:
                 check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
                       and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
-        facts.update(stage2_diagnostics(diagnostic))
+        facts.update(stage2_diagnostics(diagnostic, handoff=report_version == 6))
         if report_version == 5:
             facts.update(hci_snapshot(values))
+        elif report_version == 6:
+            facts.update(hce_handoff(values))
     if pre_effect:
-        return dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
-                    control_nonce=hashlib.sha256(raw).digest())
+        return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
+                    control_nonce=hashlib.sha256(raw).digest()), raw, report_version)
     if rc:
-        return facts
+        return recovery_result(facts, raw, report_version)
     check(stage == 6 and version>>28 == 4 and pcs == hce == issued == usb == release == 1 and
           local == 6 and (before & 0x39) == 8 and (after & 0x31) == 1 and
           irq in (0x400,0x500) and code == error == reclaimed == 0 and count>0 and
           claimed == triggered == acked == mask, "incomplete successful link or power settlement")
-    return dict(facts,status="UFS_LINK_COMPLETED",normal_return=True,
-                control_nonce=hashlib.sha256(raw).digest())
+    return recovery_result(dict(facts,status="UFS_LINK_COMPLETED",normal_return=True,
+                control_nonce=hashlib.sha256(raw).digest()), raw, report_version)
