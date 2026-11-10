@@ -30,6 +30,21 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML038 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** It
+  reused the already qualified unused peer and unchanged v5 capability/review,
+  with a fresh exact attended task. N transferred once; all 88 selected USB
+  censuses were absent through 120 seconds. A timely cue was issued at N+26.527s;
+  its completion reply arrived after expiry and actual physical timing remains
+  unmeasured. No base request, witness or module permit was sent. After cue
+  resolution and physical Download, original A transferred once. One closed-
+  channel ADB health read was preserved; a health-only continuation passed all
+  seven fresh reads. No profile or F1 owner remains. A host popup/beep test
+  requested by the operator was noticed successfully; it is an attention signal,
+  not device authority or proof of the USB failure cause. Repeated first-response
+  absence is the immediate issue before another experiment. HCE diagnostics
+  remain physically unexercised, and this consumed run cannot replay.
+  [Physical run, reuse and raw audit](docs/reports/S22PLUS_MAINLINE_ML038_RUN_2026-11-10.md).
+
 - **ML037 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
   HCE-state diagnostic capability passed 54 focused checks, independent
   PASS_GO, fresh complete artifact qualification and v41 preparation. The
