@@ -15,7 +15,7 @@ BASE = tables.PRIVATE / "outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105
 FILES = ("waipio_phy.c", "waipio_phy.h", "waipio_hci.c", "waipio_hci.h", "g0q_stage.c", "usb-admission.h", "link-report.h", "reset-pin.h")
 
 
-def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=False, hce_handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, cfg1_diagnostics=False):
+def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=False, hce_handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, cfg1_diagnostics=False, cfg1_ordered_selection=False):
     tables.require(type(pre_effect_return) is bool, "explicit return mode required")
     tables.require(type(hci_snapshot) is bool and (not hci_snapshot or pre_effect_return),
                    "HCI snapshot requires the explicit pre-effect return mode")
@@ -30,6 +30,8 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
                    "initial completion acknowledgement requires disabled UCRDY mode")
     tables.require(type(cfg1_diagnostics) is bool and (not cfg1_diagnostics or stale_uccs_ack),
                    "CFG1 diagnostics require initial acknowledgement mode")
+    tables.require(type(cfg1_ordered_selection) is bool and (not cfg1_ordered_selection or cfg1_diagnostics),
+                   "ordered CFG1 selection requires diagnostics")
     tables.require(output.resolve().is_relative_to(tables.PRIVATE.resolve()), "private output required")
     output = output.resolve()
     output.mkdir(mode=0o700)
@@ -79,7 +81,8 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
                             ("ccflags-y += -DG0Q_RESET_CONFIG\n" if reset_config else "") +
                             ("ccflags-y += -DG0Q_DISABLED_UCRDY\n" if disabled_ucrdy else "") +
                             ("ccflags-y += -DG0Q_STALE_UCCS_ACK\n" if stale_uccs_ack else "") +
-                            ("ccflags-y += -DG0Q_CFG1_DIAGNOSTICS\n" if cfg1_diagnostics else ""))
+                            ("ccflags-y += -DG0Q_CFG1_DIAGNOSTICS\n" if cfg1_diagnostics else "") +
+                            ("ccflags-y += -DG0Q_CFG1_ORDERED_SELECTION\n" if cfg1_ordered_selection else ""))
     kbuild = output/"kbuild"
     subprocess.run(["cp", "-a", "--reflink=auto", baseline, kbuild], check=True)
     shutil.copyfile(kbuild/"vmlinux.symvers", kbuild/"Module.symvers")
@@ -107,7 +110,7 @@ def build(header, output, transport, *, pre_effect_return=False, hci_snapshot=Fa
         selected_kernel=patched["sha256"], transport=tables.digest(transport/"transport.json"),
         inputs={p.name:tables.digest(p) for p in (kbuild/"vmlinux.symvers",kbuild/".config",header)},
         module_sha256=tables.digest(module), module_path=str(module), vermagic=version,
-        report_version=10 if cfg1_diagnostics else 9 if stale_uccs_ack else 8 if disabled_ucrdy else 7 if reset_config else 6 if hce_handoff else 5 if hci_snapshot else 4 if pre_effect_return else 3,
+        report_version=11 if cfg1_ordered_selection else 10 if cfg1_diagnostics else 9 if stale_uccs_ack else 8 if disabled_ucrdy else 7 if reset_config else 6 if hce_handoff else 5 if hci_snapshot else 4 if pre_effect_return else 3,
         pre_effect_return=pre_effect_return, physical_admitted=False, device_actions=0)
     (output/"result.json").write_text(json.dumps(receipt, indent=2)+"\n")
     return receipt
@@ -126,7 +129,8 @@ if __name__ == "__main__":
     cli.add_argument("--disabled-ucrdy",action="store_true")
     cli.add_argument("--stale-uccs-ack",action="store_true")
     cli.add_argument("--cfg1-diagnostics",action="store_true")
+    cli.add_argument("--cfg1-ordered-selection",action="store_true")
     args=cli.parse_args()
     print(build(args.header, args.output, args.transport, pre_effect_return=args.pre_effect_return,
                 hci_snapshot=args.hci_snapshot, hce_handoff=args.hce_handoff,
-                reset_config=args.reset_config, disabled_ucrdy=args.disabled_ucrdy, stale_uccs_ack=args.stale_uccs_ack, cfg1_diagnostics=args.cfg1_diagnostics)["status"])
+                reset_config=args.reset_config, disabled_ucrdy=args.disabled_ucrdy, stale_uccs_ack=args.stale_uccs_ack, cfg1_diagnostics=args.cfg1_diagnostics, cfg1_ordered_selection=args.cfg1_ordered_selection)["status"])

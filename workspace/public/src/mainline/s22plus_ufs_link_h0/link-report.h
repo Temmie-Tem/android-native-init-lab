@@ -11,6 +11,7 @@
 #define G0Q_REPORT_V8_TAG 0x80000000U
 #define G0Q_REPORT_V9_TAG 0x90000000U
 #define G0Q_REPORT_V10_TAG 0xa0000000U
+#define G0Q_REPORT_V11_TAG 0xb0000000U
 #define G0Q_PRE_EFFECT_CERT 0x00010000U
 #if defined(G0Q_HCE_HANDOFF) && defined(G0Q_HCI_SNAPSHOT)
 #error "HCE handoff and diagnostic-only snapshot are distinct report modes"
@@ -27,7 +28,13 @@
 #if defined(G0Q_CFG1_DIAGNOSTICS) && !defined(G0Q_STALE_UCCS_ACK)
 #error "CFG1 diagnostics require the V9 initial acknowledgement mode"
 #endif
-#ifdef G0Q_CFG1_DIAGNOSTICS
+#if defined(G0Q_CFG1_ORDERED_SELECTION) && !defined(G0Q_CFG1_DIAGNOSTICS)
+#error "Ordered CFG1 selection requires the V10 diagnostic mode"
+#endif
+#ifdef G0Q_CFG1_ORDERED_SELECTION
+#define G0Q_REPORT_TAG G0Q_REPORT_V11_TAG
+#define G0Q_REPORT_FIELDS 33
+#elif defined(G0Q_CFG1_DIAGNOSTICS)
 #define G0Q_REPORT_TAG G0Q_REPORT_V10_TAG
 #define G0Q_REPORT_FIELDS 33
 #elif defined(G0Q_STALE_UCCS_ACK)
@@ -117,7 +124,11 @@ static inline int g0q_handoff_complete_fields(const long long values[G0Q_REPORT_
 #else
 	const long long ack_mask = 0;
 #endif
-#ifdef G0Q_CFG1_DIAGNOSTICS
+#ifdef G0Q_CFG1_ORDERED_SELECTION
+	if ((values[30] != 1 && values[30] != 3) ||
+	    !!(values[32] & 1) != (values[30] == 3))
+		return 0;
+#elif defined(G0Q_CFG1_DIAGNOSTICS)
 	if (values[30] != 3 || !(values[32] & 1))
 		return 0;
 #endif

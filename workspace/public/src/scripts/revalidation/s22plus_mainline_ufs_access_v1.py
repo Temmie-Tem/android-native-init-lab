@@ -96,7 +96,7 @@ def rederive_witness(adapter,request):
     reply=bytes_for(folder,'witness',wire.HEADER.size+32)
     t1=wire.witness(reply,key,identity,n0,n1,boot,t0)
     recovery={}
-    if report_version_for(request['N']) in (6,7,8,9,10):
+    if report_version_for(request['N']) in (6,7,8,9,10,11):
         recovery=dict(recovery_arm=arm_receipt(adapter,request,base),
                       recovery_live=arm_receipt(adapter,request,base,late=True,nonce=n1))
         require(read(verify(recovery['recovery_live']['complete']))['finished_ns']<=completed['finished_ns'],
@@ -207,7 +207,7 @@ def observe(adapter,request,guard,before_permit):
         checked_endpoint(phase,late['deadline_ns'] if phase=='before-control' else window['deadline_ns'])
     def after_base(client,proof,nonce):
         base=download.rederive_base(adapter,request);require(base['proof']==proof,'ML030 W0 changed')
-        automatic=report_version_for(request['N']) in (6,7,8,9,10)
+        automatic=report_version_for(request['N']) in (6,7,8,9,10,11)
         if automatic:
             armed=capture_frame(client,folder,'recovery-arm',wire.HEADER.size+32,window['deadline_ns'])
             publish(folder/'recovery-arm-complete.json',dict(capture=pin(armed.receipt_path),finished_ns=clock()))

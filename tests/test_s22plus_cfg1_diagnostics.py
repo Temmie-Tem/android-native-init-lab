@@ -10,7 +10,7 @@ from test_s22plus_hce_handoff import line
 
 MODE=dict(handoff=True,reset_config=True,disabled_ucrdy=True,stale_uccs_ack=True,cfg1_diagnostics=True)
 
-def compile_cfg1(out,compiler='cc',*,enabled=True):
+def compile_cfg1(out,compiler='cc',*,enabled=True,ordered_selection=False):
  out.mkdir(parents=True,exist_ok=True)
  for header in HEADERS:
   p=out/header;p.parent.mkdir(parents=True,exist_ok=True);p.touch()
@@ -18,6 +18,7 @@ def compile_cfg1(out,compiler='cc',*,enabled=True):
  (out/'formatter.inc').write_text(function((SOURCE/'g0q_stage.c').read_text(),'static int report('))
  flags=['-DCFG1_FIXTURE','-DG0Q_PRE_EFFECT_RETURN','-DG0Q_HCE_HANDOFF','-DG0Q_RESET_CONFIG','-DG0Q_DISABLED_UCRDY','-DG0Q_STALE_UCCS_ACK']
  if enabled:flags.append('-DG0Q_CFG1_DIAGNOSTICS')
+ if ordered_selection:flags.append('-DG0Q_CFG1_ORDERED_SELECTION')
  if compiler!='cc':flags.append('-static')
  exe=out/'cfg1'
  subprocess.run([compiler,'-std=gnu11','-O2','-Wall','-Wextra','-Werror','-Wno-unused-parameter',*flags,

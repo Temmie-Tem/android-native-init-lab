@@ -31,6 +31,10 @@
 #error "CFG1 diagnostics require the V9 initial acknowledgement mode"
 #endif
 
+#if defined(G0Q_CFG1_ORDERED_SELECTION) && !defined(G0Q_CFG1_DIAGNOSTICS)
+#error "Ordered CFG1 selection requires the V10 diagnostic mode"
+#endif
+
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
 #define PHY_LINECFG_DISABLE 0xd48
@@ -430,13 +434,25 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 		return -EBUSY;
 	link->hce_started = true;
 #ifdef G0Q_CFG1_DIAGNOSTICS
-	/* Retain the same two reads, one write and short-circuit clock access.
+	/* Retain the same two reads and one write; V10 keeps its short circuit.
 	 * These scalar stores classify this run only; neither sample proves the
 	 * cause of a missing bit or a state transition between the samples.
 	 */
 	link->cfg1_pre = readl(hci + HCI_CFG1);
 	writel(link->cfg1_pre | BIT(0), hci + HCI_CFG1);
 	link->cfg1_post = readl(hci + HCI_CFG1);
+#ifdef G0Q_CFG1_ORDERED_SELECTION
+	/* The selected Linux/Samsung mode-selection path requires the ordered
+	 * write, not a bit-0 readback assertion (Linux 823150ecf04f). Preserve
+	 * the existing read as data. The original deadline now also applies
+	 * when that sample has bit 0 clear, before any HCE-one effect.
+	 */
+	if (budget(link)) {
+		link->cfg1_outcome = 2;
+		return -EIO;
+	}
+	link->cfg1_outcome = link->cfg1_post & BIT(0) ? 3 : 1;
+#else
 	if (!(link->cfg1_post & BIT(0))) {
 		link->cfg1_outcome = 1;
 		return -EIO;
@@ -446,6 +462,7 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 		return -EIO;
 	}
 	link->cfg1_outcome = 3;
+#endif
 #else
 	writel(readl(hci + HCI_CFG1) | BIT(0), hci + HCI_CFG1);
 	if (!(readl(hci + HCI_CFG1) & BIT(0)) || budget(link))

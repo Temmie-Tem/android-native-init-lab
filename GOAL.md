@@ -30,6 +30,19 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML046 V11 is in validated H0 preparation; no physical authority is open.**
+  Two Argon discussions compared ML045's bit-clear sample with the selected
+  drivers and upstream's final ordered-write rationale. V11 preserves the
+  existing CFG1 write/reads but retires its unsupported immediate bit-0 gate,
+  checking the original budget before HCE for either sample. Later predicates
+  and the attended recovery scope remain. Fresh module/observer/loader/AP
+  qualification and exact V10 raw parity passed; 168 tests and final independent
+  PASS_GO have no open findings. The v47 backend and fresh exact task are
+  prepared. Current-health D0 passed all seven raw reads without a grant or
+  control/transfer. A separately returned exact attended one-operation
+  approval remains required before physical execution.
+  [Source analysis, bounded correction and validation](docs/reports/S22PLUS_MAINLINE_ML046_CFG1_SELECTION_H0_2026-11-11.md)
+
 - **ML045 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
   V10 diagnostic identified the first CFG1 bit-readback branch: both existing
   reads were `0x1c00052c`, bit 0 was clear, and the budget check was not

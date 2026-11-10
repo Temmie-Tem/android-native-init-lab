@@ -30,7 +30,8 @@ enum {
 };
 static u32 hci[1024], phy[0xe10/4];
 static u32 opcodes[8], attributes[8], values[8];
-static unsigned cmds, writes;
+static unsigned cmds, writes, cfg1_reads;
+static bool cfg1_clear;
 static u64 clock_ns, hce_ns;
 static const char *fault;
 static u64 ktime_get_boottime_ns(void) { return clock_ns; }
@@ -41,6 +42,13 @@ static void usleep_range(unsigned low, unsigned high)
 }
 static u32 readl(const void *addr)
 {
+	if (addr == &hci[0xdc/4]) {
+		cfg1_reads++;
+		if (cfg1_reads == 2 && !strcmp(fault, "expired-cfg1"))
+			clock_ns = 5000000000ULL;
+		return *(const u32 *)addr & ~(cfg1_clear ? BIT(0) : 0) &
+		       ~(!strcmp(fault, "bit31-clear") ? BIT(31) : 0);
+	}
 	if (addr == &hci[REG_CONTROLLER_STATUS/4] && hce_ns &&
 	    clock_ns >= hce_ns + 1000000)
 		hci[REG_CONTROLLER_STATUS/4] |= UIC_COMMAND_READY;
@@ -52,6 +60,7 @@ static void writel(u32 value, void *addr)
 	if (addr == &hci[REG_CONTROLLER_ENABLE/4]) {
 		assert(value == 1 && !hce_ns);
 		hce_ns = clock_ns;
+		if (!strcmp(fault,"pre-command-irq")) hci[REG_INTERRUPT_STATUS/4]=0x400;
 	}
 	if (addr == &hci[REG_INTERRUPT_STATUS/4]) {
 		assert(value == UIC_COMMAND_COMPL);
@@ -70,9 +79,13 @@ static void writel(u32 value, void *addr)
 			hci[REG_INTERRUPT_STATUS/4] = UIC_COMMAND_COMPL;
 		if (value == 1) {
 			hci[REG_UIC_COMMAND_ARG_3/4] = attr == 0x41 ? 1 : 0;
+			if (attr == 0x41 && !strcmp(fault,"first-local-bad-state")) hci[REG_UIC_COMMAND_ARG_3/4]=0;
 			if (attr == 0xd002 && !strcmp(fault, "timer-disagreement"))
 				hci[REG_UIC_COMMAND_ARG_3/4] = BIT(9);
 		}
+		if (value == 2 && ((attr == 0x9007 && !strcmp(fault,"timer-set-bad-code")) ||
+		                  (attr == 0x155e && !strcmp(fault,"last-local-bad-code"))))
+			hci[REG_UIC_COMMAND_ARG_2/4] = 2;
 		if (value == 0x16) {
 			if (strcmp(fault, "no-device"))
 				hci[REG_CONTROLLER_STATUS/4] |= DEVICE_PRESENT;
@@ -89,7 +102,8 @@ static void writel(u32 value, void *addr)
 
 int main(int argc, char **argv)
 {
-	assert(argc == 2);
+	assert(argc == 2 || argc == 3);
+	cfg1_clear = argc == 3 && !strcmp(argv[2],"cfg1-clear");
 	fault = argv[1];
 	clock_ns = 10;
 	hci[REG_UFS_VERSION/4] = 0x310;
@@ -115,6 +129,16 @@ int main(int argc, char **argv)
 		assert(rc==-ETIMEDOUT && cmds==6 && !link.link_issued);
 	} else if (!strcmp(fault,"timer-disagreement")) {
 		assert(rc==-EOPNOTSUPP && cmds==2 && !link.link_issued);
+	} else if (!strcmp(fault,"expired-cfg1")) {
+		assert(rc==-EIO && !hce_ns && !cmds && writes==1);
+	} else if (!strcmp(fault,"first-local-bad-state")) {
+		assert(rc==-EAGAIN && cmds==1 && !link.link_issued);
+	} else if (!strcmp(fault,"pre-command-irq")) {
+		assert(rc==-EBUSY && hce_ns && !cmds && writes==2);
+	} else if (!strcmp(fault,"bit31-clear")) {
+		assert(rc==-EIO && cmds==5 && !link.link_issued);
+	} else if (!strcmp(fault,"timer-set-bad-code") || !strcmp(fault,"last-local-bad-code")) {
+		assert(rc==-EIO && cmds==(!strcmp(fault,"timer-set-bad-code") ? 5U : 6U) && !link.link_issued);
 	} else if (!strcmp(fault,"no-calibration")) {
 		assert(rc==-EPERM && !writes);
 	} else if (!strcmp(fault,"no-device") || !strcmp(fault,"bad-code") ||
@@ -124,5 +148,11 @@ int main(int argc, char **argv)
 	} else {
 		assert(rc==-EBUSY && !writes && !cmds);
 	}
+#ifdef G0Q_CFG1_ORDERED_SELECTION
+	if (link.hce_started) {
+		assert(link.cfg1_outcome == (!strcmp(fault,"expired-cfg1") ? 2 : cfg1_clear ? 1 : 3));
+		assert(!!(link.cfg1_post & 1) == !cfg1_clear);
+	}
+#endif
 	printf("%s rc=%d local=%u link=%u writes=%u\n", fault,rc,link.local_commands,link.link_issued,writes);
 }
