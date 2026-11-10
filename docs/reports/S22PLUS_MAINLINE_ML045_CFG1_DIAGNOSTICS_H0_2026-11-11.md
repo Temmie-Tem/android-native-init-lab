@@ -13,9 +13,12 @@ ML044 remains consumed and closed healthy. Its retained authenticated result
 is decoded with the changed checker and every field agrees with the stored
 V9 result; interpreting those bytes as V10 fails. A90, S20+, the unrelated
 candidate-manifest edit and attachment directory remain outside this unit.
-The completion criterion is one reviewed V10 candidate, one separately
+The completion criterion was one reviewed V10 candidate, one separately
 approved attended run, original-A healthy closure and an evidence-based report.
-H0 success and review alone do not grant that physical operation.
+The physical run is now consumed and closed healthy. It observed the bit-clear
+branch with pre/post `0x1c00052c` and did not evaluate the budget; see the
+[ML045 physical result and raw audit](S22PLUS_MAINLINE_ML045_RUN_2026-11-11.md).
+H0 success and review alone did not grant that physical operation.
 
 ## Source analysis and discussion
 
@@ -134,7 +137,8 @@ with the stable worker unchanged and connected. Fresh exact ML045 qualification
 and task preparation completed without a grant or operation. Fixed foreground
 D0 passed all seven raw health reads with zero controls/transfers, no grant
 and no operation. The exact returned approval and current physical attendance
-with usable Download recovery are still required before dispatch.
+with usable Download recovery were subsequently supplied before the one run.
+That run and its original-A healthy return are now complete.
 
 ## Evidence and external-model usage
 
@@ -156,5 +160,6 @@ ROUTE and PERSIST are checked by real self-capture and failure/raw preservation,
 producer reproduction and byte joins. ARTIFACT and AUDIT retain the actual
 old/new source versions and consumed V9 bytes. Rendering/display work is
 inapplicable; notification is only a prompt, never completion or authority.
-Physical readback branch and recovery remain unobserved until the separately
-approved run. No new gate or evidence layer is created.
+Physical observations and their limits are recorded in the linked run report;
+they do not retrospectively expand H0 proof. No new gate or evidence layer is
+created.

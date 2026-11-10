@@ -30,17 +30,22 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML045 V10 H0 preparation is validated; physical execution remains pending.**
-  Argon discussed ML044's first CFG1 bit-readback-or-budget EIO in two bounded
-  rounds. The new 33-field diagnostic preserves existing accesses and splits
-  those branches; the fixed reconnect capture CLI is preflighted before N.
-  The fresh module/observer/loader/AP and 159 tests passed, including six real
-  artifact cases; retained V9 raw facts remain identical. Final exact independent
-  review returned PASS_GO with no findings, and the reviewed v46 backend/fresh
-  ML045 task are prepared. Fixed current-health D0 passed all seven raw reads
-  without a grant/control/transfer. The fresh exact attended one-operation
-  approval remains required before physical execution.
-  [Analysis, diagnostic scope and validation](docs/reports/S22PLUS_MAINLINE_ML045_CFG1_DIAGNOSTICS_H0_2026-11-11.md)
+- **ML045 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The
+  V10 diagnostic identified the first CFG1 bit-readback branch: both existing
+  reads were `0x1c00052c`, bit 0 was clear, and the budget check was not
+  evaluated. All eleven initial guards and the timely initial IS-zero
+  acknowledgement passed; stage six had PCS ready and settled eleven power
+  records, but zero local UIC/link commands. The immediate-readback cause and
+  ML044's unrecorded branch remain unproved. The repaired capture CLI issued
+  the cue at N+33.689 seconds; actual completion was recorded at N+64.138.
+  Authentication completed at N+57.847 seconds and the five-minute witness
+  passed. Automatic result-bound Download and one original A completed; the
+  same owner's health-only continuation retained one failed ADB read then
+  passed all seven final reads. All 532 task captures/three pages plus both
+  cue captures were audited, the owned profile is absent and no F1 owner
+  remains. No further device action is opened.
+  [Physical result and raw audit](docs/reports/S22PLUS_MAINLINE_ML045_RUN_2026-11-11.md)
+  · [Argon analysis, H0 validation and independent review](docs/reports/S22PLUS_MAINLINE_ML045_CFG1_DIAGNOSTICS_H0_2026-11-11.md)
 
 - **ML044 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** V9
   completed one exact initial `0x400` acknowledgement and observed timely full
