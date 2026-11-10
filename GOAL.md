@@ -30,17 +30,25 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML044 is prepared H0; physical execution awaits its exact attended grant.**
-  Two Mythos discussions informed V9's one initial UIC completion acknowledgement:
-  only timely stopped pre/post IS 0x400, all eleven guards, fresh HCE/IS checks,
-  one constant W1C and one timely whole-zero readback. Later IS-zero admission,
-  research/recovery limits and original-A ownership remain. The actual new
-  ARM64 module/observer/loader/AP passed fresh qualification, 121 tests without
-  skips, retained V8 raw parity and independent PASS_GO. Reviewed v45 dispatch
-  is selected; fixed D0 passed all seven raw health reads. No grant, operation
-  or candidate transfer exists. This does not prove event origin, W1C efficacy,
-  UFS link or unattended recovery. ML043 remains consumed and closed healthy.
-  [Analysis, implementation and review](docs/reports/S22PLUS_MAINLINE_ML044_UIC_COMPLETION_H0_2026-11-11.md).
+- **ML044 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** V9
+  completed one exact initial `0x400` acknowledgement and observed timely full
+  IS zero after all eleven guards. One HCE stop completed in one poll (reported
+  2 microseconds), HCS masked sample remained `0x8`, and eleven fixed power
+  records settled. The reset/PHY/lane path reached stage six, then EIO occurred
+  with zero local UIC commands and no link command. Source inference narrows
+  this to the first HCI_CFG1 bit-0 readback-or-budget branch before the HCE-one
+  write; the raw value and which alternative failed remain unobserved. A host
+  cue-wrapper argument error followed by a correctly refused late caller was
+  preserved; no reconnect was requested. Authentication nevertheless completed
+  at N+116.258 seconds and the same-boot witness passed. Automatic result-bound
+  Download and one original A completed; one failed ADB health read was kept
+  and the same owner passed all seven final reads through health-only recovery.
+  All 586 captures/three pages and the separate cue refusal were audited, the
+  owned profile is absent and no F1 owner remains. Initial acknowledgement and
+  later preparation progressed; completion-event origin, final EIO cause, UFS
+  link and hang recovery remain unproved. No further device action is opened.
+  [Physical run, incident and raw audit](docs/reports/S22PLUS_MAINLINE_ML044_RUN_2026-11-11.md)
+  · [Mythos analysis, implementation and independent review](docs/reports/S22PLUS_MAINLINE_ML044_UIC_COMPLETION_H0_2026-11-11.md).
 
 - **ML043 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** After
   its exact attended grant, V8 passed authenticated USB, child liveness and the

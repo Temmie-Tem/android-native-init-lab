@@ -125,9 +125,11 @@ The reviewed capability was adopted for one fresh qualified ML044 task, and
 the v45 backend binding was published with no unresolved owner. The existing
 worker remained connected and unchanged. This enables reviewed preparation,
 not device execution; the generated exact approval and current attendance
-remain outstanding. The fixed foreground D0 then passed all seven raw health
-reads, with zero device controls/transfers and no grant or operation. The
-separate unchanged paged finalizer is eligible only
+were subsequently returned and the physical run is now consumed and closed
+healthy; see the [ML044 run report](S22PLUS_MAINLINE_ML044_RUN_2026-11-11.md).
+The initial fixed foreground D0 passed all seven raw health
+reads, with zero controls/transfers and no grant or operation at preparation.
+The separate unchanged paged finalizer is eligible only
 after this run has a durable healthy terminal and no remaining owner.
 
 ## Private evidence and external-model accounting
@@ -136,7 +138,7 @@ Evidence is under
 `workspace/private/outputs/s22plus-ml044-uic-status-h0-20261111-1/`.
 It includes both discussion prompts/responses and source pins, exact supplied
 source snapshots, CLI usage captures, provider accounting, module/artifact
-checks, test logs, retained V8 parity and the eventual immutable review/task.
+checks, test logs, retained V8 parity and the immutable review/task.
 
 Both bounded inference calls used actual `claude-mythos-5-2`, with tools,
 MCP and browser access disabled. The first used high effort; the focused
