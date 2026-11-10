@@ -109,8 +109,11 @@ conflicted with V8's inherited reset predicates. The final packet corrects it
 to "V7/V8"; code, artifacts and successful tests were unchanged. The review
 qualifies exact new capability/v44 publication and H0 preparation, plus reuse
 of the unchanged paged finalizer after an actual healthy owner-free closure.
-It grants no device authority. The fresh candidate and task are now prepared,
-and v44 was selected without changing or restarting the stable terminal worker.
+It grants no device authority. Before the physical run, the fresh candidate
+and task were prepared, and v44 was selected without changing or restarting
+the stable terminal worker. The subsequent exact attended grant, consumed
+experiment and healthy original-A closure are recorded in the
+[ML043 run report](S22PLUS_MAINLINE_ML043_RUN_2026-11-11.md).
 
 ## Physical completion criteria
 
