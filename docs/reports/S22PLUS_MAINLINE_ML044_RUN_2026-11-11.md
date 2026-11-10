@@ -44,9 +44,12 @@ The first authenticated response subsequently completed at **N+116.258
 seconds**, within the original 120-second window. The fixed RAM Debian SysVinit
 PID 1, observer and zero block devices were verified, with fresh recovery-child
 arm evidence. The same owner therefore continued its authorized research path.
-No physical reconnect was requested or reported; the records do not establish
-why USB became available or prove that no unreported physical action occurred.
-The absence of an earlier cue is not evidence of a causal USB recovery mechanism.
+
+After ML047, the operator recalled probably reconnecting the cable during
+ML044 after watching the screen and experiment progress. The run log contains
+no contemporaneous report or timestamp for that physical action. The
+N+116.258 timestamp dates the authenticated response. Whether USB would have
+appeared with the cable untouched remains unknown.
 
 ## Physical functional evidence
 

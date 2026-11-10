@@ -87,7 +87,8 @@ identities, goals, artifacts and authority remain separate.
   this to the first HCI_CFG1 bit-0 readback-or-budget branch before the HCE-one
   write; the raw value and which alternative failed remain unobserved. A host
   cue-wrapper argument error followed by a correctly refused late caller was
-  preserved; no reconnect was requested. Authentication nevertheless completed
+  preserved. The operator later recalled probably reconnecting after watching
+  the screen and progress. The action time is unknown. Authentication completed
   at N+116.258 seconds and the same-boot witness passed. Automatic result-bound
   Download and one original A completed; one failed ADB health read was kept
   and the same owner passed all seven final reads through health-only recovery.
