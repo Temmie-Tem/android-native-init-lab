@@ -97,6 +97,15 @@ class Coordinator:
 
     def prepare_automatic_return(self):return False
 
+    def await_return(self):
+        session=self.session
+        now=clock()
+        receipt=publish(session.directory/self.READY_FILE,dict(operation=pin(session.directory/'operation.json'),
+            **{self.SUBJECT_FIELD:pin(session.directory/(self.SUBJECT_STEP+'.json'))},requested_ns=now,
+            deadline_ns=min(session.grant['deadline_ns'],now+600_000_000_000)))
+        return dict(state='AWAITING_PHYSICAL_DOWNLOAD',request=receipt,owner_retained=True,
+            next_action='Enter Download on the bound S22+; continue checks its exact endpoint before one original A transfer.')
+
     def walk(self,*,allow_return):
         session=self.session
         for step in self.steps():
@@ -106,12 +115,7 @@ class Coordinator:
                 require(len(matches)==1,'duplicate Debian step completion')
                 session.adapter.validate_result(step,read(verify(matches[0]['data']['result'])),session.request);continue
             if step.name=='install-android' and not allow_return and not self.prepare_automatic_return():
-                now=clock()
-                receipt=publish(session.directory/self.READY_FILE,dict(operation=pin(session.directory/'operation.json'),
-                    **{self.SUBJECT_FIELD:pin(session.directory/(self.SUBJECT_STEP+'.json'))},requested_ns=now,
-                    deadline_ns=min(session.grant['deadline_ns'],now+600_000_000_000)))
-                return dict(state='AWAITING_PHYSICAL_DOWNLOAD',request=receipt,owner_retained=True,
-                    next_action='Enter Download on the bound S22+; continue checks its exact endpoint before one original A transfer.')
+                return self.await_return()
             started=any(row['event']=='step-start' and row['data']['step']==step.name for row in session.rows())
             if started and step.action!='health':session.result(step,session.adapter.recover_step_result(step,session.request))
             else:session.perform(step)

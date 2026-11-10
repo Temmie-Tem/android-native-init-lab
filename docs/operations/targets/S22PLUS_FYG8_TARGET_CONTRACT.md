@@ -439,6 +439,14 @@ The named post-closure read below also admits this exact image. The older
 early marker formats, UFS capabilities and consumed runs retain their own
 scope.
 
+The exact ML050 [timed UDC return](../S22PLUS_MAINLINE_RAM_V1.md#ml050-timed-udc-return)
+adopts the separately incorporated one-child timer and post-N original-owner
+recovery for its fresh UDC kernel/AP only. Keep the cable untouched and
+remain present through recovery. The named UDC projection follows original-A
+healthy closure under the same fixed reader. The physical fallback stays
+available. This adoption requires the exact capability/package and backend
+reviews, current D0 and one returned attended grant.
+
 Its named `s22plus_mainline_retention_v1.py` foreground D0 is adopted only after
 the exact marked mainline owner closes healthy original A. It performs one
 bounded fixed `last_kmsg` read between same-returned-boot health brackets,

@@ -28,6 +28,19 @@ REVIEW_SCOPE='MAINLINE_RAM_F1_CAPABILITY'
 UDC_DECLARATION = 'workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_ml049.json'
 UDC_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_v1_review.json'
 UDC_KERNEL = 'bd698eb32680520050f6cb4e2ba72d70462acf7764d2489b39df929d308673d1'
+UDC_TIMER_KERNEL = 'f64d35fb04eb3e3487058dc1c015b1beac881630c9da9ab4cd61c2b379c36bae'
+UDC_TIMER_AP = 'edc7185ee3e908d8369644252fd06efcec551ed1625c5a44246736d9c12a467a'
+UDC_TIMER_DECLARATION = 'workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_ml050.json'
+UDC_TIMER_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_udc_timer_v1_review.json'
+
+
+def timed_udc(image):
+    # Used after N consumption as well. Exact immutable task metadata is
+    # enough for selection; recovery never opens a candidate file or key.
+    return (image.get('schema') == 's22plus-mainline-image-v1' and image.get('profile') == PROFILE and
+            'udc_observation' in image and image.get('ap', {}).get('sha256') == UDC_TIMER_AP and
+            image.get('runtime_sources', {}).get('kernel', {}).get('sha256') == UDC_TIMER_KERNEL)
+
 
 
 
@@ -61,6 +74,9 @@ def image_binding(image,*,artifact_bytes=False):
             qualified['image']=={k:v for k,v in image.items() if k!='qualification'},'mainline qualification differs')
     package=read(unchanged(qualified['package']));loader=read(unchanged(qualified['loader']))
     manifest=read(unchanged(qualified['init_manifest']));review=read(unchanged(qualified['entry_review']))
+    timer = timed_udc(image)
+    require(manifest.get('udc_timer_return', False) is timer,
+            'timed return outside the exact UDC image')
     require(('debian_ram' in image)==('debian_ram' in manifest) and
             not ('debian_ram' in image and 'entry_park' in image), 'Debian RAM mode admission differs')
     require(('download_return' in image)==codec.has_download(manifest),'Download mode admission differs')
@@ -94,16 +110,18 @@ def image_binding(image,*,artifact_bytes=False):
                 'candidate evidence was not covered by retained entry review')
     require(('retained_marker' in image)==('retained_marker' in loader)==('retained_marker' in loader['kernel']),
             'instrumented loader lacks its marker admission')
-    require(('udc_observation' in image) == (loader['kernel']['sha256'] == UDC_KERNEL),
+    require(('udc_observation' in image) == (loader['kernel']['sha256'] in (UDC_KERNEL, UDC_TIMER_KERNEL)),
             'late UDC measurement declaration differs from kernel')
     if 'udc_observation' in image:
-        declaration = read(ROOT / UDC_DECLARATION)
+        require((loader['kernel']['sha256'] == UDC_TIMER_KERNEL) == timer,
+                'UDC timer runtime or exact AP differs')
+        declaration = read(ROOT / (UDC_TIMER_DECLARATION if timer else UDC_DECLARATION))
         measured = read(unchanged(image['udc_observation']))
         require(set(image) == {'schema','profile','namespace','version','run_id_hex','ap','member','key',
                                'qualification','runtime_sources','debian_ram','udc_observation'} and
                 declaration == dict(schema='s22plus-mainline-udc-observation-exact-v1',
                                     observation_sha256=image['udc_observation']['sha256'],
-                                    kernel_sha256=UDC_KERNEL, ap_sha256=image['ap']['sha256']) and
+                                    kernel_sha256=loader['kernel']['sha256'], ap_sha256=image['ap']['sha256']) and
                 measured['ap'] == image['ap'] and measured['kernel'] == image['runtime_sources']['kernel'] and
                 measured['debian'] == image['debian_ram'] and
                 reviewed.get(str(Path(image['udc_observation']['path']).relative_to(ROOT)), {}).get('sha256')

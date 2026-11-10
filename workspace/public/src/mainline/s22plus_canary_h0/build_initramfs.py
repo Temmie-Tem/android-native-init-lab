@@ -14,7 +14,7 @@ import subprocess
 from prepare import HERE, ROOT, digest, require, run
 
 
-def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False, service_cycle=False):
+def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False, service_cycle=False, udc_timer_return=False):
     prepared, output = prepared.resolve(), output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'), 'private output required')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -26,6 +26,11 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
     arches=None
     require(type(download_return) is bool and (not download_return or
             debian_packages is not None and ssh_keys is None), 'Download requires the fixed non-SSH Debian RAM closure')
+    require(type(udc_timer_return) is bool and (not udc_timer_return or (
+            debian_packages is not None and ssh_keys is None and not download_return and not service_cycle)),
+            'timed UDC return requires the plain Debian RAM observer')
+    if udc_timer_return:
+        source_paths.extend((HERE/'download-return.h', HERE.parent/'s22plus_ufs_link_h0/recovery.h'))
     if service_cycle:
         import service_ram
         source_paths += [HERE/'service_ram.py',HERE/'service-cycle.h']
@@ -84,6 +89,20 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
     if ssh_keys is not None:command.insert(command.index(HERE/'init.c'),'-DCANARY_DEBIAN_SSH')
     if service_cycle:command.insert(command.index(HERE/'init.c'),'-DCANARY_RC_CYCLE')
     if download_return or service_cycle:command.insert(command.index(HERE/'init.c'),'-DCANARY_DOWNLOAD_RAM')
+    if udc_timer_return:
+        # Preserve the reviewed base USB protocol. Only the timer's arming
+        # handshake is reachable; closing the parent's IPC removes early commit.
+        source = (HERE/'init.c').read_text()
+        include = '#ifdef CANARY_DOWNLOAD_RAM\n#include "download-return.h"\n#endif'
+        start = '    dprintf(2,"G0Q_RAM_PID1_BEGIN\\n");'
+        require(source.count(include) == source.count(start) == 1, 'UDC timer insertion points changed')
+        generated = output/'timer-observer.c'
+        generated.write_text(source.replace(include, '#include "download-return.h"').replace(
+            start, '    { int armed = recovery_begin(); if (armed) park(armed); }\n'
+            '    close(recovery_fd); recovery_fd = -1;\n' + start))
+        index = command.index(HERE/'init.c')
+        command[index:index+1] = ['-DG0Q_AUTOMATIC_RECOVERY', '-I', HERE, '-I',
+                                  HERE.parent/'s22plus_ufs_link_h0', generated]
     (output/'compile-command.json').write_text(json.dumps([str(x) for x in command],indent=2)+'\n')
     run(command,output/'compile.log')
     executable.chmod(0o755)
@@ -121,6 +140,7 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
             'dtb':{'path':str(prepared/'sm8450-samsung-g0q-ram.dtb'),
                    'sha256':digest(prepared/'sm8450-samsung-g0q-ram.dtb')},
             'initrd_address':0xb6915000,'device_actions':0}
+    if udc_timer_return:result['udc_timer_return'] = True
     if debian_packages is not None:
         result['debian_ram']=(debian_ram.declaration(files,executable,package_lock) if ssh_keys is None else
                               ssh_ram.declaration(files,executable,package_lock,ssh_keys,recipe=recipe))
@@ -144,4 +164,5 @@ if __name__=='__main__':
     p.add_argument('--ssh-keys',type=Path,help='fresh fixed SSH host/client key input directory; Debian RAM only')
     p.add_argument('--download-return',action='store_true',help='distinct one-shot Download control schema; H0 only')
     p.add_argument('--service-cycle',action='store_true',help='distinct packaged rc-managed SSH cycle; H0 only')
-    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return,service_cycle=a.service_cycle)
+    p.add_argument('--udc-timer-return',action='store_true',help='fixed local Download timer for the UDC observer')
+    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return,service_cycle=a.service_cycle,udc_timer_return=a.udc_timer_return)

@@ -105,7 +105,8 @@ def source_paths(root,selected=profile,*,image=None):
                    'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
     if image is not None and 'udc_observation' in image:
         require(selected is profile, 'UDC observation requires the mainline RAM profile')
-        paths.extend([profile.UDC_DECLARATION, 'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py'])
+        declaration = profile.UDC_TIMER_DECLARATION if profile.timed_udc(image) else profile.UDC_DECLARATION
+        paths.extend([declaration, 'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py'])
     if candidate_v2(image):
         require(selected is profile, 'v2 requires the mainline profile')
         paths = [path for path in paths if path not in V2_RETIRED]
@@ -168,7 +169,10 @@ def capability(root,*,recovery=False,selected=profile,image=None):
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
     udc = image is not None and 'udc_observation' in image
-    path = root / (profile.UDC_REVIEW if udc else selected.REVIEW)
+    review = selected.REVIEW
+    if udc:
+        review = profile.UDC_TIMER_REVIEW if profile.timed_udc(image) else profile.UDC_REVIEW
+    path = root / review
     value = read(path)
     require(set(value)=={'schema','verdict','scope','sources','reviewer','findings'} and
         value['schema']==selected.REVIEW_SCHEMA and value['verdict']=='PASS_GO' and
@@ -181,7 +185,7 @@ def capability(root,*,recovery=False,selected=profile,image=None):
         # only its actually imported owner/observer/transport/authority closure
         # mandatory after a stop; candidate build/checker files are not A inputs.
         if recovery and (marker_only(row['path']) or selected is not profile and loader_build_only(row['path']) or
-                         udc and row['path'] in (profile.UDC_DECLARATION,
+                         udc and row['path'] in (profile.UDC_DECLARATION, profile.UDC_TIMER_DECLARATION,
                              'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py')):continue
         tasks.unchanged(dict(row,path=str(root/row['path'])))
     return pin(path)

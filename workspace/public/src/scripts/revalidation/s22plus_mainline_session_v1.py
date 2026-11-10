@@ -103,7 +103,8 @@ def terminal(adapter,request,*,recovered):
 
 
 def link_fact(adapter,request,result):
-    if request.get('N',{}).get('ufs_link') is not True:
+    ufs = request.get('N',{}).get('ufs_link') is True
+    if not ufs and not profile.timed_udc(request.get('N', {})):
         return result
     # Recovery is separate from link success. A missing/ambiguous experiment
     # result cannot erase an automatic arrival observation or upgrade it to
@@ -117,6 +118,7 @@ def link_fact(adapter,request,result):
                 automatic_download_arrival_observed=observed['status']=='EXACT_DOWNLOAD_OBSERVED',
                 automatic_recovery_trigger_proved=False)
         except (ValueError,OSError,KeyError,TypeError):pass
+    if not ufs:return result
     try:
         from s22plus_mainline_ufs_access_v1 import rederive_witness, rederive_link
         witness=rederive_witness(adapter,request)
@@ -152,9 +154,21 @@ class Coordinator(PhysicalCoordinator):
         download.return_request(self.session.adapter,self.session.request,create=True)
         return True
 
+    def await_return(self):
+        if not profile.timed_udc(self.session.request.get('N', {})):
+            return super().await_return()
+        from s22plus_mainline_auto_recovery_v1 import attempt
+        result = attempt(self.session)
+        require(result is not None, 'timed Download not observed in the original window')
+        return result
+
     def stopped(self,error):
         pending=super().stopped(error)
         if pending.get('state')!='AWAITING_ATTENDED_RECOVERY':return pending
+        if profile.timed_udc(self.session.request.get('N', {})) and (self.session.directory/'io-mainline-auto-recovery').exists():
+            # A normal-observation return already spent its sole automatic
+            # attempt. The stopped owner retains the existing physical/health route.
+            return pending
         try:
             from s22plus_mainline_auto_recovery_v1 import attempt
             recovered=attempt(self.session)
@@ -170,7 +184,7 @@ class Coordinator(PhysicalCoordinator):
     def execute(self,*,attended):
         try:return super().execute(attended=attended)
         finally:
-            if download.selected(self.session.request) and any(row['event']=='step-complete' and
+            if (download.selected(self.session.request) or profile.timed_udc(self.session.request.get('N', {}))) and any(row['event']=='step-complete' and
                 row['data']['step'] in ('install-android','recover-android') for row in self.session.rows()):
                 access.cleanup(self.session.adapter,self.session.request)
 

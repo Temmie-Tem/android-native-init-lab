@@ -30,7 +30,15 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML049 is prepared for the S22+ untouched-cable UDC experiment.** A new
+- **ML050 is the selected timed-return UDC experiment.** It has a fresh
+  observation key and boot-only AP, no UFS module, one pre-USB guest timer
+  and the original owner's bounded return to Android. In QEMU the actual VM
+  observer parked on USB timeout and the guest reset. Three separate UDC
+  fixtures distinguished a failed bind, a successful bind without attach,
+  and configured USB. The exact capability and v50 backend passed review.
+  [ML050 preparation and recovery](docs/reports/S22PLUS_MAINLINE_ML050_UDC_AUTO_RETURN_H0_2026-11-11.md)
+
+- **ML049 was prepared and remained unexecuted when ML050 was selected.** A new
   Debian RAM-only boot image records configfs bind outcomes and timed device
   states in the small Samsung retained-log window. In the actual-kernel ARM64
   fixtures the returned records distinguished EBUSY/controller absent,

@@ -26,7 +26,18 @@ def closed_binding(root,task_directory):
             task['operations']==[profile.OPERATION] and ('retained_marker' in task['N'] or 'udc_observation' in task['N']),
             'not an instrumented mainline task')
     manifest=profile.image_binding(task['N'])
-    require(closed['schema']=='s22plus-comparison-task-closed-v1' and closed['task']==task_pin and
+    expected_schema = 's22plus-comparison-task-closed-v1'
+    if profile.timed_udc(task['N']):
+        expected_schema = 's22plus-comparison-task-closed-v2'
+        reporting = closed['reporting_provenance']
+        source = reporting['source']
+        reviewed = read(verify(reporting['review']))
+        require(source == pin(root/'workspace/public/src/scripts/analysis/s22plus_mainline_close_h0_v2.py') and
+                reviewed.get('verdict') == 'PASS_GO' and reviewed.get('findings') == [] and
+                reviewed.get('source') == source and reviewed.get('device_actions') == 0 and
+                closed['raw_captures'] == pin(directory/'raw-index-v2.json'),
+                'timed UDC closure lacks its reviewed paged raw index')
+    require(closed['schema']==expected_schema and closed['task']==task_pin and
             closed['terminal_state']=='ANDROID_CLOSED_HEALTHY' and
             closed['original_N_transfers_total']==closed['original_A_transfers_total']==1 and
             closed['source_binding']==task['review'],'mainline task lacks its original closed outcome')

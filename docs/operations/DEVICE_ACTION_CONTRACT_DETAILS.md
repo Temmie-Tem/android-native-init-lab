@@ -636,6 +636,24 @@ permission to perform host-only work.
    attendance, physical fallback, the cue/control interlock and exact finite
    approval remain; conditional unattended F1 is not activated. The shared
    policy supplies the complete reviewed child/host and proof conditions.
+   The separately selected [ML050 timed UDC return](S22PLUS_MAINLINE_RAM_V1.md#ml050-timed-udc-return)
+   permits one reviewed ordinary Download attempt in the exact boot-only
+   RAM UDC observer, with physical attendance and the original one-operation
+   grant. It has no UFS module or authenticated reset command. Before USB
+   setup, after its fixed reboot-driver/DT metadata checks and before guest
+   BOOTTIME 120 seconds, the observer may arm one child. The parent closes
+   its local channel after the arming handshake. Only that child may attempt
+   one ordinary RESTART2(download) from BOOTTIME 555 seconds to strictly
+   before 570 seconds, regardless of USB outcome. No early commit, timer
+   renewal, retry, alternate reset or independent PMIC access is admitted.
+   After durable N launch, the original owner may observe and revalidate
+   exact new-generation Download in the original N-launch-plus-660-second
+   window and dispatch original A once with the same cap at the transfer.
+   The existing attended physical fallback and health-only continuation
+   apply. A missing/uncertain N never replays, and an existing A intent
+   permits only raw reconstruction and health. Before N, the ordinary
+   physical recovery rules apply. This admits neither unattended operation
+   nor a claim of recovery from a hung kernel.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

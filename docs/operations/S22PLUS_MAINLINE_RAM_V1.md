@@ -1095,6 +1095,49 @@ experiment to prevent unreviewed firmware-shared writes and preserve the
 untouched-cable condition. The physical scope expires on consumption. Changes
 to the writer, sites, mapping, evidence acceptance or recovery require review.
 
+### ML050 timed UDC return
+
+The operator selected automatic Download for the untouched-cable UDC test.
+The [ML050 declaration](../../workspace/public/src/device-action/bindings/s22plus_mainline_udc_observation_ml050.json)
+selects one fresh AP, measured kernel with its own observation ID and key,
+and RAM runtime. The [exact capability review](../../workspace/public/src/device-action/bindings/s22plus_mainline_udc_timer_v1_review.json)
+and exact-artifact review cover the candidate and original owner. This
+variant inherits ML049's fixed UDC sites, six guest sampling slots,
+256-byte retained window, original 120-second host USB observation, no
+replug, read-only Debian base exchange, and fixed post-closure reader.
+The wire protocol exposes no Download command. The archive has no UFS module.
+ML050's healthy original owner uses the previously reviewed paged H0 close
+format. Its fixed D0 accepts that closed schema and original raw index,
+reporting review and source, with the original same-boot health, consumption,
+one-N/one-A and journal checks. The reader never performs terminal repair.
+ML049 keeps its physical-return identity and receives no new grant or timer.
+
+After the same reboot-mode class, driver and fixed live-DT checks as the
+V12 recovery child, the packaged observer arms that child once before USB
+setup and before guest BOOTTIME 120 seconds. A local arm challenge precedes
+closing the parent channel. The child remains able to attempt its single
+ordinary Download restart at BOOTTIME 555 seconds, strictly before 570,
+when USB is absent, a request fails, or a request succeeds. No parent
+control, early commit, SSH, module action, extra USB request, renewal or
+retry is reachable. If runtime preparation or a kernel/driver stalls,
+physical Download may be necessary. Keep the operator present through
+healthy Android closure.
+
+After one durable N launch the existing owner observes the exact newer
+Download generation, independently of an authenticated base or arm receipt.
+The same N-launch-plus-660-second window, host boot, target identity, USB
+generation, original A and effect-time checks govern automatic A. A
+successful base takes this route directly. A stopped observation retains
+the same original recovery capability. Before N, the ordinary physical
+path applies. Expiry, ambiguous arrival or a failed automatic wait leaves
+the existing physical fallback, within the selected owner and its recovery
+bounds. An existing A intent permits only reconstruction and health.
+Return to Android and guest reset causality are reported separately; lost
+diagnostic files cannot add a recovery prerequisite. The exact selection
+guards against applying the timer or original-A authority to a different
+AP. Its physical scope ends on consumption. A change to arming, deadlines,
+owner, transfer or evidence semantics triggers independent review.
+
 ### Fixed post-closure retained-marker D0
 
 The named `s22plus_mainline_retention_v1.py` capture is a foreground D0 profile

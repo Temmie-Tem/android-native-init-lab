@@ -93,7 +93,7 @@ class ActualControlTests(unittest.TestCase):
 class AttachTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.op=Path(self.tmp.name)
-        operation=records.publish(self.op/'operation.json',{'fixture':'one'})
+        operation=records.publish(self.op/'operation.json',{'N': {'profile': profile.PROFILE, 'download_return': True}})
         now=records.clock()
         self.window=records.publish(self.op/'window.json',dict(operation=operation,host_boot=records.host_boot(),
             opened_ns=now,deadline_ns=now+3_000_000_000))

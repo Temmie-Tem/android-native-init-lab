@@ -10,6 +10,7 @@ import time
 
 import s22plus_boot_only_f1_transport as transport
 import s22plus_mainline_attach_v1 as attach
+import s22plus_mainline_profile_v1 as profile
 import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
 from s22plus_native_records_v3 import Journal, clock, host_boot, pin, publish, read, require, verify
@@ -20,7 +21,11 @@ FOLDER = 'io-mainline-auto-recovery'
 
 def selected(request):
     image=request.get('N',{})
-    if request.get('operation')!='mainline-ram' or image.get('schema')!='s22plus-mainline-ufs-image-v2':
+    if request.get('operation') != 'mainline-ram':
+        return False
+    if profile.timed_udc(image):
+        return True
+    if image.get('schema')!='s22plus-mainline-ufs-image-v2':
         return False
     cap=read(verify(image['capability']))
     require(cap['schema']=='s22plus-mainline-ufs-capability-v2' and
@@ -37,6 +42,7 @@ def window(adapter,request):
     launches=[r for r in rows if r['event']=='effect-intent' and r['data']['action']=='transfer'
               and r['data']['role']=='N']
     require(len(launches)<=1,'automatic recovery has multiple native intents')
+    require(launches or not profile.timed_udc(request.get('N', {})), 'timed UDC return requires the original N launch')
     if launches:
         row=launches[0];receipt=row['data']['detail']['launch'];path=verify(receipt);launch=read(path)
         require(row['data']['step']==launch['step']=='install-native-first' and launch['role']=='N' and
@@ -166,6 +172,10 @@ def attempt(session):
     if android:
         # _recover_android rederives the intended A. It cannot dispatch again.
         return session._recover_android(attended=True)
+    if profile.timed_udc(request.get('N', {})) and not any(
+            row['event']=='effect-intent' and row['data']['action']=='transfer' and row['data']['role']=='N'
+            for row in session.rows()):
+        return None
     folder=adapter.directory/FOLDER
     if folder.exists():return None  # No second autonomous wait/dispatch owner.
     folder.mkdir(mode=0o700)
