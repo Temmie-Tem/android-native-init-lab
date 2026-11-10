@@ -75,10 +75,10 @@ def auxiliary_inputs():
 def fixed_binding(cap):
     fixed = cap['fixed']
     require(set(fixed)==FIXED_FIELDS and type(fixed['report_version']) is int and
-            fixed['report_version']==4, 'v2 fixed capability fields or report mode')
+            fixed['report_version'] in (4, 5), 'v2 fixed capability fields or report mode')
     kernel=checked(fixed['kernel']);component=checked(fixed['component'])
     require(component['status']=='BUILT_H0_COLD_LINK_COMPONENT' and
-            component['pre_effect_return'] is True and component['report_version']==4 and
+            component['pre_effect_return'] is True and component['report_version']==fixed['report_version'] and
             component['physical_admitted'] is False and component['device_actions']==0 and
             component['selected_kernel']==kernel['sha256'] and
             component['transport']==kernel['transport_sha256'], 'v2 fixed module/kernel mismatch')
@@ -142,7 +142,7 @@ def runtime_binding(candidate,fixed,component):
                 'physical_admitted','report_version','pre_effect_return'} and
             Path(candidate['manifest']['path'])==folder/'result.json' and
             Path(candidate['producer']['path'])==folder/'producer.json' and
-            manifest.get('pre_effect_return') is True and manifest.get('report_version')==4 and
+            manifest.get('pre_effect_return') is True and manifest.get('report_version')==fixed['report_version'] and
             manifest['kernel_release']==component['vermagic'].split()[0] and
             manifest['device_actions']==0 and manifest['port']==47649 and
             manifest['initrd_address']==0xb6915000 and manifest['dtb']==fixed['dtb'],
@@ -150,7 +150,7 @@ def runtime_binding(candidate,fixed,component):
     require(input_template(manifest)==fixed['input_template'], 'v2 fixed recipe inputs changed')
     for row in manifest['inputs']:profile.unchanged(row)
     value=_runtime(manifest,dict(module=component['module_sha256'],
-                                archive=manifest['initramfs']['sha256'],report_version=4))
+                                archive=manifest['initramfs']['sha256'],report_version=fixed['report_version']))
     require(producer['provenance']['schema']=='s22plus-observer-build-inputs-v1' and
             producer['provenance']['fixed']==fixed['observer_build'], 'v2 observer toolchain changed')
     for name in ('dependency','log'):profile.unchanged(producer['provenance'][name])
@@ -213,10 +213,11 @@ def reproduce(candidate,manifest,producer,fixed,out):
     require((folder/'observer.c').read_text()==builder.observer_source() and
             (folder/'seal.h').read_text()==builder.seal_text(ident,key,manifest['network'],module),
             'v2 generated source/seal differs')
-    expected=builder.compile_command(folder,vm=False,pre_effect_return=True)
+    snapshot = fixed['report_version'] == 5
+    expected=builder.compile_command(folder,vm=False,pre_effect_return=True,hci_snapshot=snapshot)
     require(producer['compile_command']==expected, 'v2 compiler recipe differs')
     out.mkdir(mode=0o700)
-    command=builder.compile_command(folder,vm=False,pre_effect_return=True,destination=out/'observer')
+    command=builder.compile_command(folder,vm=False,pre_effect_return=True,hci_snapshot=snapshot,destination=out/'observer')
     auxiliary=auxiliary_inputs()
     require(auxiliary==fixed['observer_auxiliary'],'v2 compiler auxiliary/specs changed')
     proof=build_evidence.compile_observer(command,out)

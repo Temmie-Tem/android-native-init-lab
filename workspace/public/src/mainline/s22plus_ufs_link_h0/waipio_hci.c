@@ -20,6 +20,37 @@ static int budget(struct g0q_link *link)
 	return ktime_get_boottime_ns() < link->hw.deadline_ns ? 0 : -ETIMEDOUT;
 }
 
+static u32 observed_hce(struct g0q_link *link, struct g0q_stage2_diag *diag)
+{
+	u32 value = readl(link->hw.hci + REG_CONTROLLER_ENABLE);
+
+#ifdef G0Q_HCI_SNAPSHOT
+	if (diag) {
+		static const u32 offsets[] = {
+			REG_CONTROLLER_STATUS, REG_UTP_TRANSFER_REQ_DOOR_BELL,
+			REG_UTP_TASK_REQ_DOOR_BELL, REG_INTERRUPT_ENABLE,
+			REG_INTERRUPT_STATUS,
+		};
+		diag->raw[0] = value;
+		diag->captured = 1;
+		/* This branch still refuses HCE != 0. Only defined HCE states
+		 * admit the five fixed reads; each consumes the original budget.
+		 * No UIC error (read-clear), PHY, list pointer or reset-pin read.
+		 * No write, retry, return eligibility or predicate is added.
+		 */
+		if (value && !(value & ~3U)) {
+			for (unsigned int i = 0; i < 5; i++) {
+				if (budget(link))
+					break;
+				diag->raw[i + 1] = readl(link->hw.hci + offsets[i]);
+				diag->captured |= 1U << (i + 1);
+			}
+		}
+	}
+#endif
+	return value;
+}
+
 int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *diag)
 {
 	void __iomem *hci = link->hw.hci;
@@ -35,7 +66,7 @@ int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *di
 	if ((link->version >> 28) != 4)
 		return g0q_stage2_error(diag, G0Q_S2_HCI, G0Q_S2_HW_VERSION, -ENODEV);
 	/* Preserve short-circuit evaluation and the original read order. */
-	if (g0q_stage2_condition(diag, G0Q_S2_HCE, readl(hci + REG_CONTROLLER_ENABLE)) ||
+	if (g0q_stage2_condition(diag, G0Q_S2_HCE, observed_hce(link, diag)) ||
 	    g0q_stage2_condition(diag, G0Q_S2_HCS, readl(hci + REG_CONTROLLER_STATUS) &
 	     (DEVICE_PRESENT | UIC_COMMAND_READY | HOST_ERROR_INDICATOR | DEVICE_ERROR_INDICATOR)) ||
 	    g0q_stage2_condition(diag, G0Q_S2_TRANSFER_DOORBELL, readl(hci + REG_UTP_TRANSFER_REQ_DOOR_BELL)) ||

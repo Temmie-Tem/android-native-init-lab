@@ -43,7 +43,7 @@ static u32 usb_reason, usb_detail;
  * No overlay/rail/probe call can have run on this rc<0 path.
  */
 static bool pre_effect_rejected;
-#define G0Q_REPORT_SITE (board.stage2.site | G0Q_REPORT_V4_TAG | (pre_effect_rejected ? G0Q_PRE_EFFECT_CERT : 0))
+#define G0Q_REPORT_SITE (board.stage2.site | G0Q_REPORT_TAG | (pre_effect_rejected ? G0Q_PRE_EFFECT_CERT : 0))
 #else
 #define G0Q_REPORT_SITE board.stage2.site
 #endif
@@ -57,13 +57,19 @@ static int report(char *buf, const struct kernel_param *kp)
 {
 	struct g0q_link *link = &board.link;
 
-	return scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u %u %u %u %u\n",
+	int size = scnprintf(buf, PAGE_SIZE, "%d %u %u %u %u %u %u %u %u %u %u %u %u %u %u %u %d %u %u %u %u %u %u",
 			 operation_rc, stage, link->version, link->hw.pcs_ready,
 			 link->local_commands, link->link_issued, link->before,
 			 link->interrupt, link->result, link->after, link->hce_started,
 			 power.records, power.claimed, power.triggered, power.acknowledged,
 			 power.reclaimed, power.error, usb_covered, usb_released,
 			 usb_reason, usb_detail, G0Q_REPORT_SITE, board.stage2.checks);
+#ifdef G0Q_HCI_SNAPSHOT
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %u", board.stage2.captured);
+	for (unsigned int i = 0; i < 6; i++)
+		size += scnprintf(buf + size, PAGE_SIZE - size, " %u", board.stage2.raw[i]);
+#endif
+	return size + scnprintf(buf + size, PAGE_SIZE - size, "\n");
 }
 static const struct kernel_param_ops report_ops = { .get = report };
 module_param_cb(result, &report_ops, NULL, 0444);

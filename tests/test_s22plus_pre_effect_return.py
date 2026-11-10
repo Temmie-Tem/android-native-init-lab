@@ -9,7 +9,7 @@ from test_s22plus_stage2_diagnostics import ROOT, SOURCE, function
 from test_s22plus_ml030_wire import KEY, ID, WIT, GOOD, record, w
 
 
-def compile_pre_effect(out, *, compiler='cc', enabled=True, guest=False):
+def compile_pre_effect(out, *, compiler='cc', enabled=True, guest=False, snapshot=False):
     out.mkdir(parents=True, exist_ok=True)
     (out/'linux').mkdir(exist_ok=True)
     (out/'linux/types.h').touch()
@@ -23,6 +23,7 @@ def compile_pre_effect(out, *, compiler='cc', enabled=True, guest=False):
     (out/'guest.inc').write_text(function((SOURCE/'link-runtime.h').read_text(),'static int ml030_module_result('))
     exe=out/('guest' if guest else 'entry')
     flags=(['-DG0Q_PRE_EFFECT_RETURN'] if enabled else [])+(['-static'] if compiler!='cc' else [])
+    if snapshot:flags.append('-DG0Q_HCI_SNAPSHOT')
     subprocess.run([compiler,'-std=gnu11','-O2','-Wall','-Wextra','-Werror','-Wno-unused-parameter',
                     '-Wno-unused-variable',*flags,'-I',out,'-I',SOURCE,
                     ROOT/('tests/s22plus_pre_effect_guest_fixture.c' if guest else 'tests/s22plus_pre_effect_fixture.c'),

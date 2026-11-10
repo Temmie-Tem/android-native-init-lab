@@ -168,7 +168,7 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, diagnostic/report-v4 module and key-only candidate schema. The exact
+Image, one reviewed report-v4 or v5 module and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -182,6 +182,11 @@ UniPro commands, at most one link command and one N/original-A total remain.
 Only the shared policy's certified settled pre-overlay coverage refusal gains
 its narrow normal Download path; stage two and later remain excluded.
 Unobserved predicates remain unobserved, and refusal retains UFS NO_PROOF.
+The separately reviewed V5 scope preserves the original HCE read and permits
+only the shared policy's five bounded additional HCI reads after a defined
+nonzero HCE value. Raw captures are separate from predicate evaluation, and
+all such refusals retain physical Download/original-A recovery. No added HCE write,
+status clear, reset reordering, guard relaxation or new return class is adopted.
 The existing foreground mainline preapproval D0 applies to a prepared V2 task.
 There is no standing effect grant, replay or transfer of another target's
 authority. A new candidate requires prior validated healthy closure and no

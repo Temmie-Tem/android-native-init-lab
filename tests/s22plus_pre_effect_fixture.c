@@ -87,7 +87,11 @@ static int platform_driver_probe(void *driver,int (*probe)(void *))
 	assert(driver==&link_driver && probe==once_probe);probe_calls++;
 	if (!strcmp(scenario,"probe-failed")) return -EBUSY;
 	stage=2;operation_rc=-EBUSY;board.link.version=0x40000000;
-	board.stage2.site=0x104;board.stage2.checks=1|(1U<<11);return 0;
+	board.stage2.site=0x104;board.stage2.checks=1|(1U<<11);
+#ifdef G0Q_HCI_SNAPSHOT
+	board.stage2.captured=1;board.stage2.raw[0]=1;
+#endif
+	return 0;
 }
 static void pm_runtime_put_noidle(struct device *dev) { assert(dev==&usb_device);released++; }
 static void put_device(struct device *dev) { assert(dev==&usb_device);released++; }

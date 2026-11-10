@@ -29,6 +29,10 @@ enum g0q_stage2_check {
 };
 struct g0q_stage2_diag {
 	u32 site, checks;
+	/* V5 raw captures are separate from the unchanged predicate history.
+	 * Order: HCE, HCS, transfer doorbell, task doorbell, IE, IS.
+	 */
+	u32 captured, raw[6];
 };
 
 static inline int g0q_stage2_error(struct g0q_stage2_diag *diag,

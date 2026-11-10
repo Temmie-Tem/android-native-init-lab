@@ -53,12 +53,13 @@ def seal_text(identity, key, net, mod):
     return "\n".join(seal)+"\n"
 
 
-def compile_command(out, *, vm, pre_effect_return, destination=None):
+def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, destination=None):
     exe = destination or out/"observer"
     cmd = ["aarch64-linux-gnu-gcc", "-std=c11","-Os","-static","-Wall","-Wextra","-Werror",
            "-Wno-unused-function","-Wno-unused-const-variable","-ffunction-sections","-fdata-sections",
            "-Wl,--gc-sections","-Wl,--build-id=none","-DCANARY_DEBIAN_RAM","-DCANARY_DOWNLOAD_RAM",
            "-DML030_G0Q_MODULE",*(["-DG0Q_PRE_EFFECT_RETURN"] if pre_effect_return else []),
+           *(["-DG0Q_HCI_SNAPSHOT"] if hci_snapshot else []),
            *(["-DCANARY_H0_VM"] if vm else []),"-I",out,"-I",HERE,"-I",CANARY,
            out/"observer.c","-o",exe]
     return list(map(str, cmd))
@@ -75,7 +76,8 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     kernel = json.loads((kr/"guard-result.json").read_bytes())
     record = json.loads(component.read_bytes())
     require(record.get('pre_effect_return', False) is pre_effect_return and
-            (not pre_effect_return or record.get('report_version') == 4), 'module/observer return mode differs')
+            (not pre_effect_return or record.get('report_version') in (4, 5)), 'module/observer return mode differs')
+    hci_snapshot = record.get('report_version') == 5
     mod = Path(record["module_path"])
     require(kernel["sha256"] == digest(Path(kernel["image"])) == record["selected_kernel"] and
             record["transport"] == kernel["transport_sha256"] == digest(kr/"transport.json") and
@@ -96,6 +98,8 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     recipe = dict(schema=SCHEMA, vm=vm, inputs=inputs, key_digest=hashlib.sha256(key).hexdigest())
     if pre_effect_return:
         recipe['pre_effect_return'] = True
+    if hci_snapshot:
+        recipe['report_version'] = 5
     identity = hashlib.sha256(json.dumps(recipe,sort_keys=True,separators=(",",":")).encode()).digest()
     net = json.loads(net_file.read_bytes())
     net.update(device_mac="02:"+":".join(f"{v:02x}" for v in identity[:5]),
@@ -104,7 +108,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     (out/"seal.h").write_text(seal_text(identity, key, net, mod))
     with (out/"key.bin").open("xb") as file: file.write(key)
     exe = out/"observer"
-    cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return)
+    cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return, hci_snapshot=hci_snapshot)
     import build_evidence
     provenance = build_evidence.compile_observer(cmd, out)
     info = subprocess.check_output(["file",exe])
@@ -125,7 +129,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
                     dtb=debian.pin(dtb), initrd_address=0xb6915000, debian_ram=declaration,
                     device_actions=0, physical_admitted=False)
     if pre_effect_return:
-        manifest.update(report_version=4, pre_effect_return=True)
+        manifest.update(report_version=record['report_version'], pre_effect_return=True)
     (out/"result.json").write_text(json.dumps(manifest,indent=2)+"\n")
     (out/"producer.json").write_text(json.dumps(dict(compile_command=list(map(str,cmd)),
         recipe=recipe,seal=debian.pin(out/"seal.h"),provenance=provenance),indent=2)+"\n")

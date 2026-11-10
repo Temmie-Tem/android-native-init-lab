@@ -431,7 +431,7 @@ permission to perform host-only work.
    hardware scope to fresh key-only candidates on this exact S22+ FYG8 target.
    The target must adopt the shared scope and each candidate must bind the
    same independently reviewed immutable capability: its fixed ML035 Image,
-   reduced no-display DT/configuration, stage-two diagnostic/report-v4 module,
+   reduced no-display DT/configuration, one fixed reviewed report-v4 or v5 module,
    four-package RAM userspace, protocol, network and producer/toolchain inputs.
    Only a new authentication key, deterministic derived identity and their
    unchanged-producer artifacts may vary without a new capability review or
@@ -445,16 +445,25 @@ permission to perform host-only work.
    All ML030 late-hardware and ML034 USB-admission predicates, original
    120/300/540/15-second bounds, six fixed local UniPro commands, at most one
    DME_LINK_STARTUP, one N and one original A total remain mandatory. Stage-two
-   diagnostics retain the original short-circuit reads and errno; an
-   unevaluated predicate remains unobserved. No extra diagnostic MMIO read,
+   diagnostics retain the original short-circuit predicate evaluation and errno;
+   an unevaluated predicate remains unobserved. V4 retains its original reads.
+   The separately reviewed V5 diagnostic preserves the original HCE read value
+   and, only after valid version checks with HCE exactly 1/2/3, permits at most
+   one read each of HCS, transfer doorbell, task doorbell, interrupt enable and
+   interrupt status in that order. Every added read requires time remaining in
+   the original absolute module budget. It records a separate raw captured
+   prefix and still rejects the nonzero HCE with EBUSY; HCE==0 retains the
+   existing link flow. No extra reset-pin, run/stop, auto-hibernate, list-pointer,
+   PHY or UIC-error read is admitted. No added HCE write, status clear, reset reordering,
    relaxed admission, slot replay, display client, SCSI/media, fDeviceInit,
    LU/partition/filesystem access, ICE/key or unattended effect is admitted.
-   Report v4 additionally permits the existing authenticated normal Download
+   Reports v4/v5 additionally permit the existing authenticated normal Download
    transaction after a certified USB-coverage refusal before overlay dispatch,
    with no outstanding USB reference, stage-two work, fixed RPMh request/error,
    and with actual RPMh arena teardown complete. The fixed module certifies
    that path; both guest and host independently validate the exact bounded
-   report. A zero stage/count or a failed call alone is insufficient. Overlay
+   report; v5 requires all additional snapshot fields to be zero on that path.
+   A zero stage/count or a failed call alone is insufficient. Overlay
    attempts, stage two or later, partial/unknown work, malformed or unauthenticated
    evidence and expired windows are excluded and retain physical recovery.
    The complete-result digest, original socket/nonce/boot, one durable control
@@ -466,7 +475,7 @@ permission to perform host-only work.
    Existing physical-attach cue/interlock and original-owner health-only
    continuation remain unchanged. The fixed foreground preapproval D0 may
    validate a prepared V2 task under the current research request; it grants
-   no control or transfer. Consumed ML028 and ML030–ML035 retain all original
+   no control or transfer. Consumed ML028 and ML030–ML036 retain all original
    artifacts, approvals, source provenance and journals and cannot replay.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google

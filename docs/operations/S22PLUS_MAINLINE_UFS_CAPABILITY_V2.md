@@ -37,7 +37,8 @@ The adopted fixed hardware artifacts are:
 | Artifact | SHA-256 |
 | --- | --- |
 | Mainline Image with the reviewed six unused display BCM producers removed | `c4f8d9b0fad688d1a9682dc9c3aac2fd4ab2abfde9d14da858b2b89190ac7e72` |
-| Stage-two diagnostic and pre-effect-return module | `8e969ae4e9ce8cbb826395d2faa0e2edadea85c723e8c928d86eb757c4c93bfc` |
+| Retained report-v4 diagnostic and pre-effect-return module | `8e969ae4e9ce8cbb826395d2faa0e2edadea85c723e8c928d86eb757c4c93bfc` |
+| Report-v5 same-read HCE and bounded HCI snapshot module | `f05ceefe7197dd7e914051bb7351879e457a3a19790688e7044cbc5055d9c8a5` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -46,8 +47,50 @@ provenance. An independently reviewed adoption receipt binds the complete
 reachable source closure, including the common/target policy and original-A
 owner; the earlier H0-only review is supporting evidence, not that adoption
 receipt. The stage-two site and evaluated/failed masks preserve the original
-short-circuit reads, error semantics and guards. Unevaluated conditions remain
-unobserved; no extra diagnostic MMIO read or historical cause is inferred.
+short-circuit predicate evaluation, error semantics and guards. Unevaluated
+conditions remain unobserved. V4 adds no MMIO read; the separately reviewed
+V5 module adds only the five fixed reads below. Each immutable capability binds
+exactly one report mode and matching module/observer; mode is not candidate data.
+
+### Report-v5 bounded HCI snapshot
+
+The operator's 2026-11-10 continuation request selects H0 implementation and
+one next attended experiment for the ML036 HCE rejection. V5 preserves the
+full HCE word from the original stage-two read, without rereading HCE. Only
+after the existing version checks and only when that word is exactly 1, 2 or 3
+may it read HCS (0x30), transfer doorbell (0x58), task doorbell (0x78), interrupt
+enable (0x24), then interrupt status (0x20), at most once each, in that order.
+Each added read requires remaining time in the original absolute module budget;
+expiry stops the snapshot at its completed prefix. These are added MMIO accesses,
+not a claim of zero hardware activity. The access predicate confines diagnosis
+to defined HCE states; it never permits the refused operation to continue.
+
+The original HCE nonzero result still returns EBUSY at HCI/QUIESCENT. Its later
+predicates remain unevaluated; raw captured values have a separate captured
+mask and cannot become predicate PASS/FAIL or ownership/idle-DMA proof. HCE==0
+continues the unchanged existing link path. Unknown HCE bits permit only the
+same-read HCE record. No reset-pin, run/stop, auto-hibernate, request-list
+pointer, PHY or UIC-error register read is added. The later pre-link check has
+no snapshot. No added HCE write, status clear, reset reordering, guard relaxation,
+new command, hardware retry or deadline extension is included.
+
+The fixed v5 report has 30 decimal fields within the existing 256-byte envelope:
+the original 23 fields with tag 0x50000000, followed by a six-bit captured prefix
+mask and HCE/HCS/transfer-doorbell/task-doorbell/IE/IS raw words. Uncaptured
+words are zero and decode to unavailable. The existing evaluated/failed masks
+and errno retain their v4 meanings. Historical v1-v4 decoding stays explicit;
+mixed report modes and impossible capture histories fail closed. Additional
+captures exist only on the HCE-refusal path, where all later UFS/power-command
+fields remain zero; capacity is qualified on those reachable paths.
+
+V5 keeps the same pre-overlay normal-return certificate, requiring every new
+snapshot word to be zero on that path. Stage-two refusal, including partial
+snapshot or added-access failure, remains outside normal return. The attended
+physical Download/original-A route is retained, without claiming ML036 already
+proved recovery coverage for every new access failure. Changed producer,
+schema, guest/host consumers, common/target adoption and exact artifacts need
+one coherent independent review before a new capability can be selected.
+The existing v4 capability, ML036 approval and consumed records are not repinned.
 
 Candidate qualification uses the existing image/task preparation path. It
 reproduces the complete observer ELF from its generated source and key,
@@ -74,7 +117,8 @@ original-deadline and physical-recovery conditions of common boundary 3's
 ML030 delegation. The existing ML034 bounded USB coverage conditions and
 ML035 no-display producer correction also apply. This adopts those conditions,
 not earlier artifact tables, approvals or consumed authority. The only return
-specialization is the narrow report-v4 class below.
+specialization is the narrow pre-overlay class below. The V5 diagnostic access
+specialization is limited to the preceding fixed snapshot.
 
 One healthy-Android-origin operation may transfer one boot-only N, authenticate
 the first response within 120 seconds of its launch, then obtain a fresh
@@ -102,7 +146,7 @@ second attempt. There is no standing grant or same-candidate repeat lane.
 
 ## Narrow normal-return extension
 
-Report v4 is selected by the reviewed capability and matching module/guest
+Report v4 or v5 is selected by the reviewed capability and matching module/guest
 mode. It retains the 256-byte result envelope, authenticated result binding,
 original one-shot controls and the 120/300/540/15-second limits. All existing
 USB/PM/ICC/BCM and later UFS admission predicates remain in force.
@@ -112,8 +156,9 @@ the existing successful link result or the new `PRE_EFFECT_REJECTION` class.
 The new class requires an actual USB-coverage refusal before overlay dispatch,
 no outstanding USB reference, no stage-two or later work, no fixed RPMh request
 or error, and completed RPMh arena teardown. The module produces the certificate
-only on that exact path; guest and host independently validate its strict v4
-encoding. A bare stage-zero number, zero command count, failed function return
+only on that exact path; guest and host independently validate the matching
+strict v4/v5 encoding, including zero extra snapshot fields for v5. A bare
+stage-zero number, zero command count, failed function return
 or `usb_released=false` is insufficient. Overlay attempts, partial preparation,
 stage two and later failures, malformed/partial responses, unknown work and
 expired windows remain outside the extension.

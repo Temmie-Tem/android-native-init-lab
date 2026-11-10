@@ -109,16 +109,17 @@ class Ml030WireTests(unittest.TestCase):
                     if version>=2:numbers=numbers[:-1]+b' 132352 0\n'
                     if version==3:numbers=numbers[:-1]+b' 0 2047\n'
                     if version==4:numbers=numbers[:-1]+b' 1073741824 2047\n'
+                    if version==5:numbers=numbers[:-1]+b' 1342177280 2047 1 0 0 0 0 0 0\n'
                     if case=='usb-rejection':numbers=b'-16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 65554 1\n'
                     if case=='stage2-rejection':
                         from test_s22plus_stage2_diagnostics import compile_stage_fixture
-                        exe=compile_stage_fixture(directory/'stage2-producer')
+                        exe=compile_stage_fixture(directory/'stage2-producer',snapshot=version==5)
                         numbers=subprocess.check_output([exe,'0','1','-16','1','0'],stderr=subprocess.DEVNULL,timeout=5)
                     if case.startswith('pre-effect-'):
                         from test_s22plus_pre_effect_return import compile_pre_effect, module_report
-                        exe=compile_pre_effect(directory/'pre-effect-producer')
+                        exe=compile_pre_effect(directory/'pre-effect-producer',snapshot=version==5)
                         numbers=module_report(exe,'stage2' if case=='pre-effect-stage2' else 'refuse')
-                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True)
+                        guest=compile_pre_effect(directory/'pre-effect-guest',guest=True,snapshot=version==5)
                         gate=int(subprocess.check_output([guest],input=numbers,timeout=5))
                         self.assertEqual(gate==0,case!='pre-effect-stage2')
                     body+=struct.pack('<III',0,0,len(numbers))+numbers.ljust(256,b'\0')
@@ -188,6 +189,10 @@ class Ml030WireTests(unittest.TestCase):
                 self.assertEqual(fact['stage2_failure'],{'component':'HCI','operation':'QUIESCENT'})
                 self.assertEqual(fact['stage2_conditions']['HCE'],'FAIL')
                 self.assertEqual(fact['stage2_conditions']['HCS'],'UNOBSERVED')
+                if version==5:
+                    self.assertEqual(fact['hci_snapshot_captured'],63)
+                    self.assertEqual(fact['hci_snapshot']['HCE'],1)
+                    self.assertEqual(fact['hci_snapshot']['HCS'],1)
                 self.assertFalse(fact['normal_return'])
                 self.assertFalse((folder/'control-intent.json').exists())
             if case.startswith('pre-effect-'):
@@ -219,6 +224,10 @@ class Ml030WireTests(unittest.TestCase):
     def test_diagnostic_success_and_rederived_late_return(self):self.run_case('success',version=2)
     def test_stage2_schema_success_keeps_original_return_conditions(self):self.run_case('success',version=3)
     def test_actual_stage2_report_preserves_raw_and_stops_return(self):self.run_case('stage2-rejection',version=3)
+    def test_snapshot_actual_report_preserves_raw_and_stops_return(self):self.run_case('stage2-rejection',version=5)
+    def test_snapshot_success_keeps_original_return(self):self.run_case('success',version=5)
+    def test_snapshot_pre_effect_certificate_and_return(self):self.run_case('pre-effect-success',version=5)
+    def test_snapshot_stage2_never_returns(self):self.run_case('pre-effect-stage2',version=5)
     def test_pre_effect_actual_guest_host_return(self):self.run_case('pre-effect-success',version=4)
     def test_pre_effect_failed_ack_does_not_prove_return(self):self.run_case('pre-effect-bad-ack',version=4)
     def test_pre_effect_does_not_extend_return_deadline(self):self.run_case('pre-effect-expired-at-return',version=4)

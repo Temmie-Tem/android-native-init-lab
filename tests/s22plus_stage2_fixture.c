@@ -64,6 +64,7 @@ static unsigned int event_count, fault_event, guard_bit;
 static int injected_errno;
 static u32 hcs_fault = 1;
 static bool hci_expired;
+static unsigned int clock_calls, expire_clock;
 static int event(const char *kind, const char *name)
 {
 	event_count++;
@@ -73,7 +74,8 @@ static int event(const char *kind, const char *name)
 static u64 ktime_get_boottime_ns(void)
 {
 	event("clock", "hci");
-	return hci_expired ? 5000000000ULL : 10;
+	clock_calls++;
+	return hci_expired || (expire_clock && clock_calls >= expire_clock) ? 5000000000ULL : 10;
 }
 static void usleep_range(unsigned int lo, unsigned int hi) { (void)lo; (void)hi; assert(0); }
 static u32 readl(const void *addr)
@@ -198,7 +200,7 @@ static int model_close(int fd) { assert(fd==1);return 0; }
 
 int main(int argc, char **argv)
 {
-	assert(argc==6);
+	assert(argc==6 || argc==9);
 	fault_event=(unsigned int)strtoul(argv[1],NULL,0);
 	guard_bit=(unsigned int)strtoul(argv[2],NULL,0);
 	injected_errno=atoi(argv[3]);
@@ -215,6 +217,14 @@ int main(int argc, char **argv)
 	if (guard_bit) for (unsigned int i=guard_bit-1;i<11;i++) {
 		if (i<9) hci[offsets[i]/4]=i==1 ? hcs_fault : 1;
 		else pins[i-9]=0;
+	}
+	if (argc==9) {
+		hci[REG_CONTROLLER_ENABLE/4]=(u32)strtoul(argv[6],NULL,0);
+		expire_clock=(unsigned int)strtoul(argv[7],NULL,0);
+		u32 fill=(u32)strtoul(argv[8],NULL,0);
+		const unsigned int samples[]={REG_CONTROLLER_STATUS,REG_UTP_TRANSFER_REQ_DOOR_BELL,
+			REG_UTP_TASK_REQ_DOOR_BELL,REG_INTERRUPT_ENABLE,REG_INTERRUPT_STATUS};
+		for (unsigned int i=0;i<ARRAY_SIZE(samples);i++) hci[samples[i]/4]=fill;
 	}
 	board.link.hw.deadline_ns=5000000000ULL;
 	struct platform_device pdev={0};

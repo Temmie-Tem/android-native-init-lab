@@ -19,7 +19,7 @@ def function(text, signature):
     return text[start:text.index('\n}\n', start)+3]
 
 
-def compile_stage_fixture(out, compiler='cc', *, source=SOURCE, legacy=False):
+def compile_stage_fixture(out, compiler='cc', *, source=SOURCE, legacy=False, snapshot=False):
     """Extract byte-identical production functions; substitute kernel APIs only."""
     out.mkdir(parents=True, exist_ok=True)
     for header in HEADERS:
@@ -37,6 +37,8 @@ def compile_stage_fixture(out, compiler='cc', *, source=SOURCE, legacy=False):
     flags = ['-static'] if compiler != 'cc' else []
     if legacy:
         flags.append('-DLEGACY_STAGE2')
+    if snapshot:
+        flags += ['-DG0Q_PRE_EFFECT_RETURN', '-DG0Q_HCI_SNAPSHOT']
     subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
                     '-Wno-unused-parameter', '-Wno-unused-variable', *flags,
                     '-I', out, '-I', source, ROOT/'tests/s22plus_stage2_fixture.c', '-o', exe], check=True)

@@ -5,8 +5,15 @@
 #ifndef G0Q_LINK_REPORT_H
 #define G0Q_LINK_REPORT_H
 #define G0Q_REPORT_V4_TAG 0x40000000U
+#define G0Q_REPORT_V5_TAG 0x50000000U
 #define G0Q_PRE_EFFECT_CERT 0x00010000U
+#ifdef G0Q_HCI_SNAPSHOT
+#define G0Q_REPORT_TAG G0Q_REPORT_V5_TAG
+#define G0Q_REPORT_FIELDS 30
+#else
+#define G0Q_REPORT_TAG G0Q_REPORT_V4_TAG
 #define G0Q_REPORT_FIELDS 23
+#endif
 
 static inline int g0q_report_parse(const unsigned char *data, unsigned int size,
 				 long long values[G0Q_REPORT_FIELDS])
@@ -42,8 +49,11 @@ static inline int g0q_pre_effect_fields(const long long values[G0Q_REPORT_FIELDS
 {
 	unsigned int code = (unsigned int)values[19] & 255;
 	if (values[0] >= 0 || values[0] < -4095 || code <= 2 || code > 20 ||
-	    values[21] != (G0Q_REPORT_V4_TAG | G0Q_PRE_EFFECT_CERT) || values[22])
+	    values[21] != (G0Q_REPORT_TAG | G0Q_PRE_EFFECT_CERT) || values[22])
 		return 0;
+	for (unsigned int i = 23; i < G0Q_REPORT_FIELDS; i++)
+		if (values[i])
+			return 0;
 	/* Stage, reached UFS state, fixed RPMh history/error and exported USB
 	 * references are all zero; the module certifies its internal unwind.
 	 */

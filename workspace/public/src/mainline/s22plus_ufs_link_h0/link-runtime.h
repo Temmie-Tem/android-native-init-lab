@@ -98,7 +98,7 @@ static int ml030_module_result(int fd, const uint8_t witness[ML030_FRAME])
 #ifdef G0Q_PRE_EFFECT_RETURN
     long long values[G0Q_REPORT_FIELDS];
     if (g0q_report_parse(record + ML030_BODY + 12, (unsigned int)size, values) ||
-        (values[21] & ~0x1ffffLL) != G0Q_REPORT_V4_TAG ||
+        (values[21] & ~0x1ffffLL) != G0Q_REPORT_TAG ||
         (values[0] == 0 && (values[21] & G0Q_PRE_EFFECT_CERT)) ||
         (values[0] != 0 && !g0q_pre_effect_fields(values))) return EPROTO;
 #else

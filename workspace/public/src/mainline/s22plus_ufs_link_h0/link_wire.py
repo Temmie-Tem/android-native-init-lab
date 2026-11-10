@@ -22,6 +22,7 @@ STAGE2_OPERATIONS = ('NONE', 'DEADLINE', 'UFS_VERSION', 'HW_VERSION', 'QUIESCENT
                      'PARENT_READBACK', 'AFTER_SUPPLY')
 STAGE2_CHECKS = ('HCE', 'HCS', 'TRANSFER_DOORBELL', 'TASK_DOORBELL', 'TRANSFER_RUN',
                  'TASK_RUN', 'IRQ_ENABLE', 'IRQ_STATUS', 'AUTO_HIBERNATE', 'RESET_OUTPUT', 'RESET_HIGH')
+HCI_SAMPLES = ('HCE', 'HCS', 'TRANSFER_DOORBELL', 'TASK_DOORBELL', 'IRQ_ENABLE', 'IRQ_STATUS')
 
 
 def check(value, message):
@@ -144,8 +145,28 @@ def stage2_diagnostics(values):
                                    for i, name in enumerate(STAGE2_CHECKS)})
 
 
+def hci_snapshot(values):
+    """Raw captures never upgrade the separate short-circuit predicate proof."""
+    captured, *samples = values[23:]
+    check(len(samples) == 6 and 0 <= captured < 64 and not (captured & (captured + 1)) and
+          all(0 <= x < 1 << 32 for x in samples), 'HCI snapshot shape')
+    observed, failed = values[22] & 0x7ff, (values[22] >> 11) & 0x7ff
+    check(bool(captured) == bool(observed & 1) and
+          bool(samples[0]) == bool(failed & 1), 'HCI snapshot original predicate')
+    check(all(value == 0 for i, value in enumerate(samples) if not captured & (1 << i)),
+          'HCI uncaptured value')
+    if captured > 1:
+        check(samples[0] in (1, 2, 3) and values[:2] == [-16, 2] and
+              values[21] & 0xffff == 0x104 and observed == failed == 1,
+              'HCI additional read outside refusal scope')
+    hw_read = values[1] >= 2 and (values[21] & 0xffff) not in (0x101, 0x102)
+    return dict(hci_snapshot_captured=captured, hci_hw_version=values[2] if hw_read else None,
+                hci_snapshot={name:(samples[i] if captured & (1 << i) else None)
+                              for i, name in enumerate(HCI_SAMPLES)})
+
+
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3, 4), 'unselected module report schema')
+    check(report_version in (1, 2, 3, 4, 5), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -159,7 +180,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
     if load or read:
         return dict(status="NO_PROOF",load_errno=load,read_errno=read,report_bytes=size,normal_return=False)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23, 4:23}[report_version]
+    fields = {1:19, 2:21, 3:23, 4:23, 5:30}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -179,9 +200,10 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         facts.update(usb_diagnostics(values[:21]))
     pre_effect = False
     if report_version >= 3:
-        diagnostic = values.copy()
-        if report_version == 4:
-            check(0 <= values[21] < 1 << 32 and values[21] & ~0x1ffff == 0x40000000,
+        diagnostic = values[:23]
+        if report_version >= 4:
+            check(0 <= values[21] < 1 << 32 and
+                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000}[report_version],
                   'pre-effect report version tag')
             pre_effect = bool(values[21] & 0x10000)
             diagnostic[21] &= 0xffff
@@ -189,6 +211,8 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
                 check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
                       and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
         facts.update(stage2_diagnostics(diagnostic))
+        if report_version == 5:
+            facts.update(hci_snapshot(values))
     if pre_effect:
         return dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest())

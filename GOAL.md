@@ -30,6 +30,23 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML037 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** Its
+  HCE-state diagnostic capability passed 54 focused checks, independent
+  PASS_GO, fresh complete artifact qualification and v41 preparation. The
+  exact attended operation transferred N once but all 88 selected USB censuses
+  were absent through the original first-response window. One timely cue was
+  issued; the actual completion reply arrived after expiry, with physical
+  reconnection time unmeasured. No base request, five-minute witness or module
+  permit was issued, so the new diagnostic has no physical result. The cue was
+  resolved before separate physical Download; original A transferred once and
+  the first seven-read health bracket passed. No profile was created and no F1
+  owner remains. The H0 implementation and one attended experiment are complete;
+  the HCE-state question remains unproved. A future fresh candidate may reuse
+  the unchanged reviewed capability but needs its own current attended
+  admission. No guard or deadline was relaxed and ML037 cannot replay.
+  [Physical run and raw audit](docs/reports/S22PLUS_MAINLINE_ML037_RUN_2026-11-10.md)
+  · [Implementation and qualification](docs/reports/S22PLUS_MAINLINE_ML037_HCE_SNAPSHOT_H0_2026-11-10.md).
+
 - **ML036 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** The first
   shared-V2 physical run passed USB admission and the five-minute same-boot
   witness. Its new diagnostic identifies stage 2 / HCI QUIESCENT / HCE FAIL:
