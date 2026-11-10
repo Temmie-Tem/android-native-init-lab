@@ -23,6 +23,10 @@
 #define G0Q_DISABLED_UCRDY_MASK UIC_COMMAND_READY
 #endif
 
+#if defined(G0Q_STALE_UCCS_ACK) && !defined(G0Q_DISABLED_UCRDY)
+#error "Initial completion acknowledgement requires the V8 handoff mode"
+#endif
+
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
 #define PHY_LINECFG_DISABLE 0xd48
@@ -40,6 +44,17 @@ bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
 	u32 raw = readl(reg);
 	u32 failure = expected ? ((raw & mask) != expected) : (raw & mask);
 
+#ifdef G0Q_STALE_UCCS_ACK
+	/* Admit only the exact initial completion already seen before a timely
+	 * stop. Finish AHIT and both pin predicates before the separate effect.
+	 * NULL diagnostics (stage six) and the cold path keep strict IS == 0.
+	 */
+	if (diag && bit == G0Q_S2_IRQ_STATUS && raw == UIC_COMMAND_COMPL &&
+	    diag->handoff_flags == 8191 && diag->pre_is == UIC_COMMAND_COMPL) {
+		diag->checks |= G0Q_ACK_PENDING;
+		failure = 0;
+	}
+#endif
 #ifdef G0Q_HCE_HANDOFF
 	if (diag && failure) {
 		diag->refusal_index = bit + 1;
@@ -253,6 +268,56 @@ int g0q_hci_quiescent(struct g0q_link *link)
 	/* The later pre-link check must not overwrite stage-two evidence. */
 	return g0q_hci_quiescent_observed(link, NULL);
 }
+
+#ifdef G0Q_STALE_UCCS_ACK
+int g0q_hci_ack_initial(struct g0q_link *link, struct g0q_stage2_diag *diag)
+{
+	void __iomem *hci = link->hw.hci;
+	u32 value;
+
+	/* The board owns this latch for the module lifetime. Reload/reboot is
+	 * bounded separately by the one-permit owner, never by this RAM latch.
+	 */
+	if (link->initial_ack_taken)
+		return -EALREADY;
+	if (!diag)
+		return -EPERM;
+	if (!(diag->checks & G0Q_ACK_PENDING))
+		return 0;
+	if ((diag->checks & ~(UIC_COMMAND_READY << 22)) != (G0Q_ACK_PENDING | 0x7ff) ||
+	    diag->site || diag->handoff_flags != 8191 || diag->pre_is != UIC_COMMAND_COMPL)
+		return -EPERM;
+	if (budget(link))
+		return handoff_failure(diag, G0Q_S2_ACK_DEADLINE, -ETIMEDOUT, 0, 0);
+	value = readl(hci + REG_CONTROLLER_ENABLE);
+	if (value)
+		return handoff_failure(diag, G0Q_S2_ACK_DRIFT, -EBUSY, 1, value);
+	if (budget(link))
+		return handoff_failure(diag, G0Q_S2_ACK_DEADLINE, -ETIMEDOUT, 0, 0);
+	value = readl(hci + REG_INTERRUPT_STATUS);
+	if (value != UIC_COMMAND_COMPL)
+		return handoff_failure(diag, G0Q_S2_ACK_DRIFT, -EBUSY, 8, value);
+	if (budget(link))
+		return handoff_failure(diag, G0Q_S2_ACK_DEADLINE, -ETIMEDOUT, 0, 0);
+	/* These nearby reads are not an atomic hardware snapshot. No locking,
+	 * polling, RMW, fault-bit clearing or second store is introduced.
+	 */
+	link->initial_ack_taken = true;
+	diag->checks |= G0Q_ACK_ISSUED;
+	writel(UIC_COMMAND_COMPL, hci + REG_INTERRUPT_STATUS);
+	if (budget(link))
+		return handoff_failure(diag, G0Q_S2_ACK_DEADLINE, -ETIMEDOUT, 0, 0);
+	value = readl(hci + REG_INTERRUPT_STATUS);
+	diag->checks |= G0Q_ACK_READBACK;
+	if (!value)
+		diag->checks |= G0Q_ACK_ZERO;
+	if (budget(link))
+		return handoff_failure(diag, G0Q_S2_ACK_DEADLINE, -ETIMEDOUT, 8, value);
+	if (value)
+		return handoff_failure(diag, G0Q_S2_ACK_READBACK, -EIO, 8, value);
+	return 0;
+}
+#endif
 
 static int command(struct g0q_link *link, u32 opcode, u32 attribute, u32 argument,
 		   u32 *response)

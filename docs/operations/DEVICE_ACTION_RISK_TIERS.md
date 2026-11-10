@@ -196,7 +196,11 @@ or electrical-state claim; its complete conditions remain in the shared policy.
 V8 separately changes only the three disabled-HCS readiness predicates and
 retains their same-read diagnostic sample under the shared policy; enabled
 command readiness and all other guards remain. It adds no access or effect slot.
-V6/V7/V8's separately reviewed single-child ordinary Download attempt and fixed
+V9 adds only the shared policy's initial exact 0x400 completion acknowledgement
+after a timely stop and all guards, with near-effect HCE/IS checks, one constant
+write, one timely zero readback and no retry. Its distinct evidence/provenance
+and later strict IS-zero requirements are mandatory.
+V6/V7/V8/V9's separately reviewed single-child ordinary Download attempt and fixed
 original-owner recovery apply even when the handoff result is unclear; only
 proved exact arrival admits A, with no replay or renewed automatic window.
 Physical Download remains its fallback, and conditional unattended F1 remains

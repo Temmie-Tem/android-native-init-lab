@@ -74,6 +74,9 @@ static bool after_handoff;
 static bool matrix_after_stop;
 static u32 matrix_ctl, matrix_io;
 #endif
+#ifdef G0Q_STALE_UCCS_ACK
+static unsigned int ack_case, ack_writes, is_reads;
+#endif
 static int event(const char *kind, const char *name)
 {
 	event_count++;
@@ -115,12 +118,33 @@ static u32 readl(const void *addr)
 		hce_reads++;
 		if (handoff_case == 10 && hce_reads == 2)
 			return 0;
+#ifdef G0Q_STALE_UCCS_ACK
+		if (ack_case == 6 && hce_reads == 4)
+			return 1;
+#endif
+	}
+#endif
+#ifdef G0Q_STALE_UCCS_ACK
+	if (addr == hci + REG_INTERRUPT_STATUS / 4) {
+		is_reads++;
+		if (is_reads == 3 && ack_case == 7) return 0;
+		if (is_reads == 3 && ack_case == 8) return 0x800;
+		if (ack_writes && (ack_case == 11 || ack_case == 12)) hci_expired = true;
 	}
 #endif
 	return *(const u32 *)addr;
 }
 static void writel(u32 value, void *addr)
 {
+#ifdef G0Q_STALE_UCCS_ACK
+	if (addr == hci + REG_INTERRUPT_STATUS / 4) {
+		assert(value == UIC_COMMAND_COMPL && !ack_writes);
+		ack_writes++;
+		event("write", "hci:20=400");
+		*(u32 *)addr = ack_case == 9 || ack_case == 12 ? 0x400 : ack_case == 10 ? 0x800 : 0;
+		return;
+	}
+#endif
 #ifdef G0Q_HCE_HANDOFF
 	assert(addr == hci + REG_CONTROLLER_ENABLE / 4 && value == 0 && !handoff_writes);
 	handoff_writes++;
@@ -134,6 +158,10 @@ static void writel(u32 value, void *addr)
 	if (handoff_case == 11) hci[REG_CONTROLLER_ENABLE/4]=1;
 	if (handoff_case == 12) hci[REG_CONTROLLER_ENABLE/4]=2;
 	if (handoff_case == 22) hci[REG_CONTROLLER_STATUS/4]=8;
+#ifdef G0Q_STALE_UCCS_ACK
+	if (ack_case && ack_case != 2)
+		hci[REG_INTERRUPT_STATUS/4] = ack_case == 5 ? 0x401 : 0x400;
+#endif
 #ifdef G0Q_RESET_CONFIG
 	if (matrix_after_stop) { pins[0]=matrix_ctl; pins[1]=matrix_io; }
 #endif
@@ -261,12 +289,18 @@ int main(int argc, char **argv)
 #ifdef G0Q_RESET_CONFIG
 		|| argc==10
 #endif
+#ifdef G0Q_STALE_UCCS_ACK
+		|| argc==11
+#endif
 	);
 	fault_event=(unsigned int)strtoul(argv[1],NULL,0);
 	guard_bit=(unsigned int)strtoul(argv[2],NULL,0);
 	injected_errno=atoi(argv[3]);
 	hcs_fault=(u32)strtoul(argv[4],NULL,0);
 	int early=atoi(argv[5]);
+#ifdef G0Q_STALE_UCCS_ACK
+	if (argc == 11) ack_case=(unsigned int)strtoul(argv[10],NULL,0);
+#endif
 	hci[REG_UFS_VERSION/4]=early==1 ? 0x400 : 0x310;
 	hci[0xe4/4]=early==2 ? 0x30000000 : 0x40000000;
 	hci_expired=early==3;
@@ -288,9 +322,9 @@ int main(int argc, char **argv)
 		for (unsigned int i=0;i<ARRAY_SIZE(samples);i++) hci[samples[i]/4]=fill;
 	}
 #ifdef G0Q_HCE_HANDOFF
-	if (argc==7 || argc==8 || argc==10) {
+	if (argc==7 || argc==8 || argc==10 || argc==11) {
 		handoff_case=(unsigned int)strtoul(argv[6],NULL,0);
-		if (argc==8) expire_clock=(unsigned int)strtoul(argv[7],NULL,0);
+		if (argc==8 || argc==11) expire_clock=(unsigned int)strtoul(argv[7],NULL,0);
 		for (unsigned int i=0;i<ARRAY_SIZE(offsets);i++) hci[offsets[i]/4]=0;
 		pins[0]=G0Q_RESET_CTL_EXPECTED;pins[1]=1;
 		if (handoff_case && handoff_case != 23) {
@@ -333,6 +367,9 @@ int main(int argc, char **argv)
 		if (!matrix_after_stop) { pins[0]=matrix_ctl; pins[1]=matrix_io; }
 	}
 #endif
+#ifdef G0Q_STALE_UCCS_ACK
+	if (!handoff_case && ack_case == 3) hci[REG_INTERRUPT_STATUS/4]=0x400;
+#endif
 	board.link.hw.deadline_ns=5000000000ULL;
 	struct platform_device pdev={0};
 	operation_rc=run(&pdev);
@@ -347,6 +384,9 @@ int main(int argc, char **argv)
 		power=(struct g0q_rpmh_report){.records=32,.claimed=0xffffffff,.triggered=0xffffffff,.acknowledged=0xffffffff};
 		board.stage2=(struct g0q_stage2_diag){.checks=0x7ff|(8U<<22),.handoff_flags=8191,
 			.pre_hce=1,.pre_hcs=0xffffffcf,.pre_is=0x400,.handoff_polls=100,.handoff_elapsed_us=999};
+#ifdef G0Q_STALE_UCCS_ACK
+		board.stage2.checks |= 0xf0000000U;
+#endif
 	}
 #endif
 	produced_size=(size_t)report(produced,NULL);
@@ -357,6 +397,17 @@ int main(int argc, char **argv)
 	fprintf(stderr,"REPORT_DONE\n");
 #ifndef LEGACY_STAGE2
 	struct g0q_stage2_diag saved=board.stage2;
+#ifdef G0Q_STALE_UCCS_ACK
+	unsigned int writes_before=ack_writes;
+	if (board.link.initial_ack_taken) assert(g0q_hci_ack_initial(&board.link,&board.stage2)==-EALREADY);
+	assert(ack_writes==writes_before && !memcmp(&saved,&board.stage2,sizeof(saved)));
+	memset(hci,0,sizeof(hci));
+	hci_expired=false;expire_clock=0;
+	hci[REG_UFS_VERSION/4]=0x310;hci[0xe4/4]=0x40000000;
+	hci[REG_INTERRUPT_STATUS/4]=0x400;
+	assert(g0q_hci_quiescent(&board.link)==-EBUSY);
+	assert(ack_writes==writes_before && !memcmp(&saved,&board.stage2,sizeof(saved)));
+#endif
 	hci[REG_CONTROLLER_ENABLE/4]=1;
 	/* The later quiescence call has no observer and cannot rewrite stage 2. */
 	(void)g0q_hci_quiescent(&board.link);

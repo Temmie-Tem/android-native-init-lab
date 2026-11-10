@@ -156,6 +156,10 @@ class V8WindowTests(WindowTests):
     report_version=8
 
 
+class V9WindowTests(WindowTests):
+    report_version=9
+
+
 class OwnerTests(prior.DownloadOwnerTests):
     def automatic(self,fault='after-control',status='EXACT_DOWNLOAD_OBSERVED'):
         current,device=self.operation(fault=fault)

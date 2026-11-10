@@ -168,7 +168,7 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, one reviewed report-v4, v5, v6, v7 or v8 module and key-only candidate schema. The exact
+Image, one reviewed report-v4, v5, v6, v7, v8 or v9 module and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -177,7 +177,7 @@ and new hazards require scoped review. Each operation retains a separately
 returned exact one-operation 1800-second approval, current attendance, fresh
 target/health/rollback binding and usable physical Download recovery.
 
-Except for the explicit V6 handoff, V7 pin and V8 readiness specializations below,
+Except for the explicit V6 handoff, V7 pin, V8 readiness and V9 initial-ack specializations below,
 all original guards remain. The 120/300/540/15-second bounds, one module permit,
 six local UniPro commands, at most one link command and one N/original-A total remain.
 In V4/V5 only the shared policy's certified settled pre-overlay coverage refusal
@@ -230,6 +230,19 @@ remain unchanged. No extra read, wait, status write, retry or new effect is
 adopted. V7 automatic-attempt and attended original-A rules remain; the shared
 V8 conditions, independent review and fresh artifact qualification are required.
 ML042 remains consumed and this adoption alone grants no physical execution.
+The separately reviewed V9 successor additionally permits only the shared
+policy's initial-stage exact UIC completion acknowledgement: pre-stop IS 0x400,
+one timely HCE stop, exact post-stop IS 0x400, all eleven guards, fresh full
+HCE zero and IS 0x400, then one constant status write and one timely whole-zero
+readback inside the original budget. Initially zero, cold-entry and differing
+pre/post words retain their specified paths. Pending later-guard refusal,
+drift, missing/late/nonzero readback preserve their separate evidence and
+never retry. Its new tag and prefix/site table are mandatory; stage-six and
+enabled-command strict IS-zero checks and existing own-local completion
+handling stay unchanged. No fault-bit clear, extra command/reset, new deadline
+or unattended effect is adopted. The shared fixed V9 module, coherent review,
+fresh exact qualification and returned finite attended approval are required.
+ML043 remains consumed; observed samples do not prove event origin or W1C cause.
 Its exact common delegation, fixed artifact, independent capability/owner
 review and fresh candidate qualification are required before selection.
 There is no standing effect grant, replay or transfer of another target's

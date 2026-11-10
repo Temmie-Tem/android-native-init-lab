@@ -42,6 +42,7 @@ The adopted fixed hardware artifacts are:
 | Report-v6 bounded HCE handoff module | `fd956216b5fa28eb9554947dbbeee2638b3f374916c893896818da5fdbf3bb9f` |
 | Report-v7 dedicated reset configuration module | `24edd7cf011634fccc55e0cc90280d68349bab9234c284145fd44ecbc91c3f30` |
 | Report-v8 disabled-HCS readiness module | `60cf605af0fda73615103480934e60b2e34f3a5f35494cf960b48401ee98a97b` |
+| Report-v9 initial completion acknowledgement module | `4ec2d6082ab62c47b05fbe73ce458d374b229bdbf55e2b471c7650b182890c06` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -55,7 +56,8 @@ conditions remain unobserved. V4 adds no MMIO read; the separately reviewed
 V5 module adds only the five fixed reads below. V6 separately adds the bounded
 handoff described below; V7 separately specializes its four reset-pin predicates
 as specified below. V8 separately changes only the disabled-state UCRDY
-predicates and same-read evidence below. V4/V5 do not inherit these changes. Each immutable capability binds
+predicates and same-read evidence below. V9 adds only the initial completion
+acknowledgement below. V4/V5 do not inherit these changes. Each immutable capability binds
 exactly one report mode and matching module/observer; mode is not candidate data.
 
 ### Report-v5 bounded HCI snapshot
@@ -97,6 +99,95 @@ proved recovery coverage for every new access failure. Changed producer,
 schema, guest/host consumers, common/target adoption and exact artifacts need
 one coherent independent review before a new capability can be selected.
 The existing v4 capability, ML036 approval and consumed records are not repinned.
+
+### Report-v9 initial UIC completion acknowledgement
+
+The operator's 2026-11-11 request selects Mythos analysis of ML043 and one
+next physical experiment. ML043 sampled IS `0x400` both before and after a
+timely HCE stop; this is UIC_COMMAND_COMPL, not an error bit. The samples do
+not identify its source, the same event surviving, a reset-clearing delay or
+a hardware defect. Linux/Samsung initial setup explicitly acknowledges pending
+status and EDK2 clears completion before a UIC command. These are software
+precedents; W1C behavior while HCE is zero on this target remains to be observed.
+Simply ignoring the completion before commands could accept an old event as
+new completion. V9 therefore preserves strict later IS-zero conditions.
+
+V9 inherits V8 with one narrow boundary-3 addition. Only initial stage two,
+a real diagnostic record, a timely completed one-stop handoff (flags 0x1fff),
+and the pre-stop exact IS `0x400` admit the existing post-stop IS sample of
+exactly `0x400` as PENDING. This admission occurs at the original IS predicate;
+all earlier predicates still short-circuit. The following AHIT and both pin
+predicates must pass before the acknowledgement, so all eleven guards precede
+its write and the existing rail-request opening. A later AHIT/pin refusal
+preserves PENDING without any status effect. Initially zero IS takes the
+original path without acknowledgement reads or writes. Cold-entry `0x400`,
+pre-stop IS zero with post-stop `0x400`, and any other nonzero word refuse.
+
+The acknowledgement checks the original 15-second absolute module budget,
+reads full HCE exactly zero, checks time, reads full IS exactly `0x400`, checks
+time, then consumes a board/module-lifetime one-shot latch and records ISSUED
+before one constant 32-bit `writel(0x400, REG_INTERRUPT_STATUS)`. There is no
+fallible call between that final budget check, latch/flag and store. These
+nearby reads are not an atomic hardware snapshot and no new locking is added.
+ISSUED means committed to the write, not proof that the bus write landed.
+The latch cannot authorize another attempt after reload/reboot: the outer
+one-permit, one-operation and consumed candidate rules remain mandatory.
+
+If the budget still permits, exactly one full IS readback is captured. Zero
+is recorded independently of the subsequent deadline check. Only timely zero
+permits the unchanged downstream path. Known expiry before readback forbids
+that read, leaving the state unknown; a late zero is evidence, never permission
+to continue. Drift, nonzero readback or timeout refuses without retry. Nonzero
+readback may be a new event; it does not prove an ineffective W1C. Zero does
+not establish that this write caused the change. No RMW, fault-bit/all-bit
+acknowledgement, extra poll/sleep, new interrupt/list configuration or new
+command is added. Stage-six NULL-diagnostic quiescence and every enabled UIC
+submission still require full IS zero. They cannot perform this initial clear.
+The unchanged command path acknowledges only its own local completion and
+retains terminal link status. A later reappearance is a later refusal, not an
+initial acknowledgement failure or authority for another clear.
+
+The distinct unsigned tag is `0x90000000U`. The 30-field, 256-byte report keeps
+bits 0–27 of the stage-two word as before; bits 28–31 encode PENDING, ISSUED,
+READBACK and ZERO. Only prefixes 0, 1, 3, 7, 15 are legal. Same-read HCS remains
+`(word >> 22) & 0x3f`, never contaminated by this nibble. Nonzero prefixes need
+the completed stop, pre-IS `0x400` and the admitted initial IS predicate. The
+pre-effect certificate requires all diagnostic/history words zero. Legacy
+V1–V8 records keep their meaning and reject nonzero new bits.
+
+New failure sites are HCI operations 26 ACK_DEADLINE (-110), 27 ACK_DRIFT
+(-16), and 28 ACK_READBACK (-5). They require stage two, all eleven observed
+guards and zero failed guard bits. HCE stop metadata remains the original
+completed-stop evidence; the existing refusal index/raw pair describes the
+new phase separately. The exact reachable table is:
+
+| Site | Prefix | Refusal index | Raw value |
+| --- | --- | --- | --- |
+| 26 | 1 or 3 | 0 | 0; no readback captured |
+| 26 | 7 | 8 (IS) | nonzero late readback |
+| 26 | 15 | 8 (IS) | zero late readback |
+| 27 | 1 | 1 (HCE) | nonzero |
+| 27 | 1 | 8 (IS) | anything except 0x400, including zero |
+| 28 | 7 | 8 (IS) | nonzero timely readback |
+
+Prefix 1 outside these sites is legal only at the following AHIT or pin
+refusal. Prefix 3 or 7 cannot escape its listed failure. Prefix 15 outside
+site 26 requires completed guards and a later stage-two resource failure or
+progression beyond stage two. Prefix 15 alone never means success: rc, stage
+and site remain mandatory. No failed earlier predicate is overwritten after
+the effect. Guest normal-success and host proof acceptance enforce their
+matching V9 provenance; the unchanged automatic-recovery guest may deliver a
+complete raw failure without functional validation, and never upgrades proof.
+
+The selected Image, DTB, configuration, overlay, power/reset/PHY/UIC flow,
+120/300/540/15-second research limits, 555/570/660-second automatic attempt,
+original-A and physical fallback stay fixed. Conditional unattended F1 stays
+inactive. The coherent common/target/producer/consumer/owner review includes
+actual ARM64 production, effect ordering and deadline/failure cases, strict
+prefix/provenance rejection, real socket return, and retained V8 raw parity.
+Fresh candidate qualification and the exact returned one-operation 1800-second
+attended grant remain required. Review changes or concrete new hazards under
+the existing common rules; no additional gate is created. ML043 stays consumed.
 
 ### Report-v8 disabled-HCS readiness
 
@@ -289,7 +380,7 @@ with equivalent target, no-replay, effect-time and recovery guarantees; a new
 observation cannot silently broaden this scope. The existing original-A owner,
 all research deadlines, one module permit, one N/A total and target isolation remain.
 
-### V6/V7/V8 automatic Download attempt and original-owner recovery
+### V6/V7/V8/V9 automatic Download attempt and original-owner recovery
 
 The operator selected automatic return as the default on 2026-11-10, including
 unclear experiment results where automatic recovery can still be attempted.
@@ -315,7 +406,7 @@ control, ACK, EOF and original final research deadline.
 The child accepts the early IPC commit only before guest BOOTTIME 540 seconds;
 after that, only the already armed timer remains. Once committed, its sole
 recovery syscall still has the fixed 570-second latest-invocation bound.
-Any complete valid authenticated V6/V7/V8 result may select return, including load/read errors or later
+Any complete valid authenticated V6/V7/V8/V9 result may select return, including load/read errors or later
 guard failures; successful return never upgrades the experiment result.
 Malformed/partial/lost results send no new control and leave the timer armed.
 
@@ -391,9 +482,10 @@ original-deadline and physical-recovery conditions of common boundary 3's
 ML030 delegation. The existing ML034 bounded USB coverage conditions and
 ML035 no-display producer correction also apply. This adopts those conditions,
 not earlier artifact tables, approvals or consumed authority. The only return
-specialization for V4/V5 is the narrow pre-overlay class below. V6/V7/V8 additionally
+specialization for V4/V5 is the narrow pre-overlay class below. V6/V7/V8/V9 additionally
 select the fixed automatic attempt above. The V5 diagnostic access, V6 HCE
-handoff, V7 exact reset-configuration and V8 disabled-readiness specializations are limited to their
+handoff, V7 exact reset-configuration, V8 disabled-readiness and V9 initial
+completion-acknowledgement specializations are limited to their
 preceding fixed conditions; earlier report modes retain their meanings.
 
 One healthy-Android-origin operation may transfer one boot-only N, authenticate
@@ -406,7 +498,7 @@ and 15-second module submission/command budget remain unchanged.
 
 The sole fixed module retains the held-USB SH1/CN0 confirmation, fixed GDSC,
 clock, PM8350 supply and the selected report mode's reset-pin preparation
-(V7/V8 exact configuration/latch, earlier modes legacy output/high), qualified v4
+(V7/V8/V9 exact configuration/latch, earlier modes legacy output/high), qualified v4
 Waipio PHY, six fixed local UniPro commands and at most one DME_LINK_STARTUP.
 No generic UFS host/PHY/ICE or SCSI discovery path may bind the device. The
 common SCSI library may remain compiled; this module registers no host or LU.
@@ -423,11 +515,11 @@ second attempt. There is no standing grant or same-candidate repeat lane.
 
 ## Narrow normal-return extension
 
-Report v4, v5, v6, v7 or v8 is selected by the reviewed capability and matching module/guest
+Report v4, v5, v6, v7, v8 or v9 is selected by the reviewed capability and matching module/guest
 mode. It retains the 256-byte result envelope, authenticated result binding,
 original one-shot controls and the 120/300/540/15-second limits. All existing
 USB/PM/ICC/BCM and later UFS admission predicates remain in force, subject
-to the explicitly reviewed V6/V7/V8 specializations above.
+to the explicitly reviewed V6/V7/V8/V9 specializations above.
 
 A normal Download may be represented by the H0 implementation after either
 the existing successful link result or the new `PRE_EFFECT_REJECTION` class.
@@ -435,12 +527,12 @@ The new class requires an actual USB-coverage refusal before overlay dispatch,
 no outstanding USB reference, no stage-two or later work, no fixed RPMh request
 or error, and completed RPMh arena teardown. The module produces the certificate
 only on that exact path; guest and host independently validate the matching
-strict v4/v5/v6/v7/v8 encoding, including zero extra snapshot/handoff fields for v5/v6/v7/v8. A bare
+strict v4/v5/v6/v7/v8/v9 encoding, including zero extra snapshot/handoff fields for v5/v6/v7/v8/v9. A bare
 stage-zero number, zero command count, failed function return
 or `usb_released=false` is insufficient. Overlay attempts, partial preparation,
 stage two and later failures, malformed/partial responses, unknown work and
 expired windows remain outside that certified normal-return class. The separate
-V6/V7/V8 recovery attempt does not reinterpret them as safe-idle or successful results.
+V6/V7/V8/V9 recovery attempt does not reinterpret them as safe-idle or successful results.
 
 Normal Download is still authenticated to the complete exact result, follows
 one durable intent, requires the existing EOF and final deadline check, and

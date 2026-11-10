@@ -30,6 +30,18 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML044 is prepared H0; physical execution awaits its exact attended grant.**
+  Two Mythos discussions informed V9's one initial UIC completion acknowledgement:
+  only timely stopped pre/post IS 0x400, all eleven guards, fresh HCE/IS checks,
+  one constant W1C and one timely whole-zero readback. Later IS-zero admission,
+  research/recovery limits and original-A ownership remain. The actual new
+  ARM64 module/observer/loader/AP passed fresh qualification, 121 tests without
+  skips, retained V8 raw parity and independent PASS_GO. Reviewed v45 dispatch
+  is selected; fixed D0 passed all seven raw health reads. No grant, operation
+  or candidate transfer exists. This does not prove event origin, W1C efficacy,
+  UFS link or unattended recovery. ML043 remains consumed and closed healthy.
+  [Analysis, implementation and review](docs/reports/S22PLUS_MAINLINE_ML044_UIC_COMPLETION_H0_2026-11-11.md).
+
 - **ML043 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** After
   its exact attended grant, V8 passed authenticated USB, child liveness and the
   five-minute same-boot witness. One HCE stop observed zero in one poll within

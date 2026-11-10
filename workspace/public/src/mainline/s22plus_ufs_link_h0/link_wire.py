@@ -35,7 +35,7 @@ def return_allowed(facts):
 
 
 def recovery_result(facts, raw, report_version):
-    if report_version not in (6, 7, 8):
+    if report_version not in (6, 7, 8, 9):
         return facts
     return dict(facts, recovery_return=True, recovery_mode=RECOVERY_MODE,
                 control_nonce=hashlib.sha256(raw).digest())
@@ -50,7 +50,8 @@ STAGE2_OPERATIONS = ('NONE', 'DEADLINE', 'UFS_VERSION', 'HW_VERSION', 'QUIESCENT
                      'SET_LOAD', 'BEFORE_VOLTAGE', 'SET_VOLTAGE', 'BEFORE_ENABLE', 'ENABLE',
                      'VOLTAGE_READBACK', 'SEED_GET', 'SEED_DEADLINE', 'SEED_VOLTAGE',
                      'PARENT_READBACK', 'AFTER_SUPPLY', 'HANDOFF_ADMISSION',
-                     'HANDOFF_DEADLINE', 'HANDOFF_DRIFT', 'HANDOFF_TIMEOUT', 'HANDOFF_STATE')
+                     'HANDOFF_DEADLINE', 'HANDOFF_DRIFT', 'HANDOFF_TIMEOUT', 'HANDOFF_STATE',
+                     'ACK_DEADLINE', 'ACK_DRIFT', 'ACK_READBACK')
 STAGE2_CHECKS = ('HCE', 'HCS', 'TRANSFER_DOORBELL', 'TASK_DOORBELL', 'TRANSFER_RUN',
                  'TASK_RUN', 'IRQ_ENABLE', 'IRQ_STATUS', 'AUTO_HIBERNATE', 'RESET_OUTPUT', 'RESET_HIGH')
 RESET_CONFIG_CHECKS = STAGE2_CHECKS[:9] + ('RESET_CONFIG', 'RESET_LATCH_HIGH')
@@ -133,12 +134,12 @@ def usb_diagnostics(values):
                 usb_attempts=attempts, usb_detail=detail)
 
 
-def stage2_diagnostics(values, *, handoff=False, reset_config=False, disabled_ucrdy=False):
+def stage2_diagnostics(values, *, handoff=False, reset_config=False, disabled_ucrdy=False, stale_ack=False):
     """Decode observed short-circuit predicates, never infer unobserved reads."""
     rc, stage, version = values[:3]
     site, word = values[21:]
-    check(0 <= site < 1 << 16 and 0 <= word < 1 << 28, 'stage-two report word range')
-    observed, failed, hcs = word & 0x7ff, (word >> 11) & 0x7ff, word >> 22
+    check(0 <= site < 1 << 16 and 0 <= word < 1 << (32 if stale_ack else 28), 'stage-two report word range')
+    observed, failed, hcs = word & 0x7ff, (word >> 11) & 0x7ff, (word >> 22) & 0x3f
     check(not (observed & (observed + 1)) and not (failed & ~observed) and
           not (failed & (failed - 1)), 'stage-two short-circuit history')
     hazard = hcs & (0x31 if disabled_ucrdy else 0x39)
@@ -155,16 +156,21 @@ def stage2_diagnostics(values, *, handoff=False, reset_config=False, disabled_uc
                    7:{8,9,10,11,12,13,14,15,20}, 8:{8,9,10,13,14,16,17,18,19,20}}
         if handoff:
             allowed[1] |= {21,22,23,24,25}
+        if stale_ack:
+            allowed[1] |= {26,27,28}
         check(component in allowed and operation in allowed[component], 'stage-two failure site')
         check(stage == 2 and -4095 <= rc < 0 and not any(values[3:11]),
               'stage-two failure before later hardware')
         fixed_errno = {1:110, 2:19, 3:19, 4:16, 5:16, 7:34, 9:110,
                        11:110, 13:110, 15:34, 17:110, 19:34,
-                       21:16, 22:110, 23:16, 24:110, 25:5}
+                       21:16, 22:110, 23:16, 24:110, 25:5, 26:110, 27:16, 28:5}
         check(operation not in fixed_errno or rc == -fixed_errno[operation], 'stage-two branch errno')
         if component == 1 and operation <= 3:
             check(observed == failed == 0, 'stage-two early HCI evidence')
             check(version == 0 if operation < 3 else version >> 28 != 4, 'stage-two HCI version')
+        elif component == 1 and operation >= 26:
+            check(observed == 0x7ff and failed == 0 and version >> 28 == 4,
+                  'initial acknowledgement needs all eleven guards')
         elif component == 1 and operation >= 21:
             check(observed == failed == hcs == 0 and version >> 28 == 4,
                   'handoff failure must precede post-state predicates')
@@ -206,7 +212,7 @@ def hci_snapshot(values):
                               for i, name in enumerate(HCI_SAMPLES)})
 
 
-def hce_handoff(values, *, reset_config=False):
+def hce_handoff(values, *, reset_config=False, stale_ack=False):
     """Versioned stop history; V8 permits UCRDY in disabled-state checks."""
     word, pre_hce, pre_hcs, pre_is, last_hce, index, raw = values[23:]
     check(0 <= word < 1 << 32, 'handoff metadata range')
@@ -269,13 +275,16 @@ def hce_handoff(values, *, reset_config=False):
         check(flags == 2047 and last_hce not in (0,1) and index == 1 and raw == last_hce,
               'handoff unexpected poll state')
         status, phase = 'STOP_UNEXPECTED_STATE', 'POLL'
+    elif stale_ack and site in (0x11a,0x11b,0x11c):
+        check(flags == 8191, 'initial acknowledgement lacks completed stop')
+        status, phase = 'STOP_COMPLETE', 'INITIAL_ACK'
     elif post:
         status = 'STOP_COMPLETE' if flags == 8191 else 'COLD_ENTRY'
         if failed:
             check(index == failed.bit_length() and site in (0x104,0x205),
                   'handoff post-state refusal index')
             if index == 2:
-                check(raw & 0x39 == values[22] >> 22, 'handoff post-state HCS value')
+                check(raw & 0x39 == (values[22] >> 22) & 0x3f, 'handoff post-state HCS value')
             elif index == 10:
                 check(raw != RESET_CTL_EXPECTED if reset_config else not raw & (1 << 31),
                       'handoff post-state reset configuration or legacy direction')
@@ -302,8 +311,67 @@ def hce_handoff(values, *, reset_config=False):
         refusal_raw=raw if index else None))
 
 
+def initial_ack(values):
+    """V9 initial UCCS history, separate from the completed HCE stop.
+
+    Neither a committed store nor a zero readback proves event origin or
+    write efficacy. A late zero is retained, but never permits progression.
+    """
+    flags = values[22] >> 28
+    observed, failed = values[22] & 0x7ff, (values[22] >> 11) & 0x7ff
+    site, stage, rc = values[21] & 0xffff, values[1], values[0]
+    index, raw = values[28:30]
+    ack_sites = (0x11a,0x11b,0x11c)
+    check(flags in (0,1,3,7,15), 'initial acknowledgement prefix')
+    if flags:
+        check(values[23] & 8191 == 8191 and values[26] == 0x400 and
+              observed >= 0xff and not failed & 0xff,
+              'initial acknowledgement lacks timely stop and exact completion admission')
+    if site in ack_sites:
+        check(stage == 2 and observed == 0x7ff and failed == 0,
+              'initial acknowledgement failure before all guards')
+        if site == 0x11a:
+            check(rc == -110 and (
+                flags in (1,3) and index == raw == 0 or
+                flags == 7 and index == 8 and raw != 0 or
+                flags == 15 and index == 8 and raw == 0),
+                'initial acknowledgement deadline prefix/readback')
+            status = 'DEADLINE'
+        elif site == 0x11b:
+            check(rc == -16 and flags == 1 and (
+                index == 1 and raw != 0 or index == 8 and raw != 0x400),
+                'initial acknowledgement final-state drift')
+            status = 'DRIFT'
+        else:
+            check(rc == -5 and flags == 7 and index == 8 and raw != 0,
+                  'initial acknowledgement nonzero readback')
+            status = 'NONZERO_READBACK'
+    elif flags == 1:
+        check(stage == 2 and rc == -16 and (
+            site == 0x104 and observed == 0x1ff and failed == 0x100 or
+            site == 0x205 and observed in (0x3ff,0x7ff) and
+            failed == (observed ^ (observed >> 1))),
+            'pending completion only precedes AHIT or pin refusal')
+        status = 'PENDING_GUARD_REFUSAL'
+    elif flags == 15:
+        check(observed == 0x7ff and failed == 0 and
+              (stage > 2 and site == 0 or stage == 2 and site >> 8 in range(3,9)),
+              'completed acknowledgement cannot precede an old guard failure')
+        status = 'ZERO_OBSERVED_IN_TIME'
+    else:
+        check(flags == 0, 'incomplete acknowledgement outside its refusal')
+        status = 'NOT_REQUESTED'
+    return dict(initial_uccs_ack=dict(flags=flags, status=status,
+        pending_admitted=bool(flags & 1), write_committed=bool(flags & 2),
+        readback_observed=bool(flags & 4), zero_observed=bool(flags & 8),
+        completed_in_time=status == 'ZERO_OBSERVED_IN_TIME',
+        refusal_condition=STAGE2_CHECKS[index-1] if site in ack_sites and index else None,
+        refusal_raw=raw if site in ack_sites and index else None,
+        readback_raw=raw if site in ack_sites and flags & 4 else 0 if flags == 15 else None))
+
+
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3, 4, 5, 6, 7, 8), 'unselected module report schema')
+    check(report_version in (1, 2, 3, 4, 5, 6, 7, 8, 9), 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -318,7 +386,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         return recovery_result(dict(status="NO_PROOF",load_errno=load,read_errno=read,
                                     report_bytes=size,normal_return=False), raw, report_version)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30, 8:30}[report_version]
+    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30, 8:30, 9:30}[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -341,18 +409,20 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         diagnostic = values[:23]
         if report_version >= 4:
             check(0 <= values[21] < 1 << 32 and
-                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000, 8:0x80000000}[report_version],
+                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000, 8:0x80000000, 9:0x90000000}[report_version],
                   'pre-effect report version tag')
             pre_effect = bool(values[21] & 0x10000)
             diagnostic[21] &= 0xffff
             if pre_effect:
                 check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
                       and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
-        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7, 8), reset_config=report_version in (7, 8), disabled_ucrdy=report_version == 8))
+        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7, 8, 9), reset_config=report_version in (7, 8, 9), disabled_ucrdy=report_version in (8, 9), stale_ack=report_version == 9))
         if report_version == 5:
             facts.update(hci_snapshot(values))
-        elif report_version in (6, 7, 8):
-            facts.update(hce_handoff(values, reset_config=report_version in (7, 8)))
+        elif report_version in (6, 7, 8, 9):
+            facts.update(hce_handoff(values, reset_config=report_version in (7, 8, 9), stale_ack=report_version == 9))
+        if report_version == 9:
+            facts.update(initial_ack(values))
     if pre_effect:
         return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest()), raw, report_version)

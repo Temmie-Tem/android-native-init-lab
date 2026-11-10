@@ -22,6 +22,7 @@ enum g0q_stage2_operation {
 	G0Q_S2_PARENT_READBACK, G0Q_S2_AFTER_SUPPLY,
 	G0Q_S2_HANDOFF_ADMISSION, G0Q_S2_HANDOFF_DEADLINE,
 	G0Q_S2_HANDOFF_DRIFT, G0Q_S2_HANDOFF_TIMEOUT, G0Q_S2_HANDOFF_STATE,
+	G0Q_S2_ACK_DEADLINE, G0Q_S2_ACK_DRIFT, G0Q_S2_ACK_READBACK,
 };
 enum g0q_stage2_check {
 	G0Q_S2_HCE, G0Q_S2_HCS, G0Q_S2_TRANSFER_DOORBELL,
@@ -66,6 +67,15 @@ enum g0q_handoff_flag {
 	G0Q_HO_TIMELY = 1U << 12,
 };
 
+/* V9 only: the high nibble is an append-only initial UCCS acknowledgement
+ * history. ISSUED commits to the store; it does not prove the write landed.
+ * ZERO records one readback, including a late zero that cannot continue.
+ */
+#define G0Q_ACK_PENDING (1U << 28)
+#define G0Q_ACK_ISSUED (1U << 29)
+#define G0Q_ACK_READBACK (1U << 30)
+#define G0Q_ACK_ZERO (1U << 31)
+
 static inline int g0q_stage2_error(struct g0q_stage2_diag *diag,
 				 u32 component, u32 operation, int rc)
 {
@@ -95,6 +105,7 @@ struct g0q_link {
 	unsigned int local_commands;
 	bool hce_started, link_issued;
 	bool handoff_taken;
+	bool initial_ack_taken;
 };
 
 bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
@@ -102,6 +113,9 @@ bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
 
 int g0q_hci_quiescent(struct g0q_link *link);
 int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *diag);
+#ifdef G0Q_STALE_UCCS_ACK
+int g0q_hci_ack_initial(struct g0q_link *link, struct g0q_stage2_diag *diag);
+#endif
 int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 		      unsigned long unipro_hz);
 #endif

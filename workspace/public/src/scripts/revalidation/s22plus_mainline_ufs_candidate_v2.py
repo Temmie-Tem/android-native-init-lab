@@ -75,7 +75,7 @@ def auxiliary_inputs():
 def fixed_binding(cap):
     fixed = cap['fixed']
     require(set(fixed)==FIXED_FIELDS and type(fixed['report_version']) is int and
-            fixed['report_version'] in (4, 5, 6, 7, 8), 'v2 fixed capability fields or report mode')
+            fixed['report_version'] in (4, 5, 6, 7, 8, 9), 'v2 fixed capability fields or report mode')
     kernel=checked(fixed['kernel']);component=checked(fixed['component'])
     require(component['status']=='BUILT_H0_COLD_LINK_COMPONENT' and
             component['pre_effect_return'] is True and component['report_version']==fixed['report_version'] and
@@ -214,15 +214,16 @@ def reproduce(candidate,manifest,producer,fixed,out):
             (folder/'seal.h').read_text()==builder.seal_text(ident,key,manifest['network'],module),
             'v2 generated source/seal differs')
     snapshot = fixed['report_version'] == 5
-    handoff = fixed['report_version'] in (6, 7, 8)
-    reset_config = fixed['report_version'] in (7, 8)
-    disabled_ucrdy = fixed['report_version'] == 8
+    handoff = fixed['report_version'] in (6, 7, 8, 9)
+    reset_config = fixed['report_version'] in (7, 8, 9)
+    disabled_ucrdy = fixed['report_version'] in (8, 9)
+    stale_uccs_ack = fixed['report_version'] == 9
     expected=builder.compile_command(folder,vm=False,pre_effect_return=True,
-                                    hci_snapshot=snapshot,hce_handoff=handoff,reset_config=reset_config,disabled_ucrdy=disabled_ucrdy)
+                                    hci_snapshot=snapshot,hce_handoff=handoff,reset_config=reset_config,disabled_ucrdy=disabled_ucrdy,stale_uccs_ack=stale_uccs_ack)
     require(producer['compile_command']==expected, 'v2 compiler recipe differs')
     out.mkdir(mode=0o700)
     command=builder.compile_command(folder,vm=False,pre_effect_return=True,hci_snapshot=snapshot,
-                                   hce_handoff=handoff,reset_config=reset_config,disabled_ucrdy=disabled_ucrdy,destination=out/'observer')
+                                   hce_handoff=handoff,reset_config=reset_config,disabled_ucrdy=disabled_ucrdy,stale_uccs_ack=stale_uccs_ack,destination=out/'observer')
     auxiliary=auxiliary_inputs()
     require(auxiliary==fixed['observer_auxiliary'],'v2 compiler auxiliary/specs changed')
     proof=build_evidence.compile_observer(command,out)

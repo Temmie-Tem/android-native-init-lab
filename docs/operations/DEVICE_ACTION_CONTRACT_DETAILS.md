@@ -431,7 +431,7 @@ permission to perform host-only work.
    hardware scope to fresh key-only candidates on this exact S22+ FYG8 target.
    The target must adopt the shared scope and each candidate must bind the
    same independently reviewed immutable capability: its fixed ML035 Image,
-   reduced no-display DT/configuration, one fixed reviewed report-v4, v5, v6, v7 or v8 module,
+   reduced no-display DT/configuration, one fixed reviewed report-v4, v5, v6, v7, v8 or v9 module,
    four-package RAM userspace, protocol, network and producer/toolchain inputs.
    Only a new authentication key, deterministic derived identity and their
    unchanged-producer artifacts may vary without a new capability review or
@@ -443,7 +443,7 @@ permission to perform host-only work.
    attendance, exact target/host/health/rollback, usable physical Download and
    validated prior healthy closure with no unresolved owner.
    All ML030 late-hardware and ML034 USB-admission predicates, subject only to
-   the explicit V6/V7/V8 specializations below, and original
+   the explicit V6/V7/V8/V9 specializations below, and original
    120/300/540/15-second bounds, six fixed local UniPro commands, at most one
    DME_LINK_STARTUP, one N and one original A total remain mandatory. Stage-two
    diagnostics retain the original short-circuit predicate evaluation and errno;
@@ -519,16 +519,42 @@ permission to perform host-only work.
    original-A recovery and the shared automatic-attempt limits, with no
    unattended activation. Independent coherent review and fresh qualification
    are required; ML042 and all earlier consumed records remain unchanged.
-   Reports v4/v5/v6/v7/v8 additionally permit the existing authenticated normal Download
+   The separately reviewed V9 successor selected by the operator's
+   2026-11-11 ML043 followup adds only a bounded initial completion-status
+   acknowledgement to V8. At initial stage two, only after the one timely HCE
+   stop with pre-stop IS exactly 0x400, the existing IS read may admit exactly
+   0x400 as PENDING. Initial IS zero uses the original path without added
+   access. Cold-entry 0x400, pre-stop-zero/post-stop-0x400 or any other nonzero
+   word still refuses. AHIT and both reset-pin predicates must then pass,
+   completing all eleven guards before any new status write or rail request.
+   Within the original absolute module deadline, read full HCE exactly zero,
+   then full IS exactly 0x400; check time before each read and again before
+   one constant 32-bit writel(0x400, REG_INTERRUPT_STATUS). A module-lifetime
+   one-shot latch and ISSUED flag precede that store. No RMW, fault-bit/all-bit
+   write, poll, delay, second store or changed IRQ/list setup is permitted.
+   If time remains, one full IS readback must be zero and timely before
+   continuation. Known expiry forbids the read; late readback is preserved
+   but refuses. Drift, nonzero readback or timeout never retries. Fresh reads
+   are not atomicity, event-origin or W1C-efficacy proof. The shared V9 tag,
+   prefix/site/refusal encoding and exact module hash are mandatory. Stage six
+   with no diagnostic record and each enabled command retain strict IS zero;
+   neither can perform this initial acknowledgement. Existing own-local-UIC
+   completion acknowledgement and terminal link-status retention are unchanged.
+   All other V8 effects, research/recovery limits, exact finite attendance,
+   original-A and physical fallback conditions remain. This is a separately
+   reviewed boundary-3 exception, not D0 or key-only reuse of V8. Coherent
+   source/artifact/owner review and fresh qualification precede any new grant.
+   ML043 and every consumed artifact, approval and journal remain untouched.
+   Reports v4/v5/v6/v7/v8/v9 additionally permit the existing authenticated normal Download
    transaction after a certified USB-coverage refusal before overlay dispatch,
    with no outstanding USB reference, stage-two work, fixed RPMh request/error,
    and with actual RPMh arena teardown complete. The fixed module certifies
    that path; both guest and host independently validate the exact bounded
-   report; v5/v6/v7/v8 require all additional snapshot/handoff fields zero on that path.
+   report; v5/v6/v7/v8/v9 require all additional snapshot/handoff fields zero on that path.
    A zero stage/count or a failed call alone is insufficient. Overlay
    attempts, stage two or later, partial/unknown work, malformed or unauthenticated
    evidence and expired windows are excluded from this certified normal-return
-   class. V4/V5 retain physical recovery; V6/V7/V8 separately use the fixed automatic
+   class. V4/V5 retain physical recovery; V6/V7/V8/V9 separately use the fixed automatic
    attempt below without turning those unknown results into functional proof.
    The complete-result digest, original socket/nonce/boot, one durable control
    intent, EOF and final deadline check, fixed reboot-mode/SCM NODUMP/PSCI path,
@@ -541,7 +567,7 @@ permission to perform host-only work.
    validate a prepared V2 task under the current research request; it grants
    no control or transfer. Consumed ML028 and ML030–ML039 retain all original
    artifacts, approvals, source provenance and journals and cannot replay.
-   V6 and its V7/V8 successors adopt the operator's 2026-11-10 automatic-return/recovery
+   V6 and its V7/V8/V9 successors adopt the operator's 2026-11-10 automatic-return/recovery
    selection. One independently reviewed child is forked before USB setup,
    after the exact reboot-mode driver and fixed OF cell/magic binding, and
    solely owns one ordinary `RESTART2(download)`. A complete authenticated

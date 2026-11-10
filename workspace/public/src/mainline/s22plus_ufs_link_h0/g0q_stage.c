@@ -359,6 +359,11 @@ static int run(struct platform_device *pdev)
 			G0Q_RESET_CTL_MASK, G0Q_RESET_CTL_EXPECTED) ||
 	    g0q_stage2_read_condition(&board.stage2, G0Q_S2_RESET_HIGH, board.reset_io + 4, BIT(0), BIT(0)))
 		return g0q_stage2_error(&board.stage2, G0Q_S2_RESET, G0Q_S2_PIN_GUARD, -EBUSY);
+#ifdef G0Q_STALE_UCCS_ACK
+	rc = g0q_hci_ack_initial(&board.link, &board.stage2);
+	if (rc)
+		return rc;
+#endif
 	ml030_open_rail_requests();
 	rc = rate(board.core, G0Q_S2_CORE);
 	if (!rc)
