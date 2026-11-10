@@ -30,13 +30,15 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
-- **ML050 is the selected timed-return UDC experiment.** It has a fresh
-  observation key and boot-only AP, no UFS module, one pre-USB guest timer
-  and the original owner's bounded return to Android. In QEMU the actual VM
-  observer parked on USB timeout and the guest reset. Three separate UDC
-  fixtures distinguished a failed bind, a successful bind without attach,
-  and configured USB. The exact capability and v50 backend passed review.
-  [ML050 preparation and recovery](docs/reports/S22PLUS_MAINLINE_ML050_UDC_AUTO_RETURN_H0_2026-11-11.md)
+- **ML050 completed automatic original-A return and closed healthy.** The
+  host saw no USB endpoint in 73 samples during the initial 120 seconds.
+  New-generation Download appeared at N+590.227 seconds and the owner
+  dispatched original A once at N+591.636. A health-only continuation
+  passed all seven final Android reads. The same-boot post-closure reader
+  recovered 2,097,136 bytes with zero ML050 records or candidate identifier
+  occurrences. Physical bind and UDC state remain unproved. ML050 is
+  consumed and the owner is released.
+  [Physical result and retained-log audit](docs/reports/S22PLUS_MAINLINE_ML050_UDC_AUTO_RETURN_RUN_2026-11-11.md)
 
 - **ML049 was prepared and remained unexecuted when ML050 was selected.** A new
   Debian RAM-only boot image records configfs bind outcomes and timed device
