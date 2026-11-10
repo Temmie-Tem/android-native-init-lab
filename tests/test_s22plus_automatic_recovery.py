@@ -168,6 +168,10 @@ class V11WindowTests(WindowTests):
     report_version=11
 
 
+class V12WindowTests(WindowTests):
+    report_version=12
+
+
 class OwnerTests(prior.DownloadOwnerTests):
     def automatic(self,fault='after-control',status='EXACT_DOWNLOAD_OBSERVED'):
         current,device=self.operation(fault=fault)

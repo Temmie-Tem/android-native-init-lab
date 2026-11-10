@@ -35,7 +35,7 @@ schema instead selects its exact immutable capability/review from the candidate
 declaration. Its own common/target adoption, complete source closure and fresh
 candidate qualification are required; the legacy review path above does not
 substitute for that selected review or gain new authority.
-The independently reviewed V6 UFS capability and its V7/V8/V9/V10/V11 successors also select
+The independently reviewed V6 UFS capability and its V7/V8/V9/V10/V11/V12 successors also select
 the fixed child-owned
 automatic Download attempt and original-owner recovery, including an unclear
 experiment result. Its separately incorporated recovery timing and exact

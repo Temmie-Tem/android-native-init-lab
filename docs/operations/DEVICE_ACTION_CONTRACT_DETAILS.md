@@ -431,7 +431,7 @@ permission to perform host-only work.
    hardware scope to fresh key-only candidates on this exact S22+ FYG8 target.
    The target must adopt the shared scope and each candidate must bind the
    same independently reviewed immutable capability: its fixed ML035 Image,
-   reduced no-display DT/configuration, one fixed reviewed report-v4, v5, v6, v7, v8, v9, v10 or v11 module,
+   reduced no-display DT/configuration, one fixed reviewed report-v4, v5, v6, v7, v8, v9, v10, v11 or v12 module,
    four-package RAM userspace, protocol, network and producer/toolchain inputs.
    Only a new authentication key, deterministic derived identity and their
    unchanged-producer artifacts may vary without a new capability review or
@@ -443,7 +443,7 @@ permission to perform host-only work.
    attendance, exact target/host/health/rollback, usable physical Download and
    validated prior healthy closure with no unresolved owner.
    All ML030 late-hardware and ML034 USB-admission predicates, subject only to
-   the explicit V6/V7/V8/V9/V10/V11 specializations below, and original
+   the explicit V6/V7/V8/V9/V10/V11/V12 specializations below, and original
    120/300/540/15-second bounds, six fixed local UniPro commands, at most one
    DME_LINK_STARTUP, one N and one original A total remain mandatory. Stage-two
    diagnostics retain the original short-circuit predicate evaluation and errno;
@@ -575,16 +575,26 @@ permission to perform host-only work.
    V10 reuse: coherent review and fresh qualification precede any new finite
    attended grant. V10 retains its exact old meaning. Original-A, physical
    fallback and automatic-attempt limits remain; ML045 stays consumed.
-   Reports v4/v5/v6/v7/v8/v9/v10/v11 additionally permit the existing authenticated normal Download
+   The separately reviewed report-v12 module inherits the V11 scope and records
+   the first link-poll IRQ_STATUS sample rejected by the existing mask. Only
+   after the one DME_LINK_STARTUP issue, store that already-read full u32 in
+   the interrupt report field before the existing EIO return. The V12 tag and
+   typed host decoder distinguish this sample from a completion or an unfilled
+   field. No additional register access, poll, clear, retry or effect is
+   admitted. The shared policy fixes the module hash, single-operation grant,
+   original deadlines and original-A recovery. Exact independent review and
+   fresh candidate qualification precede the returned attended grant.
+   ML046 and all previous consumption and evidence remain bound as recorded.
+   Reports v4/v5/v6/v7/v8/v9/v10/v11/v12 additionally permit the existing authenticated normal Download
    transaction after a certified USB-coverage refusal before overlay dispatch,
    with no outstanding USB reference, stage-two work, fixed RPMh request/error,
    and with actual RPMh arena teardown complete. The fixed module certifies
    that path; both guest and host independently validate the exact bounded
-   report; v5/v6/v7/v8/v9/v10/v11 require all additional snapshot/handoff/CFG1 fields zero on that path.
+   report; v5/v6/v7/v8/v9/v10/v11/v12 require all additional snapshot/handoff/CFG1 fields zero on that path.
    A zero stage/count or a failed call alone is insufficient. Overlay
    attempts, stage two or later, partial/unknown work, malformed or unauthenticated
    evidence and expired windows are excluded from this certified normal-return
-   class. V4/V5 retain physical recovery; V6/V7/V8/V9/V10/V11 separately use the fixed automatic
+   class. V4/V5 retain physical recovery; V6/V7/V8/V9/V10/V11/V12 separately use the fixed automatic
    attempt below without turning those unknown results into functional proof.
    The complete-result digest, original socket/nonce/boot, one durable control
    intent, EOF and final deadline check, fixed reboot-mode/SCM NODUMP/PSCI path,
@@ -597,7 +607,7 @@ permission to perform host-only work.
    validate a prepared V2 task under the current research request; it grants
    no control or transfer. Consumed ML028 and ML030–ML039 retain all original
    artifacts, approvals, source provenance and journals and cannot replay.
-   V6 and its V7/V8/V9/V10/V11 successors adopt the operator's 2026-11-10 automatic-return/recovery
+   V6 and its V7/V8/V9/V10/V11/V12 successors adopt the operator's 2026-11-10 automatic-return/recovery
    selection. One independently reviewed child is forked before USB setup,
    after the exact reboot-mode driver and fixed OF cell/magic binding, and
    solely owns one ordinary `RESTART2(download)`. A complete authenticated

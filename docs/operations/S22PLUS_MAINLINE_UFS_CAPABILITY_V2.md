@@ -45,6 +45,7 @@ The adopted fixed hardware artifacts are:
 | Report-v9 initial completion acknowledgement module | `4ec2d6082ab62c47b05fbe73ce458d374b229bdbf55e2b471c7650b182890c06` |
 | Report-v10 CFG1 branch diagnostics module | `23c72b3c6cbe342fa41841f0cee0cf6bb12b1b5375b64f0e49cdf00be9396618` |
 | Report-v11 ordered CFG1 selection module | `88beadd1a31b05fc8adc998eb99757849c6c83287fb9b4473d8590ab2b888fa3` |
+| Report-v12 terminal link IRQ diagnostic module | `9176104a4c51ec21c6d845bd50f48ff2900447f654fbaa45e3718cde16ed89a2` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -62,7 +63,7 @@ predicates and same-read evidence below. V9 adds only the initial completion
 acknowledgement below. V10 retains V9 effects and adds only the existing-read
 CFG1 branch diagnostics below. V11 separately replaces only the immediate
 bit-0 assertion with ordered selection and an unconditional budget check as
-defined below. V4/V5 do not inherit these changes. Each immutable capability binds
+defined below. V12 adds the terminal link IRQ diagnostic below. V4/V5 do not inherit these changes. Each immutable capability binds
 exactly one report mode and matching module/observer; mode is not candidate data.
 
 ### Report-v5 bounded HCI snapshot
@@ -104,6 +105,42 @@ proved recovery coverage for every new access failure. Changed producer,
 schema, guest/host consumers, common/target adoption and exact artifacts need
 one coherent independent review before a new capability can be selected.
 The existing v4 capability, ML036 approval and consumed records are not repinned.
+
+### Report-v12 terminal link IRQ observation
+
+The operator selected one new attended experiment after ML046 reached all
+six local commands and issued DME_LINK_STARTUP. Its retained V11 EIO and
+unfilled completion fields narrow the failure to the first disallowed poll
+sample. The actual ML046 word is unavailable.
+
+V12 inherits V11 and selects the fixed module above with the complete V11
+compile mode. The only hardware-path change is one scalar assignment after
+the existing IRQ_STATUS read and failed mask predicate, only in the issued
+link command. It records the full u32, including any coincident completion,
+startup and high bits, into the existing interrupt field, then returns EIO.
+The source uses the original register value. The six local commands, existing
+completion handling, MMIO accesses, original polling order, command count
+and timing limits apply. Additional reads, status clears and retries are
+outside this scope.
+
+The unsigned tag is `0xc0000000`. The 33 decimal fields fit the existing
+256-byte envelope. A nonzero `irq & ~0x500` identifies the early refusal
+only with EIO, six locals, an issued link, the admitted pre-link HCS sample,
+the completed V11 prerequisites and unfilled code/post-HCS fields. The
+host retains both the full sample and its unexpected bits. A recorded
+completion uses 0x400 or 0x500 with the sampled code and post-HCS. An issued
+link with an empty terminal sample requires timeout and zero code/post-HCS.
+No link issue requires all four link words zero. A load/read error retains
+its existing authenticated error record. V11 raw records keep their old
+meaning. Link success requires the full existing UFS and power proof.
+
+Fresh source and artifact review, qualification and a returned one-operation
+1800-second attended grant bind each physical run. The same-boot 300-second
+witness, 120/540/15-second limits, finite automatic Download attempt and
+attended physical fallback followed by one original A and final health apply.
+The diagnostic's success criterion on a refusal is an authenticated saved
+sample. The bit combination identifies the reported event class. A silicon
+cause requires separate evidence.
 
 ### Report-v11 ordered CFG1 selection
 
@@ -529,7 +566,7 @@ with equivalent target, no-replay, effect-time and recovery guarantees; a new
 observation cannot silently broaden this scope. The existing original-A owner,
 all research deadlines, one module permit, one N/A total and target isolation remain.
 
-### V6/V7/V8/V9/V10/V11 automatic Download attempt and original-owner recovery
+### V6/V7/V8/V9/V10/V11/V12 automatic Download attempt and original-owner recovery
 
 The operator selected automatic return as the default on 2026-11-10, including
 unclear experiment results where automatic recovery can still be attempted.
@@ -555,7 +592,7 @@ control, ACK, EOF and original final research deadline.
 The child accepts the early IPC commit only before guest BOOTTIME 540 seconds;
 after that, only the already armed timer remains. Once committed, its sole
 recovery syscall still has the fixed 570-second latest-invocation bound.
-Any complete valid authenticated V6/V7/V8/V9/V10/V11 result may select return, including load/read errors or later
+Any complete valid authenticated V6/V7/V8/V9/V10/V11/V12 result may select return, including load/read errors or later
 guard failures; successful return never upgrades the experiment result.
 Malformed/partial/lost results send no new control and leave the timer armed.
 
@@ -631,11 +668,11 @@ original-deadline and physical-recovery conditions of common boundary 3's
 ML030 delegation. The existing ML034 bounded USB coverage conditions and
 ML035 no-display producer correction also apply. This adopts those conditions,
 not earlier artifact tables, approvals or consumed authority. The only return
-specialization for V4/V5 is the narrow pre-overlay class below. V6/V7/V8/V9/V10/V11 additionally
+specialization for V4/V5 is the narrow pre-overlay class below. V6/V7/V8/V9/V10/V11/V12 additionally
 select the fixed automatic attempt above. The V5 diagnostic access, V6 HCE
 handoff, V7 exact reset-configuration, V8 disabled-readiness and V9 initial
 completion acknowledgement, V10 existing-read CFG1 diagnostics and V11 ordered
-CFG1 selection are limited to their
+CFG1 selection plus V12 terminal link IRQ observation are limited to their
 preceding fixed conditions; earlier report modes retain their meanings.
 
 One healthy-Android-origin operation may transfer one boot-only N, authenticate
@@ -648,7 +685,7 @@ and 15-second module submission/command budget remain unchanged.
 
 The sole fixed module retains the held-USB SH1/CN0 confirmation, fixed GDSC,
 clock, PM8350 supply and the selected report mode's reset-pin preparation
-(V7/V8/V9/V10/V11 exact configuration/latch, earlier modes legacy output/high), qualified v4
+(V7/V8/V9/V10/V11/V12 exact configuration/latch, earlier modes legacy output/high), qualified v4
 Waipio PHY, six fixed local UniPro commands and at most one DME_LINK_STARTUP.
 No generic UFS host/PHY/ICE or SCSI discovery path may bind the device. The
 common SCSI library may remain compiled; this module registers no host or LU.
@@ -666,11 +703,11 @@ second attempt. There is no standing grant or same-candidate repeat lane.
 
 ## Narrow normal-return extension
 
-Report v4, v5, v6, v7, v8, v9, v10 or v11 is selected by the reviewed capability and matching module/guest
+Report v4, v5, v6, v7, v8, v9, v10, v11 or v12 is selected by the reviewed capability and matching module/guest
 mode. It retains the 256-byte result envelope, authenticated result binding,
 original one-shot controls and the 120/300/540/15-second limits. All existing
 USB/PM/ICC/BCM and later UFS admission predicates remain in force, subject
-to the explicitly reviewed V6/V7/V8/V9/V10/V11 specializations above.
+to the explicitly reviewed V6/V7/V8/V9/V10/V11/V12 specializations above.
 
 A normal Download may be represented by the H0 implementation after either
 the existing successful link result or the new `PRE_EFFECT_REJECTION` class.
@@ -678,12 +715,12 @@ The new class requires an actual USB-coverage refusal before overlay dispatch,
 no outstanding USB reference, no stage-two or later work, no fixed RPMh request
 or error, and completed RPMh arena teardown. The module produces the certificate
 only on that exact path; guest and host independently validate the matching
-strict v4/v5/v6/v7/v8/v9/v10/v11 encoding, including zero extra snapshot/handoff fields for v5/v6/v7/v8/v9/v10/v11. A bare
+strict v4/v5/v6/v7/v8/v9/v10/v11/v12 encoding, including zero extra snapshot/handoff fields for v5/v6/v7/v8/v9/v10/v11/v12. A bare
 stage-zero number, zero command count, failed function return
 or `usb_released=false` is insufficient. Overlay attempts, partial preparation,
 stage two and later failures, malformed/partial responses, unknown work and
 expired windows remain outside that certified normal-return class. The separate
-V6/V7/V8/V9/V10/V11 recovery attempt does not reinterpret them as safe-idle or successful results.
+V6/V7/V8/V9/V10/V11/V12 recovery attempt does not reinterpret them as safe-idle or successful results.
 
 Normal Download is still authenticated to the complete exact result, follows
 one durable intent, requires the existing EOF and final deadline check, and

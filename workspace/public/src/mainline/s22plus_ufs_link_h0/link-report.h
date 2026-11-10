@@ -31,7 +31,13 @@
 #if defined(G0Q_CFG1_ORDERED_SELECTION) && !defined(G0Q_CFG1_DIAGNOSTICS)
 #error "Ordered CFG1 selection requires the V10 diagnostic mode"
 #endif
-#ifdef G0Q_CFG1_ORDERED_SELECTION
+#if defined(G0Q_LINK_IRQ_DIAGNOSTICS) && !defined(G0Q_CFG1_ORDERED_SELECTION)
+#error "Link IRQ diagnostics require ordered CFG1 selection"
+#endif
+#ifdef G0Q_LINK_IRQ_DIAGNOSTICS
+#define G0Q_REPORT_TAG 0xc0000000U
+#define G0Q_REPORT_FIELDS 33
+#elif defined(G0Q_CFG1_ORDERED_SELECTION)
 #define G0Q_REPORT_TAG G0Q_REPORT_V11_TAG
 #define G0Q_REPORT_FIELDS 33
 #elif defined(G0Q_CFG1_DIAGNOSTICS)

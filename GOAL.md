@@ -30,6 +30,14 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ML047 is in H0 preparation.** The V12 terminal link IRQ diagnostic saves
+  the full first disallowed sample on the existing EIO path. The fresh candidate
+  and retained V11 frame passed host artifact and evidence checks. The final
+  suite passed 177 tests and independent review returned PASS_GO. The reviewed
+  v48 backend is active. Current preapproval D0 passed seven raw health reads.
+  The one-operation task awaits its returned finite attended approval.
+  [ML047 scope and validation](docs/reports/S22PLUS_MAINLINE_ML047_LINK_IRQ_H0_2026-11-11.md)
+
 - **ML046 is consumed with `NO_PROOF` and `ANDROID_CLOSED_HEALTHY`.** V11
   again sampled CFG1 pre/post `0x1c00052c`, with bit 0 clear, but passed the
   original budget and progressed through all six local UniPro commands and

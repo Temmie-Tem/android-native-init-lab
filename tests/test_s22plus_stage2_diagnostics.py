@@ -19,7 +19,7 @@ def function(text, signature):
     return text[start:text.index('\n}\n', start)+3]
 
 
-def compile_stage_fixture(out, compiler='cc', *, source=SOURCE, legacy=False, snapshot=False, handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, cfg1_diagnostics=False, cfg1_ordered_selection=False):
+def compile_stage_fixture(out, compiler='cc', *, source=SOURCE, legacy=False, snapshot=False, handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, cfg1_diagnostics=False, cfg1_ordered_selection=False, link_irq_diagnostics=False):
     """Extract byte-identical production functions; substitute kernel APIs only."""
     out.mkdir(parents=True, exist_ok=True)
     for header in HEADERS:
@@ -47,6 +47,7 @@ def compile_stage_fixture(out, compiler='cc', *, source=SOURCE, legacy=False, sn
     if stale_uccs_ack:flags.append('-DG0Q_STALE_UCCS_ACK')
     if cfg1_diagnostics:flags.append('-DG0Q_CFG1_DIAGNOSTICS')
     if cfg1_ordered_selection:flags.append('-DG0Q_CFG1_ORDERED_SELECTION')
+    if link_irq_diagnostics:flags.append('-DG0Q_LINK_IRQ_DIAGNOSTICS')
     subprocess.run([compiler, '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror',
                     '-Wno-unused-parameter', '-Wno-unused-variable', *flags,
                     '-I', out, '-I', source, ROOT/'tests/s22plus_stage2_fixture.c', '-o', exe], check=True)

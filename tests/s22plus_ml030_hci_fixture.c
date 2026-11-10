@@ -32,6 +32,14 @@ static u32 hci[1024], phy[0xe10/4];
 static u32 opcodes[8], attributes[8], values[8];
 static unsigned cmds, writes, cfg1_reads;
 static bool cfg1_clear;
+#ifdef LINK_IRQ_FIXTURE_REPORT
+static void trace_link_access(char op, const void *addr, u32 value)
+{
+	if (cmds == 7)
+		fprintf(stderr, "%c:%lx=%x\n", op,
+			(unsigned long)((uintptr_t)addr - (uintptr_t)hci), value);
+}
+#endif
 static u64 clock_ns, hce_ns;
 static const char *fault;
 static u64 ktime_get_boottime_ns(void) { return clock_ns; }
@@ -42,6 +50,9 @@ static void usleep_range(unsigned low, unsigned high)
 }
 static u32 readl(const void *addr)
 {
+#ifdef LINK_IRQ_FIXTURE_REPORT
+	trace_link_access('R', addr, *(const u32 *)addr);
+#endif
 	if (addr == &hci[0xdc/4]) {
 		cfg1_reads++;
 		if (cfg1_reads == 2 && !strcmp(fault, "expired-cfg1"))
@@ -56,6 +67,9 @@ static u32 readl(const void *addr)
 }
 static void writel(u32 value, void *addr)
 {
+#ifdef LINK_IRQ_FIXTURE_REPORT
+	trace_link_access('W', addr, value);
+#endif
 	writes++;
 	if (addr == &hci[REG_CONTROLLER_ENABLE/4]) {
 		assert(value == 1 && !hce_ns);
@@ -86,7 +100,15 @@ static void writel(u32 value, void *addr)
 		if (value == 2 && ((attr == 0x9007 && !strcmp(fault,"timer-set-bad-code")) ||
 		                  (attr == 0x155e && !strcmp(fault,"last-local-bad-code"))))
 			hci[REG_UIC_COMMAND_ARG_2/4] = 2;
+		if (value == 1 && !strcmp(fault, "local-irq"))
+			hci[REG_INTERRUPT_STATUS/4] = 0x404;
 		if (value == 0x16) {
+			if (!strcmp(fault, "irq-only"))
+				hci[REG_INTERRUPT_STATUS/4] = 0x4;
+			if (!strcmp(fault, "mixed-irq"))
+				hci[REG_INTERRUPT_STATUS/4] = 0x80000584U;
+			if (!strcmp(fault, "full-irq"))
+				hci[REG_INTERRUPT_STATUS/4] = UINT32_MAX;
 			if (strcmp(fault, "no-device"))
 				hci[REG_CONTROLLER_STATUS/4] |= DEVICE_PRESENT;
 			if (!strcmp(fault, "bad-code"))
@@ -99,6 +121,14 @@ static void writel(u32 value, void *addr)
 }
 
 #include "waipio_hci.c"
+
+#ifdef LINK_IRQ_FIXTURE_REPORT
+#include "link-report.h"
+struct kernel_param;
+#define PAGE_SIZE 4096
+#define scnprintf snprintf
+#include "fixture-report.inc"
+#endif
 
 int main(int argc, char **argv)
 {
@@ -141,6 +171,11 @@ int main(int argc, char **argv)
 		assert(rc==-EIO && cmds==(!strcmp(fault,"timer-set-bad-code") ? 5U : 6U) && !link.link_issued);
 	} else if (!strcmp(fault,"no-calibration")) {
 		assert(rc==-EPERM && !writes);
+	} else if (!strcmp(fault,"local-irq")) {
+		assert(rc == -EIO && cmds == 1 && !link.link_issued && !link.interrupt);
+	} else if (!strcmp(fault,"irq-only") || !strcmp(fault,"mixed-irq") || !strcmp(fault,"full-irq")) {
+		assert(rc == -EIO && cmds == 7 && link.link_issued);
+		assert(g0q_hci_link_once(&link,300000000,300000000) == -EPERM && cmds == 7);
 	} else if (!strcmp(fault,"no-device") || !strcmp(fault,"bad-code") ||
 		   !strcmp(fault,"link-lost") || !strcmp(fault,"no-uccs")) {
 		assert(rc<0 && cmds==7 && link.link_issued);
@@ -154,5 +189,18 @@ int main(int argc, char **argv)
 		assert(!!(link.cfg1_post & 1) == !cfg1_clear);
 	}
 #endif
+#ifdef LINK_IRQ_FIXTURE_REPORT
+	char output[PAGE_SIZE];
+	board.link = link;
+	operation_rc = rc;
+	/* Earlier stage and rail records are fixed fixture inputs. command() above
+	 * supplied the link result. The production formatter serializes both. */
+	board.stage2.checks = 0x7ff;
+	board.stage2.handoff_flags = 1;
+	int count = report(output, NULL);
+	assert(count > 0 && count <= 256);
+	assert(fwrite(output, 1, count, stdout) == (size_t)count);
+#else
 	printf("%s rc=%d local=%u link=%u writes=%u\n", fault,rc,link.local_commands,link.link_issued,writes);
+#endif
 }

@@ -390,6 +390,9 @@ int main(int argc, char **argv)
 #ifdef G0Q_CFG1_DIAGNOSTICS
 		board.link.cfg1_outcome=3;board.link.cfg1_pre=board.link.cfg1_post=0xffffffff;
 #endif
+#ifdef G0Q_LINK_IRQ_DIAGNOSTICS
+		operation_rc=-EIO;board.link.interrupt=0xffffffff;board.link.after=0;
+#endif
 	}
 #endif
 	produced_size=(size_t)report(produced,NULL);

@@ -25,7 +25,7 @@ def selected(request):
     cap=read(verify(image['capability']))
     require(cap['schema']=='s22plus-mainline-ufs-capability-v2' and
             cap['scope']=='S22PLUS_LATE_UFS_KEY_ONLY_V2','automatic recovery capability scope')
-    return cap['fixed']['report_version'] in (6,7,8,9,10,11)
+    return cap['fixed']['report_version'] in (6,7,8,9,10,11,12)
 
 
 def window(adapter,request):

@@ -35,6 +35,10 @@
 #error "Ordered CFG1 selection requires the V10 diagnostic mode"
 #endif
 
+#if defined(G0Q_LINK_IRQ_DIAGNOSTICS) && !defined(G0Q_CFG1_ORDERED_SELECTION)
+#error "Link IRQ diagnostics require ordered CFG1 selection"
+#endif
+
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
 #define PHY_LINECFG_DISABLE 0xd48
@@ -360,8 +364,14 @@ static int command(struct g0q_link *link, u32 opcode, u32 attribute, u32 argumen
 	while (ktime_get_boottime_ns() < until) {
 		status = readl(hci + REG_INTERRUPT_STATUS);
 		if (status & ~(UIC_COMMAND_COMPL |
-			       (link->link_issued ? UIC_LINK_STARTUP : 0)))
+			       (link->link_issued ? UIC_LINK_STARTUP : 0))) {
+#ifdef G0Q_LINK_IRQ_DIAGNOSTICS
+			/* A terminal link refusal owns this already-read sample. */
+			if (link->link_issued)
+				link->interrupt = status;
+#endif
 			return -EIO;
+		}
 		if (status & UIC_COMMAND_COMPL) {
 			code = readl(hci + REG_UIC_COMMAND_ARG_2) & 0xff;
 			after = readl(hci + REG_CONTROLLER_STATUS);
