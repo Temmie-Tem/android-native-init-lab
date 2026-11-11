@@ -38,7 +38,8 @@ identities, goals, artifacts and authority remain separate.
   recovered 2,097,136 bytes with zero ML050 records or candidate identifier
   occurrences. Physical bind and UDC state remain unproved. ML050 is
   consumed and the owner is released.
-  [Physical result and retained-log audit](docs/reports/S22PLUS_MAINLINE_ML050_UDC_AUTO_RETURN_RUN_2026-11-11.md)
+  [Physical result and retained-log audit](docs/reports/S22PLUS_MAINLINE_ML050_UDC_AUTO_RETURN_RUN_2026-11-11.md) ·
+  [Why the missing record is inconclusive](docs/reports/S22PLUS_MAINLINE_ML050_RETENTION_ANALYSIS_2026-11-12.md)
 
 - **ML049 was prepared and remained unexecuted when ML050 was selected.** A new
   Debian RAM-only boot image records configfs bind outcomes and timed device
