@@ -1,0 +1,141 @@
+--- a/drivers/usb/gadget/udc/retained-udc.h
++++ b/drivers/usb/gadget/udc/retained-udc.h
+@@ -3,6 +3,8 @@
+ #include <asm/barrier.h>
+ #include <crypto/sha2.h>
+ #include <linux/io.h>
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
+ #include <linux/of_address.h>
+ #include <linux/random.h>
+ #include "g0q-udc-key.h"
+@@ -79,22 +81,34 @@ static void __iomem *g0q_map(phys_addr_t
+ 	return ioremap_wc(address, length);
+ }
+ 
+-static bool g0q_publish(unsigned int index)
++/* Preserve the first failed publication while the RAM sampler continues. */
++enum g0q_publication {
++	G0Q_NO_ATTEMPT, G0Q_READBACK_OK, G0Q_HEADER_MAP, G0Q_HEADER_MAGIC,
++	G0Q_CURSOR_SHORT, G0Q_HEADER_CHANGED, G0Q_SLOT_MAP, G0Q_READBACK_MISMATCH,
++};
++
++static enum g0q_publication g0q_publish(unsigned int index)
+ {
+ 	u32 header[4], pos, cursor;
+ 	u8 __iomem *slot;
+ 	u32 __iomem *map;
+ 	unsigned int i;
+-	bool ok = false;
++	enum g0q_publication result = G0Q_HEADER_CHANGED;
+ 
+ 	static_assert(sizeof(g0q_record) == G0Q_SLOT);
+ 	map = g0q_map(G0Q_LOG_BASE, sizeof(header));
+ 	if (!map)
+-		return false;
++		return G0Q_HEADER_MAP;
+ 	for (i = 0; i < ARRAY_SIZE(header); i++)
+ 		header[i] = readl(map + i);
+-	if (header[1] != 0x4d474f4c || header[2] < 2 * G0Q_SLOT)
++	if (header[1] != 0x4d474f4c) {
++		result = G0Q_HEADER_MAGIC;
++		goto out;
++	}
++	if (header[2] < 2 * G0Q_SLOT) {
++		result = G0Q_CURSOR_SHORT;
+ 		goto out;
++	}
+ 	if (g0q_has_header && memcmp(g0q_latched, header, sizeof(header)))
+ 		goto out;
+ 	memcpy(g0q_latched, header, sizeof(header));
+@@ -103,8 +117,10 @@ static bool g0q_publish(unsigned int ind
+ 	pos = (cursor >= 2 * G0Q_SLOT ? cursor : G0Q_LOG_PAYLOAD) - 2 * G0Q_SLOT;
+ 	pos += (index % 2) * G0Q_SLOT;
+ 	slot = g0q_map(G0Q_LOG_BASE + sizeof(header) + pos, G0Q_SLOT);
+-	if (!slot)
++	if (!slot) {
++		result = G0Q_SLOT_MAP;
+ 		goto out;
++	}
+ 	for (i = 0; i < ARRAY_SIZE(header); i++)
+ 		if (readl(map + i) != header[i])
+ 			goto out_slot;
+@@ -121,12 +137,41 @@ static bool g0q_publish(unsigned int ind
+ 	for (i = 0; i < 8; i++)
+ 		writeb(g0q_record.magic[i], slot + i);
+ 	dsb(sy);
+-	ok = true;
++	for (i = 0; i < G0Q_SLOT; i++)
++		if (readb(slot + i) != ((u8 *)&g0q_record)[i]) {
++			result = G0Q_READBACK_MISMATCH;
++			goto out_slot;
++		}
++	for (i = 0; i < ARRAY_SIZE(header); i++)
++		if (readl(map + i) != header[i])
++			goto out_slot;
++	result = G0Q_READBACK_OK;
+ out_slot:
+ 	iounmap(slot);
+ out:
+ 	iounmap(map);
+-	return ok;
++	return result;
++}
++
++/* One worker writes these fields. Each read returns one coherent sample. */
++static DEFINE_SPINLOCK(g0q_live_lock);
++static struct g0q_live_sample {
++	u32 measured_ms, bind_end, bind_count, attempt_ms;
++	s32 state, bind_rc;
++	enum g0q_publication publication;
++} g0q_live;
++
++static int g0q_live_show(struct seq_file *m, void *unused)
++{
++	struct g0q_live_sample sample;
++
++	spin_lock(&g0q_live_lock);
++	sample = g0q_live;
++	spin_unlock(&g0q_live_lock);
++	seq_printf(m, "%u %d %u %u %d %u %u\n", sample.measured_ms, sample.state,
++		   sample.bind_count, sample.bind_end, sample.bind_rc,
++		   sample.attempt_ms, sample.publication);
++	return 0;
+ }
+ 
+ static void g0q_sample_work(struct work_struct *work);
+@@ -182,8 +227,23 @@ static void g0q_sample_work(struct work_
+ 	g0q_record.seen |= cpu_to_le32(BIT(i));
+ 	hmac_sha256_usingrawkey(g0q_key, sizeof(g0q_key), (const u8 *)&g0q_record,
+ 				offsetof(struct g0q_udc_record, mac), g0q_record.mac);
+-	if (g0q_publish(i))
+-		g0q_schedule();
++	/* A rejected publication remains terminal for writes, even across later samples. */
++	if (g0q_live.publication <= G0Q_READBACK_OK) {
++		enum g0q_publication result = g0q_publish(i);
++
++		spin_lock(&g0q_live_lock);
++		g0q_live.attempt_ms = now;
++		g0q_live.publication = result;
++	} else {
++		spin_lock(&g0q_live_lock);
++	}
++	g0q_live.measured_ms = now;
++	g0q_live.state = state;
++	g0q_live.bind_count = le32_to_cpu(g0q_record.bind_count);
++	g0q_live.bind_end = le32_to_cpu(g0q_record.bind_end);
++	g0q_live.bind_rc = (s32)le32_to_cpu(g0q_record.bind_rc);
++	spin_unlock(&g0q_live_lock);
++	g0q_schedule();
+ }
+ 
+ static int __init g0q_observe_init(void)
+@@ -206,6 +266,8 @@ static int __init g0q_observe_init(void)
+ 	memcpy(g0q_record.magic, "G0QUDC01", 8);
+ 	memcpy(g0q_record.candidate, g0q_candidate, sizeof(g0q_candidate));
+ 	get_random_bytes(g0q_record.boot, sizeof(g0q_record.boot));
++	if (!proc_create_single("g0q_udc_vm_sample", 0400, NULL, g0q_live_show))
++		return -ENOMEM;
+ 	WRITE_ONCE(g0q_enabled, true);
+ 	g0q_schedule();
+ 	return 0;

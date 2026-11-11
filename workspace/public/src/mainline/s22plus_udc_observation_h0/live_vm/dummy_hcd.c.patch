@@ -1,0 +1,86 @@
+--- a/drivers/usb/gadget/udc/dummy_hcd.c
++++ b/drivers/usb/gadget/udc/dummy_hcd.c
+@@ -56,7 +56,7 @@
+ static const char	driver_name[] = "dummy_hcd";
+ static const char	driver_desc[] = "USB Host+Gadget Emulator";
+ 
+-static const char	gadget_name[] = "dummy_udc";
++static const char	gadget_name[] = "a600000.usb";
+ 
+ MODULE_DESCRIPTION(DRIVER_DESC);
+ MODULE_AUTHOR("David Brownell");
+@@ -277,6 +277,7 @@ struct dummy {
+ 	u16				devstatus;
+ 	unsigned			ints_enabled:1;
+ 	unsigned			udc_suspended:1;
++	bool vm_pullup_requested;
+ 	unsigned			pullup:1;
+ 	unsigned			fifo_req_busy:1;
+ 
+@@ -923,6 +924,9 @@ static void dummy_udc_update_ep0(struct
+ 		dum->ep[0].ep.maxpacket = 64;
+ }
+ 
++/* VM fixture opens the virtual cable only after freezing the RAM sample. */
++static bool vm_cable;
++
+ static int dummy_pullup(struct usb_gadget *_gadget, int value)
+ {
+ 	struct dummy_hcd *dum_hcd;
+@@ -933,7 +937,8 @@ static int dummy_pullup(struct usb_gadge
+ 	dum_hcd = gadget_to_dummy_hcd(_gadget);
+ 
+ 	spin_lock_irqsave(&dum->lock, flags);
+-	dum->pullup = (value != 0);
++	dum->vm_pullup_requested = value != 0;
++	dum->pullup = dum->vm_pullup_requested && vm_cable;
+ 	set_link_state(dum_hcd);
+ 	spin_unlock_irqrestore(&dum->lock, flags);
+ 
+@@ -2812,6 +2817,37 @@ static struct platform_driver dummy_hcd_
+ /*-------------------------------------------------------------------------*/
+ #define MAX_NUM_UDC	32
+ static struct platform_device *the_udc_pdev[MAX_NUM_UDC];
++
++/* One host-side cable event; the registered gadget driver stays running. */
++static int vm_connect(const char *value, const struct kernel_param *param)
++{
++	struct dummy *dum;
++	struct dummy_hcd *hcd;
++	unsigned long flags;
++	int ret = 0;
++
++	if (!sysfs_streq(value, "1") || !the_udc_pdev[0])
++		return -EINVAL;
++	dum = platform_get_drvdata(the_udc_pdev[0]);
++	if (!dum)
++		return -ENODEV;
++	hcd = gadget_to_dummy_hcd(&dum->gadget);
++	spin_lock_irqsave(&dum->lock, flags);
++	if (vm_cable || !dum->vm_pullup_requested) {
++		ret = -EBUSY;
++	} else {
++		vm_cable = true;
++		dum->pullup = 1;
++		set_link_state(hcd);
++	}
++	spin_unlock_irqrestore(&dum->lock, flags);
++	if (!ret)
++		usb_hcd_poll_rh_status(dummy_hcd_to_hcd(hcd));
++	return ret;
++}
++
++static const struct kernel_param_ops vm_cable_ops = { .set = vm_connect };
++module_param_cb(vm_cable, &vm_cable_ops, NULL, 0200);
+ static struct platform_device *the_hcd_pdev[MAX_NUM_UDC];
+ 
+ static int __init dummy_hcd_init(void)
+@@ -2842,7 +2878,7 @@ static int __init dummy_hcd_init(void)
+ 		}
+ 	}
+ 	for (i = 0; i < mod_data.num; i++) {
+-		the_udc_pdev[i] = platform_device_alloc(gadget_name, i);
++		the_udc_pdev[i] = platform_device_alloc(gadget_name, PLATFORM_DEVID_NONE);
+ 		if (!the_udc_pdev[i]) {
+ 			i--;
+ 			while (i >= 0)

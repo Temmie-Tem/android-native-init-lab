@@ -30,6 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **ARM64 VM recovered the pre-connect UDC sample over CDC-NCM after
+  retained writes failed.** Two header failures left the full 2 MiB
+  unchanged. Both authenticated responses preserved the earlier failure and
+  a later post-bind `not attached` sample. A valid-header control also
+  matched the actual retained bytes. This is a VM-only experiment.
+  [USB response and independent RAM checks](docs/reports/S22PLUS_UDC_PRECONNECT_LIVE_RESPONSE_VM_2026-11-12.md)
+
 - **ML050 completed automatic original-A return and closed healthy.** The
   host saw no USB endpoint in 73 samples during the initial 120 seconds.
   New-generation Download appeared at N+590.227 seconds and the owner
