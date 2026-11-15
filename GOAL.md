@@ -30,6 +30,13 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+- **The PC collector verified Debian UDC history across a virtual cable
+  connection.** Three ARM64 boots reported the earlier not-attached sample
+  and later configured sample in the same authenticated Debian response.
+  Both writer failures left the entire log unchanged. The readback control
+  matched all 128 bytes of the reported slot. Board artifacts are H0 only.
+  [Debian PC collection and controls](docs/reports/S22PLUS_DEBIAN_UDC_HISTORY_PC_VM_2026-11-15.md)
+
 - **ARM64 VM recovered the pre-connect UDC sample over CDC-NCM after
   retained writes failed.** Two header failures left the full 2 MiB
   unchanged. Both authenticated responses preserved the earlier failure and
