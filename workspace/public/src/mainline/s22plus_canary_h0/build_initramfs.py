@@ -14,7 +14,7 @@ import subprocess
 from prepare import HERE, ROOT, digest, require, run
 
 
-def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False, service_cycle=False, udc_timer_return=False):
+def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=None, *, download_return=False, service_cycle=False, udc_timer_return=False, udc_history=False):
     prepared, output = prepared.resolve(), output.resolve()
     require(output.is_relative_to(ROOT/'workspace/private'), 'private output required')
     output.mkdir(mode=0o700,parents=True,exist_ok=False)
@@ -29,6 +29,10 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
     require(type(udc_timer_return) is bool and (not udc_timer_return or (
             debian_packages is not None and ssh_keys is None and not download_return and not service_cycle)),
             'timed UDC return requires the plain Debian RAM observer')
+    if udc_history:
+        require(udc_timer_return, 'UDC history requires the timed Debian observer')
+        import udc_history as history_wire
+        source_paths += [prepared/'observation.id', prepared/'observation.key', HERE/'udc_history.py']
     if udc_timer_return:
         source_paths.extend((HERE/'download-return.h', HERE.parent/'s22plus_ufs_link_h0/recovery.h'))
     if service_cycle:
@@ -86,6 +90,7 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
              '-fdata-sections','-Wl,--gc-sections','-Wl,--build-id=none','-I',output,
              *(['-DCANARY_H0_VM'] if vm else []),
              *(['-DCANARY_DEBIAN_RAM'] if debian_packages is not None else []),HERE/'init.c','-o',executable]
+    if udc_history:command.insert(command.index(HERE/'init.c'),'-DCANARY_UDC_HISTORY')
     if ssh_keys is not None:command.insert(command.index(HERE/'init.c'),'-DCANARY_DEBIAN_SSH')
     if service_cycle:command.insert(command.index(HERE/'init.c'),'-DCANARY_RC_CYCLE')
     if download_return or service_cycle:command.insert(command.index(HERE/'init.c'),'-DCANARY_DOWNLOAD_RAM')
@@ -148,7 +153,11 @@ def build(prepared, output, vm, network_path, debian_packages=None, ssh_keys=Non
         if download_return:
             import download_ram
             result['debian_ram'].update(schema=download_ram.SCHEMA,download_return=download_ram.declaration())
-        debian_ram.validate(result)
+        if udc_history:
+            result['debian_ram'].update(schema=history_wire.SCHEMA, retained={
+                'candidate': debian_ram.pin(prepared/'observation.id'),
+                'key': debian_ram.pin(prepared/'observation.key')})
+        debian_ram.validate(result, allow_h0_udc_history=udc_history)
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'vm':vm,'init_bytes':(tree/'init').stat().st_size,
                       'archive_bytes':archive.stat().st_size,'output':str(output)}))
@@ -165,4 +174,5 @@ if __name__=='__main__':
     p.add_argument('--download-return',action='store_true',help='distinct one-shot Download control schema; H0 only')
     p.add_argument('--service-cycle',action='store_true',help='distinct packaged rc-managed SSH cycle; H0 only')
     p.add_argument('--udc-timer-return',action='store_true',help='fixed local Download timer for the UDC observer')
-    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return,service_cycle=a.service_cycle,udc_timer_return=a.udc_timer_return)
+    p.add_argument('--udc-history',action='store_true',help='include the retained writer result and measured UDC history')
+    a=p.parse_args();build(a.prepared,a.output,a.vm,a.network,a.debian_packages,a.ssh_keys,download_return=a.download_return,service_cycle=a.service_cycle,udc_timer_return=a.udc_timer_return,udc_history=a.udc_history)

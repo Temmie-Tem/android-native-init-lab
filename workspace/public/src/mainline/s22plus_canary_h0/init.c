@@ -258,6 +258,15 @@ static int debian_proof(uint8_t response[G0Q_RESPONSE_SIZE]) {
 }
 #endif
 static int proof(const uint8_t nonce[32],uint8_t response[G0Q_RESPONSE_SIZE]) {
+#ifdef CANARY_UDC_HISTORY
+    /* Sample before taking the authenticated uptime upper bound. The kernel
+     * exports one coherent history including observations before attachment. */
+    uint8_t history[136] = {0};
+    size_t history_size = 0;
+    int history_error = read_small("/proc/g0q_udc_history", history, sizeof(history), &history_size);
+    if (history_error && history_error != ENOENT) return history_error;
+    if (!history_error && history_size != sizeof(history)) return EPROTO;
+#endif
     uint8_t memory[65536];
     for(size_t i=0;i<sizeof(memory);i++)memory[i]=(uint8_t)(i^(i>>8)^0xa7);
     /* Volatile read prevents the compiler replacing the check with a constant. */
@@ -303,6 +312,10 @@ static int proof(const uint8_t nonce[32],uint8_t response[G0Q_RESPONSE_SIZE]) {
 #endif
 #ifdef CANARY_DEBIAN_RAM
     if((e=debian_proof(response)))return e;
+#endif
+#ifdef CANARY_UDC_HISTORY
+    g_put32(response+352, (uint32_t)history_error);
+    if (!history_error) memcpy(response+356, history, sizeof(history));
 #endif
     g_tag(response+G0Q_BODY_SIZE,canary_key,canary_id,1,response,G0Q_BODY_SIZE);
     return 0;
@@ -397,7 +410,7 @@ int main(void) {
     if(mount_phase)return 0;
 #endif
     dprintf(2,"G0Q_RAM_PID1_BEGIN\n");
-#ifdef CANARY_H0_VM
+#if defined(CANARY_H0_VM) && !defined(CANARY_UDC_HISTORY)
     int e=network("eth0");
 #else
     int e=usb();

@@ -24,6 +24,15 @@ CYCLE_SCHEMA='s22plus-mainline-debian-rc-ssh-ram-v1'
 LINK_SCHEMA='s22plus-mainline-debian-ufs-link-ram-v1'
 
 
+def udc_extension(manifest):
+    if manifest.get('debian_ram', {}).get('schema') == 's22plus-mainline-debian-udc-history-v1':
+        if __package__:
+            from . import udc_history
+        else:
+            import udc_history
+        return udc_history
+
+
 def has_link(manifest):
     return manifest.get('debian_ram',{}).get('schema')==LINK_SCHEMA
 
@@ -42,6 +51,9 @@ def has_download(manifest):
 
 def protocol(manifest=None):
     if manifest is not None and 'debian_ram' in manifest:
+        extension = udc_extension(manifest)
+        if extension:
+            return extension.PROTOCOL
         if has_cycle(manifest):return b'G0Q-DEBIAN-RC-SSH-RAM-v1',b'G0QCRQ1\0',b'G0QCRS1\0',352
         if has_download(manifest):return b'G0Q-DEBIAN-DOWNLOAD-RAM-v1',b'G0QNRQ1\0',b'G0QNRS1\0',352
         if has_ssh(manifest):return b'G0Q-DEBIAN-SSH-RAM-v1',b'G0QSRQ1\0',b'G0QSRS1\0',352
@@ -71,11 +83,20 @@ def verify(raw_path, manifest, nonce, *, vm=False):
 
 def verify_capture(handle,manifest,nonce):
     """Physical observation entry accepts only a sealed raw-capture handle."""
+    return _verify_capture(handle, manifest, nonce, vm=False)
+
+
+def verify_vm_capture(handle, manifest, nonce):
+    """Verify the PC collector's sealed capture against a VM manifest."""
+    return _verify_capture(handle, manifest, nonce, vm=True)
+
+
+def _verify_capture(handle, manifest, nonce, *, vm):
     import device_action_raw_capture_v1 as capture
     require(isinstance(handle,capture.RawCaptureHandle),'physical parser requires an immutable capture handle')
     capture.require_success(handle)
     raw=capture.read_stdout(handle,maximum=response_size(manifest)+FDT_LIMIT)
-    return _verify(raw,manifest,nonce,vm=False,directory=handle.receipt_path.parent)
+    return _verify(raw,manifest,nonce,vm=vm,directory=handle.receipt_path.parent)
 
 
 def _verify(raw,manifest,nonce,*,vm,directory):
@@ -111,6 +132,9 @@ def _verify(raw,manifest,nonce,*,vm,directory):
     require(0<uptime<120000 and pid==1 and cpus==1 and blocks==0 and health==1,'health fields')
     require(20<=delta<=5000 and size==len(fdt) and 40<=size<=FDT_LIMIT,'timer/FDT fields')
     require(variant==int(vm),'runtime variant')
+    extension = udc_extension(manifest)
+    if extension:
+        extra['udc_history'] = extension.unpack(body[352:], manifest['debian_ram']['retained'], uptime)
     require(hashlib.sha256(fdt).digest()==body[88:120],'FDT digest')
     require(body[120:152].hex()==manifest['init']['sha256'],'actual PID1 executable')
     release=manifest['kernel_release'].encode();require(len(release)<64,'release size')

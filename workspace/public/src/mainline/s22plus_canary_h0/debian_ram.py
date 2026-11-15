@@ -124,7 +124,7 @@ def declaration(files, observer, package_lock):
                          for n in MEMBERS})
 
 
-def validate(manifest):
+def validate(manifest, *, allow_h0_udc_history=False):
     """Pure fixed-member/actual-CPIO check, including node types and symlinks."""
     value=manifest['debian_ram']
     if value.get('schema') == 's22plus-mainline-debian-rc-ssh-ram-v1':
@@ -144,8 +144,19 @@ def validate(manifest):
     else:
         import download_ram
     returning=value.get('schema')==download_ram.SCHEMA
-    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members'}|({'download_return'} if returning else set()) and
-            value['schema'] in (SCHEMA,download_ram.SCHEMA) and type(manifest['vm']) is bool, 'Debian RAM schema differs')
+    schemas = {SCHEMA, download_ram.SCHEMA}
+    extra_fields = {'download_return'} if returning else set()
+    if allow_h0_udc_history:
+        if __package__:
+            from . import udc_history
+        else:
+            import udc_history
+        schemas.add(udc_history.SCHEMA)
+        if value.get('schema') == udc_history.SCHEMA:
+            extra_fields = {'retained'}
+            udc_history.credentials(value['retained'])
+    require(set(value)=={'schema','package_lock','observer','inittab_sha256','members'} | extra_fields and
+            value['schema'] in schemas and type(manifest['vm']) is bool, 'Debian RAM schema differs')
     if returning:require(value['download_return']==download_ram.declaration(),'Download runtime scope differs')
     require(value['inittab_sha256']==hashlib.sha256(INITTAB).hexdigest(), 'Debian inittab identity differs')
     require(set(value['members'])==set(MEMBERS), 'Debian member declaration differs')
