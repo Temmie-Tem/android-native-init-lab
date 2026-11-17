@@ -13,6 +13,8 @@
 
 따라서 기기 트리 이름의 12를 모뎀 RF 카드 번호로 대입할 근거가 없다. 국내 모델의 n78 지원 자체는 제조사가 명시한다. 확인한 실기 기록에서는 n78 접속, 기지국 역할의 송신, 독립 수신기의 파형 관측을 입증할 수 없었다. [삼성전자 국내 모델 사양](https://www.samsung.com/sec/support/model/SM-S906NZEWKOO/)
 
+국립전파연구원의 해당 모델 적합인증 원문에서도 장비 역할을 확인했다. 2022년 2월 11일 인증한 `R-C-SEC-SMS906`의 모델은 `SM-S906N`이며, 3.5 GHz 5G NR 장비의 분류는 ‘육상이동국의 송수신장치’다. 이 기록은 국내 모델의 이동국 송수신 용도를 뒷받침한다. 기지국 역할의 동작 여부를 판정할 시험 결과나 RF 부품 명세는 이 인증 조회표에 없다. [국립전파연구원 모델별 적합인증](https://www.rra.go.kr/ko/license/A_b_popup_keyno.do?key_no=R-C-SEC-SMS906)
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
