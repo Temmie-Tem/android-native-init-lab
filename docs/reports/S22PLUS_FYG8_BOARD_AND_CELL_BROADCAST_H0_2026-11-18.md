@@ -53,6 +53,8 @@ FYG1 진단 디스패처가 호출하는 `fs_diag_read`에서 경로 검사, 기
 
 11월 19일 같은 Android 부팅에서 UID 0으로 확인하니 `vendor.diag-router`가 실행 중이었다. USB 구성은 `mtp,conn_gadget,adb`였고 활성 구성에 전용 DIAG 함수가 없었다. 설치된 진단 HAL은 범용 전송 메서드를 제공한다. 확인한 순정 실행 파일과 인터페이스에서는 현 상태에서 기존 EFS 파일 하나를 조회하는 지원 명령을 식별하지 못했다. 이번 연결에서는 CP에 요청을 보내지 않았으므로 파일의 존재 여부와 값은 미확인이다. 원본 관측과 정적 구간 해시는 비공개 분석 디렉터리 `diag-existing.PqVUzD/`에 보관했다.
 
+같은 부팅에서 수집한 HAL 라이브러리 세 사본의 클라이언트 심볼을 인터페이스별로 대조했다. `Idiag::open`은 콜백 객체를 인자로 받으며 파일 경로 인자가 없다. `Idiag::write`는 메모리 버퍼와 길이를 받고, `send_data`는 콜백 인터페이스에 속한다. 따라서 라우터가 실행 중이라는 관측만으로는 특정 파일을 열었거나 읽을 수 있다고 판정할 수 없다. 이 경로에서 파일을 실측하려면 CP로 EFS 조회 요청을 전송해야 한다. S22+ D0는 페이로드 전송을 제외하므로 이 재검토에는 보관된 자료만 사용했다. [S22+ D0 범위](../operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md#s22-d0)
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
