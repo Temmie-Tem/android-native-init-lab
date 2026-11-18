@@ -117,6 +117,13 @@ After the review, the capability-bound declaration passed `candidate.qualify`
 and the exact task was prepared (`PASS_H0_V13_REVIEWED_PREPARATION`). No
 grant or operation exists.
 
+The capability policy is itself a bound source of the capability record, so
+its version-table row stays as frozen (`H0; code/contract review PASS_GO …
+pending`) until the next capability; this report and GOAL carry the adoption
+state. Editing that row after freezing changed the bound bytes and made the
+first readiness request fail closed (`record receipt changed`); the frozen
+bytes were restored.
+
 ## Remaining before the physical run
 
 Current foreground D0 health; the operator's separately returned exact
