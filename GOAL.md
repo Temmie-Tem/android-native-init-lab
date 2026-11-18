@@ -61,8 +61,9 @@ UIC_ERROR, the UIC error-code registers once; move QUNIPRO_SEL to the
 upstream position. V13 is implemented and H0-verified, together with a
 version envelope that lets later module versions be adopted through the
 capability's version table without amending the root, details or target
-(contract revision 81). The independent review, V13 capability record,
-fresh terminal-backend review, candidate qualification and a fresh attended
+(contract revision 81). The code and contract change passed independent
+review (PASS_GO after four rounds). The V13 capability record, fresh
+terminal-backend review, candidate qualification and a fresh attended
 approval precede any device effect.
 [V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 

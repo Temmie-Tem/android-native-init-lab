@@ -46,7 +46,7 @@ The adopted fixed hardware artifacts are:
 | Report-v10 CFG1 branch diagnostics module | `23c72b3c6cbe342fa41841f0cee0cf6bb12b1b5375b64f0e49cdf00be9396618` |
 | Report-v11 ordered CFG1 selection module | `88beadd1a31b05fc8adc998eb99757849c6c83287fb9b4473d8590ab2b888fa3` |
 | Report-v12 terminal link IRQ diagnostic module | `9176104a4c51ec21c6d845bd50f48ff2900447f654fbaa45e3718cde16ed89a2` |
-| Report-v13 upstream link tolerance module (H0, review pending) | `5628f2990357f1ade9f4063627e3cf8e4f0351fe953d8f1f350dc0caf5175459` |
+| Report-v13 upstream link tolerance module (code review PASS_GO; capability record pending) | `5628f2990357f1ade9f4063627e3cf8e4f0351fe953d8f1f350dc0caf5175459` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -88,7 +88,7 @@ is `workspace/public/src/mainline/s22plus_ufs_link_h0/report_modes.py`.
 | v10 | v9 | `0xa0000000` | 33 | adopted; consumed runs only | Report-v10 |
 | v11 | v10 | `0xb0000000` | 33 | adopted; consumed runs only | Report-v11 |
 | v12 | v11 | `0xc0000000` | 33 | adopted; ML047 consumed | Report-v12 |
-| v13 | v12 | `0xd0000000` | 38 | H0 implemented; independent review pending; no grant | Report-v13 |
+| v13 | v12 | `0xd0000000` | 38 | H0; code/contract review PASS_GO (2026-11-19, four rounds); capability record, terminal re-review and grant pending | Report-v13 |
 
 ### Report-v13 upstream link tolerance
 

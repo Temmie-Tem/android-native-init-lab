@@ -85,11 +85,16 @@ also post-write paths, and the guest's success check omitted the completion
 result and post-link HCS. The capability now enumerates every post-write
 stop, (c) admits that class rather than a single path, and the guest checks
 both fields (the V13 module bytes are unchanged).
+Round four confirmed both resolved, found nothing new in a final pass over
+`1d2d6ccba0^..ccf5ed1bd7`, and returned **PASS_GO**: envelope-admitted
+effects stay inside the reviewed late-UFS scope, reachable V13 success
+histories agree across producer, guest and host, and v1–v12 behaviour is
+unchanged. Prompts and raw outputs of all four rounds, with SHA-256 sums,
+are in the private evidence directory under `review/`.
 
 ## Remaining before any physical run
 
-Independent review of the code and contract change; a V13 capability
-record and its review; fresh terminal-backend review under contract revision
+A V13 capability record and its review; fresh terminal-backend review under contract revision
 81; fresh candidate qualification; current D0 health; and a separately
 returned one-operation attended grant. The replug dependency of the USB first
 response recorded in GOAL still applies to that run.
