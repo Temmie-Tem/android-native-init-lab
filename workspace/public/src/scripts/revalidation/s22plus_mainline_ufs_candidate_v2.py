@@ -72,10 +72,19 @@ def auxiliary_inputs():
                 specs_sha256=hashlib.sha256(specs).hexdigest())
 
 
+def _report_modes():
+    """The single report-version declaration beside the module sources."""
+    source = str(ROOT/'workspace/public/src/mainline/s22plus_ufs_link_h0')
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    import report_modes
+    return report_modes
+
+
 def fixed_binding(cap):
     fixed = cap['fixed']
     require(set(fixed)==FIXED_FIELDS and type(fixed['report_version']) is int and
-            fixed['report_version'] in (4, 5, 6, 7, 8, 9, 10, 11, 12), 'v2 fixed capability fields or report mode')
+            4 <= fixed['report_version'] <= _report_modes().LATEST, 'v2 fixed capability fields or report mode')
     kernel=checked(fixed['kernel']);component=checked(fixed['component'])
     require(component['status']=='BUILT_H0_COLD_LINK_COMPONENT' and
             component['pre_effect_return'] is True and component['report_version']==fixed['report_version'] and
@@ -216,8 +225,10 @@ def reproduce(candidate,manifest,producer,fixed,out):
     import report_modes
     selected=report_modes.modes(fixed['report_version'])
     expected=builder.compile_command(folder,vm=False,**selected)
+    require(producer['compile_command']==expected, 'v2 compiler recipe differs')
     out.mkdir(mode=0o700)
     command=builder.compile_command(folder,vm=False,destination=out/'observer',**selected)
+    auxiliary=auxiliary_inputs()
     require(auxiliary==fixed['observer_auxiliary'],'v2 compiler auxiliary/specs changed')
     proof=build_evidence.compile_observer(command,out)
     require(auxiliary_inputs()==auxiliary,'compiler auxiliary changed during reproduction')

@@ -34,12 +34,18 @@ def return_allowed(facts):
     return facts.get('normal_return') is True or facts.get('recovery_return') is True
 
 
-# Report schema per module report version. Tags are version << 28 from v4;
-# every feature from v6 on is cumulative (v5's HCI snapshot is a side branch).
-REPORT_FIELDS = {1: 19, 2: 21, 3: 23, 4: 23, 5: 30, 6: 30, 7: 30, 8: 30, 9: 30,
-                 10: 33, 11: 33, 12: 33, 13: 38}
-HANDOFF, RESET_CONFIG, DISABLED_UCRDY, STALE_ACK = 6, 7, 8, 9
-CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = 10, 11, 12, 13
+try:
+    from . import report_modes
+except ImportError:  # imported as a top-level module beside its sources
+    import report_modes
+
+# Report schema per module report version, from the single declaration.
+# Tags are version << 28 from v4; v5's HCI snapshot is the only side branch.
+REPORT_FIELDS = report_modes.FIELDS
+HANDOFF, RESET_CONFIG, DISABLED_UCRDY, STALE_ACK = (report_modes.FIRST[k] for k in
+    ('hce_handoff', 'reset_config', 'disabled_ucrdy', 'stale_uccs_ack'))
+CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = (report_modes.FIRST[k] for k in
+    ('cfg1_diagnostics', 'cfg1_ordered_selection', 'link_irq_diagnostics', 'upstream_link'))
 # UIC error-code registers 0x38..0x48 (ufshci.h). PA/DL are reported raw;
 # N/T/DME share one word: (code shift, code mask, error bit, reserved bit).
 UEC_RAW = (('PA', 0x1f), ('DL', 0xffff))
@@ -389,9 +395,32 @@ def cfg1_diagnostics(values, *, report_version):
     check(outcome in (0, 1, 2, 3) and 0 <= before < 2**32 and 0 <= after < 2**32,
           'CFG1 diagnostic range')
     rc, stage, _, pcs, local, issued = values[:6]
+    hce = values[10]
     if outcome == 0:
-        check(before == after == values[10] == local == issued == 0 and rc < 0,
+        check(before == after == hce == local == issued == 0 and rc < 0,
               'unreached CFG1 has reached state')
+    elif report_version >= UPSTREAM_LINK:
+        # V13 selects at the end of stage four, before lane clocks (stage five)
+        # and the stage-six HCE/UIC path.
+        check(stage in (4, 5, 6) and pcs == 1 and hce in (0, 1) and
+              values[21] == (report_version << 28) and
+              values[22] & 0x3fffff == 0x7ff and values[27:30] == [0, 0, 0],
+              'CFG1 reached before its prerequisites')
+        if outcome == 2:
+            check(stage == 4 and rc == -5 and hce == local == issued == 0 and
+                  not any(values[6:10]), 'CFG1 failed-branch contradiction')
+        else:
+            check(stage in (5, 6) and bool(after & 1) == (outcome == 3),
+                  'CFG1 continuing branch contradicts sample')
+            if not hce:
+                check(stage == 6 or rc < 0, 'stage five ended without an error')
+                check(-4095 <= rc < 0 and local == issued == 0 and not any(values[6:10]),
+                      'CFG1 passed but impossible pre-HCE result')
+            else:
+                check(stage == 6, 'HCE started outside stage six')
+                if not local:
+                    check(issued == 0 and not any(values[6:10]) and rc in (-110, -16),
+                          'CFG1 passed but impossible pre-command result')
     else:
         check(stage == 6 and pcs == values[10] == 1 and
               values[21] == (report_version << 28) and

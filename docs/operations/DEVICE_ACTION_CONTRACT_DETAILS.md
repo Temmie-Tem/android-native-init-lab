@@ -592,21 +592,31 @@ permission to perform host-only work.
    section there, exact fixed module/observer/decoder artifacts and one
    coherent independent review, without amending this file, the root or the
    target contract, only when every difference from its stated parent stays
-   inside this closed late-hardware scope: (a) changing, adding or removing
-   predicates on reads the scope already performs; (b) adding bounded reads
-   inside the fixed HCI, PHY or reset-pin windows, including read-to-clear
-   status or error-code registers, each within the original absolute module
-   budget; (c) moving an existing fixed write to another position in the
-   existing stage order without changing its value rule or count; and (d) a
-   new report tag and field layout within the 256-byte envelope whose guest
-   and host decoders reject impossible histories. Such a version may not add
-   a write target or value rule, an interrupt-status or other clear, a retry
-   or second link command, a longer wait or deadline, a power, clock,
+   inside this closed late-hardware scope: (a) adding predicates that only
+   refuse, or changing or removing a predicate on a read the scope already
+   performs where the change only decides how a result is classified or
+   whether observation of an already-issued command continues; no predicate
+   change may admit any write, command or other effect in a hardware state
+   in which the parent version would not have issued it; (b) adding bounded
+   reads inside the fixed HCI, PHY or reset-pin windows, including
+   read-to-clear status or error-code registers, each within the original
+   absolute module budget; (c) moving an existing fixed write, together with
+   the existing reads that sample its register immediately before and after
+   it, to another position in the existing stage order that the selected
+   reference driver uses, without changing the write's value rule, the read
+   or write count, or any budget check that follows it; and (d) a new report
+   tag and field layout within the 256-byte envelope whose guest and host
+   decoders reject impossible histories. Such a version may not add a write
+   target or value rule, an interrupt-status or other clear, a retry or
+   second link command, a longer wait bound or deadline, a power, clock,
    regulator or reset effect, SCSI/media/ICE access, or any change to return,
    recovery, authority, attendance, health or evidence-acceptance semantics;
-   those still require amendment and the common independent review. The
-   shared policy records each version's parent, its differences under
-   (a)–(d), its fixed artifacts and its adoption state.
+   those still require amendment and the common independent review.
+   Continuing to observe an already-issued command until its unchanged
+   existing completion bound, where the parent ended observation earlier, is
+   not a longer wait when nothing but (b) reads follows from it. The shared
+   policy records each version's parent, its differences under (a)–(d), its
+   fixed artifacts and its adoption state.
    Reports v4 and every later adopted version additionally permit the existing authenticated normal Download
    transaction after a certified USB-coverage refusal before overlay dispatch,
    with no outstanding USB reference, stage-two work, fixed RPMh request/error,

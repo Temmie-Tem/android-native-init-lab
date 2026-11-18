@@ -104,23 +104,31 @@ tolerance and the upstream QUNIPRO_SEL position.
 V13 inherits V12. Its differences, each inside the common version envelope:
 
 - (a) In the issued link command only, the existing IRQ_STATUS poll admits
-  UIC_ERROR (`0x4`) together with UCCS and ULSS and keeps polling until
-  completion or the existing 500 ms command bound. Every other bit keeps the
-  V12 terminal refusal and its saved sample. Local commands are unchanged.
-  The completion predicates (result zero, no HEI/DEI, device present) and
-  the one-link limit are unchanged.
+  UIC_ERROR (`0x4`) together with UCCS and ULSS and keeps observing the
+  already-issued command until completion or its unchanged 500 ms bound.
+  Only (b) reads follow; the module issues no later write or command after
+  the link command in any outcome. Every other bit keeps the V12 terminal
+  refusal and its saved sample. Local commands are unchanged. The added
+  stage-six requirement of a completed timely selection only refuses. The
+  completion predicates (result zero, no HEI/DEI, device present) and the
+  one-link limit are unchanged.
 - (b) The module records the bitwise OR of every link-poll IRQ_STATUS sample.
   Only when that OR contains UIC_ERROR, after the poll ends by completion,
   refusal or timeout, it reads UECPA, UECDL, UECN, UECT and UECDME (`0x38`–
   `0x48` in the fixed HCI window) once each in that order, each only with
   time left in the original absolute module budget. These registers clear on
-  read, as when upstream `ufshcd_update_uic_error` reads them. No IS write,
-  second pass or retry is added.
-- (c) The existing two CFG1 reads and one write of pre OR bit 0 move from
-  stage six to the end of stage four, after PHY calibration and before lane
-  clocks, the position of upstream `ufs_qcom_power_up_sequence`. Values, count,
-  outcome encoding and the following budget check are unchanged. Stage six
-  requires a completed timely selection (outcome 1 or 3) before HCE one.
+  read. Upstream reads UECPA after a successful link startup and all five in
+  its error handler (`ufshcd_update_uic_error`); reading them after a failed
+  or timed-out V13 link is a diagnostic extension admitted by (b), not
+  upstream link-startup behaviour. No IS write, second pass or retry is added.
+- (c) The existing write of pre OR bit 0, with its read immediately before
+  and its read immediately after, moves from stage six to the end of stage
+  four, after PHY calibration and before lane clocks: the position of
+  `ufs_qcom_select_unipro_mode` in upstream `ufs_qcom_power_up_sequence`.
+  Values, counts, outcome encoding and the following budget check are
+  unchanged. Stage six requires a completed timely selection (outcome 1 or
+  3) before HCE one; a budget expiry now ends at stage four, and later
+  stage-five/six refusals carry the earlier CFG1 outcome.
 - (d) Tag `0xd0000000`, 38 fields: the 33 V12 fields, then the link-poll OR,
   a UEC read prefix mask (0, 1, 3, 7, 15 or 31), raw UECPA, raw UECDL, and one
   word packing UECN/UECT/UECDME code bits, layer error bits and

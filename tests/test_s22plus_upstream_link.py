@@ -108,6 +108,7 @@ class UpstreamLinkTests(unittest.TestCase):
                                            stderr=subprocess.DEVNULL)
             self.assertEqual(len(data.split()), 38)
             self.assertLessEqual(len(data), 256)
+            self.assertEqual(list(map(int, data.split()))[33:37], [2**32 - 1, 31, 2**32 - 1, 2**32 - 1])
 
     def test_full_width_link_path_fits_envelope(self):
         """Every raw hardware word at full width on the issued-link path."""
@@ -172,6 +173,34 @@ class UpstreamLinkTests(unittest.TestCase):
         hci = (SOURCE/'waipio_hci.c').read_text()
         link = function(hci, 'int g0q_hci_link_once(')
         self.assertIn('#ifdef G0Q_UPSTREAM_LINK\n\t/* QUNIPRO_SEL was written', link)
+
+    def test_selection_and_lane_failures_from_the_real_formatter(self):
+        """Stage four/five/six outcomes after the moved selection decode as reachable."""
+        import os
+        with tempfile.TemporaryDirectory() as tmp:
+            for compiler, runner in (('cc', ()), ('aarch64-linux-gnu-gcc', ('qemu-aarch64',))):
+                exe = compile_stage_fixture(Path(tmp)/compiler, compiler, **V11,
+                                            link_irq_diagnostics=True, upstream_link=True)
+                def run(case, fault=0):
+                    env = dict(os.environ, V13_CASE=str(case))
+                    return subprocess.run([*runner, exe, str(fault), '0', '-16', '1', '0'], env=env,
+                                          check=True, capture_output=True, timeout=5)
+                expected = {1: (4, 5, 'BUDGET_EXPIRED'), 2: (5, 19, 'BIT_SET_BUDGET_PASS'),
+                            3: (6, 16, 'BIT_SET_BUDGET_PASS')}
+                for case, (stage, errno, outcome) in expected.items():
+                    with self.subTest(compiler=compiler, case=case):
+                        out = run(case)
+                        facts = decode(out.stdout, 13)
+                        self.assertEqual((facts['stage'], facts['operation_errno']), (stage, errno))
+                        self.assertEqual(facts['cfg1']['outcome'], outcome)
+                        self.assertFalse(facts['link_issued'])
+                        self.assertIsNone(facts['link_poll'])
+                # The stage-six core-rate refusal (-ERANGE) after selection.
+                events = run(3).stderr.decode().splitlines()
+                rate = [int(e.split()[0]) for e in events if e.split()[1:] == ['rate-get', 'core']][-1]
+                facts = decode(run(3, rate).stdout, 13)
+                self.assertEqual((facts['stage'], facts['operation_errno']), (6, 34))
+                self.assertEqual(facts['cfg1']['outcome'], 'BIT_SET_BUDGET_PASS')
 
     def test_impossible_v13_words(self):
         valid = success(0)

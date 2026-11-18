@@ -18,6 +18,10 @@ CHAIN = (
     (13, 'upstream_link', 'G0Q_UPSTREAM_LINK'),
 )
 KEYWORDS = ('pre_effect_return', 'hci_snapshot', *(kw for _, kw, _ in CHAIN))
+# Decimal fields in each report version's status line (host decoder schema).
+FIELDS = {1: 19, 2: 21, 3: 23, 4: 23, 5: 30, 6: 30, 7: 30, 8: 30, 9: 30,
+          10: 33, 11: 33, 12: 33, 13: 38}
+FIRST = {kw: first for first, kw, _ in CHAIN}
 
 
 def modes(version):

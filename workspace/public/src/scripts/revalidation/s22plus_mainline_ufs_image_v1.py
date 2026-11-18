@@ -168,11 +168,23 @@ def _runtime(manifest, declaration):
     key=Path(manifest['key_path']).read_bytes()
     recipe=producer['recipe']
     expected=dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],key_digest=hashlib.sha256(key).hexdigest())
-    if declaration.get('report_version') in (4,5,6,7,8,9,10,11,12):expected['pre_effect_return']=True
-    if declaration.get('report_version') in (5,6,7,8,9,10,11,12):expected['report_version']=declaration['report_version']
+    version=declaration.get('report_version')
+    latest=_report_modes().LATEST
+    if type(version) is int and 4<=version<=latest:expected['pre_effect_return']=True
+    if type(version) is int and 5<=version<=latest:expected['report_version']=version
     require(len(key)==32 and recipe==expected and hashlib.sha256(json.dumps(recipe,
             sort_keys=True,separators=(',',':')).encode()).hexdigest()==manifest['candidate_id'], 'ML030 key/recipe binding')
     return value
+
+
+def _report_modes():
+    """The single report-version declaration beside the module sources."""
+    import sys
+    source = str(ROOT/'workspace/public/src/mainline/s22plus_ufs_link_h0')
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    import report_modes
+    return report_modes
 
 
 def binding(image,*,artifact_bytes=False):

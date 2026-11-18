@@ -83,6 +83,9 @@ static u32 matrix_ctl, matrix_io;
 #ifdef G0Q_STALE_UCCS_ACK
 static unsigned int ack_case, ack_writes, is_reads;
 #endif
+#ifdef G0Q_UPSTREAM_LINK
+static int v13_case;
+#endif
 static int event(const char *kind, const char *name)
 {
 	event_count++;
@@ -114,6 +117,11 @@ static u32 readl(const void *addr)
 	char name[40];
 	if ((uintptr_t)addr >= (uintptr_t)hci && (uintptr_t)addr < (uintptr_t)(hci + ARRAY_SIZE(hci)))
 		snprintf(name, sizeof(name), "hci:%x", (unsigned int)((uintptr_t)addr-(uintptr_t)hci));
+#ifdef G0Q_UPSTREAM_LINK
+	/* V13 stage six reaches the existing PCS-ready read; PHY stays zero. */
+	else if (v13_case == 3 && addr == phy + 0xd80 / 4)
+		snprintf(name, sizeof(name), "phy:d80");
+#endif
 	else {
 		assert(addr == pins || addr == pins + 1);
 		snprintf(name, sizeof(name), "pin:%u", (unsigned int)((const u32 *)addr-pins));
@@ -142,6 +150,15 @@ static u32 readl(const void *addr)
 }
 static void writel(u32 value, void *addr)
 {
+#ifdef G0Q_UPSTREAM_LINK
+	/* The moved V13 QUNIPRO_SEL write: pre OR bit 0, once, at stage four. */
+	if (addr == hci + 0xdc / 4) {
+		assert(v13_case && (value & 1) && !(*(u32 *)addr & 1));
+		event("write", "hci:dc");
+		*(u32 *)addr = value;
+		return;
+	}
+#endif
 #ifdef G0Q_STALE_UCCS_ACK
 	if (addr == hci + REG_INTERRUPT_STATUS / 4) {
 		assert(value == UIC_COMMAND_COMPL && !ack_writes);
@@ -257,10 +274,25 @@ static int regulator_get_voltage(struct regulator *reg)
 {
 	return event("voltage-get",reg->name) ? injected_errno : reg->uv;
 }
+#ifdef G0Q_UPSTREAM_LINK
+/* V13_CASE 1: selection budget expires (stage four); 2: lane clocks fail
+ * (stage five); 3: stage-six pre-HCE refusal. The real selection runs. */
+static int reset_host_and_device(void) { event("later", "reset"); return v13_case ? 0 : -EIO; }
+static int phy_on(void)
+{
+	assert(v13_case);
+	board.link.hw.pcs_ready = true;
+	if (v13_case == 1)
+		hci_expired = true;
+	return g0q_hci_select_unipro(&board.link);
+}
+static int symbol_lanes(void) { assert(v13_case > 1); return v13_case == 2 ? -ENODEV : 0; }
+#else
 /* Stop beyond the changed region. Existing real HCI/PHY tests cover later code. */
 static int reset_host_and_device(void) { event("later", "reset"); return -EIO; }
 static int phy_on(void) { assert(0); return -EIO; }
 static int symbol_lanes(void) { assert(0); return -EIO; }
+#endif
 
 #include "stage.inc"
 
@@ -377,6 +409,9 @@ int main(int argc, char **argv)
 	if (!handoff_case && ack_case == 3) hci[REG_INTERRUPT_STATUS/4]=0x400;
 #endif
 	board.link.hw.deadline_ns=5000000000ULL;
+#ifdef G0Q_UPSTREAM_LINK
+	{ const char *c = getenv("V13_CASE"); v13_case = c ? atoi(c) : 0; }
+#endif
 	struct platform_device pdev={0};
 	operation_rc=run(&pdev);
 	usb_covered=usb_released=true;usb_reason=1U<<16;
@@ -398,6 +433,10 @@ int main(int argc, char **argv)
 #endif
 #ifdef G0Q_LINK_IRQ_DIAGNOSTICS
 		operation_rc=-EIO;board.link.interrupt=0xffffffff;board.link.after=0;
+#endif
+#ifdef G0Q_UPSTREAM_LINK
+		board.link.link_seen=0xffffffff;board.link.uec_mask=31;
+		for (unsigned int i=0;i<G0Q_UEC_COUNT;i++) board.link.uec[i]=0xffffffff;
 #endif
 	}
 #endif

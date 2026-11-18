@@ -123,8 +123,11 @@ The operator selected keeping one link attempt and tolerating UIC_ERROR.
    link poll. If that OR contains UIC_ERROR, then after the poll ends
    (completion, refusal or timeout) read UECPA, UECDL, UECN, UECT and UECDME
    (`0x38`–`0x48`) once each, in order and within the module budget. These
-   registers clear on read. Upstream reads the same registers. These reads
-   are new MMIO accesses with that side effect and must be declared in scope.
+   registers clear on read. Upstream reads UECPA only after a successful
+   link startup (`ufshcd.c:5337`) and all five in its error handler; on a
+   failed startup it returns before that read. Reading them after a failed
+   V13 link is therefore a diagnostic extension, declared as new MMIO
+   accesses with a read-to-clear side effect.
 3. **No other change.** No IS write, second link attempt, timing change or
    relaxation of a pre-link guard. The functional-success predicate stays
    as it is.
