@@ -46,6 +46,7 @@ The adopted fixed hardware artifacts are:
 | Report-v10 CFG1 branch diagnostics module | `23c72b3c6cbe342fa41841f0cee0cf6bb12b1b5375b64f0e49cdf00be9396618` |
 | Report-v11 ordered CFG1 selection module | `88beadd1a31b05fc8adc998eb99757849c6c83287fb9b4473d8590ab2b888fa3` |
 | Report-v12 terminal link IRQ diagnostic module | `9176104a4c51ec21c6d845bd50f48ff2900447f654fbaa45e3718cde16ed89a2` |
+| Report-v13 upstream link tolerance module (H0, review pending) | `00ad0b93d33f2935b3332d5eaf87c02840e9ada211dd02a131dd57800cfd3996` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -65,6 +66,83 @@ CFG1 branch diagnostics below. V11 separately replaces only the immediate
 bit-0 assertion with ordered selection and an unconditional budget check as
 defined below. V12 adds the terminal link IRQ diagnostic below. V4/V5 do not inherit these changes. Each immutable capability binds
 exactly one report mode and matching module/observer; mode is not candidate data.
+
+### Version table
+
+This table is the single list of report versions for this scope. The common
+details, root contract, target contract and RAM policy refer to it instead of
+enumerating versions. A version after v12 is adopted only under the common
+[version envelope](DEVICE_ACTION_CONTRACT_DETAILS.md#permanent-device-safety-boundaries)
+by a row here, its own section below, fixed artifacts and one coherent
+independent review. The machine declaration of each version's compile mode
+is `workspace/public/src/mainline/s22plus_ufs_link_h0/report_modes.py`.
+
+| Version | Parent | Tag | Fields | State | Section |
+| --- | --- | --- | ---: | --- | --- |
+| v4 | ML035 module | `0x40000000` | 23 | adopted; consumed runs only | normal-return extension |
+| v5 | v4 | `0x50000000` | 30 | adopted; consumed runs only | Report-v5 |
+| v6 | v4 | `0x60000000` | 30 | adopted; consumed runs only | Report-v6 |
+| v7 | v6 | `0x70000000` | 30 | adopted; consumed runs only | Report-v7 |
+| v8 | v7 | `0x80000000` | 30 | adopted; consumed runs only | Report-v8 |
+| v9 | v8 | `0x90000000` | 30 | adopted; consumed runs only | Report-v9 |
+| v10 | v9 | `0xa0000000` | 33 | adopted; consumed runs only | Report-v10 |
+| v11 | v10 | `0xb0000000` | 33 | adopted; consumed runs only | Report-v11 |
+| v12 | v11 | `0xc0000000` | 33 | adopted; ML047 consumed | Report-v12 |
+| v13 | v12 | `0xd0000000` | 38 | H0 implemented; independent review pending; no grant | Report-v13 |
+
+### Report-v13 upstream link tolerance
+
+The 2026-11-19 [upstream-tolerance audit](../reports/S22PLUS_MAINLINE_UFS_UPSTREAM_TOLERANCE_AUDIT_H0_2026-11-19.md)
+found that each ML036–ML047 refusal with an upstream counterpart was a
+condition upstream `ufshcd`/`ufs-qcom` accepts. ML047's UIC_ERROR during
+DME_LINK_STARTUP matches the LINERESET that the selected Linux and FYG8
+drivers expect: they enable only UIC completion and power-mode interrupts
+during link startup, write-clear and ignore a latched UIC error, and read
+UECPA after link startup. The operator selected one link attempt, UIC_ERROR
+tolerance and the upstream QUNIPRO_SEL position.
+
+V13 inherits V12. Its differences, each inside the common version envelope:
+
+- (a) In the issued link command only, the existing IRQ_STATUS poll admits
+  UIC_ERROR (`0x4`) together with UCCS and ULSS and keeps polling until
+  completion or the existing 500 ms command bound. Every other bit keeps the
+  V12 terminal refusal and its saved sample. Local commands are unchanged.
+  The completion predicates (result zero, no HEI/DEI, device present) and
+  the one-link limit are unchanged.
+- (b) The module records the bitwise OR of every link-poll IRQ_STATUS sample.
+  Only when that OR contains UIC_ERROR, after the poll ends by completion,
+  refusal or timeout, it reads UECPA, UECDL, UECN, UECT and UECDME (`0x38`–
+  `0x48` in the fixed HCI window) once each in that order, each only with
+  time left in the original absolute module budget. These registers clear on
+  read, as when upstream `ufshcd_update_uic_error` reads them. No IS write,
+  second pass or retry is added.
+- (c) The existing two CFG1 reads and one write of pre OR bit 0 move from
+  stage six to the end of stage four, after PHY calibration and before lane
+  clocks, the position of upstream `ufs_qcom_power_up_sequence`. Values, count,
+  outcome encoding and the following budget check are unchanged. Stage six
+  requires a completed timely selection (outcome 1 or 3) before HCE one.
+- (d) Tag `0xd0000000`, 38 fields: the 33 V12 fields, then the link-poll OR,
+  a UEC read prefix mask (0, 1, 3, 7, 15 or 31), raw UECPA, raw UECDL, and one
+  word packing UECN/UECT/UECDME code bits, layer error bits and
+  reserved-bit-set flags. With every unconstrained word at ten digits the
+  issued-link line is at most 254 bytes. Unread UEC words are zero. Guest and
+  host reject a success without a completion sample, a union with refused
+  bits outside the terminal sample, UEC data without UIC_ERROR, and non-prefix
+  masks.
+
+V12 behaviour without UIC_ERROR is reproduced exactly: the same link-phase
+MMIO trace and first 33 fields in the focused fixtures, and the V12 module
+rebuilt from the V13 source tree is byte-identical to ML047's `9176104a`.
+A V13 link success is `UFS_LINK_COMPLETED` only with the full existing
+UFS and power proof. A UIC_ERROR, UEC values or PA line-reset bit identify an
+event class; they do not by themselves establish its cause.
+
+The same-boot 300-second witness, 120/540/15-second limits, one module
+permit, one link attempt, one N and one original A, the finite automatic
+Download attempt, attended physical fallback and final health apply
+unchanged. Fresh capability and candidate qualification, this version's
+independent review and a separately returned one-operation 1800-second
+attended grant precede any physical run.
 
 ### Report-v5 bounded HCI snapshot
 

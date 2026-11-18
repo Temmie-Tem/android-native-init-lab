@@ -1,6 +1,6 @@
 # AGENTS.md - repository operating contract
 
-Contract-Revision: **80** (supersedes revision 79; 2026-11-11)
+Contract-Revision: **81** (supersedes revision 80; 2026-11-19)
 
 The retired Interim Fast-Loop trial contract is preserved byte-for-byte at `docs/archive/policy/AGENTS_INTERIM_FAST_LOOP_RETIRED_2026-08-03.md`; it is historical evidence only and grants no current authority.
 
@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`c2204f2adc59d0e8b2fe6927d575125f071628d1302d324fc9b4c7a3f8182271`.
+`53ad3dfd44397b1ab21c1162e17e4d8fb997393c07cd1b2e504b1a6a44084a12`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -87,32 +87,16 @@ Read an exception's complete conditions before considering it applicable.
    timed Download attempt and use the original owner's bounded automatic
    Android return under the incorporated details, with physical attendance.
    The separately adopted reusable UFS V2 scope retains those fixed effects
-   for independently qualified key-only candidates, with separately reviewed
-   report-v4, bounded HCI-snapshot v5, one-stop HCE-handoff v6 or dedicated
-   reset-configuration v7, disabled-readiness v8 or initial-completion-ack v9 or CFG1-diagnostic v10 / ordered-selection v11 / link-IRQ diagnostic v12 modules, exact attended grants
-   and a narrow certified pre-overlay normal return in V4/V5. V6/V7/V8/V9 also admit
-   the fixed single-owner automatic Download attempt and bounded original-A
-   recovery, including unclear experiment results, under the complete shared
-   conditions. This does not activate unattended F1. V6/V7/V8/V9 admit the reviewed initial-stage HCE-zero write and
-   bounded polling. V7/V8/V9 replace four CTL direction tests with exact
-   observed configuration and unchanged latch-high checks, without a CTL write
-   or electrical-state claim. Those V6–V8 changes add no retry, status clear
-   or reset reordering. V8/V9 permit UCRDY in the three existing disabled-HCS checks and
-   preserves its same-read sample, without adding access or changing enabled
-   command admission. V9 alone additionally admits one exact initial `0x400`
-   W1C after a timely HCE stop and all eleven guards, with fresh HCE/IS checks,
-   one whole-word-zero readback and the original deadline, under the pinned
-   common/shared conditions. Later IS-zero admission remains unchanged.
-   No fault-bit clear or retry is added. V10 inherits V9 and records only the
-   existing first HCI_CFG1 samples and readback/budget branch under its reviewed
-   schema, with no added hardware access or changed predicate. Its fixed cue
-   capture wrapper retains the original window/interlock. V11 separately removes
-   only the first CFG1 bit-0 readback assertion, retaining the existing write
-   and reads and always checking the original budget before HCE one. All other
-   predicates/effect limits remain under its reviewed tagged scope; no added
-   MMIO, wait or retry is admitted. V12 retains the first already-read full
-   link-poll IRQ word on its existing unexpected-status EIO branch under the
-   separately reviewed shared scope. ML028 and ML030–ML046 remain consumed.
+   for independently qualified key-only candidates. Only a separately
+   reviewed module report version in that scope's version table applies,
+   with exactly the specializations the incorporated details and the shared
+   policy state for it; later versions are adopted under the details'
+   version envelope without amending this file. Exact attended grants remain
+   required. V4/V5 add a narrow certified pre-overlay normal return. V6 and
+   every later adopted version also admit the fixed single-owner automatic
+   Download attempt and bounded original-A recovery, including unclear
+   experiment results, under the complete shared conditions. This does not
+   activate unattended F1. Every consumed run remains consumed.
    The exact S22+ inspection, userspace, preflight, witness, Debian and
    journal-recovery profiles are linked in the routing table below. Their
    complete closed effects, admission, attendance, budgets, evidence and

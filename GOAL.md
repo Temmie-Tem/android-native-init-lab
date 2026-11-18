@@ -57,10 +57,14 @@ still clear on readback).
 
 The operator selected V13: keep one link attempt; tolerate UIC_ERROR in
 the link poll only; record the OR of all link-poll IS samples and, after
-UIC_ERROR, the five UIC error-code registers once. Whether V13 also moves
-the QUNIPRO_SEL write to the upstream position is an open operator decision.
-V13 requires implementation, report-envelope qualification, an independent
-review and a fresh attended approval before any device effect.
+UIC_ERROR, the UIC error-code registers once; move QUNIPRO_SEL to the
+upstream position. V13 is implemented and H0-verified, together with a
+version envelope that lets later module versions be adopted through the
+capability's version table without amending the root, details or target
+(contract revision 81). The independent review, V13 capability record,
+fresh terminal-backend review, candidate qualification and a fresh attended
+approval precede any device effect.
+[V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 

@@ -168,7 +168,8 @@ and cannot replay. No further successor is admitted by this adoption.
 
 The operator-selected [shared V2 scope](../S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)
 adopts the separate common boundary-3 delegation for the fixed reviewed
-Image, one reviewed report-v4, v5, v6, v7, v8, v9, v10, v11 or v12 module and key-only candidate schema. The exact
+Image, one reviewed module of a report version in the shared policy's version
+table and key-only candidate schema. The exact
 capability and its independent review bind common/target authority, fixed
 artifacts, reachable source and retained evidence. New keys and deterministic
 derived identities need fresh machine qualification; unchanged capability
@@ -177,7 +178,8 @@ and new hazards require scoped review. Each operation retains a separately
 returned exact one-operation 1800-second approval, current attendance, fresh
 target/health/rollback binding and usable physical Download recovery.
 
-Except for the explicit V6 handoff, V7 pin, V8 readiness, V9 initial-ack, V10 diagnostic, V11 ordered-selection and V12 link-IRQ specializations below,
+Except for the explicit V6–V12 specializations below and versions adopted
+under the common version envelope through the shared policy,
 all original guards remain. The 120/300/540/15-second bounds, one module permit,
 six local UniPro commands, at most one link command and one N/original-A total remain.
 In V4/V5 only the shared policy's certified settled pre-overlay coverage refusal
@@ -271,6 +273,10 @@ one-link and recovery paths. No additional MMIO, clear or retry is admitted.
 The fixed module, reviewed source closure, fresh candidate qualification,
 current finite attended grant and usable original-A recovery are required.
 ML046 remains consumed under its original V11 semantics.
+Later report versions adopted under the common version envelope apply on
+this target through the shared policy's version table and their exact
+independent review, without a target amendment. Every per-operation
+requirement in this section still applies to them.
 Its exact common delegation, fixed artifact, independent capability/owner
 review and fresh candidate qualification are required before selection.
 There is no standing effect grant, replay or transfer of another target's
