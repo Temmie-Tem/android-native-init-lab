@@ -39,6 +39,21 @@
 #error "Link IRQ diagnostics require ordered CFG1 selection"
 #endif
 
+#if defined(G0Q_UPSTREAM_LINK) && !defined(G0Q_LINK_IRQ_DIAGNOSTICS)
+#error "Upstream link tolerance requires the V12 link IRQ diagnostics"
+#endif
+/* V13: upstream enables only UIC completion/power interrupts during link
+ * startup, write-clears and ignores a latched UIC error, then reads UECPA
+ * (ufshcd_link_startup, "LINERESET has happened during LINK_STARTUP").
+ * Only the issued link command tolerates that one bit; local commands and
+ * every other bit keep the V12 refusal.
+ */
+#ifdef G0Q_UPSTREAM_LINK
+#define G0Q_LINK_TOLERATED UIC_ERROR
+#else
+#define G0Q_LINK_TOLERATED 0U
+#endif
+
 #define HCI_CFG1 0xdc
 #define HCI_HW_VERSION 0xe4
 #define PHY_LINECFG_DISABLE 0xd48
@@ -363,8 +378,12 @@ static int command(struct g0q_link *link, u32 opcode, u32 attribute, u32 argumen
 	until = min(link->hw.deadline_ns, ktime_get_boottime_ns() + 500 * NSEC_PER_MSEC);
 	while (ktime_get_boottime_ns() < until) {
 		status = readl(hci + REG_INTERRUPT_STATUS);
+#ifdef G0Q_UPSTREAM_LINK
+		if (link->link_issued)
+			link->link_seen |= status;
+#endif
 		if (status & ~(UIC_COMMAND_COMPL |
-			       (link->link_issued ? UIC_LINK_STARTUP : 0))) {
+			       (link->link_issued ? UIC_LINK_STARTUP | G0Q_LINK_TOLERATED : 0))) {
 #ifdef G0Q_LINK_IRQ_DIAGNOSTICS
 			/* A terminal link refusal owns this already-read sample. */
 			if (link->link_issued)
@@ -424,6 +443,51 @@ static int set_timers(struct g0q_link *link)
 	return command(link, UIC_CMD_DME_SET, UNI_40NS, stock, NULL);
 }
 
+#ifdef G0Q_UPSTREAM_LINK
+/* Upstream ufs_qcom_power_up_sequence selects QUniPro after PHY calibration
+ * and before lane clocks. V13 moves the V11 reads/write here unchanged; the
+ * caller invokes it once, between calibration and lane clocks.
+ */
+int g0q_hci_select_unipro(struct g0q_link *link)
+{
+	void __iomem *hci = link->hw.hci;
+
+	if (link->cfg1_outcome || link->hce_started || !link->hw.pcs_ready)
+		return -EPERM;
+	link->cfg1_pre = readl(hci + HCI_CFG1);
+	writel(link->cfg1_pre | BIT(0), hci + HCI_CFG1);
+	link->cfg1_post = readl(hci + HCI_CFG1);
+	if (budget(link)) {
+		link->cfg1_outcome = 2;
+		return -EIO;
+	}
+	link->cfg1_outcome = link->cfg1_post & BIT(0) ? 3 : 1;
+	return 0;
+}
+
+/* One pass over the read-to-clear UIC error-code registers, as upstream
+ * ufshcd_update_uic_error reads them, only after an issued link observed
+ * UIC_ERROR. Register order, original budget, no write, no second pass.
+ */
+static void link_uic_errors(struct g0q_link *link)
+{
+	static const u32 offsets[G0Q_UEC_COUNT] = {
+		REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER, REG_UIC_ERROR_CODE_DATA_LINK_LAYER,
+		REG_UIC_ERROR_CODE_NETWORK_LAYER, REG_UIC_ERROR_CODE_TRANSPORT_LAYER,
+		REG_UIC_ERROR_CODE_DME,
+	};
+
+	if (!link->link_issued || !(link->link_seen & UIC_ERROR) || link->uec_mask)
+		return;
+	for (unsigned int i = 0; i < G0Q_UEC_COUNT; i++) {
+		if (budget(link))
+			return;
+		link->uec[i] = readl(link->hw.hci + offsets[i]);
+		link->uec_mask |= 1U << i;
+	}
+}
+#endif
+
 int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 		      unsigned long unipro_hz)
 {
@@ -434,6 +498,10 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 
 	if (link->hce_started || !link->hw.pcs_ready)
 		return -EPERM;
+#ifdef G0Q_UPSTREAM_LINK
+	if (link->cfg1_outcome != 1 && link->cfg1_outcome != 3)
+		return -EPERM;
+#endif
 	if (core_hz != 300000000 || unipro_hz != 300000000)
 		return -ERANGE;
 	err = g0q_hci_quiescent(link);
@@ -443,7 +511,9 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 	    (readl(hci + REG_CONTROLLER_STATUS) & (G0Q_DISABLED_UCRDY_MASK | DEVICE_PRESENT)))
 		return -EBUSY;
 	link->hce_started = true;
-#ifdef G0Q_CFG1_DIAGNOSTICS
+#ifdef G0Q_UPSTREAM_LINK
+	/* QUNIPRO_SEL was written by g0q_hci_select_unipro() before lane clocks. */
+#elif defined(G0Q_CFG1_DIAGNOSTICS)
 	/* Retain the same two reads and one write; V10 keeps its short circuit.
 	 * These scalar stores classify this run only; neither sample proves the
 	 * cause of a missing bit or a state transition between the samples.
@@ -511,5 +581,11 @@ int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 	err = command(link, UIC_CMD_DME_SET, PA_LOCAL_TX_LCC_ENABLE, 0, NULL);
 	if (err)
 		return err;
+#ifdef G0Q_UPSTREAM_LINK
+	err = command(link, UIC_CMD_DME_LINK_STARTUP, 0, 0, NULL);
+	link_uic_errors(link);
+	return err;
+#else
 	return command(link, UIC_CMD_DME_LINK_STARTUP, 0, 0, NULL);
+#endif
 }

@@ -34,8 +34,20 @@ def return_allowed(facts):
     return facts.get('normal_return') is True or facts.get('recovery_return') is True
 
 
+# Report schema per module report version. Tags are version << 28 from v4;
+# every feature from v6 on is cumulative (v5's HCI snapshot is a side branch).
+REPORT_FIELDS = {1: 19, 2: 21, 3: 23, 4: 23, 5: 30, 6: 30, 7: 30, 8: 30, 9: 30,
+                 10: 33, 11: 33, 12: 33, 13: 38}
+HANDOFF, RESET_CONFIG, DISABLED_UCRDY, STALE_ACK = 6, 7, 8, 9
+CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = 10, 11, 12, 13
+# UIC error-code registers 0x38..0x48 (ufshci.h). PA/DL are reported raw;
+# N/T/DME share one word: (code shift, code mask, error bit, reserved bit).
+UEC_RAW = (('PA', 0x1f), ('DL', 0xffff))
+UEC_PACKED = (('N', 0, 0x7, 16, 24), ('T', 3, 0x7f, 17, 25), ('DME', 10, 0x1, 18, 26))
+
+
 def recovery_result(facts, raw, report_version):
-    if report_version not in (6, 7, 8, 9, 10, 11, 12):
+    if report_version < HANDOFF:
         return facts
     return dict(facts, recovery_return=True, recovery_mode=RECOVERY_MODE,
                 control_nonce=hashlib.sha256(raw).digest())
@@ -372,7 +384,7 @@ def initial_ack(values):
 
 def cfg1_diagnostics(values, *, report_version):
     """V10 asserts bit 0; V11 requires only its ordered write and budget."""
-    ordered_selection = report_version in (11, 12)
+    ordered_selection = report_version >= ORDERED_SELECTION
     outcome, before, after = values[30:33]
     check(outcome in (0, 1, 2, 3) and 0 <= before < 2**32 and 0 <= after < 2**32,
           'CFG1 diagnostic range')
@@ -402,24 +414,60 @@ def cfg1_diagnostics(values, *, report_version):
         budget_expired=(outcome == 2) if evaluated else None))
 
 
-def link_irq_diagnostics(values):
-    """Interpret only terminal link samples saved by the V12 producer."""
+def upstream_link(values):
+    """V13: OR of all link-poll IS samples and the one-pass UEC prefix."""
+    seen, mask, pa, dl, ntd = values[33:38]
+    check(0 <= seen < 2**32 and mask in (0, 1, 3, 7, 15, 31) and
+          all(0 <= word < 2**32 for word in (pa, dl)) and 0 <= ntd and not ntd & ~0x70707ff,
+          'upstream link field range')
+    layers = {}
+    for i, ((name, code_mask), word) in enumerate(zip(UEC_RAW, (pa, dl))):
+        if mask >> i & 1:
+            layers[name] = dict(raw=word, error=bool(word >> 31), code=word & code_mask,
+                                reserved_set=bool(word & 0x7fffffff & ~code_mask))
+        else:
+            check(not word, 'unread UEC word is nonzero')
+    for i, (name, shift, code_mask, error_bit, reserved_bit) in enumerate(UEC_PACKED, 2):
+        part = (ntd >> shift & code_mask, ntd >> error_bit & 1, ntd >> reserved_bit & 1)
+        if mask >> i & 1:
+            layers[name] = dict(raw=None, error=bool(part[1]), code=part[0],
+                                reserved_set=bool(part[2]))
+        else:
+            check(not any(part), 'unread UEC word is nonzero')
+    if not values[5]:
+        check(not seen and not mask, 'link observation before issue')
+        return dict(link_poll=None)
+    check(not mask or seen & 4, 'UEC read without UIC_ERROR')
+    irq = values[7]
+    check(irq & ~seen == 0, 'terminal sample outside the observed union')
+    # A bit outside UCCS/ULSS/UIC_ERROR ends the poll on that very sample.
+    check(seen & ~0x504 == irq & ~0x504, 'refused bits outside the terminal sample')
+    pa = layers.get('PA')
+    return dict(link_poll=dict(seen=seen, uic_error_seen=bool(seen & 4), uec_read_mask=mask,
+        uec=layers, pa_line_reset=bool(pa and pa['error'] and pa['code'] & 0x10)))
+
+
+def link_irq_diagnostics(values, *, report_version=LINK_IRQ):
+    """Interpret terminal link samples saved by the V12/V13 producer."""
     rc, stage, version, pcs, local, issued, before, irq, code, after, hce = values[:11]
+    tolerated = 0x504 if report_version >= UPSTREAM_LINK else 0x500
     if not issued:
         check(not any((before, irq, code, after)), 'link words before issue')
         return dict(link_irq=None)
 
     check(stage == 6 and version >> 28 == 4 and pcs == hce == 1 and local == 6 and
           values[30] in (1, 3) and (before & 0x39) == 8, 'issued link prerequisites')
-    unexpected = irq & ~0x500
+    unexpected = irq & ~tolerated
     if unexpected:
         check(rc == -5 and code == after == 0, 'unexpected link IRQ refusal')
         return dict(link_irq=dict(branch='UNEXPECTED_STATUS', raw=irq, unexpected_bits=unexpected))
     if not irq:
         check(rc == -110 and code == after == 0, 'link poll without terminal sample')
+        if report_version >= UPSTREAM_LINK:
+            check(not values[33] & ~0x104, 'link poll timeout after completion or refused bits')
         return dict(link_irq=None)
 
-    check(irq in (0x400, 0x500) and code <= 0xff, 'link completion sample')
+    check(irq & 0x400 and irq & ~tolerated == 0 and code <= 0xff, 'link completion sample')
     failed = bool(code or after & 0x30 or not after & 1)
     # A successful command can still be followed by a module-level failure.
     if failed:
@@ -428,7 +476,7 @@ def link_irq_diagnostics(values):
 
 
 def result(raw, verified_witness, key, identity, *, report_version=1):
-    check(report_version in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12), 'unselected module report schema')
+    check(report_version in REPORT_FIELDS, 'unselected module report schema')
     check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
@@ -443,7 +491,7 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         return recovery_result(dict(status="NO_PROOF",load_errno=load,read_errno=read,
                                     report_bytes=size,normal_return=False), raw, report_version)
     numbers = payload[:size]
-    fields = {1:19, 2:21, 3:23, 4:23, 5:30, 6:30, 7:30, 8:30, 9:30, 10:33, 11:33, 12:33}[report_version]
+    fields = REPORT_FIELDS[report_version]
     pattern = rb"(?:0|-?[1-9][0-9]*)(?: (?:0|-?[1-9][0-9]*)){" + str(fields-1).encode() + rb"}\n"
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
@@ -466,24 +514,30 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         diagnostic = values[:23]
         if report_version >= 4:
             check(0 <= values[21] < 1 << 32 and
-                  values[21] & ~0x1ffff == {4:0x40000000, 5:0x50000000, 6:0x60000000, 7:0x70000000, 8:0x80000000, 9:0x90000000, 10:0xa0000000, 11:0xb0000000, 12:0xc0000000}[report_version],
+                  values[21] & ~0x1ffff == report_version << 28,
                   'pre-effect report version tag')
             pre_effect = bool(values[21] & 0x10000)
             diagnostic[21] &= 0xffff
             if pre_effect:
                 check(-4095 <= rc < 0 and not any(values[1:19]) and diagnostic[21] == values[22] == 0
                       and 2 < (values[19] & 255) <= 20, 'pre-effect terminal evidence')
-        facts.update(stage2_diagnostics(diagnostic, handoff=report_version in (6, 7, 8, 9, 10, 11, 12), reset_config=report_version in (7, 8, 9, 10, 11, 12), disabled_ucrdy=report_version in (8, 9, 10, 11, 12), stale_ack=report_version in (9, 10, 11, 12)))
+        facts.update(stage2_diagnostics(diagnostic, handoff=report_version >= HANDOFF,
+                     reset_config=report_version >= RESET_CONFIG,
+                     disabled_ucrdy=report_version >= DISABLED_UCRDY,
+                     stale_ack=report_version >= STALE_ACK))
         if report_version == 5:
             facts.update(hci_snapshot(values))
-        elif report_version in (6, 7, 8, 9, 10, 11, 12):
-            facts.update(hce_handoff(values, reset_config=report_version in (7, 8, 9, 10, 11, 12), stale_ack=report_version in (9, 10, 11, 12)))
-        if report_version in (9, 10, 11, 12):
+        elif report_version >= HANDOFF:
+            facts.update(hce_handoff(values, reset_config=report_version >= RESET_CONFIG,
+                                     stale_ack=report_version >= STALE_ACK))
+        if report_version >= STALE_ACK:
             facts.update(initial_ack(values))
-        if report_version in (10, 11, 12):
+        if report_version >= CFG1:
             facts.update(cfg1_diagnostics(values, report_version=report_version))
-        if report_version == 12:
-            facts.update(link_irq_diagnostics(values))
+        if report_version >= LINK_IRQ:
+            facts.update(link_irq_diagnostics(values, report_version=report_version))
+        if report_version >= UPSTREAM_LINK:
+            facts.update(upstream_link(values))
     if pre_effect:
         return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest()), raw, report_version)
@@ -491,7 +545,8 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         return recovery_result(facts, raw, report_version)
     check(stage == 6 and version>>28 == 4 and pcs == hce == issued == usb == release == 1 and
           local == 6 and (before & 0x39) == 8 and (after & 0x31) == 1 and
-          irq in (0x400,0x500) and code == error == reclaimed == 0 and count>0 and
+          irq & 0x400 and irq & ~(0x504 if report_version >= UPSTREAM_LINK else 0x500) == 0 and
+          code == error == reclaimed == 0 and count>0 and
           claimed == triggered == acked == mask, "incomplete successful link or power settlement")
     return recovery_result(dict(facts,status="UFS_LINK_COMPLETED",normal_return=True,
                 control_nonce=hashlib.sha256(raw).digest()), raw, report_version)

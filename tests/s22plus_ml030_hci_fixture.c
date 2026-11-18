@@ -20,12 +20,15 @@ enum {
 	REG_UTP_TRANSFER_REQ_DOOR_BELL=0x58, REG_UTP_TRANSFER_REQ_LIST_RUN_STOP=0x60,
 	REG_UTP_TASK_REQ_DOOR_BELL=0x78, REG_UTP_TASK_REQ_LIST_RUN_STOP=0x80,
 	REG_UIC_COMMAND=0x90, REG_UIC_COMMAND_ARG_1=0x94, REG_UIC_COMMAND_ARG_2=0x98,
-	REG_UIC_COMMAND_ARG_3=0x9c, PA_LOCAL_TX_LCC_ENABLE=0x155e
+	REG_UIC_COMMAND_ARG_3=0x9c, PA_LOCAL_TX_LCC_ENABLE=0x155e,
+	REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER=0x38, REG_UIC_ERROR_CODE_DATA_LINK_LAYER=0x3c,
+	REG_UIC_ERROR_CODE_NETWORK_LAYER=0x40, REG_UIC_ERROR_CODE_TRANSPORT_LAYER=0x44,
+	REG_UIC_ERROR_CODE_DME=0x48
 };
 enum {
 	CONTROLLER_ENABLE=1, DEVICE_PRESENT=1, UIC_COMMAND_READY=8,
 	HOST_ERROR_INDICATOR=16, DEVICE_ERROR_INDICATOR=32,
-	UIC_COMMAND_COMPL=0x400, UIC_LINK_STARTUP=0x100,
+	UIC_COMMAND_COMPL=0x400, UIC_LINK_STARTUP=0x100, UIC_ERROR=0x4,
 	UIC_CMD_DME_GET=1, UIC_CMD_DME_SET=2, UIC_CMD_DME_LINK_STARTUP=0x16
 };
 static u32 hci[1024], phy[0xe10/4];
@@ -40,7 +43,8 @@ static void trace_link_access(char op, const void *addr, u32 value)
 			(unsigned long)((uintptr_t)addr - (uintptr_t)hci), value);
 }
 #endif
-static u64 clock_ns, hce_ns;
+static u64 clock_ns, hce_ns, link_ns;
+static unsigned uec_reads;
 static const char *fault;
 static u64 ktime_get_boottime_ns(void) { return clock_ns; }
 static void usleep_range(unsigned low, unsigned high)
@@ -63,6 +67,27 @@ static u32 readl(const void *addr)
 	if (addr == &hci[REG_CONTROLLER_STATUS/4] && hce_ns &&
 	    clock_ns >= hce_ns + 1000000)
 		hci[REG_CONTROLLER_STATUS/4] |= UIC_COMMAND_READY;
+	/* Timed link sequences: UIC_ERROR first, a later event after 2 ms. */
+	if (addr == &hci[REG_INTERRUPT_STATUS/4] && link_ns && clock_ns >= link_ns + 2000000) {
+		if (!strcmp(fault, "ue-then-complete"))
+			hci[REG_INTERRUPT_STATUS/4] |= UIC_COMMAND_COMPL | UIC_LINK_STARTUP;
+		if (!strcmp(fault, "ue-then-fatal"))
+			hci[REG_INTERRUPT_STATUS/4] |= 0x80;
+		if (!strcmp(fault, "ue-then-bad-code")) {
+			hci[REG_INTERRUPT_STATUS/4] |= UIC_COMMAND_COMPL;
+			hci[REG_UIC_COMMAND_ARG_2/4] = 2;
+		}
+	}
+	/* UECPA..UECDME clear on read. */
+	if ((const u32 *)addr >= &hci[REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER/4] &&
+	    (const u32 *)addr <= &hci[REG_UIC_ERROR_CODE_DME/4]) {
+		u32 value = *(const u32 *)addr;
+		uec_reads++;
+		if (!strcmp(fault, "ue-budget") && uec_reads == 2)
+			clock_ns = 5000000000ULL;
+		*(u32 *)addr = 0;
+		return value;
+	}
 	return *(const u32 *)addr;
 }
 static void writel(u32 value, void *addr)
@@ -103,12 +128,22 @@ static void writel(u32 value, void *addr)
 		if (value == 1 && !strcmp(fault, "local-irq"))
 			hci[REG_INTERRUPT_STATUS/4] = 0x404;
 		if (value == 0x16) {
+			link_ns = clock_ns;
+			if (!strncmp(fault, "ue-", 3)) {
+				hci[REG_INTERRUPT_STATUS/4] = UIC_ERROR;
+				hci[REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER/4] = 0x80000010U;
+				hci[REG_UIC_ERROR_CODE_DATA_LINK_LAYER/4] = 0x80002000U;
+			}
 			if (!strcmp(fault, "irq-only"))
 				hci[REG_INTERRUPT_STATUS/4] = 0x4;
 			if (!strcmp(fault, "mixed-irq"))
 				hci[REG_INTERRUPT_STATUS/4] = 0x80000584U;
-			if (!strcmp(fault, "full-irq"))
+			if (!strcmp(fault, "full-irq")) {
 				hci[REG_INTERRUPT_STATUS/4] = UINT32_MAX;
+				for (unsigned i = REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER/4;
+				     i <= REG_UIC_ERROR_CODE_DME/4; i++)
+					hci[i] = UINT32_MAX;
+			}
 			if (strcmp(fault, "no-device"))
 				hci[REG_CONTROLLER_STATUS/4] |= DEVICE_PRESENT;
 			if (!strcmp(fault, "bad-code"))
@@ -146,6 +181,21 @@ int main(int argc, char **argv)
 	if (!strcmp(fault,"transfer-pending")) hci[REG_UTP_TRANSFER_REQ_DOOR_BELL/4]=1;
 	if (!strcmp(fault,"task-running")) hci[REG_UTP_TASK_REQ_LIST_RUN_STOP/4]=1;
 	if (!strcmp(fault,"no-calibration")) link.hw.pcs_ready=false;
+#ifdef G0Q_UPSTREAM_LINK
+	/* Stage four selects QUniPro before lane clocks; count only stage six. */
+	int select_rc = g0q_hci_select_unipro(&link);
+	unsigned select_writes = writes;
+	assert(g0q_hci_select_unipro(&link) == -EPERM && writes == select_writes);
+	writes = 0;
+	if (!strcmp(fault,"no-calibration") || !strcmp(fault,"expired-cfg1")) {
+		assert(select_rc == (!strcmp(fault,"expired-cfg1") ? -EIO : -EPERM));
+		assert(g0q_hci_link_once(&link,300000000,300000000) == -EPERM);
+		assert(!writes && !hce_ns && !cmds && !link.hce_started);
+		printf("%s select=%d\n", fault, select_rc);
+		return 0;
+	}
+	assert(!select_rc && select_writes == 1);
+#endif
 	int rc=g0q_hci_link_once(&link,300000000,300000000);
 	if (!strcmp(fault,"positive")) {
 		const u32 ops[]={1,1,2,1,2,2,0x16};
@@ -164,7 +214,11 @@ int main(int argc, char **argv)
 	} else if (!strcmp(fault,"first-local-bad-state")) {
 		assert(rc==-EAGAIN && cmds==1 && !link.link_issued);
 	} else if (!strcmp(fault,"pre-command-irq")) {
+#ifdef G0Q_UPSTREAM_LINK
+		assert(rc==-EBUSY && hce_ns && !cmds && writes==1);
+#else
 		assert(rc==-EBUSY && hce_ns && !cmds && writes==2);
+#endif
 	} else if (!strcmp(fault,"bit31-clear")) {
 		assert(rc==-EIO && cmds==5 && !link.link_issued);
 	} else if (!strcmp(fault,"timer-set-bad-code") || !strcmp(fault,"last-local-bad-code")) {
@@ -173,9 +227,29 @@ int main(int argc, char **argv)
 		assert(rc==-EPERM && !writes);
 	} else if (!strcmp(fault,"local-irq")) {
 		assert(rc == -EIO && cmds == 1 && !link.link_issued && !link.interrupt);
+#ifdef G0Q_UPSTREAM_LINK
+	} else if (!strcmp(fault,"irq-only") || !strcmp(fault,"ue-budget")) {
+		/* UIC_ERROR alone is tolerated; no completion arrives in 500 ms. */
+		assert(rc == -ETIMEDOUT && cmds == 7 && link.link_issued && !link.interrupt);
+		assert(link.link_seen == UIC_ERROR);
+		/* ue-budget expires the clock inside the second read: prefix 0b11. */
+		assert(link.uec_mask == (!strcmp(fault,"ue-budget") ? 3U : 31U));
+	} else if (!strcmp(fault,"ue-then-complete")) {
+		assert(!rc && cmds == 7 && link.interrupt == 0x504 && link.link_seen == 0x504);
+		assert(link.uec_mask == 31 && link.uec[0] == 0x80000010U && link.uec[1] == 0x80002000U);
+		assert(!hci[REG_UIC_ERROR_CODE_PHY_ADAPTER_LAYER/4] && uec_reads == 5);
+	} else if (!strcmp(fault,"ue-then-fatal")) {
+		assert(rc == -EIO && link.interrupt == 0x84 && link.link_seen == 0x84 && link.uec_mask == 31);
+	} else if (!strcmp(fault,"ue-then-bad-code")) {
+		assert(rc == -EIO && link.interrupt == 0x404 && link.result == 2 && link.uec_mask == 31);
+	} else if (!strcmp(fault,"mixed-irq") || !strcmp(fault,"full-irq")) {
+		assert(rc == -EIO && cmds == 7 && link.link_issued && link.uec_mask == 31);
+		assert(g0q_hci_link_once(&link,300000000,300000000) == -EPERM && cmds == 7);
+#else
 	} else if (!strcmp(fault,"irq-only") || !strcmp(fault,"mixed-irq") || !strcmp(fault,"full-irq")) {
 		assert(rc == -EIO && cmds == 7 && link.link_issued);
 		assert(g0q_hci_link_once(&link,300000000,300000000) == -EPERM && cmds == 7);
+#endif
 	} else if (!strcmp(fault,"no-device") || !strcmp(fault,"bad-code") ||
 		   !strcmp(fault,"link-lost") || !strcmp(fault,"no-uccs")) {
 		assert(rc<0 && cmds==7 && link.link_issued);

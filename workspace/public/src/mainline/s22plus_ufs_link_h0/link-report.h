@@ -34,7 +34,13 @@
 #if defined(G0Q_LINK_IRQ_DIAGNOSTICS) && !defined(G0Q_CFG1_ORDERED_SELECTION)
 #error "Link IRQ diagnostics require ordered CFG1 selection"
 #endif
-#ifdef G0Q_LINK_IRQ_DIAGNOSTICS
+#if defined(G0Q_UPSTREAM_LINK) && !defined(G0Q_LINK_IRQ_DIAGNOSTICS)
+#error "Upstream link tolerance requires the V12 link IRQ diagnostics"
+#endif
+#ifdef G0Q_UPSTREAM_LINK
+#define G0Q_REPORT_TAG 0xd0000000U
+#define G0Q_REPORT_FIELDS 38
+#elif defined(G0Q_LINK_IRQ_DIAGNOSTICS)
 #define G0Q_REPORT_TAG 0xc0000000U
 #define G0Q_REPORT_FIELDS 33
 #elif defined(G0Q_CFG1_ORDERED_SELECTION)
@@ -137,6 +143,23 @@ static inline int g0q_handoff_complete_fields(const long long values[G0Q_REPORT_
 #elif defined(G0Q_CFG1_DIAGNOSTICS)
 	if (values[30] != 3 || !(values[32] & 1))
 		return 0;
+#endif
+#ifdef G0Q_UPSTREAM_LINK
+	/* Success carries a completion sample; only UCCS/ULSS/UIC_ERROR were
+	 * admitted. UEC reads exist only after UIC_ERROR, as a register prefix. */
+	{
+		long long seen = values[33], mask = values[34];
+		if (!(seen & 0x400) || (seen & ~0x504LL) ||
+		    (mask != 0 && mask != 1 && mask != 3 && mask != 7 && mask != 15 && mask != 31) ||
+		    (!(seen & 4) && mask))
+			return 0;
+		if ((!(mask & 1) && values[35]) || (!(mask & 2) && values[36]) ||
+		    (!(mask & 4) && (values[37] & 0x1010007LL)) ||
+		    (!(mask & 8) && (values[37] & 0x20203f8LL)) ||
+		    (!(mask & 16) && (values[37] & 0x4040400LL)) ||
+		    (values[37] & ~0x70707ffLL))
+			return 0;
+	}
 #endif
 	if (values[1] != 6 || values[21] != G0Q_REPORT_TAG ||
 	    (values[22] & ~(observed_hcs | ack_mask)) != 0x7ff ||

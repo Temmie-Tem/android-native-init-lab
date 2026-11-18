@@ -9,7 +9,7 @@ from test_s22plus_hce_handoff import line
 from test_s22plus_stage2_diagnostics import HEADERS, ROOT, SOURCE, compile_stage_fixture, function
 
 
-def compile_link_fixture(out, compiler, version):
+def compile_link_fixture(out, compiler, version, *, extra=(), report=True):
     out.mkdir(parents=True)
     for header in HEADERS:
         path = out/header
@@ -29,9 +29,10 @@ static bool usb_covered = true, usb_released = true;
                                                             'static int report('))
     flags = ['-DG0Q_PRE_EFFECT_RETURN', '-DG0Q_HCE_HANDOFF', '-DG0Q_RESET_CONFIG',
              '-DG0Q_DISABLED_UCRDY', '-DG0Q_STALE_UCCS_ACK', '-DG0Q_CFG1_DIAGNOSTICS',
-             '-DG0Q_CFG1_ORDERED_SELECTION', '-DLINK_IRQ_FIXTURE_REPORT']
+             '-DG0Q_CFG1_ORDERED_SELECTION', *(['-DLINK_IRQ_FIXTURE_REPORT'] if report else [])]
     if version == 12:
         flags.append('-DG0Q_LINK_IRQ_DIAGNOSTICS')
+    flags += list(extra)
     if compiler != 'cc':
         flags.append('-static')
     exe = out/'link'

@@ -79,6 +79,11 @@ static int report(char *buf, const struct kernel_param *kp)
 	size += scnprintf(buf + size, PAGE_SIZE - size, " %u %u %u",
 		link->cfg1_outcome, link->cfg1_pre, link->cfg1_post);
 #endif
+#ifdef G0Q_UPSTREAM_LINK
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %u %u %u %u %u",
+		link->link_seen, link->uec_mask, link->uec[0], link->uec[1],
+		g0q_uec_ntd(link));
+#endif
 	return size + scnprintf(buf + size, PAGE_SIZE - size, "\n");
 }
 static const struct kernel_param_ops report_ops = { .get = report };
@@ -283,6 +288,11 @@ static int phy_on(void)
 		rc = clock_on("phy-ref_aux", NULL);
 	if (!rc)
 		rc = g0q_phy_calibrate(&board.link.hw, board.link.version >> 28);
+#ifdef G0Q_UPSTREAM_LINK
+	/* Upstream order: calibrate, select QUniPro, then lane clocks (stage 5). */
+	if (!rc)
+		rc = g0q_hci_select_unipro(&board.link);
+#endif
 	return rc;
 }
 

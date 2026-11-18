@@ -97,6 +97,8 @@ static inline bool g0q_stage2_condition(struct g0q_stage2_diag *diag,
 	return value != 0;
 }
 
+#define G0Q_UEC_COUNT 5
+
 struct g0q_link {
 	struct g0q_waipio hw;
 	void __iomem *reset_io;
@@ -110,6 +112,11 @@ struct g0q_link {
 	/* Zero-initialized with the module's static board; never reset or retried. */
 	u32 cfg1_outcome, cfg1_pre, cfg1_post;
 #endif
+#ifdef G0Q_UPSTREAM_LINK
+	/* OR of every link-poll IS sample; UEC words in register order, with a
+	 * prefix mask of the reads actually performed. */
+	u32 link_seen, uec_mask, uec[G0Q_UEC_COUNT];
+#endif
 };
 
 bool g0q_stage2_read_condition(struct g0q_stage2_diag *diag,
@@ -119,6 +126,23 @@ int g0q_hci_quiescent(struct g0q_link *link);
 int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *diag);
 #ifdef G0Q_STALE_UCCS_ACK
 int g0q_hci_ack_initial(struct g0q_link *link, struct g0q_stage2_diag *diag);
+#endif
+#ifdef G0Q_UPSTREAM_LINK
+int g0q_hci_select_unipro(struct g0q_link *link);
+
+/* Report form of UECN/UECT/UECDME (UECPA/UECDL are reported raw): defined
+ * code bits, each layer's error bit, and whether any reserved bit was set.
+ * Keeps the worst-case link-path report inside the 256-byte envelope.
+ */
+static inline u32 g0q_uec_ntd(const struct g0q_link *link)
+{
+	const u32 n = link->uec[2], t = link->uec[3], d = link->uec[4];
+
+	return (n & 0x7U) | (t & 0x7fU) << 3 | (d & 0x1U) << 10 |
+	       (n >> 31) << 16 | (t >> 31) << 17 | (d >> 31) << 18 |
+	       (u32)!!(n & 0x7ffffff8U) << 24 | (u32)!!(t & 0x7fffff80U) << 25 |
+	       (u32)!!(d & 0x7ffffffeU) << 26;
+}
 #endif
 int g0q_hci_link_once(struct g0q_link *link, unsigned long core_hz,
 		      unsigned long unipro_hz);

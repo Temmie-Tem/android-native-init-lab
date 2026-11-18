@@ -213,21 +213,11 @@ def reproduce(candidate,manifest,producer,fixed,out):
     require((folder/'observer.c').read_text()==builder.observer_source() and
             (folder/'seal.h').read_text()==builder.seal_text(ident,key,manifest['network'],module),
             'v2 generated source/seal differs')
-    snapshot = fixed['report_version'] == 5
-    handoff = fixed['report_version'] in (6, 7, 8, 9, 10, 11, 12)
-    reset_config = fixed['report_version'] in (7, 8, 9, 10, 11, 12)
-    disabled_ucrdy = fixed['report_version'] in (8, 9, 10, 11, 12)
-    stale_uccs_ack = fixed['report_version'] in (9, 10, 11, 12)
-    cfg1_diagnostics = fixed['report_version'] in (10, 11, 12)
-    cfg1_ordered_selection = fixed['report_version'] in (11, 12)
-    link_irq_diagnostics = fixed['report_version'] == 12
-    expected=builder.compile_command(folder,vm=False,pre_effect_return=True,
-                                    hci_snapshot=snapshot,hce_handoff=handoff,reset_config=reset_config,disabled_ucrdy=disabled_ucrdy,stale_uccs_ack=stale_uccs_ack,cfg1_diagnostics=cfg1_diagnostics,cfg1_ordered_selection=cfg1_ordered_selection, link_irq_diagnostics=link_irq_diagnostics)
-    require(producer['compile_command']==expected, 'v2 compiler recipe differs')
+    import report_modes
+    selected=report_modes.modes(fixed['report_version'])
+    expected=builder.compile_command(folder,vm=False,**selected)
     out.mkdir(mode=0o700)
-    command=builder.compile_command(folder,vm=False,pre_effect_return=True,hci_snapshot=snapshot,
-                                   hce_handoff=handoff,reset_config=reset_config,disabled_ucrdy=disabled_ucrdy,stale_uccs_ack=stale_uccs_ack,cfg1_diagnostics=cfg1_diagnostics,cfg1_ordered_selection=cfg1_ordered_selection, link_irq_diagnostics=link_irq_diagnostics,destination=out/'observer')
-    auxiliary=auxiliary_inputs()
+    command=builder.compile_command(folder,vm=False,destination=out/'observer',**selected)
     require(auxiliary==fixed['observer_auxiliary'],'v2 compiler auxiliary/specs changed')
     proof=build_evidence.compile_observer(command,out)
     require(auxiliary_inputs()==auxiliary,'compiler auxiliary changed during reproduction')

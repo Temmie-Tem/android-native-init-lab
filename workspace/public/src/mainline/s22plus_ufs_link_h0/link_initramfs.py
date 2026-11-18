@@ -56,32 +56,19 @@ def seal_text(identity, key, net, mod):
     return "\n".join(seal)+"\n"
 
 
-def compile_command(out, *, vm, pre_effect_return, hci_snapshot=False, hce_handoff=False, reset_config=False, disabled_ucrdy=False, stale_uccs_ack=False, cfg1_diagnostics=False, cfg1_ordered_selection=False, link_irq_diagnostics=False, destination=None):
-    require(type(link_irq_diagnostics) is bool and (not link_irq_diagnostics or cfg1_ordered_selection),
-            'link IRQ diagnostics require ordered CFG1 selection')
-    require(type(cfg1_ordered_selection) is bool and (not cfg1_ordered_selection or cfg1_diagnostics),
-            'ordered CFG1 selection requires diagnostics')
-    require(type(cfg1_diagnostics) is bool and (not cfg1_diagnostics or stale_uccs_ack),
-            'CFG1 diagnostics require initial acknowledgement mode')
-    require(type(stale_uccs_ack) is bool and (not stale_uccs_ack or disabled_ucrdy),
-            'initial completion acknowledgement requires disabled UCRDY mode')
-    require(type(disabled_ucrdy) is bool and (not disabled_ucrdy or reset_config),
-            'disabled UCRDY semantics require dedicated reset mode')
-    require(type(reset_config) is bool and (not reset_config or hce_handoff and pre_effect_return and not hci_snapshot),
-            'dedicated reset report requires handoff and return')
+import report_modes
+
+
+def compile_command(out, *, vm, destination=None, **modes):
+    try:
+        version = report_modes.version_of(**modes)
+    except ValueError as error:
+        require(False, str(error))
     exe = destination or out/"observer"
     cmd = ["aarch64-linux-gnu-gcc", "-std=c11","-Os","-static","-Wall","-Wextra","-Werror",
            "-Wno-unused-function","-Wno-unused-const-variable","-ffunction-sections","-fdata-sections",
            "-Wl,--gc-sections","-Wl,--build-id=none","-DCANARY_DEBIAN_RAM","-DCANARY_DOWNLOAD_RAM",
-           "-DML030_G0Q_MODULE",*(["-DG0Q_PRE_EFFECT_RETURN"] if pre_effect_return else []),
-           *(["-DG0Q_HCI_SNAPSHOT"] if hci_snapshot else []),
-           *(["-DG0Q_HCE_HANDOFF", "-DG0Q_AUTOMATIC_RECOVERY"] if hce_handoff else []),
-           *(["-DG0Q_RESET_CONFIG"] if reset_config else []),
-           *(["-DG0Q_DISABLED_UCRDY"] if disabled_ucrdy else []),
-           *(["-DG0Q_STALE_UCCS_ACK"] if stale_uccs_ack else []),
-           *(["-DG0Q_CFG1_DIAGNOSTICS"] if cfg1_diagnostics else []),
-           *(["-DG0Q_CFG1_ORDERED_SELECTION"] if cfg1_ordered_selection else []),
-           *(["-DG0Q_LINK_IRQ_DIAGNOSTICS"] if link_irq_diagnostics else []),
+           "-DML030_G0Q_MODULE",*("-D" + name for name in report_modes.defines(version, observer=True)),
            *(["-DCANARY_H0_VM"] if vm else []),"-I",out,"-I",HERE,"-I",CANARY,
            out/"observer.c","-o",exe]
     return list(map(str, cmd))
@@ -97,16 +84,11 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
         require(digest(CANARY/name) == pin, "baseline source changed: "+name)
     kernel = json.loads((kr/"guard-result.json").read_bytes())
     record = json.loads(component.read_bytes())
+    version = record.get('report_version', 3)
     require(record.get('pre_effect_return', False) is pre_effect_return and
-            (not pre_effect_return or record.get('report_version') in (4, 5, 6, 7, 8, 9, 10, 11, 12)), 'module/observer return mode differs')
-    hci_snapshot = record.get('report_version') == 5
-    hce_handoff = record.get('report_version') in (6, 7, 8, 9, 10, 11, 12)
-    reset_config = record.get('report_version') in (7, 8, 9, 10, 11, 12)
-    disabled_ucrdy = record.get('report_version') in (8, 9, 10, 11, 12)
-    stale_uccs_ack = record.get('report_version') in (9, 10, 11, 12)
-    cfg1_diagnostics = record.get('report_version') in (10, 11, 12)
-    cfg1_ordered_selection = record.get('report_version') in (11, 12)
-    link_irq_diagnostics = record.get('report_version') == 12
+            (not pre_effect_return or 4 <= version <= report_modes.LATEST), 'module/observer return mode differs')
+    selected = report_modes.modes(version if pre_effect_return else 3)
+    hci_snapshot, hce_handoff = selected['hci_snapshot'], selected['hce_handoff']
     mod = Path(record["module_path"])
     require(kernel["sha256"] == digest(Path(kernel["image"])) == record["selected_kernel"] and
             record["transport"] == kernel["transport_sha256"] == digest(kr/"transport.json") and
@@ -139,9 +121,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     (out/"seal.h").write_text(seal_text(identity, key, net, mod))
     with (out/"key.bin").open("xb") as file: file.write(key)
     exe = out/"observer"
-    cmd = compile_command(out, vm=vm, pre_effect_return=pre_effect_return,
-                          hci_snapshot=hci_snapshot, hce_handoff=hce_handoff, reset_config=reset_config, disabled_ucrdy=disabled_ucrdy, stale_uccs_ack=stale_uccs_ack, cfg1_diagnostics=cfg1_diagnostics, cfg1_ordered_selection=cfg1_ordered_selection, link_irq_diagnostics=link_irq_diagnostics)
-    import build_evidence
+    cmd = compile_command(out, vm=vm, **selected)
     provenance = build_evidence.compile_observer(cmd, out)
     info = subprocess.check_output(["file",exe])
     require(b"ARM aarch64" in info and b"statically linked" in info, "observer format")
