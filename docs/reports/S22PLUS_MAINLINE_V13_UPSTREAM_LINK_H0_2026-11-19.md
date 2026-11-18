@@ -92,9 +92,34 @@ histories agree across producer, guest and host, and v1–v12 behaviour is
 unchanged. Prompts and raw outputs of all four rounds, with SHA-256 sums,
 are in the private evidence directory under `review/`.
 
-## Remaining before any physical run
+## Capability, backend review and preparation
 
-A V13 capability record and its review; fresh terminal-backend review under contract revision
-81; fresh candidate qualification; current D0 health; and a separately
-returned one-operation attended grant. The replug dependency of the USB first
-response recorded in GOAL still applies to that run.
+The first V13 candidate build exposed one more line the mode refactor had
+deleted (`import build_evidence`); it was restored in `d3d313deaf` and the
+full removed-line diff of the refactored builders was re-audited.
+
+A fresh candidate (`candidate-final-v13a`) passed observer/archive build,
+loader and entry (EL2 accept, EL3 reject) tests, packaging, complete
+producer reproduction, real AP/boot/loader/kernel/DT/archive joins and
+identity separation from ML048. The capability record `3532b540…` binds 84
+mainline and 54 backend sources and 467 evidence items.
+
+A separate Luna review (read-only, max effort) returned PASS_GO for the
+capability record, the revision-81 terminal backend re-review (48 of 54 v50
+pins unchanged; the six changed sources carry only the reviewed V13/envelope
+changes) and the restored import. Its first answer flagged the null
+pre-review draft fields; given the established order (receipt, then binding,
+then `candidate.qualify`), the reviewer withdrew that as a sequencing false
+positive. The backend selector now names
+`s22plus_approved_terminal_persistent_v51_review.json`.
+
+After the review, the capability-bound declaration passed `candidate.qualify`
+and the exact task was prepared (`PASS_H0_V13_REVIEWED_PREPARATION`). No
+grant or operation exists.
+
+## Remaining before the physical run
+
+Current foreground D0 health; the operator's separately returned exact
+one-operation 1800-second attended approval; physical attendance with usable
+Download recovery. The replug dependency of the USB first response recorded
+in GOAL applies: reconnect the cable when the attach cue appears.

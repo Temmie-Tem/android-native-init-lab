@@ -62,9 +62,10 @@ upstream position. V13 is implemented and H0-verified, together with a
 version envelope that lets later module versions be adopted through the
 capability's version table without amending the root, details or target
 (contract revision 81). The code and contract change passed independent
-review (PASS_GO after four rounds). The V13 capability record, fresh
-terminal-backend review, candidate qualification and a fresh attended
-approval precede any device effect.
+review (PASS_GO after four rounds). The V13 capability (PASS_GO), the
+revision-81 terminal backend re-review (v51, PASS_GO), candidate
+qualification and the exact task preparation are complete (H0). Current D0
+health and a fresh attended one-operation approval precede the run.
 [V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
