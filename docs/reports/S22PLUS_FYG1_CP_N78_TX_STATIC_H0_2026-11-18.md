@@ -5,7 +5,20 @@
 샘플 버퍼를 Sub-6 송신 제어부에 전달하는 코드가 있다. **순정 벡터 공급 함수는
 0을 반환하므로 조사한 경로에서는 샘플 복사가 시작되지 않는다.** 아래의 복사와
 소비 경로는 공급자가 유효한 포인터와 길이를 반환한다는 가정 아래 추적했다.
-모든 결과는 호스트에 보관한 순정 파일의 정적 분석(H0)에서 얻었다.
+FYG1 코드에 대한 결과는 호스트에 보관한 순정 파일의 정적 분석(H0)에서 얻었다.
+
+## 지정한 I/Q 샘플과 n78 송신 측정의 대조
+
+**모뎀 코드가 지정한 I/Q 샘플열이 그대로 n78 RF 출력에 반영됐는지는 미확인이다.** 보관된 FYG1 CP 아카이브의 SHA-256을 아래 기준값과 다시 대조했다. 기존 H0 기록(`sample-return-h0.9ij7zs43/result.json`)에서 조사한 순정 함수는 유효한 입력 레코드에서도 반환값과 출력 샘플 길이가 모두 0이며, 호출자는 복사 전에 종료한다. 따라서 이 경로에서 실제 송신에 쓰였다고 식별할 입력 샘플열이 없다. 이 결과의 범위는 해당 순정 함수와 호출자까지다.
+
+삼성은 국내 `SM-S906N`의 n78 지원을 명시한다. 아래 두 비교 기기는 제조사 사양이 Snapdragon 8 Gen 1(SM8450)으로 확인되며, 프랑스 전파관리청(ANFR)이 공개한 시험성적서에는 n78 송신 조건과 전자파흡수율(SAR) 실측이 함께 있다. [삼성 국내 모델 사양](https://www.samsung.com/sec/support/model/SM-S906NZEWKOO/) · [Qualcomm 플랫폼·부품 번호](https://www.qualcomm.com/content/dam/qcomm-martech/dm-assets/documents/snapdragon_8_gen_1_mobile_platform_product_brief_1.pdf#page=2)
+
+| 시험 기기 | 공개 시험에 기록된 송신 조건과 측정 결과 |
+| --- | --- |
+| Xiaomi 12 (`2201123G`) | n78, 3550 MHz에서 DFT-s-OFDM과 π/2-BPSK를 사용했다. 5 mm 이격 조건에서 국소 정밀 측정(Zoom Scan)의 10 g 평균 SAR은 0.353 W/kg이었다. [ANFR 시험성적서 54쪽](https://www.anfr.fr/das/COM071220005/LYO-COM071220005-01%201-4050_22-205-02.pdf#page=54) · [제조사 칩셋 사양](https://www.mi.com/global/product/xiaomi-12/specs/) |
+| POCO F4 GT (`21121210G`) | 같은 n78 주파수에서 DFT-s-OFDM과 QPSK를 사용했다. 0 mm 이격 조건에서 Zoom Scan의 10 g 평균 SAR은 0.092 W/kg이었다. [ANFR 시험성적서 51쪽](https://www.anfr.fr/das/COM057230016/NAN-COM057230016-01%20%201-7502_24-11-02.pdf#page=51) · [제조사 칩셋 사양](https://www.po.co/global/product/poco-f4-gt/specs/) |
+
+두 시험은 지정된 표준 변조 조건에서 각 단말이 실제로 송신했음을 뒷받침한다. SAR은 조직의 질량당 RF 흡수 전력을 나타내며 개별 샘플의 진폭과 위상을 보존하지 않는다. 조사한 공개 자료에는 단말 코드가 선택한 원본 I/Q 샘플열과 같은 송신의 RF 출력을 독립 수신기로 기록한 I/Q와 대조한 결과가 없었다. 따라서 이 측정값을 FYG1에서 임의 샘플열을 재생할 수 있다는 증거로 사용할 수 없다.
 
 ## n78 보드 설정에서 활성 TX 핸들까지
 
