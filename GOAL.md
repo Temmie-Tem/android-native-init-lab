@@ -73,6 +73,12 @@ arrived, automatic Download came at N+589.5 s and original A plus a
 health-only continuation closed it. The capability is reusable; the next run
 needs a fresh key-only candidate, current D0 and a new approval.
 [ML051 run](docs/reports/S22PLUS_MAINLINE_ML051_V13_RUN_2026-11-19.md).
+
+**ML052 (key-only reuse) also closed `NO_PROOF` / healthy before the module:**
+the cued replug produced an authenticated USB response at W+75.7 s, but the
+operator's attach resolution was recorded after the 120-second window, so
+the owner stopped before the witness and permit.
+[ML052 run](docs/reports/S22PLUS_MAINLINE_ML052_V13_RUN_2026-11-19.md).
 [V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
