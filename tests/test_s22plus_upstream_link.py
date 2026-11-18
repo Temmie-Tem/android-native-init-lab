@@ -137,7 +137,8 @@ class UpstreamLinkTests(unittest.TestCase):
         valid += [0x504, 31, 0x80000010, 0x80002000, 0x10000]
         variants = [valid]
         for index, value in ((33, 0x500), (33, 0x400), (34, 3), (34, 32), (35, 0), (37, 1 << 30),
-                             (37, 0x70707ff), (7, 0x400), (33, 0x584), (7, 0x800), (7, 0x4)):
+                             (37, 0x70707ff), (7, 0x400), (33, 0x584), (7, 0x800), (7, 0x4),
+                             (8, 1), (9, 0), (9, 0x11), (9, 0x21)):
             bad = valid.copy()
             bad[index] = value
             variants.append(bad)

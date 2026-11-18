@@ -607,8 +607,10 @@ permission to perform host-only work.
    or write count, or any budget check that follows it. At the new position
    every check that immediately preceded the write at its old position is
    re-evaluated first, so the write is issued only in a hardware state the
-   parent admitted for it; a path that stops between the new and old
-   positions after the write is the one difference this clause admits; and (d) a new report
+   parent admitted for it. The only difference this clause admits is the
+   class of paths that issue the write and then stop, by refusal, failure or
+   deadline, anywhere after it and before or at the old position's own
+   checks; the shared policy enumerates those paths for each version; and (d) a new report
    tag and field layout within the 256-byte envelope whose guest and host
    decoders reject impossible histories. Such a version may not add a write
    target or value rule, an interrupt-status or other clear, a retry or

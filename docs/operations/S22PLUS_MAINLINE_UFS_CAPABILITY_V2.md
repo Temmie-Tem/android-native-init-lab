@@ -133,8 +133,12 @@ V13 inherits V12. Its differences, each inside the common version envelope:
   outcome unreached. Stage six repeats the same checks and requires a
   completed timely selection (outcome 1 or 3) before HCE one; a budget expiry
   ends at stage four, and later stage-five/six refusals carry the earlier
-  CFG1 outcome. A lane-clock failure at stage five after the write is the
-  one path on which V13 has written CFG1 where V12 would not have.
+  CFG1 outcome. The paths on which V13 has written CFG1 where V12 would not
+  have are exactly those that stop after the write and before V12's write
+  position: a stage-five lane-clock failure or deadline; the stage-six
+  module-deadline gate before `g0q_hci_link_once`; and a stage-six refusal
+  by its repeated checks (rates, HCI quiescence, PCS ready, HCE zero, HCS)
+  before HCE one. None issues any further write or command.
 - (d) Tag `0xd0000000`, 38 fields: the 33 V12 fields, then the link-poll OR,
   a UEC read prefix mask (0, 1, 3, 7, 15 or 31), raw UECPA, raw UECDL, and one
   word packing UECN/UECT/UECDME code bits, layer error bits and

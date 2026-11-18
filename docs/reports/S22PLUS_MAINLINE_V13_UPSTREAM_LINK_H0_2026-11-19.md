@@ -58,7 +58,7 @@ outdated by this revision and need fresh review before the next device run.
 | V13 fixture branches (20 cases × 2 CFG1 states, host and ARM64/QEMU) | pass |
 | V12 parity without UIC_ERROR (link-phase MMIO trace, first 33 fields) | identical |
 | UIC_ERROR outcomes: complete, timeout, fatal follow-up, bad code, budget expiry | decoded as specified |
-| Guest and host agreement on V13 success lines (13 variants) | identical decisions |
+| Guest and host agreement on V13 success lines (17 variants) | identical decisions |
 | Historical v3–v12 observer compile commands and Kbuild text | byte-identical |
 | V12 module rebuilt from this source tree | `9176104a…`, byte-identical to ML047 |
 | V13 ARM64 module against the real Kbuild | `5628f299…`, `BUILT_H0_COLD_LINK_COMPONENT` |
@@ -79,6 +79,12 @@ sample, and v6–v12 ranges left in the recovery path and the legacy source
 closure. Those are fixed here: the selection re-evaluates V12's stage-six
 admission before writing, (c) states the one admitted difference, and the
 guest checks the terminal sample against the observed union.
+Round three confirmed those five resolved and raised two: the policy named
+only the lane-clock stop although stage-six deadline and re-check stops are
+also post-write paths, and the guest's success check omitted the completion
+result and post-link HCS. The capability now enumerates every post-write
+stop, (c) admits that class rather than a single path, and the guest checks
+both fields (the V13 module bytes are unchanged).
 
 ## Remaining before any physical run
 

@@ -149,7 +149,9 @@ static inline int g0q_handoff_complete_fields(const long long values[G0Q_REPORT_
 	 * admitted. UEC reads exist only after UIC_ERROR, as a register prefix. */
 	{
 		long long seen = values[33], mask = values[34], irq = values[7];
-		if (!(irq & 0x400) || (irq & ~0x504LL) || (irq & ~seen) ||
+		/* Completion result zero; post-link HCS present without HEI/DEI. */
+		if (values[8] || (values[9] & 0x31) != 1 ||
+		    !(irq & 0x400) || (irq & ~0x504LL) || (irq & ~seen) ||
 		    !(seen & 0x400) || (seen & ~0x504LL) ||
 		    (mask != 0 && mask != 1 && mask != 3 && mask != 7 && mask != 15 && mask != 31) ||
 		    (!(seen & 4) && mask))
