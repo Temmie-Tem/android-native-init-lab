@@ -78,6 +78,21 @@ FYG1 진단 디스패처가 호출하는 `fs_diag_read`에서 경로 검사, 기
 
 재현에는 [빌더](../../workspace/public/src/scripts/analysis/s22plus_rf_report_h0/build_fixture.py)에 FYG1 복원본 디렉터리, 새 비공개 출력 디렉터리, Hexagon 지원 LLVM 21 바이너리 디렉터리를 차례로 전달한다. 실행기의 인자는 해당 순정 HAL ELF, 라우터 ELF, 빌드한 `efs-fixture`다. 실행 환경은 Python의 pyelftools·Unicorn 2.1.4, QEMU Hexagon 10.2.1 및 bubblewrap이다. 이번 실행의 원본은 `workspace/private/analysis/s22plus-fyg8-cp-static.zjrEXG/hal-file-h0.1G5VCa/`의 `verified.json`과 `provenance.json`에 있다.
 
+### 응답 수신자와 콜백 수명 추적 (H0)
+
+FYG8 순정 라우터의 송신 쪽과 수신 쪽을 따로 추적했다. `open`은 Binder 호출자의 PID를 키로 콜백의 강한 참조를 저장하고, 같은 PID를 사망 통지의 쿠키로 넘긴다. `write`는 `mapMemory` 이후 공유 버퍼의 포인터와 Binder 호출자의 PID를 얻어 메시지 종류에 따라 분기한다. 확인한 사용자 데이터 분기에서는 등록 상태에 따라 하위 처리기로 넘기는 클라이언트 식별값이 달라질 수 있다.
+
+HIDL로 반환하는 `diag_md_write` 분기에서 수신자 키는 라우팅 테이블에서 선택한 레코드에 들어 있다. `diag_copy_for_hidl_client`는 데이터 길이와 그 키를 큐에 전달한다. 작업 스레드는 키에 일치하는 등록을 찾아 해당 콜백의 `send_data`를 호출한다. 두 순정 ELF를 대조해 콜백 가상 메서드까지 식별했다. **큐의 키가 어느 콜백을 선택하는지는 확인했다. 이 파일의 요청이 나갈 때 선택한 식별값과 CP 응답이 돌아올 때 큐에 들어간 키가 같은지는 미확인이다.** 보관된 실기 기록에는 해당 거래가 없으며 앞선 호스트 시험은 이 연결을 파이프로 대체했다. 이 맵은 같은 PID 안의 개별 요청을 구별하지 않는다.
+
+| 확인 항목 | 검증 결과 |
+| --- | --- |
+| 다른 PID의 AP 콜백 | ARM64 순정 조회·삭제 코드를 가상 등록 두 건으로 시험했다. 두 키는 각각 자기 콜백을 선택했고 미등록 키는 일치 항목이 없었다. 각 PID의 사망 쿠키를 별도로 넣자 해당 노드만 빠지고 다른 콜백 참조는 유지됐다. 미등록 쿠키에서는 두 등록이 모두 유지됐다. 이 결과는 단일 스레드에서 확인한 해당 맵의 동작이다. |
+| `serviceDied`의 해제 범위 | 쿠키와 일치하는 노드를 트리에서 제거하고 그 노드의 비어 있지 않은 콜백에 `RefBase::decStrong`을 호출한 뒤 노드를 해제하는 분기를 확인했다. **이 등록이 소유하던 강한 참조는 해제된다.** 모의 실행은 제거된 노드의 참조값까지 확인했고, 이후 `decStrong` 호출은 정적으로 확인했다. 객체의 마지막 참조 여부, 진행 중인 전달의 완료, 실제 Binder 사망 통지 시점은 관측하지 않았다. |
+| 다른 클라이언트의 CP 파일 핸들 | FYG1 `fs_diag_read`의 첫 읽기 분기는 고정된 상태 슬롯에서 기존 핸들을 읽고, 유효하면 닫은 뒤 요청 파일을 연다. 이 결정에 Android 콜백 맵의 PID를 대조하는 동작은 없다. 슬롯의 독점 소유를 입증할 근거가 없어 다른 클라이언트의 CP 핸들 보존은 보장할 수 없다. 실제 타 핸들이 닫힌 관측도 없다. |
+| 파일 내용과 저장 메타데이터 | 기존 파일은 열기 플래그 0으로 열린다. 정상 경로에서 할당된 파일 서술자의 읽기 메서드까지 대조했다. 양수 길이를 읽으면 증가하는 값은 열린 서술자의 현재 오프셋이다. 데이터 읽기는 해당 파일 노드(vnode)의 파일시스템 구현으로 위임된다. 이 파일에 선택된 구현과 읽기 전후의 저장 메타데이터를 관측하지 못해 접근 시각(`atime`)을 포함한 메타데이터 보존은 미확인이다. |
+
+이번 추적은 호스트의 보관 ELF와 CP 코드 복원본만 사용했다. 두 PID 조회·삭제 결과, 입력 및 구간별 해시는 비공개 분석 디렉터리 `router-ownership.r50JYI/`의 `registry.json`과 `evidence.json`에 보관했다.
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
