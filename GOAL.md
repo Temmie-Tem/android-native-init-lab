@@ -64,8 +64,15 @@ capability's version table without amending the root, details or target
 (contract revision 81). The code and contract change passed independent
 review (PASS_GO after four rounds). The V13 capability (PASS_GO), the
 revision-81 terminal backend re-review (v51, PASS_GO), candidate
-qualification and the exact task preparation are complete (H0). Current D0
-health and a fresh attended one-operation approval precede the run.
+qualification and the exact task preparation are complete (H0).
+
+**ML051 (first V13 run) closed `NO_PROOF` / `ANDROID_CLOSED_HEALTHY` without
+testing V13:** the attach cue was issued too late by the assistant's
+monitoring (refused by its own 60-second guard), no USB first response
+arrived, automatic Download came at N+589.5 s and original A plus a
+health-only continuation closed it. The capability is reusable; the next run
+needs a fresh key-only candidate, current D0 and a new approval.
+[ML051 run](docs/reports/S22PLUS_MAINLINE_ML051_V13_RUN_2026-11-19.md).
 [V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
@@ -96,7 +103,7 @@ In every mainline run since ML021 where an authenticated USB response
 arrived within the window, an attach cue had been issued and the operator
 reconnected the cable. With no cue or a late cue, no USB endpoint appeared:
 ML030, ML031, ML032, ML037, ML038, ML041, ML048 (cable deliberately
-untouched for 120 s) and ML050. ML032's endpoint appeared only later at
+untouched for 120 s) and ML050 and ML051. ML032's endpoint appeared only later at
 N+180 s. The cause is unproved. The UDC observation work (ML049 prepared,
 ML050 run, then VM checks on 2026-11-12 and 2026-11-15) targets the
 pre-connect UDC state; the physical bind/attach state remains unobserved.
