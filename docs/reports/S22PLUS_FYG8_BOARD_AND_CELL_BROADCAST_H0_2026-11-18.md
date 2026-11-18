@@ -31,6 +31,22 @@ RF 카드 진단 함수 `rfc_debug_update_phys_dev_status`는 제조원 조회�
 
 비공개 근거는 `workspace/private/analysis/s22plus-fyg8-cp-static.zjrEXG/rf-id.uGXEUG/`의 `identity-evidence.txt`와 `log-scan.json`에 있다. 원본 CP 해시, 상주 세그먼트 해시, 원본 QDB의 압축 해제 결과, 두 코드 복원본의 대상 구간, 실제 가상 함수 테이블과 제조원 필드 정의를 대조했다.
 
+### 11월 19일 RF 진단표 저장 경로와 실기 관측
+
+FYG1의 `rfc_common_create_efs_report`는 CMW 상태를 조립할 때 `rfc_common_dump_report`를 통해 물리 장치표를 추가한다. 완성된 버퍼와 길이, 파일명 **`rfc/rfdevice_report.dat`** 를 `rfcommon_efs` 쓰기 함수에 전달한다. 이 파일명은 모뎀 EFS 쪽에서 해석된다. 보고서 생성 함수의 존재만으로 특정 부팅에서 파일을 생성했다거나 안드로이드에 사본을 내보냈다고 판정할 수 없다. 같은 보고서의 `RF QLink Init Success`는 공통 초기화 상태다. QLINK 0의 칩 ID 읽기가 대체값 없이 성공했는지 알려면 그 읽기 자체의 결과가 필요하다.
+
+USB 디버깅 허용 후, 운영자 소유 단말의 비공개 USB 식별값과 ADB의 모델·제품을 대조했다. 읽기 전후에 FYG8 부트로더, FYG1 베이스밴드, AP 리비전 16과 동일한 Android 부팅 ID를 확인했다. `su`는 UID 0을 반환했다. RIL 속성 `ril.hw_ver`의 현재 값은 `REV0.7`이었다.
+
+| 확인한 근거 | 해당 부팅의 관측 결과 |
+| --- | --- |
+| Android 측 보고서 사본 | 조사한 로그·내보내기 디렉터리(최대 3단계)와 AP에 노출된 MPSS의 `readwrite`, `shared`, `hlos`, `ramdumps` 경로에 검사한 이름의 읽을 수 있는 사본이 없었다. CP 내부 EFS의 파일 존재 여부는 미확인이다. |
+| 현재 로그 | 현재 커널 로그와 보관 중인 `radio`, `main`, `system` 버퍼에서 칩 이름, QLINK, 진단표 열, 식별 워드와 RFIC·리비전 대체 표기를 검색했다. 장치 행이나 식별 읽기 결과는 발견되지 않았다. `radio_PRECONFG_SET.log` 932줄에서도 관련 표식을 찾지 못했다. |
+| 이전 부팅 로그 | `.gz` 확장자였던 기존 파일 6개가 ZIP임을 확인했다. 고유 ZIP 5개, 중복 포함 내부 항목 36개에서 RF 식별 표식을 찾지 못했다. 이 파일들을 현재 부팅의 관측으로 계산하지 않았다. |
+
+판정은 **QLINK 0 칩 ID 읽기 성공 여부 미확인, RF 칩의 `HW_Rev`·`FAB_SRC` 값 미관측, SDR735 v2.0 실장 여부 미확정**이다. 같은 Android 부팅을 확인했으나 CP 부팅을 따로 식별할 기록은 없었다. 최초 전체 버퍼 정규식 검색은 20초 시간 초과로 끝났으며, 현재 로그 판정에는 이후 개별 버퍼에서 완료된 읽기를 사용했다. 이 관측 중 보고서를 새로 생성하거나 단말을 재부팅하지 않았다.
+
+비공개 근거는 `workspace/private/analysis/s22plus-fyg8-cp-static.zjrEXG/rf-report.kAlPuz/`의 `file-writer-evidence.txt`와 `observation-result.json`이다. 파일명 리터럴과 쓰기 호출을 포함한 코드 4개 구간을 대조하고 실기 캡처 핸들 102개의 원본을 재검증했다.
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
@@ -49,4 +65,4 @@ Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로
 - 보관된 순정 DTBO 두 사본의 전체 SHA-256이 기존 순정 해시와 일치했다. 각 DTBO 항목의 모델과 리비전 속성은 컴파일된 FDT에서 읽었다. [저장소의 순정 DTBO 해시](../operations/S22PLUS_FYG8_R4W1C_CONNECTED_BINDING_CLAUSE_2026-07-20.md)
 - 9월 근거는 `workspace/private/runs/s22plus-android-minimal-v1/`의 `p398-additional38-20260916-1` 및 `p398-checkpoint-full-20260916-1`이다. 목록 생산자의 사용자 0 범위를 확인하고 보관된 출력과 캡처 해시를 대조했다. 제거 완료 두 건은 저널이 참조하는 캡처와 실제 명령 출력까지 대조했다.
 - 11월 18일에는 호스트의 USB 열거 정보에서 확인한 삼성 단말 한 대가 두 과거 보고서의 비공개 식별값과 일치했다. 현재 부팅 상태나 패키지 상태를 보여 주는 값은 아니다. 기존 전경 연구용 D0 도구의 호스트 측 검증은 `reviewed source changed`를 반환했다. 저장된 검토 이후 원본 캡처 도구, 실행 레지스트리, 공통 계약 및 대상 계약의 해시가 달라졌다. 이 도구의 프로세스 목록만으로도 실제 경보 수신 여부를 판별할 수 없다. [전경 연구용 D0 도구의 범위](../operations/targets/S22PLUS_FYG8_GOAL_RESEARCH_V1.md)
-- 새 단말 명령, 패키지 변경, 재부팅 또는 RF 송신은 수행하지 않았다. 동일 리비전의 부품표나 마킹 사진도 실물 식별의 독립 근거가 될 수 있다. 실제 재난문자 수신·표시 여부는 같은 수신 건에 대해 무선 수신과 Android 표시 양쪽을 확인할 수 있는 증거가 필요하다.
+- 11월 18일 조사는 호스트에서 수행했고, 11월 19일에는 기존 Android 기록을 읽었다. 동일 리비전의 부품표나 마킹 사진도 실물 식별의 독립 근거가 될 수 있다. 실제 재난문자 수신·표시 여부는 같은 수신 건에 대해 무선 수신과 Android 표시 양쪽을 확인할 수 있는 증거가 필요하다.
