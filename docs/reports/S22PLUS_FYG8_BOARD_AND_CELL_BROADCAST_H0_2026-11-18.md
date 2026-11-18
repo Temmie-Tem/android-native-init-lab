@@ -47,6 +47,12 @@ USB 디버깅 허용 후, 운영자 소유 단말의 비공개 USB 식별값과 
 
 비공개 근거는 `workspace/private/analysis/s22plus-fyg8-cp-static.zjrEXG/rf-report.kAlPuz/`의 `file-writer-evidence.txt`와 `observation-result.json`이다. 파일명 리터럴과 쓰기 호출을 포함한 코드 4개 구간을 대조하고 실기 캡처 핸들 102개의 원본을 재검증했다.
 
+### 기존 CP EFS 파일을 읽는 순정 진단 경로
+
+FYG1 진단 디스패처가 호출하는 `fs_diag_read`에서 경로 검사, 기존 파일 열기(생성 플래그 없음), 내용 읽기와 응답 처리를 확인했다. 이 분기는 RF 보고서 생성 함수를 호출하지 않는다. 특정 파일의 존재나 현재 세션의 CP 접근 허용 여부는 펌웨어 코드만으로 결정할 수 없다.
+
+11월 19일 같은 Android 부팅에서 UID 0으로 확인하니 `vendor.diag-router`가 실행 중이었다. USB 구성은 `mtp,conn_gadget,adb`였고 활성 구성에 전용 DIAG 함수가 없었다. 설치된 진단 HAL은 범용 전송 메서드를 제공한다. 확인한 순정 실행 파일과 인터페이스에서는 현 상태에서 기존 EFS 파일 하나를 조회하는 지원 명령을 식별하지 못했다. 이번 연결에서는 CP에 요청을 보내지 않았으므로 파일의 존재 여부와 값은 미확인이다. 원본 관측과 정적 구간 해시는 비공개 분석 디렉터리 `diag-existing.PqVUzD/`에 보관했다.
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
