@@ -122,6 +122,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
     with (out/"key.bin").open("xb") as file: file.write(key)
     exe = out/"observer"
     cmd = compile_command(out, vm=vm, **selected)
+    import build_evidence
     provenance = build_evidence.compile_observer(cmd, out)
     info = subprocess.check_output(["file",exe])
     require(b"ARM aarch64" in info and b"statically linked" in info, "observer format")
