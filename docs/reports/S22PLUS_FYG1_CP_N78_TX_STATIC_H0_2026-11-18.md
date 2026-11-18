@@ -20,6 +20,14 @@ FYG1 코드에 대한 결과는 호스트에 보관한 순정 파일의 정적 �
 
 두 시험은 지정된 표준 변조 조건에서 각 단말이 실제로 송신했음을 뒷받침한다. SAR은 조직의 질량당 RF 흡수 전력을 나타내며 개별 샘플의 진폭과 위상을 보존하지 않는다. 조사한 공개 자료에는 단말 코드가 선택한 원본 I/Q 샘플열과 같은 송신의 RF 출력을 독립 수신기로 기록한 I/Q와 대조한 결과가 없었다. 따라서 이 측정값을 FYG1에서 임의 샘플열을 재생할 수 있다는 증거로 사용할 수 없다.
 
+### 독립 수신기의 n78 상향링크 I/Q 기록
+
+**SM8450 단말이 참여한 n78 무선 신호를 독립 수신기로 기록한 공개 사례가 있다.** Luo 등의 USENIX Security 2025 논문 표 1은 시험 단말을 Galaxy S22 기본형 `SM-S901E/DS`, 모뎀을 Snapdragon X65로 식별한다. 삼성의 기종표에서 S22의 E형 칩셋은 Snapdragon 8 Gen 1(SM8450)이다. 연구진은 20 MHz n78 TDD 시험망에서 기지국과 별도의 USRP 수신기로 상향링크를 관측했다. 네 단말이 동시에 접속한 시험에서는 수신 I/Q를 파일에 저장했다. 이 기록에는 다른 단말의 신호도 포함될 수 있다. [삼성 기종표 10쪽](https://www.commoncriteriaportal.org/nfs/ccpfiles/files/epfiles/st_vid11444-st.pdf#page=10) · [논문의 시험 구성·표 1, PDF 9쪽](https://www.usenix.org/system/files/usenixsecurity25-luo-shijie.pdf#page=9) · [상향링크 I/Q 수집, PDF 10쪽](https://www.usenix.org/system/files/usenixsecurity25-luo-shijie.pdf#page=10)
+
+공개 자료 v1의 ZIP 파일 목록을 확인했다. 삼성 단말 연결 예제에는 수신 I/Q 파일 `example.fc32` 1개, 로그 2개, 패킷 캡처 1개가 있고, 별도 평가 결과 ZIP에는 `.fc32` 파일 10개가 있다. 논문이 기지국 기록과 대조한 대상은 복호한 메시지다. 공개 파일 목록과 저자의 설명에서는 **같은 송신 시점에 단말 모뎀이 입력으로 사용한 I/Q 샘플열**을 식별할 수 없었다. [공개 수신 예제 파일 목록](https://zenodo.org/records/15601773/preview/example-connection-samsung-srsran.zip?include_deleted=0) · [저자의 평가 자료 목록](https://zenodo.org/records/15601773/preview/sni5gect-evaluation-results.zip?include_deleted=0)
+
+**FYG1 적용 범위.** 수신 I/Q에는 전파 경로와 수신기의 영향도 담긴다. 이 자료는 n78 상향링크 파형을 외부에서 관측했다는 근거다. 같은 송신의 모뎀 입력 샘플이 없어 샘플별 진폭·위상 일치는 판정할 수 없다. 시험 단말도 `SM-S901E/DS`이므로 국내 S22+ `SM-S906N`의 FYG1 실행 결과로 옮길 수 없다.
+
 ## n78 보드 설정에서 활성 TX 핸들까지
 
 | 단계 | FYG1에서 확인한 동작 |
