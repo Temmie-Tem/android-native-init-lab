@@ -16,6 +16,21 @@
 | 업스트림 Linux 7.2.11 | SM8450 MPSS용 PAS 드라이버는 `modem.mdt`를 대상으로 한다. 펌웨어 로드 후 보안 영역에 인증·리셋 해제를 요청하며, 실패하면 오류 경로로 빠진다. 성공한 경로에서만 모뎀 기동을 기다린다. 커널을 교체해도 이 드라이버가 CP 서명에 대한 새 신뢰 권한을 제공하지 않는다. [사용한 업스트림 소스 버전·해시](../../workspace/public/src/mainline/s22plus_canary_h0/sources.json) |
 | S22+에서 사용한 ML050 빌드 | 실제 로더 입력의 Image·DTB와 빌드 설정을 준비 기록의 해시로 대조했다. `7.2.11-g0q-ram-h0`는 `CONFIG_REMOTEPROC`가 꺼져 있고, 컴파일된 DTB의 MPSS 노드도 `disabled`다. **이 빌드에는 순정·수정 CP 어느 쪽이든 새로 기동하는 해당 드라이버 경로가 없다.** [g0q 기기 트리](../../workspace/public/src/mainline/s22plus_canary_h0/g0q.dtsi) |
 
+### ML050에 서명된 순정 FYG1을 그대로 공급할 수 있는가
+
+현재 ML050으로는 기동할 수 없다. FYG8 부트 이미지의 내장 설정, 보관한 FYG8 Android의 실제 기기 트리와 7월 13일 부팅 기록을 ML050 로더에 넣은 Image·DTB·ramdisk 및 해당 빌드 설정과 대조했다.
+
+| 항목 | 순정 FYG8 | ML050 |
+| --- | --- | --- |
+| 커널과 드라이버 | 커널에 `CONFIG_REMOTEPROC=y`가 있고 vendor 모듈에 `qcom_q6v5_pas.ko`와 `mdt_loader.ko`가 있다. 실기 기록에 PAS 드라이버가 모뎀에 연결됐다. | `CONFIG_FW_LOADER=y`, `CONFIG_QCOM_SCM=y`, SMEM·SMP2P 지원은 있다. 그러나 `CONFIG_REMOTEPROC`가 꺼져 있어 SM8450 모뎀을 기동할 `QCOM_Q6V5_PAS` 드라이버가 빠졌다. ramdisk에도 커널 모듈이 없다. |
+| 모뎀 기기 트리 | `qcom,waipio-modem-pas` 노드가 `ok`다. XO 클럭, CX/MX 공급, 인터커넥트, 모뎀 인터럽트와 공유 메모리 연결을 선언한다. | 드라이버가 인식하는 `qcom,sm8450-mpss-pas` 노드는 있으나 `disabled`다. 업스트림은 XO와 `cx`·`mss` 전원 도메인을 쓴다. 두 트리에서 모뎀용 SMP2P의 공유 메모리 항목과 상대 프로세서 번호가 일치한다. 전원 공급과 준비 신호가 이 보드에서 실제로 동작하는지는 열려 있다. |
+| 펌웨어 공급 | Android `ueventd`가 `/vendor/firmware-modem/image/modem.mdt`와 분할 파일을 찾아 제공했다. 이어서 커널이 5,584바이트 MDT를 받아 모뎀 기동 완료를 기록했다. | `CONFIG_EXTRA_FIRMWARE=""`이고 로더에 포함된 초기 파일시스템에 MDT, 분할 파일, `ueventd`가 없다. UFS 컨트롤러와 PHY도 꺼져 있어 순정의 VFAT 마운트로 파일을 공급하는 경로가 없다. [순정 마운트 구성](S22PLUS_FYG8_DEVICE_LOCAL_STORAGE_PATH_SURVEY_H0_2026-08-10.md) · [Linux 펌웨어 검색 경로](https://docs.kernel.org/driver-api/firmware/fw_search_path.html) |
+| 기동 요청 | 순정 커널 로그에서 펌웨어 요청과 같은 모뎀의 기동 완료를 순서대로 확인했다. | 업스트림 SM8450 MPSS 설정은 `auto_boot = false`다. ML050의 SysV init은 RAM 관측기를 실행하며 이 경로에 모뎀 시작 요청이 없다. 드라이버와 노드를 활성화하고 파일을 공급한 구성에도 기동을 요청할 주체가 필요하다. |
+
+**순정 파일의 형식과 주 예약 메모리는 맞는다.** FYG1의 ELF 프로그램 헤더 32개를 7.2.11 MDT 로더의 판정 조건과 대조했다. MDT에는 로더가 사용하는 ELF 헤더와 서명·해시 세그먼트가 연속해 들어 있다. 메모리에 올리는 세그먼트 30개 중 파일 데이터가 있는 27개의 분할 파일이 모두 예상 이름과 길이로 존재한다. 나머지 세 개는 파일 데이터 길이가 0이다. 이 30개의 처음부터 끝까지 범위는 두 기기 트리가 모뎀에 할당한 주 예약 영역과 정확히 같은 306 MiB다. 순정 노드가 두 번째로 참조하는 영역은 기본 CMA 풀이다. 이 업스트림 SM8450 항목에는 별도 DTB용 PAS ID가 없어 주 영역 하나를 사용한다.
+
+따라서 서명된 CP를 고치거나 주 예약 메모리를 늘려야 한다는 근거는 없다. 파생 빌드에서 보드 전원과 클럭을 올리고 PAS 인증·리셋 해제를 마친 뒤 실제 모뎀 준비 신호까지 받는지는 미검증이다. 그다음 GLINK·QRTR 통신과 모뎀의 저장소 서비스 사용 가능성도 각각 별도 결과다. 비공개 대조 결과는 기존 증거 디렉터리의 `ml050-stock-cp-comparison.json`에 기록했다. [ML050 기기 트리](../../workspace/public/src/mainline/s22plus_canary_h0/g0q.dtsi) · [ML050 실기 관측 범위](S22PLUS_MAINLINE_ML050_UDC_AUTO_RETURN_RUN_2026-11-11.md)
+
 ## 순정 CP로 돌아올 수 있는가
 
 **복구 파일을 확보했다.** CP 아카이브는 68,833,389바이트이고 SHA-256은 `08495982043835aa233061c70dfc42b327684e93cf7c7e02d89278a5ea3ec445`이다. 전체 배포 ZIP의 SHA-256도 기준값과 일치한다. 순정 이미지의 서명과 FYG1의 과거 정상 기동은 복구에 사용할 파일의 원본성과 대상 적합성을 뒷받침한다.
