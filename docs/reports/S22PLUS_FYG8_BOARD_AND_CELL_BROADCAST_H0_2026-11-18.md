@@ -55,6 +55,12 @@ FYG1 진단 디스패처가 호출하는 `fs_diag_read`에서 경로 검사, 기
 
 같은 부팅에서 수집한 HAL 라이브러리 세 사본의 클라이언트 심볼을 인터페이스별로 대조했다. `Idiag::open`은 콜백 객체를 인자로 받으며 파일 경로 인자가 없다. `Idiag::write`는 메모리 버퍼와 길이를 받고, `send_data`는 콜백 인터페이스에 속한다. 따라서 라우터가 실행 중이라는 관측만으로는 특정 파일을 열었거나 읽을 수 있다고 판정할 수 없다. 이 경로에서 파일을 실측하려면 CP로 EFS 조회 요청을 전송해야 한다. S22+ D0는 페이로드 전송을 제외하므로 이 재검토에는 보관된 자료만 사용했다. [S22+ D0 범위](../operations/targets/S22PLUS_FYG8_TARGET_CONTRACT.md#s22-d0)
 
+### 기존 보고서 단건 조회 절차의 독립 검토
+
+독립 검토자는 [S22+ 전용 조회 절차](../operations/S22PLUS_FYG1_EXISTING_RF_REPORT.md)의 최종 SHA-256 `717e3bbd43c97bbea2e070828add1c82ed3f3c9ab523420d2a63f776ca1b8421`에 대해 **H0 절차 설계 통과, 실기 조회 미승인**으로 판정했다. 초안 검토에서 지적한 타 클라이언트의 응답 저장·콜백 간섭 문제와 EOF 이후 종료 판정 문제를 수정한 뒤 같은 검토자가 최종 문서를 다시 확인했다. 독립 대조에서는 보관한 두 CP 코드 복원본 각각에서 읽기 경로 5구간, 생성 경로 4구간 및 식별 경로 11구간의 해시가 기존 근거와 일치했다.
+
+실기 판단의 근거는 해당 CP 요청을 허용하는 활성 S22+ 계약과 이 한 파일의 무변경 읽기를 보장하는 검증된 클라이언트·거래 경로가 없다는 점이다. 이번에는 단말에 접속하거나 CP에 요청을 보내지 않았다. 보관 기록에서도 CP 부팅 식별자와 파일 내용이 확보되지 않아 QLINK 0의 칩 ID 출처, `HW_Rev`, `FAB_SRC`는 미확인이다.
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
