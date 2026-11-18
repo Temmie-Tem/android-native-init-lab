@@ -128,7 +128,8 @@ int g0q_hci_quiescent_observed(struct g0q_link *link, struct g0q_stage2_diag *di
 int g0q_hci_ack_initial(struct g0q_link *link, struct g0q_stage2_diag *diag);
 #endif
 #ifdef G0Q_UPSTREAM_LINK
-int g0q_hci_select_unipro(struct g0q_link *link);
+int g0q_hci_select_unipro(struct g0q_link *link, unsigned long core_hz,
+			  unsigned long unipro_hz);
 
 /* Report form of UECN/UECT/UECDME (UECPA/UECDL are reported raw): defined
  * code bits, each layer's error bit, and whether any reserved bit was set.

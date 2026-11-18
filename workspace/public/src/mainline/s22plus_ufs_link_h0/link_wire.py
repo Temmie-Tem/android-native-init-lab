@@ -399,6 +399,8 @@ def cfg1_diagnostics(values, *, report_version):
     if outcome == 0:
         check(before == after == hce == local == issued == 0 and rc < 0,
               'unreached CFG1 has reached state')
+        # V13 selects inside stage four; stages five and six follow a selection.
+        check(report_version < UPSTREAM_LINK or stage <= 4, 'stage six without CFG1 selection')
     elif report_version >= UPSTREAM_LINK:
         # V13 selects at the end of stage four, before lane clocks (stage five)
         # and the stage-six HCE/UIC path.

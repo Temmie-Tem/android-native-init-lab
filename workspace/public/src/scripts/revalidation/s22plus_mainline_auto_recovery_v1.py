@@ -15,6 +15,22 @@ import s22plus_native_target_io_v3 as target
 import s22plus_odin_transition_core as transition
 from s22plus_native_records_v3 import Journal, clock, host_boot, pin, publish, read, require, verify
 
+def _report_modes():
+    """The single report-version declaration beside the module sources."""
+    import sys
+    source = str(profile.ROOT/'workspace/public/src/mainline/s22plus_ufs_link_h0')
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    import report_modes
+    return report_modes
+
+
+def _automatic(version):
+    """Report versions that arm the child-owned automatic Download attempt."""
+    modes = _report_modes()
+    return type(version) is int and modes.FIRST['hce_handoff'] <= version <= modes.LATEST
+
+
 ARRIVAL_NS = 660_000_000_000
 FOLDER = 'io-mainline-auto-recovery'
 
@@ -30,7 +46,7 @@ def selected(request):
     cap=read(verify(image['capability']))
     require(cap['schema']=='s22plus-mainline-ufs-capability-v2' and
             cap['scope']=='S22PLUS_LATE_UFS_KEY_ONLY_V2','automatic recovery capability scope')
-    return cap['fixed']['report_version'] in (6,7,8,9,10,11,12)
+    return _automatic(cap['fixed']['report_version'])
 
 
 def window(adapter,request):

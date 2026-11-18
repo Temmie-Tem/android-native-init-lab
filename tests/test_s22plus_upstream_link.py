@@ -137,7 +137,7 @@ class UpstreamLinkTests(unittest.TestCase):
         valid += [0x504, 31, 0x80000010, 0x80002000, 0x10000]
         variants = [valid]
         for index, value in ((33, 0x500), (33, 0x400), (34, 3), (34, 32), (35, 0), (37, 1 << 30),
-                             (37, 0x70707ff), (7, 0x400), (33, 0x584)):
+                             (37, 0x70707ff), (7, 0x400), (33, 0x584), (7, 0x800), (7, 0x4)):
             bad = valid.copy()
             bad[index] = value
             variants.append(bad)
@@ -186,7 +186,7 @@ class UpstreamLinkTests(unittest.TestCase):
                     return subprocess.run([*runner, exe, str(fault), '0', '-16', '1', '0'], env=env,
                                           check=True, capture_output=True, timeout=5)
                 expected = {1: (4, 5, 'BUDGET_EXPIRED'), 2: (5, 19, 'BIT_SET_BUDGET_PASS'),
-                            3: (6, 16, 'BIT_SET_BUDGET_PASS')}
+                            3: (4, 16, 'UNREACHED'), 4: (6, 16, 'BIT_SET_BUDGET_PASS')}
                 for case, (stage, errno, outcome) in expected.items():
                     with self.subTest(compiler=compiler, case=case):
                         out = run(case)
@@ -195,12 +195,21 @@ class UpstreamLinkTests(unittest.TestCase):
                         self.assertEqual(facts['cfg1']['outcome'], outcome)
                         self.assertFalse(facts['link_issued'])
                         self.assertIsNone(facts['link_poll'])
-                # The stage-six core-rate refusal (-ERANGE) after selection.
-                events = run(3).stderr.decode().splitlines()
-                rate = [int(e.split()[0]) for e in events if e.split()[1:] == ['rate-get', 'core']][-1]
-                facts = decode(run(3, rate).stdout, 13)
-                self.assertEqual((facts['stage'], facts['operation_errno']), (6, 34))
-                self.assertEqual(facts['cfg1']['outcome'], 'BIT_SET_BUDGET_PASS')
+                        if case == 3:
+                            self.assertNotIn('write hci:dc', out.stderr.decode())
+                # Core-rate refusals: before the moved write (stage four) and
+                # again before HCE one (stage six).
+                events = run(4).stderr.decode().splitlines()
+                rates = [int(e.split()[0]) for e in events if e.split()[1:] == ['rate-get', 'core']]
+                # The first core read is the stage-two rate readback.
+                self.assertEqual(len(rates), 3)
+                for fault, (stage, outcome) in zip(rates[1:], ((4, 'UNREACHED'), (6, 'BIT_SET_BUDGET_PASS'))):
+                    with self.subTest(compiler=compiler, rate_fault=fault):
+                        out = run(4, fault)
+                        facts = decode(out.stdout, 13)
+                        self.assertEqual((facts['stage'], facts['operation_errno']), (stage, 34))
+                        self.assertEqual(facts['cfg1']['outcome'], outcome)
+                        self.assertEqual('write hci:dc' in out.stderr.decode(), stage == 6)
 
     def test_impossible_v13_words(self):
         valid = success(0)

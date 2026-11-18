@@ -291,7 +291,8 @@ static int phy_on(void)
 #ifdef G0Q_UPSTREAM_LINK
 	/* Upstream order: calibrate, select QUniPro, then lane clocks (stage 5). */
 	if (!rc)
-		rc = g0q_hci_select_unipro(&board.link);
+		rc = g0q_hci_select_unipro(&board.link, clk_get_rate(board.core),
+					   clk_get_rate(board.unipro));
 #endif
 	return rc;
 }

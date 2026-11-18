@@ -183,9 +183,18 @@ int main(int argc, char **argv)
 	if (!strcmp(fault,"no-calibration")) link.hw.pcs_ready=false;
 #ifdef G0Q_UPSTREAM_LINK
 	/* Stage four selects QUniPro before lane clocks; count only stage six. */
-	int select_rc = g0q_hci_select_unipro(&link);
+	int select_rc = g0q_hci_select_unipro(&link,300000000,300000000);
 	unsigned select_writes = writes;
-	assert(g0q_hci_select_unipro(&link) == -EPERM && writes == select_writes);
+	/* The V12 stage-six admission now also precedes the moved write. */
+	if (select_rc == -EBUSY) {
+		assert(!writes && !cfg1_reads && !link.cfg1_outcome);
+		assert(g0q_hci_link_once(&link,300000000,300000000) == -EPERM);
+		assert(!writes && !hce_ns && !cmds && !link.hce_started);
+		printf("%s select=%d\n", fault, select_rc);
+		return 0;
+	}
+	assert(g0q_hci_select_unipro(&link,300000000,300000000) == -EPERM && writes == select_writes);
+	assert(g0q_hci_select_unipro(&link,299999999,300000000) == -EPERM);
 	writes = 0;
 	if (!strcmp(fault,"no-calibration") || !strcmp(fault,"expired-cfg1")) {
 		assert(select_rc == (!strcmp(fault,"expired-cfg1") ? -EIO : -EPERM));

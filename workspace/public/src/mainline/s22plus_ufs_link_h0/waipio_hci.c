@@ -446,14 +446,27 @@ static int set_timers(struct g0q_link *link)
 #ifdef G0Q_UPSTREAM_LINK
 /* Upstream ufs_qcom_power_up_sequence selects QUniPro after PHY calibration
  * and before lane clocks. V13 moves the V11 reads/write here unchanged; the
- * caller invokes it once, between calibration and lane clocks.
+ * caller invokes it once, between calibration and lane clocks. Every check
+ * that immediately preceded the write in V12's stage six is re-evaluated
+ * first, in the same order, so the write is issued only in a state V12
+ * admitted for it. g0q_hci_link_once() repeats them before HCE one.
  */
-int g0q_hci_select_unipro(struct g0q_link *link)
+int g0q_hci_select_unipro(struct g0q_link *link, unsigned long core_hz,
+			  unsigned long unipro_hz)
 {
 	void __iomem *hci = link->hw.hci;
+	int err;
 
 	if (link->cfg1_outcome || link->hce_started || !link->hw.pcs_ready)
 		return -EPERM;
+	if (core_hz != 300000000 || unipro_hz != 300000000)
+		return -ERANGE;
+	err = g0q_hci_quiescent(link);
+	if (err)
+		return err;
+	if (!(readl(link->hw.phy + 0xd80) & BIT(0)) || readl(hci + REG_CONTROLLER_ENABLE) ||
+	    (readl(hci + REG_CONTROLLER_STATUS) & (G0Q_DISABLED_UCRDY_MASK | DEVICE_PRESENT)))
+		return -EBUSY;
 	link->cfg1_pre = readl(hci + HCI_CFG1);
 	writel(link->cfg1_pre | BIT(0), hci + HCI_CFG1);
 	link->cfg1_post = readl(hci + HCI_CFG1);

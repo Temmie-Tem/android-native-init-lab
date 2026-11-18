@@ -46,7 +46,7 @@ The adopted fixed hardware artifacts are:
 | Report-v10 CFG1 branch diagnostics module | `23c72b3c6cbe342fa41841f0cee0cf6bb12b1b5375b64f0e49cdf00be9396618` |
 | Report-v11 ordered CFG1 selection module | `88beadd1a31b05fc8adc998eb99757849c6c83287fb9b4473d8590ab2b888fa3` |
 | Report-v12 terminal link IRQ diagnostic module | `9176104a4c51ec21c6d845bd50f48ff2900447f654fbaa45e3718cde16ed89a2` |
-| Report-v13 upstream link tolerance module (H0, review pending) | `00ad0b93d33f2935b3332d5eaf87c02840e9ada211dd02a131dd57800cfd3996` |
+| Report-v13 upstream link tolerance module (H0, review pending) | `5628f2990357f1ade9f4063627e3cf8e4f0351fe953d8f1f350dc0caf5175459` |
 | Reduced no-display DTB | `f918d3094e31428fa3f44fcc919934dbbcd819e48020c2bd129d952fb21346a0` |
 | Kernel configuration | `342fc5716c2cfdddc255dd1862c66d0feff848aa9381a70a3f108eb6d6e7fa72` |
 
@@ -126,9 +126,15 @@ V13 inherits V12. Its differences, each inside the common version envelope:
   four, after PHY calibration and before lane clocks: the position of
   `ufs_qcom_select_unipro_mode` in upstream `ufs_qcom_power_up_sequence`.
   Values, counts, outcome encoding and the following budget check are
-  unchanged. Stage six requires a completed timely selection (outcome 1 or
-  3) before HCE one; a budget expiry now ends at stage four, and later
-  stage-five/six refusals carry the earlier CFG1 outcome.
+  unchanged. Before the write, the selection re-evaluates, in V12's order,
+  every check that preceded it at stage six: the 300 MHz core/UniPro rates,
+  the full HCI quiescence check, PCS ready, HCE zero, and HCS without
+  UCRDY/device-present. A refusal there issues no write and leaves the
+  outcome unreached. Stage six repeats the same checks and requires a
+  completed timely selection (outcome 1 or 3) before HCE one; a budget expiry
+  ends at stage four, and later stage-five/six refusals carry the earlier
+  CFG1 outcome. A lane-clock failure at stage five after the write is the
+  one path on which V13 has written CFG1 where V12 would not have.
 - (d) Tag `0xd0000000`, 38 fields: the 33 V12 fields, then the link-poll OR,
   a UEC read prefix mask (0, 1, 3, 7, 15 or 31), raw UECPA, raw UECDL, and one
   word packing UECN/UECT/UECDME code bits, layer error bits and

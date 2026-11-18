@@ -18,7 +18,9 @@ V13 inherits V12 with three differences, specified in the
    read-to-clear UIC error-code registers are read once within the original
    budget. UECPA and UECDL are reported raw; UECN/UECT/UECDME share one word.
 3. The existing QUNIPRO_SEL reads and write move to the end of stage four,
-   after PHY calibration and before lane clocks.
+   after PHY calibration and before lane clocks. Every check that preceded
+   the write at stage six (rates, HCI quiescence, PCS ready, HCE zero, HCS)
+   is re-evaluated first.
 
 Report v13 has tag `0xd0000000` and 38 fields. With every unconstrained word
 at ten digits, the issued-link line is 254 bytes, inside the 256-byte envelope.
@@ -52,18 +54,31 @@ outdated by this revision and need fresh review before the next device run.
 
 | Check | Result |
 | --- | --- |
-| Focused UFS suites (17 modules) | 177 tests pass, 6 skipped |
+| Focused UFS suites (17 modules) | 178 tests pass, 6 skipped |
 | V13 fixture branches (20 cases × 2 CFG1 states, host and ARM64/QEMU) | pass |
 | V12 parity without UIC_ERROR (link-phase MMIO trace, first 33 fields) | identical |
 | UIC_ERROR outcomes: complete, timeout, fatal follow-up, bad code, budget expiry | decoded as specified |
-| Guest and host agreement on V13 success lines (11 variants) | identical decisions |
+| Guest and host agreement on V13 success lines (13 variants) | identical decisions |
 | Historical v3–v12 observer compile commands and Kbuild text | byte-identical |
 | V12 module rebuilt from this source tree | `9176104a…`, byte-identical to ML047 |
-| V13 ARM64 module against the real Kbuild | `00ad0b93…`, `BUILT_H0_COLD_LINK_COMPONENT` |
+| V13 ARM64 module against the real Kbuild | `5628f299…`, `BUILT_H0_COLD_LINK_COMPONENT` |
 | Repository boundary check | pass |
 
 Private build evidence is under
 `workspace/private/outputs/s22plus-ufs-v13-upstream-link-h0-20261119-1/`.
+
+## Review rounds
+
+Round one (Codex Luna, max effort, read-only) returned BLOCKED with 13
+findings: three on envelope wording, eight on tooling/decoder gaps (two of
+them lines lost in the mode refactor), two minor. All were confirmed and
+fixed. Round two confirmed all 13 resolved and raised five more: a moved
+write could occur where V12 would not issue it, an impossible stage-six
+`UNREACHED` accepted by the host, a guest/host disagreement on the terminal
+sample, and v6–v12 ranges left in the recovery path and the legacy source
+closure. Those are fixed here: the selection re-evaluates V12's stage-six
+admission before writing, (c) states the one admitted difference, and the
+guest checks the terminal sample against the observed union.
 
 ## Remaining before any physical run
 

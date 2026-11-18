@@ -14,6 +14,22 @@ from s22plus_native_records_v3 import Journal, clock, host_boot, pin, publish, r
 from mainline.s22plus_ufs_link_h0 import link_wire as wire
 from s22plus_mainline_ufs_image_v1 import report_version_for
 
+def _report_modes():
+    """The single report-version declaration beside the module sources."""
+    import sys
+    source = str(profile.ROOT/'workspace/public/src/mainline/s22plus_ufs_link_h0')
+    if source not in sys.path:
+        sys.path.insert(0, source)
+    import report_modes
+    return report_modes
+
+
+def _automatic(version):
+    """Report versions that arm the child-owned automatic Download attempt."""
+    modes = _report_modes()
+    return type(version) is int and modes.FIRST['hce_handoff'] <= version <= modes.LATEST
+
+
 LATE_NS=540_000_000_000
 GAP_NS=300_000_000_000
 RETURN_EVENT='ml030-return-intent'
@@ -96,7 +112,7 @@ def rederive_witness(adapter,request):
     reply=bytes_for(folder,'witness',wire.HEADER.size+32)
     t1=wire.witness(reply,key,identity,n0,n1,boot,t0)
     recovery={}
-    if report_version_for(request['N']) in (6,7,8,9,10,11,12):
+    if _automatic(report_version_for(request['N'])):
         recovery=dict(recovery_arm=arm_receipt(adapter,request,base),
                       recovery_live=arm_receipt(adapter,request,base,late=True,nonce=n1))
         require(read(verify(recovery['recovery_live']['complete']))['finished_ns']<=completed['finished_ns'],
@@ -207,7 +223,7 @@ def observe(adapter,request,guard,before_permit):
         checked_endpoint(phase,late['deadline_ns'] if phase=='before-control' else window['deadline_ns'])
     def after_base(client,proof,nonce):
         base=download.rederive_base(adapter,request);require(base['proof']==proof,'ML030 W0 changed')
-        automatic=report_version_for(request['N']) in (6,7,8,9,10,11,12)
+        automatic=_automatic(report_version_for(request['N']))
         if automatic:
             armed=capture_frame(client,folder,'recovery-arm',wire.HEADER.size+32,window['deadline_ns'])
             publish(folder/'recovery-arm-complete.json',dict(capture=pin(armed.receipt_path),finished_ns=clock()))

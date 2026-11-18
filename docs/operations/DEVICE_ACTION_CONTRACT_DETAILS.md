@@ -604,7 +604,11 @@ permission to perform host-only work.
    the existing reads that sample its register immediately before and after
    it, to another position in the existing stage order that the selected
    reference driver uses, without changing the write's value rule, the read
-   or write count, or any budget check that follows it; and (d) a new report
+   or write count, or any budget check that follows it. At the new position
+   every check that immediately preceded the write at its old position is
+   re-evaluated first, so the write is issued only in a hardware state the
+   parent admitted for it; a path that stops between the new and old
+   positions after the write is the one difference this clause admits; and (d) a new report
    tag and field layout within the 256-byte envelope whose guest and host
    decoders reject impossible histories. Such a version may not add a write
    target or value rule, an interrupt-status or other clear, a retry or

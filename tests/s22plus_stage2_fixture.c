@@ -118,8 +118,8 @@ static u32 readl(const void *addr)
 	if ((uintptr_t)addr >= (uintptr_t)hci && (uintptr_t)addr < (uintptr_t)(hci + ARRAY_SIZE(hci)))
 		snprintf(name, sizeof(name), "hci:%x", (unsigned int)((uintptr_t)addr-(uintptr_t)hci));
 #ifdef G0Q_UPSTREAM_LINK
-	/* V13 stage six reaches the existing PCS-ready read; PHY stays zero. */
-	else if (v13_case == 3 && addr == phy + 0xd80 / 4)
+	/* The V13 selection and stage six read the existing PCS-ready bit. */
+	else if (v13_case && addr == phy + 0xd80 / 4)
 		snprintf(name, sizeof(name), "phy:d80");
 #endif
 	else {
@@ -127,6 +127,12 @@ static u32 readl(const void *addr)
 		snprintf(name, sizeof(name), "pin:%u", (unsigned int)((const u32 *)addr-pins));
 	}
 	event("read", name);
+#ifdef G0Q_UPSTREAM_LINK
+	/* Case 1 expires the budget inside the selection, after its post-read. */
+	static unsigned int cfg1_reads;
+	if (v13_case == 1 && addr == hci + 0xdc / 4 && ++cfg1_reads == 2)
+		hci_expired = true;
+#endif
 #ifdef G0Q_HCE_HANDOFF
 	if (addr == hci + REG_CONTROLLER_ENABLE / 4) {
 		hce_reads++;
@@ -276,17 +282,24 @@ static int regulator_get_voltage(struct regulator *reg)
 }
 #ifdef G0Q_UPSTREAM_LINK
 /* V13_CASE 1: selection budget expires (stage four); 2: lane clocks fail
- * (stage five); 3: stage-six pre-HCE refusal. The real selection runs. */
+ * (stage five); 3: PCS not ready, refused before the moved write (stage
+ * four); 4: PCS drops after selection, refused before HCE (stage six).
+ * The real selection and stage-six admission run. */
 static int reset_host_and_device(void) { event("later", "reset"); return v13_case ? 0 : -EIO; }
 static int phy_on(void)
 {
 	assert(v13_case);
 	board.link.hw.pcs_ready = true;
-	if (v13_case == 1)
-		hci_expired = true;
-	return g0q_hci_select_unipro(&board.link);
+	phy[0xd80 / 4] = v13_case == 3 ? 0 : 1;
+	return g0q_hci_select_unipro(&board.link, clk_get_rate(board.core),
+				     clk_get_rate(board.unipro));
 }
-static int symbol_lanes(void) { assert(v13_case > 1); return v13_case == 2 ? -ENODEV : 0; }
+static int symbol_lanes(void)
+{
+	assert(v13_case == 2 || v13_case == 4);
+	phy[0xd80 / 4] = 0;
+	return v13_case == 2 ? -ENODEV : 0;
+}
 #else
 /* Stop beyond the changed region. Existing real HCI/PHY tests cover later code. */
 static int reset_host_and_device(void) { event("later", "reset"); return -EIO; }
