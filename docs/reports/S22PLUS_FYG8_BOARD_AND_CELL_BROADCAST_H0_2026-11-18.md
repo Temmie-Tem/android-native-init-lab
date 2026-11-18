@@ -61,6 +61,23 @@ FYG1 진단 디스패처가 호출하는 `fs_diag_read`에서 경로 검사, 기
 
 실기 판단의 근거는 해당 CP 요청을 허용하는 활성 S22+ 계약과 이 한 파일의 무변경 읽기를 보장하는 검증된 클라이언트·거래 경로가 없다는 점이다. 이번에는 단말에 접속하거나 CP에 요청을 보내지 않았다. 보관 기록에서도 CP 부팅 식별자와 파일 내용이 확보되지 않아 QLINK 0의 칩 ID 출처, `HW_Rev`, `FAB_SRC`는 미확인이다.
 
+### 순정 HAL과 FYG1 읽기 함수의 호스트 실행
+
+[H0 실행기](../../workspace/public/src/scripts/analysis/s22plus_rf_report_h0/read_fixture.py)는 `rfc/rfdevice_report.dat` 한 이름을 고정한다. 호스트에 보관한 FYG8 vendor 이미지의 SHA-256을 이전 추출 기록과 대조한 뒤 HAL과 라우터 ELF를 읽었다. Android 쪽은 FYG8 배포본, CP 쪽은 그 배포본에 포함된 FYG1이다. USB 및 실기 접근은 없었다.
+
+| 구간 | 실제 실행 범위 |
+| --- | --- |
+| ARM64 HAL 프록시 | Unicorn에서 순정 `open`, `write`, 콜백 `send_data`, `close` 진입 코드를 실행했다. Android 프레임워크 함수는 시험용 기록기로 대체했다. 프록시가 넘긴 인터페이스·콜백 참조·공유 메모리 객체·길이를 검사하고 해당 버퍼의 바이트를 다음 구간에 전달했다. |
+| ARM64 라우터 | 순정 `diagService::write`의 진입부터 `mapMemory` 호출까지 실행해 전달된 객체와 길이를 확인했다. 이후 CP까지의 전송은 호스트 파이프로 대체했다. 시험용 태그는 실제 FYG1 디스패처에서 이 읽기 함수를 선택할 수 없다. |
+| Hexagon CP | 두 코드 복원본에서 해시가 일치하는 순정 `fs_diag_read` 함수 전체를 별도의 ELF에 링크하고 QEMU에서 실행했다. 경로 검사·EFS·패킷 할당 등 외부 함수는 [한 파일의 시험용 구현](../../workspace/public/src/scripts/analysis/s22plus_rf_report_h0/efs_fixture.c)을 사용했다. 성공 경로에서 순정 코드는 고정 이름과 열기 플래그 0을 전달했다. 파일 내용은 위치로 결정되며 변경 API가 없다. |
+| 종료 | 라우터의 순정 `diagService::close` 함수 전체는 반환 객체만 채워 복귀했다. 별도 `serviceDied`에서 클라이언트 정보 제거 호출을 정적으로 확인했다. 시험 결과의 `fixture_closed`는 호스트 시험의 종료 상태다. 실제 Binder 사망 통지나 다른 클라이언트의 등록 보존을 관측한 값은 없다. |
+
+11개 시험을 실행했다. 빈 파일, 256바이트, 513바이트, 256 KiB에서 조립한 모든 바이트가 입력 패턴과 일치했다. 256 KiB에서는 열기 1회, 읽기 1,024회, 닫기 1회였다. 가상 파일 부재와 접근 거절에서 열기는 0회였다. 다른 콜백, 잘린 응답, 기한 만료, 종료 확인 유실, 크기 초과도 검사했다. 잘린 두 번째 응답에서는 앞서 검증한 256바이트만 남았다. 종료 확인 유실에서는 10바이트를 모두 얻었고 시험 세션은 종료 미확인이었다.
+
+**실제 순정 전송을 통한 한 파일 무변경 읽기는 부분 검증 상태다.** `fs_diag_read`는 새 파일을 열기 전에 고정된 상태 슬롯의 이전 핸들을 정리할 수 있다. 시험은 슬롯이 비어 있는 초기 상태에서 시작했다. 단말의 CP에서 이 슬롯이 해당 조회에만 귀속되는지, 실제 EFS 백엔드가 접근 시각 등 저장 메타데이터를 보존하는지, 순정 라우터가 요청·응답을 끝까지 같은 클라이언트에 연결하는지는 입증되지 않았다. 가상 파일의 바이트는 실기 RF 칩 판정에 사용하지 않았다.
+
+재현에는 [빌더](../../workspace/public/src/scripts/analysis/s22plus_rf_report_h0/build_fixture.py)에 FYG1 복원본 디렉터리, 새 비공개 출력 디렉터리, Hexagon 지원 LLVM 21 바이너리 디렉터리를 차례로 전달한다. 실행기의 인자는 해당 순정 HAL ELF, 라우터 ELF, 빌드한 `efs-fixture`다. 실행 환경은 Python의 pyelftools·Unicorn 2.1.4, QEMU Hexagon 10.2.1 및 bubblewrap이다. 이번 실행의 원본은 `workspace/private/analysis/s22plus-fyg8-cp-static.zjrEXG/hal-file-h0.1G5VCa/`의 `verified.json`과 `provenance.json`에 있다.
+
 ## 재난문자 수신 구성요소의 변화
 
 Android 수신 경로에서는 전화 프레임워크가 CellBroadcastService로 메시지를 넘기고, 수신 앱이 경보를 표시한다. 이 단말의 두 패키지는 `com.google.android.cellbroadcastservice`와 `com.google.android.cellbroadcastreceiver`이다. 패키지 목록, 실행 중 서비스 연결, 실제 경보 표시는 각각 다른 관측이다. [Android 수신 경로](https://source.android.com/docs/core/ota/modular-system/cellbroadcast)
