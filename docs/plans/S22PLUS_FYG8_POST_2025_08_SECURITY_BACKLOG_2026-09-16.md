@@ -41,11 +41,11 @@ Do not infer exploitability from Android-version membership alone.
 | SMR | CVE | Component / boundary | Published impact | FYG8 state | Priority note |
 |---|---|---|---|---|---|
 | Sep-2025 | CVE-2025-21034 | `libsavsvc.so` | local OOB write; potential arbitrary code execution | `PUBLISHED` | first proprietary video-codec diff candidate |
-| Sep-2025 | CVE-2025-21043 | `libimagecodec.quram.so` | remote OOB write -> arbitrary code execution; Samsung notes exploit existed in the wild | `PUBLISHED` | **P0 first mini-study**; closest high-value fix after FYG8 baseline |
+| Sep-2025 | CVE-2025-21043 | `libimagecodec.quram.so` | remote OOB write -> arbitrary code execution; Samsung notes exploit existed in the wild | `PRESENT` | **P0 first mini-study**; pre-fix lineage confirmed by FYG8→GYJ1 diff; per-CVE attribution open ([report](../reports/S22PLUS_FYG8_QURAM_DNG_PATCH_DIFF_H0_2026-11-22.md)) |
 | Oct-2025 | CVE-2025-21044 | fingerprint trustlet | local privileged OOB write | `PUBLISHED` | TEE/trustlet boundary candidate |
 | Oct-2025 | CVE-2025-21048 | Knox Enterprise | relative path traversal -> local arbitrary code execution | `PUBLISHED` | privileged-userspace boundary candidate |
 | Oct-2025 | CVE-2025-21051 / 21052 / 21053 / 21054 | `libpadm.so` JPEG path | local OOB read/write and memory corruption | `PUBLISHED` | alternate Samsung JPEG implementation family |
-| Oct-2025 | CVE-2025-21055 | `libimagecodec.quram.so` | remote OOB read/write | `PUBLISHED` | useful Quram lineage follow-up |
+| Oct-2025 | CVE-2025-21055 | `libimagecodec.quram.so` | remote OOB read/write | `PRESENT` | same FYG8→GYJ1 diff (GYJ1 carries Sep+Oct fixes); attribution open |
 | Nov-2025 | CVE-2025-21071 | fingerprint trustlet | local privileged OOB write | `PUBLISHED` | compare recurring fingerprint trustlet fixes |
 | Nov-2025 | CVE-2025-21074 | `libimagecodec.quram.so` | remote OOB read | `PUBLISHED` | Quram lineage |
 | Nov-2025 | CVE-2025-21075 | `libimagecodec.quram.so` | remote OOB write | `PUBLISHED` | Quram lineage |

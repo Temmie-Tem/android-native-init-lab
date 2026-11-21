@@ -264,6 +264,19 @@ SMR Nov-2026.
   flacdec and `wpa_supplicant` lines, plus the advisory names not found.
   States stay `PUBLISHED`: observing the file is not lineage.
 
+### First patch diff (2026-11-22)
+
+- Comparison build: `S906NKSU7GYJ1` (first build after FYG8, Android 16,
+  SPL 2025-10-01).
+  - Downloaded from Samsung FUS.
+  - AVB signed with the same key as FYG8; `system` and `vendor` hashtrees
+    verified.
+- Candidate A result:
+  [Quram DNG patch diff](../reports/S22PLUS_FYG8_QURAM_DNG_PATCH_DIFF_H0_2026-11-22.md).
+  - CVE-2025-21043 and CVE-2025-21055 move to `PRESENT`.
+  - Per-CVE attribution stays open.
+  - The study stops at static patch-diff level.
+
 ### Comparison firmware
 
 - The S22 series moved to One UI 8 (Android 16) in late 2025. Reported later
