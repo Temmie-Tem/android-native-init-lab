@@ -356,6 +356,16 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 별도 노드에서 이 GLINK 채널로 QRTR 서비스를 발견했고, 수정하지 않은 Debian 데몬과 열기·할당·읽기·닫기를 왕복했다. 원본 파일과 공유 버퍼 전체를 대조했다. 이 시험 클라이언트는 앞선 `qrtr-tun` 경로를 열지 않는다. 원래 SysV init, 분할 펌웨어의 USB NCM 수신·검증·게시까지 같은 부팅에서 수행했다. 따라서 이 정상 원격 개방에 필요한 **RPMsg 장치 등록과 드라이버 매칭**을 위해 ML053에 순정 DT 자식을 복사할 근거는 없다. FYG1의 실제 개방 시각·intent 크기, IPCC 신호 전달과 물리 SMEM의 가시성은 아직 미측정이다. 결과와 원시 로그는 `glink-valid-pass.json`과 `glink-vm-valid/`에 있다.
 
+### 순정 DMS 응답의 송신 경로를 어디까지 식별할 수 있는가
+
+순정 09:57 보고서의 이전 부팅 `last_kmsg`와 14:20 보고서의 현재 부팅 `ap_klog`에서 각각 **MSS·ADSP·CDSP·SLPI 네 경로**에 `IPCRTR` 채널이 있었다. 각 장치의 probe 행 뒤에 같은 커널 워커가 남긴 `SMD QRTR driver probed` 행을 대조했다. 두 기록 모두 첫 512바이트 저장소 읽기 완료 전에 네 probe가 성공을 보고했다. 14:20의 DMS 동기 호출은 RILD의 요청·성공 응답까지 확인된다. 두 보고서의 `dumpstate.txt`와 `dumpstate_board.txt`에서 배포 CCI 라이브러리의 송수신 표식은 발견되지 않았다. 이 자료로는 그 DMS 응답이 네 채널 중 어느 경로로 들어왔는지 특정할 수 없다.
+
+앞선 두 ARM64 VM의 원시 로그를 직접 대조했다. 시험용 QRTR 터널을 사용한 부팅과 실제 GLINK 코드에 RAM FIFO를 연결한 부팅에서 Debian 저장소 데몬이 본 송신 노드·포트가 같았다. 서비스 14의 열기·할당·읽기·닫기 네 거래에서 메시지 번호, 거래 번호와 응답 길이도 각각 일치했다. 두 시험은 같은 이전 Image로 수행했고, GLINK 연결을 관측한 기록은 후자에만 있다. 이는 저장소 거래를 사용해 소켓에 보이는 정보의 한계를 확인한 대조다. 메인라인 QRTR의 `recvmsg`는 헤더에서 얻은 송신 노드·포트를 반환한다. 코어는 한 전송 끝점을 통해 다른 노드의 서비스가 광고되는 경우도 처리한다.
+
+현재의 MPSS 활성 H0 서비스 패키지에서는 최종 로더에 든 DT의 GLINK 에지 네 개 중 `modem`만 상위 장치까지 활성 상태다. RAM 아카이브에는 `qrtr-smd.ko`와 `qrtr-tun.ko`가 들어 있고 `qrtr-mhi.ko`는 없다. 저장소 시작 프로그램이 명시적으로 적재하는 것은 `qrtr.ko`와 `qrtr-smd.ko`다. 터널 모듈은 장치 파일을 열 때 끝점을 등록하므로 아카이브에 들어 있는지만 보고 활성 경로 수를 셀 수 없다.
+
+향후 DMS 통신을 판정할 때는 요청과 응답의 상대 주소·거래 번호를 맞추고, 그 응답이 같은 부팅의 MPSS 에지로 들어왔다는 근거를 함께 본다. 특정 펌웨어가 서비스를 수행했는지는 별도 판정이다. 이번 대조는 보관 자료로 끝냈다. 원본 로그 행, 패키지 해시와 재현 기록은 `workspace/private/analysis/s22plus-qrtr-edge-evidence.OxDg9jSR/comparison.json`에 있다. SHA-256은 `5552f121b2706886c6c440bc89197337d9590b87781974d165ba1edc675798e3`이다.
+
 ## 2026-11-22 · SCM 드라이버가 RMTFS 권한 요청 전에 대기하는 조건
 
 S22+의 메인라인 DT에서 SCM은 인터커넥트 경로를 먼저 요청한다. 최종 ARM64 vmlinux에서 다시 생성한 Image가 백엔드 검증에 사용한 Image와 동일했다. 실제 OF 매치 테이블과 링크된 포인터를 따라가면 `qxm_crypto → qns_a2noc_snoc → qnm_aggre2_noc → qns_gemnoc_sf → qnm_snoc_sf → qns_llcc → llcc_mc → ebi`가 이어진다. 네 SM8450 공급자(aggre2-noc, system-noc, gem-noc, mc-virt)는 모두 DT에서 활성 상태이고 같은 BCM voter를 참조한다. 실제 대역폭 요청의 인가는 별도다. 링크된 `qcom_icc_set`은 voter의 반환값을 버리고 0을 반환하므로 이 값만으로 하드웨어 적용을 판정할 수 없다.
