@@ -26,7 +26,8 @@ the cue, the attach interlock timing and the operator burden together.
 | P3.17 (Samsung-kernel candidate) | One boot-time read returned `0x3f`, inherited from the boot chain. Causality of the later enumeration is unknown because the connection was physically moved. |
 | Mainline 7.2.11 | The `max77705` MFD has only rgb, charger and haptic cells (`drivers/mfd/max77705.c:18-21`). Nothing drives the USBC/MUIC client, and the selected config has `MFD_MAX77705` unset and `TYPEC=n`. `dwc3-qcom` forces VBUS-valid override at probe and on run-stop (`dwc3-qcom.c` around 590-602 and 688-692). That largely bypasses the missing-initial-VBUS failure seen in upstream commit 9835a6ef. |
 | S22 r0q prior art | Attempt 4b: the UDC stayed `not attached`, a software reconnect failed, and a physical replug worked. Attempt 23 fixed it with a 12-patch bundle, applied all at once with no isolation. The bundle had a MAX77705 **CCIC** driver at `0x25`, `dr_mode otg` with role-switch default peripheral, a connector graph and a dwc3 patch. |
-| Tab S8+ CCIC driver (the r0q source) | It never writes CONTROL1. Its probe unmasks interrupts and sends opcodes 0x54, 0x57 and 0x2e, then reads CC/PD status and sets the USB role. Its commit message says it has not been booted. |
+| Tab S8+ CCIC patches (the r0q source, local copy) | The base `max77705-typec.patch` does not write CONTROL1. The bundle's `max77705-typec-source-attach.patch` does. Its message says that on the tablet, with a mouse attached and powered, "the MUIC switch (CTRL1) read 0x00, open. Writing COM_USB (0x09) with opcode 0x06 enumerated the mouse at once." The patch then writes `COM_USB` every time it sets a data role, with the comment "The firmware leaves the MUIC switch open across an attach" (`r0q-port/kernel/upstream-patches/tabs8/max77705-typec-source-attach.patch`, header and `max77705_usbc_set_data_role`). So the r0q fix that worked does include an explicit `COM_USB` write. |
+| r0q mainline `i2c5` | The r0q DT enables `qupv3_id_0` and `i2c5` but never enables `gpi_dma0`, which is disabled in `sm8450.dtsi`. The boot log records `i2c_qcom_geni OK (/dev/i2c-0 = i2c5)`. On this sibling board, SE5 therefore runs in FIFO mode under mainline. The MAX77705 IRQ comes from PM8350C GPIO 5, not TLMM. |
 
 ## Hypotheses
 
@@ -36,8 +37,14 @@ the cue, the attach interlock timing and the operator burden together.
    - **The tension:** if only the AP can change the switch, a replug should
      not fix it. So either the IC re-routes on a new attach (no source
      evidence), or H1 is not the whole story.
-   - The r0q fix is compatible with H1 if the CCIC initialisation makes the IC
-     re-run detection. That is not proven.
+   - The r0q fix writes `COM_USB` explicitly, and on the tablet a host-mode
+     attach left the switch open until that write. So the IC does not close
+     the switch on every attach.
+   - **A reconciling reading (PLAUSIBLE).** NoBCComp=0 means "compare with
+     BC1.2". The IC may route to USB on its own only when it runs BC1.2,
+     which happens on a sink attach with VBUS from a PC, as in our replug.
+     The tablet's mouse case was a source attach, where BC1.2 does not run.
+     This fits both data points but has no direct evidence. Stage 1 tests it.
 2. **Host gave up (H2).** The pull-up reaches the host, enumeration fails, and
    the host waits for a new connect change. No run captured host-side kernel
    logs or hub port status, so this is untested.
@@ -79,10 +86,16 @@ happens anyway.
    `QCOM_GPI_DMA=y`. Both are `=m` today and the RAM archive carries no
    modules, so a DT change alone cannot work.
 2. **DT changes in `g0q.dtsi`:**
-   - enable `tlmm` and keep the reserved ranges;
-   - enable `gpi_dma0`, `qupv3_id_0` and `i2c5`;
-   - give the i2c5 pins the stock pull-up and drive strength 2 (gpio206/207).
-     Mainline's state has no bias.
+   - enable `qupv3_id_0` and `i2c5`. Following r0q, leave `gpi_dma0` off,
+     since FIFO mode worked there. If the hardware reports FIFO disabled on
+     g0q, probe defers. That is a safe `NO_PROOF`, not a hazard.
+   - **TLMM: keep it disabled (preferred).** ML017 disabled TLMM after
+     earlier unexplained failures, and every passing run since has had it
+     off. Instead, delete the `i2c5` pinctrl properties and rely on the boot
+     chain's pin mux; XBL's `muic_init` already uses SE5. If the pins are not
+     muxed, I2C fails cleanly. The fallback is r0q's route: enable TLMM with
+     the reserved ranges and the stock pull-up and drive 2 on gpio206/207.
+     That reintroduces the variable ML017 removed, so it needs its own review.
 3. **Debian observer, via i2c-dev.** Find the adapter by its `994000.i2c`
    name. Then:
    - **First,** read and record UIC_INT (`0x02`, read-to-clear). XBL's last
@@ -125,7 +138,11 @@ How to read the result:
   tiny and identify the other user if possible.
 - **GSI-only mode.** Mainline uses GPI only if `FIFO_IF_DISABLE` is set
   (`i2c-qcom-geni.c` around 1039-1048). Without `gpi_dma0`, probe defers
-  forever.
+  forever. r0q's working FIFO-mode `i2c5` makes this less likely on g0q but
+  does not prove it.
+- **r0q as evidence.** The r0q port has used SE5 under mainline with no
+  reported collision. That is an absence of reports, not proof that the
+  shared-SE peer is idle.
 - **Readback limits.** A readback proves the IC accepted the command, not that
   the switch conducts.
 - **TLMM.** No `ps_hold` function exists on sm8450, so no new reset hook
@@ -137,11 +154,18 @@ How to read the result:
 
 ## Method note
 
-- I cross-checked this with an independent read-only subagent, whose citations
-  were spot-verified at source.
-- I read the r0q boot log and the Tab S8+ patch through fetch agents.
-- A Codex `gpt-6.2-sol` run was attempted twice. The server rejected the model
-  for this account, so it did not contribute.
+- Two independent read-only cross-checks ran: a Claude subagent, and Codex
+  `gpt-6.2-sol` (high effort, CLI 0.171.0, after two earlier attempts were
+  rejected by the server). Key citations were spot-verified at source.
+- Both reviewers recommend that the first discriminator make **no** CONTROL1
+  write: read before and after one timed replug. A write run cannot also
+  test IC autonomy.
+- Codex pointed to the local `source-attach` patch. An earlier fetch agent
+  had read only the base Tab S8+ patch and reported "no CONTROL1 write". That
+  was true for that file but wrong for the bundle; this revision corrects it.
+- The r0q boot log was read through a fetch agent; the r0q DT and patches were
+  read from the local copy under
+  `workspace/private/outputs/s22plus-mainline-canary-h0-20261027-1/r0q-port/`.
 
 ## Related
 
