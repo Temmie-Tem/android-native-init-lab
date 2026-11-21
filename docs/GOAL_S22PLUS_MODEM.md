@@ -407,6 +407,8 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 **더 이른 서비스 응답.** 같은 부팅의 무선 로그에서 NAS의 동기 `GET_SYS_INFO` 송신, 해당 메시지의 일반 수신, `Result(0), Error(0)`가 동일 RILD 스레드의 연속 세 행으로 나온 경우가 24건이었다. 첫 성공은 DMS 모드 조회 성공보다 5 ms 앞섰다. 한편 다른 NAS 조회(`GET_LTE_CPHY_CA_INFO`)는 수신 행에 `err(0)`을 기록했지만, 바로 다음 같은 스레드의 디코딩 결과에는 `Result(1), Error(74)`가 있었다. 수신 행만 남아 있을 때 확인할 수 있는 범위는 RILD가 해당 메시지의 수신을 기록했다는 사실까지다. 각 거래의 QRTR 주소와 선로 거래 번호는 미확인이다. 배포 파일 해시, 바이트코드 경로와 원본 행 위치는 `workspace/private/analysis/s22plus-android-radio-cache.MXCUJBFO/h0.json`에 있다.
 
+**보관 구간의 첫 수신과 첫 명시적 성공.** 같은 radio 로그에서 RILD의 첫 `ReceiveMessage`는 DMS 모드 조회 성공보다 199 ms 앞선 VOICE의 `END_CALL` 응답이었다. 수신 행은 `err(0)`이었고, 같은 스레드의 다음 행은 `Result(1), Error(41)`이었다. 통화 성립을 보여주는 기록은 아니다. 이 구간에서 처음으로 `Result(0), Error(0)`이 명시된 행은 DMS보다 6 ms 앞선 NAS 통지 등록 응답에 속했다. 바로 뒤에서 RILD는 LTE 반송파 집성 통지 항목을 지원한다고 기록했다. 이어 같은 스레드가 같은 메시지 번호로 다시 요청했을 때에는 `Result(1), Error(17)`과 함께 E911 SMS 상태 통지 항목을 지원하지 않는다고 기록했다. 첫 `GET_SYS_INFO` 성공은 그 뒤 1 ms였다. 이는 보관 로그와 배포 RILD의 판정 범위이며, 실제 선로의 첫 패킷이나 LTE 반송파 집성 동작을 특정하지 않는다. 원본 행과 시각 대조는 `workspace/private/analysis/s22plus-nas-registration.m0KowmgL/early.json`에 있다.
+
 ### 과거 FYG8 부팅의 LTE 셀 관측과 망 등록 응답
 
 R4W1-A 부팅에서 DMS가 `ONLINE`을 통지한 시각을 기준으로, 같은 무선 로그의 슬롯 0 음성·데이터 등록 조회를 대조했다. RILJ 프로세스, 요청 종류와 일련번호가 일치한 요청·응답은 각각 6쌍이었다.
