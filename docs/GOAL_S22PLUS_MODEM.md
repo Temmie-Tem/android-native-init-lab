@@ -234,3 +234,11 @@ ELF에서 compatible 매치 항목 → SM8450 클럭 배열 → 0번 객체를 �
 서비스 등록 시 전달하는 IDL 테이블을 ELF 데이터와 재배치 정보로 복원했다. 서비스 14의 메시지 4에서 순정 응답 구조는 메모리에서 24바이트다. 호스트의 ARM64 QEMU에서 복원한 테이블을 **배포본의 실제 인코더**에 전달했다. 독립 비교 대상은 로컬 모의 전송에서 정상 요청을 처리한 Debian ARM64 `rmtfs 1.1-4`였다. 실측한 순정 주소, ML053 DT 주소, 독립 합성 주소의 세 경우 모두 할당 성공 응답 본문은 **18바이트 전체가 일치**했다. 결과·오류 TLV(`0x02`, 값 4바이트)와 주소 TLV(`0x10`, 값 8바이트) 순서였다. 요청한 2.5 MiB 용량은 이 응답의 필드에 들어가지 않는다.
 
 같은 세 경우의 열기·닫기 성공 응답도 일치했다. 비교 대상에서 주소 폭을 4바이트로 줄이거나 주소 대신 용량을 넣은 대조값은 모두 차이가 검출됐다. 판정 범위는 QMI 헤더를 제외한 정상 응답 본문이다. 순정 콜백의 분기와 값 대입은 정적 확인이며, 순정 데몬 전체나 CP를 이 시험에서 실행하지 않았다. 이 결과로 같은 실기 부팅의 송신·수신·수락은 확정할 수 없다. 등록 테이블과 검증 코드, 입력별 바이트 대조는 `workspace/private/analysis/s22plus-fyg1-stock-rmtfs-wire.V3OJ74l8/results.json` 인접 파일에 보관했다. 공개 IDL 구조 정의는 [Qualcomm의 고정 리비전](https://github.com/qualcomm/qmi-framework/blob/9cd3155405e5985e8e06071c998ed1c650fdde60/include/qmi_idl_lib_internal.h)을 사용했다.
+
+## 2026-11-21 · 모뎀 ready와 GLINK 등록 순서
+
+**ML053에 대응하는 Linux 7.2.11 소스에서는 MPSS 기동을 활성화하면 PAS가 ready 완료를 기다린 뒤 GLINK를 등록한다.** remoteproc 코어가 하위 장치 준비, 프로세서 기동, 하위 장치 시작을 차례로 호출한다. GLINK는 시작 콜백에서 SMEM 전송을 등록한다. PAS의 인증·리셋이 성공한 뒤 ready 대기는 5초이며 시간 초과가 반환되면 하위 장치 시작에 도달하지 않는다. 같은 버전의 실제 코어 기동 함수와 완료 대기 함수를 사용한 ARM64 호스트 시험에서도 완료를 공급한 경우에만 하위 장치 시작을 호출했다. 완료가 없는 대조는 `-ETIMEDOUT`으로 끝났다. 실제 ML053 패키지에서는 REMOTEPROC와 MPSS가 비활성 상태다.
+
+**순정 FYG8은 GLINK 등록과 시작을 나눈다.** 배포 모듈의 `glink_subdev_prepare`가 SMEM을 등록하고 native probe를 부른다. 별도 `glink_subdev_start` 경로에서 native start가 수신 IRQ를 요청한다. 두 순정 로그에서 모뎀 edge 준비가 기록된 뒤 IPCRTR 드라이버가 probe되기까지 각각 **966.510 ms와 930.647 ms**였다. 첫 FSG 512바이트 읽기는 일반 remoteproc 완료 문구보다 **0.959 ms와 5.594 ms** 빨랐다.
+
+이 순서는 순정이 edge를 일찍 준비했다는 근거다. 당시 ready IRQ 시각은 두 기록에서 확인되지 않았고, 배포된 순정 PAS 코드에는 플랫폼 상태에 따라 대기를 건너뛰는 분기도 있다. 따라서 FSG 읽기가 ready 신호의 선행 조건이라는 가설이나 메인라인 교착을 확정할 수 없다. GLINK 시작 시점을 옮기거나 대기 시간을 바꿀 근거도 확보되지 않았다. 소스·모듈 해시, 부팅별 근거 행과 시험 결과는 `workspace/private/analysis/s22plus-mpss-glink-order.8OWXLdAr/results.json`에 있다.
