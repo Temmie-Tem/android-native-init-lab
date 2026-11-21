@@ -129,6 +129,11 @@ How to read the result:
   the replug dependency for this boot path.
 - One run tests one subclaim. A write run cannot also test IC autonomy.
 
+**Status (2026-11-22):** Stage 0 tooling and the Stage 1 observer, kernel,
+DTB and RAM archives are built and VM-qualified; see the
+[tooling report](S22PLUS_MAINLINE_MAX77705_OBSERVER_H0_2026-11-22.md). No
+board package exists yet.
+
 ## Risks to resolve in Stage 1 review
 
 - **Shared serial engine.** The stock SE5 is `qcom,shared`, and stock wraps
