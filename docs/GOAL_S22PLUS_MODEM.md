@@ -350,6 +350,17 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 두 과거 부팅의 같은 커널 워커에서 해당 장치의 드라이버 probe와 성공 로그를 찾았다. 확보된 dumpstate에는 IPCRTR의 OPEN 송수신 시각 쌍이 없었다. 배포 `qcom_glink.ko`에서 일반 rpmsg 장치를 등록하는 유일한 호출은 `qcom_glink_rx_open`에 있다. 같은 이름의 로컬 채널이 이미 있으면 새 장치 등록을 건너뛰고, 없으면 원격 OPEN을 처리하면서 DT 자식을 조회해 장치를 등록한다. 따라서 해당 등록 경로에서 DT 자식은 채널 정보를 제공한다. 실제 선로에서 어느 OPEN이 몇 시에 먼저 나갔는지는 직접 관측하지 않았다. 명령을 보내지 않은 이번 D0에서 새 CP 응답을 측정한 것은 아니다.
 
+**모뎀 채널에서 QRTR 끝점 등록이 끝난 시각.** FYG8 배포 모듈 세 개를 해시로 대조했다. `qrtr-smd.ko`에서 `Entered`는 probe 진입 시 출력된다. 같은 함수가 `SMD QRTR driver probed`를 출력하는 경로에서는 `qrtr_endpoint_register`가 이미 0을 반환했다. `qrtr.ko`의 등록 함수는 `HELLO` 송신 작업을 커널 워커에 맡기고 반환한다. 워커는 제어 포트를 찾지 못하면 송신 전에 종료할 수 있다. [공개 Qualcomm QRTR 등록·워커 구현](https://android.googlesource.com/kernel/msm.git/%2B/732511d94b9722374c18a391e9523b2a5f50e27c/net/qrtr/qrtr.c)
+
+GLINK의 채널 열기에는 별도의 확인 응답(`OPEN_ACK`)이 쓰인다. FYG8 RPMsg 코어 소스에서 수신 콜백이 있는 드라이버의 probe는 기본 RPMsg 끝점 생성에 성공한 뒤에 호출된다. 배포 `qcom_glink.ko`의 로컬·원격 열기 경로 모두 해당 채널의 `open_ack` 완료를 기다리고, 수신 처리기는 채널을 찾아 그 완료를 알린다. 이 순서는 코드에서 확인했다. 두 부팅에서 직접 얻은 시각은 아래의 로그 행에 한정된다.
+
+| 모뎀 IPCRTR 경로의 커널 로그 | QRTR 등록 성공 로그의 부팅 시각 | 이후 첫 저장소 열기 요청 | 이후 첫 512바이트 읽기 완료 | 이후 MPSS 기동 완료 표식 |
+| --- | ---: | ---: | ---: | ---: |
+| 09:57 보고서의 이전 부팅 `last_kmsg` | 8.977244초 | +1.639 ms | +5.602 ms | +6.561 ms |
+| 14:20 보고서의 R4W1-A 부팅 `ap_klog` | 9.081166초 | +1.673 ms | +6.069 ms | +11.663 ms |
+
+14:20 부팅에서는 RILD 기록도 같은 부팅의 Android·커널 시계로 대조했다. 각 행 앞뒤의 SystemServer 표식을 기준으로 환산한 결과, 처음 보관된 VOICE 응답은 등록 성공 로그 약 1.068초 뒤, NAS의 첫 명시적 성공은 약 1.261초 뒤였다. 이 시각 비교로 각 QMI 응답을 모뎀 GLINK 채널에 귀속할 수는 없다. 실기 `OPEN_ACK`의 선로 시각과 QRTR `HELLO` 왕복도 미확인이다. 원본 ZIP, 배포 모듈, 코드 경로, 로그 행과 두 표식별 환산값은 `workspace/private/analysis/s22plus-stock-ipcrtr-probe.ZTregtIe/result.json`과 같은 위치의 검증기에서 추적할 수 있다.
+
 ## 2026-11-21 · 채널 DT 자식 없이 메인라인 GLINK로 전달한 첫 읽기
 
 같은 ARM64 VM 안에서 메인라인 커널 자체의 GLINK native 두 끝점을 연결했다. SMEM 드라이버의 FIFO 읽기·쓰기·정렬 코드는 해당 소스와 동일하고, 큐는 게스트 RAM에 두었다. 실제 메일박스와 IRQ만 VM 작업 알림으로 대체했다. 양쪽 모두 intent를 사용하는 모드이고, 앱 쪽 DT에는 IPCRTR 자식 노드가 없다. 원격 역할의 일반 RPMsg 문자 장치에서 정상 IPCRTR 채널을 열자, 전에는 없던 앱 쪽 rpmsg 장치가 생겼다. OF 자식 링크 없이 `qcom_smd_qrtr` 드라이버에 연결됐다.
