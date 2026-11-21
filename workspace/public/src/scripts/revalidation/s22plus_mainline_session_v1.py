@@ -18,6 +18,8 @@ def validate_result(adapter,step,value,request):
     if step.name!=profile.SELECTION:return
     expected=('AUTHENTICATED_DEBIAN_SYSVINIT_RAM_OBSERVATION' if 'debian_ram' in request['N']
               else 'AUTHENTICATED_CANARY_OBSERVATION')
+    if profile.scm_board(request['N']):
+        expected=profile.SCM_STATUS
     selected=download.selected(request)
     require(step.action==(download.ACTION if selected else 'mainline-evidence') and
             value==(download.rederive(adapter,request) if selected else access.rederive(adapter,request)) and
@@ -54,6 +56,18 @@ def terminal(adapter,request,*,recovered):
     result=dict(status='NO_PROOF',mainline_pid1=False,authenticated_usb=False,
                 automatic_recovery_proved=False,original_a_return_proved=True,
                 native_admitted=False,replay_authorized=False)
+    if profile.scm_board(request.get('N', {})):
+        result['scm_binding']=None
+        # A is already healthy here. Missing candidate machinery can only
+        # make its observation unavailable; it must not prevent A recovery.
+        try:
+            value=access.rederive(adapter,request)
+            from s22plus_mainline_scm_v1 import outcome
+            result.update(outcome(value['proof']), mainline_pid1=True, authenticated_usb=True,
+                          observation=value, physical_return_requested=not recovered)
+        except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
+            result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
+        return result
     try:
         value=download.rederive(adapter,request) if download.selected(request) else access.rederive(adapter,request)
         status='PASS_DEBIAN_SYSVINIT_RAM_PID1' if 'debian_ram' in request['N'] else 'PASS_MAINLINE_RAM_USB'

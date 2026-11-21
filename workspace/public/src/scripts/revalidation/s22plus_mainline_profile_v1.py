@@ -50,7 +50,30 @@ def unchanged(receipt,maximum=128*1024*1024):
     return Path(receipt['path'])
 
 
+SCM_POLICY = 'docs/operations/S22PLUS_MAINLINE_SCM_USB_V1.md'
+SCM_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_usb_v1_review.json'
+SCM_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_V1'
+SCM_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_scm_v1.py'
+SCM_SCHEMA = 's22plus-mainline-scm-image-v1'
+SCM_STATUS = 'AUTHENTICATED_SCM_USB_TRANSCRIPT'
+SCM_WIRE_SCHEMA = 's22plus-fyg8-debian-scm-usb-v1'
+
+
+def scm_board(image):
+    return image.get('schema') == SCM_SCHEMA
+
+
+def observation_wire(manifest):
+    if manifest.get('debian_ram', {}).get('schema') == SCM_WIRE_SCHEMA:
+        from s22plus_mainline_scm_v1 import wire
+        return wire(manifest)
+    return codec
+
+
 def image_binding(image,*,artifact_bytes=False):
+    if scm_board(image):
+        from s22plus_mainline_scm_v1 import image_binding as bind_scm
+        return bind_scm(image, artifact_bytes=artifact_bytes)
     if 'ufs_link' in image:
         try:
             from s22plus_mainline_ufs_image_v1 import binding

@@ -187,8 +187,9 @@ def direct_route(route,manifest,found):
 def capture_connection(folder,manifest,found,*,deadline_ns,guard,connect=None):
     """One attempted TCP connection. No parser or retry can precede raw sealing."""
     nonce=secrets.token_bytes(32)
-    maximum=profile.codec.response_size(manifest)+profile.codec.FDT_LIMIT+1
-    packet=profile.codec.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
+    wire=profile.observation_wire(manifest)
+    maximum=wire.response_size(manifest)+wire.FDT_LIMIT+1
+    packet=wire.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
                                  manifest=manifest)
     request=raw.RawCaptureWriter(folder,'request',stdout_maximum=len(packet),stderr_maximum=0)
     request.write_stdout(packet);request_handle=request.finalize(returncode=0)
@@ -259,10 +260,11 @@ def rederive_base(adapter,request):
     nonce=bytes.fromhex(attempt['nonce']);require(len(nonce)==32,'nonce length differs')
     planned=raw.load_handle(verify(attempt['request']))
     raw.require_success(planned)
-    expected=profile.codec.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
+    wire=profile.observation_wire(manifest)
+    expected=wire.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
                                    manifest=manifest)
     require(raw.read_stdout(planned,maximum=72)==expected,'retained request differs')
-    proof=profile.codec.verify_capture(raw.load_handle(verify(connection['response'])),manifest,nonce)
+    proof=wire.verify_capture(raw.load_handle(verify(connection['response'])),manifest,nonce)
     return dict(action='mainline-evidence',proof=proof,response=connection['response'],attempt=pin(folder/'attempt.json'),
                 endpoint=pin(folder/'endpoint.json'),window=pin(folder/'window.json'))
 
@@ -308,6 +310,15 @@ def capture_ssh(folder,manifest,plan,found,proof,*,deadline_ns,guard):
 
 
 def rederive(adapter,request):
+    if profile.scm_board(request['N']):
+        # Stopped owners may try offline rederivation before original-A recovery.
+        # Validate candidate-only code before importing it on that path.
+        try:
+            from s22plus_mainline_task_v1 import capability
+            capability(adapter.root, image=request['N'])
+            return rederive_base(adapter,request)
+        except (ImportError, SyntaxError) as error:
+            raise ValueError('SCM observation code unavailable') from error
     value=rederive_base(adapter,request)
     manifest=profile.image_binding(request['N'])
     if not profile.codec.has_ssh(manifest):return value

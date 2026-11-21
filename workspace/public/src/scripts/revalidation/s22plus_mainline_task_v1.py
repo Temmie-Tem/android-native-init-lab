@@ -104,6 +104,9 @@ def source_paths(root,selected=profile,*,image=None):
         paths += ['workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
                   ('build_loader.py','build_kernel.py','prepare_marked.py','retained-marker.S',
                    'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')]
+    if image is not None and profile.scm_board(image):
+        paths = [path for path in paths if path not in V2_RETIRED]
+        paths += [profile.SCM_POLICY, profile.SCM_MODULE]
     if image is not None and 'udc_observation' in image:
         require(selected is profile, 'UDC observation requires the mainline RAM profile')
         declaration = profile.UDC_TIMER_DECLARATION if profile.timed_udc(image) else profile.UDC_DECLARATION
@@ -174,11 +177,14 @@ def capability(root,*,recovery=False,selected=profile,image=None):
     review = selected.REVIEW
     if udc:
         review = profile.UDC_TIMER_REVIEW if profile.timed_udc(image) else profile.UDC_REVIEW
+    scope = selected.REVIEW_SCOPE
+    if image is not None and profile.scm_board(image):
+        review, scope = profile.SCM_REVIEW, profile.SCM_SCOPE
     path = root / review
     value = read(path)
     require(set(value)=={'schema','verdict','scope','sources','reviewer','findings'} and
         value['schema']==selected.REVIEW_SCHEMA and value['verdict']=='PASS_GO' and
-        value['scope']==selected.REVIEW_SCOPE and value['findings']==[] and
+        value['scope']==scope and value['findings']==[] and
         type(value['reviewer']) is str and value['reviewer'].strip(),'mainline independent review is not PASS_GO')
     expected=[str(path.relative_to(root)) for path in source_paths(root,selected,image=image)]
     require([r['path'] for r in value['sources']]==expected,'mainline review source closure differs')
@@ -186,7 +192,7 @@ def capability(root,*,recovery=False,selected=profile,image=None):
         # Loader comparison recovery neither rebuilds nor requalifies N. Keep
         # only its actually imported owner/observer/transport/authority closure
         # mandatory after a stop; candidate build/checker files are not A inputs.
-        if recovery and (marker_only(row['path']) or selected is not profile and loader_build_only(row['path']) or
+        if recovery and (marker_only(row['path']) or row['path']==profile.SCM_MODULE or selected is not profile and loader_build_only(row['path']) or
                          udc and row['path'] in (profile.UDC_DECLARATION, profile.UDC_TIMER_DECLARATION,
                              'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py')):continue
         tasks.unchanged(dict(row,path=str(root/row['path'])))
@@ -248,6 +254,10 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
             Path(selected.POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
             b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/selected.POLICY),
             'mainline target adoption or common detail pin differs')
+        if not recovery and profile.scm_board(task['N']):
+            require(Path(profile.SCM_POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
+                    b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/profile.SCM_POLICY),
+                    'SCM observation lacks target adoption')
         if not recovery and selected is profile and task['N'].get('ufs_link') is True:
             from s22plus_mainline_ufs_image_v1 import policy_for
             policy=policy_for(task['N'])
