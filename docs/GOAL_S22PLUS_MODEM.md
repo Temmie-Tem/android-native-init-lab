@@ -399,6 +399,14 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 **과거 부팅의 DMS 응답 시점.** 같은 R4W1-A 캡처에서 RILD의 조회 성공 행은 Android 로그 시계로 `boot_progress_pms_start`보다 19 ms 뒤, `boot_progress_pms_system_scan_start`보다 197 ms 앞이었다. 두 표식은 각각 시스템 로그와 커널 로그에 같은 system_server 스레드로 한 번씩 나온다. 커널 시각 10.329251초와 10.545752초를 기준으로 각각 환산한 성공 행의 시각은 10.348251초와 10.348752초다. 이 부팅에서는 MPSS 기동 완료 표식(9.092829초) 약 1.26초 뒤에 RILD가 모드 5의 성공을 기록한 것으로 추정한다. 두 추정치의 차이 0.501 ms는 시계 대조의 일치도이며 전송 지연이나 오차 상한을 측정한 값은 아니다. 원본 해시와 대응 행은 `workspace/private/analysis/s22plus-dms-clock.LR5PGHda/result.json`에 있다.
 
+### FYG8 Android 전화 상태와 NAS 조회 응답
+
+**전화 상태 조회가 읽는 값.** FYG8 배포본의 `TeleService.apk`, `telephony-common.jar`, `services.jar`를 압축 해제해 바이트코드를 확인했다. 전화 서비스의 `getRadioPowerState`는 권한과 대상 슬롯을 확인한 정상 경로에서 `Phone.getRadioPowerState`를 호출한다. 기본 셀룰러 RIL의 `BaseCommands.getRadioState`는 메모리 필드 `mState`를 반환한다. HIDL의 `RadioIndication.radioStateChanged`는 HAL 상태를 Android 값으로 변환해 이 필드를 갱신한다. 레지스트리의 `notifyRadioPowerStateChanged`는 통지받은 값을 별도 필드에 저장하고 덤프는 그 필드를 출력한다. 따라서 두 값을 읽어도 그 시점의 새 DMS 거래를 확인할 수 없다. [Android 전화 전원 상태 상수](https://android.googlesource.com/platform/frameworks/base/%2B/3fdbf46ac172de22670d7faa824c2fcda19168ec/telephony/java/android/telephony/TelephonyManager.java)
+
+**같은 과거 부팅의 순서.** R4W1-A 기록에서 슬롯 1 HIDL 1.6 서비스 등록과 모뎀 프록시 버전 1.6을 확인했다. DMS 모드 5 조회 성공을 기준으로 +3,164 ms에 Android의 RILJ가 상태 0(꺼짐)을 기록했다. +4,208 ms에는 RILD가 유효한 DMS 모드 0(ONLINE) 통지를, +4,218 ms에는 RILJ가 상태 1(켜짐)을 기록했다. +4,484 ms에는 VoLTE 서비스가 슬롯 인덱스 0의 전원 상태를 1로 읽었다고 기록했다. 같은 보고서의 레지스트리 덤프에도 1이 있었다. 이 시각들은 각 계층이 로그를 남긴 때다.
+
+**더 이른 서비스 응답.** 같은 부팅의 무선 로그에서 NAS의 동기 `GET_SYS_INFO` 송신, 해당 메시지의 일반 수신, `Result(0), Error(0)`가 동일 RILD 스레드의 연속 세 행으로 나온 경우가 24건이었다. 첫 성공은 DMS 모드 조회 성공보다 5 ms 앞섰다. 한편 다른 NAS 조회(`GET_LTE_CPHY_CA_INFO`)는 수신 행에 `err(0)`을 기록했지만, 바로 다음 같은 스레드의 디코딩 결과에는 `Result(1), Error(74)`가 있었다. 수신 행만 남아 있을 때 확인할 수 있는 범위는 RILD가 해당 메시지의 수신을 기록했다는 사실까지다. 각 거래의 QRTR 주소와 선로 거래 번호는 미확인이다. 배포 파일 해시, 바이트코드 경로와 원본 행 위치는 `workspace/private/analysis/s22plus-android-radio-cache.MXCUJBFO/h0.json`에 있다.
+
 ### Debian 조회기로 확인한 메인라인 DMS 응답
 
 ML053 기반 모뎀 서비스용 Image와 RAM 아카이브를 ARM64 VM에서 부팅했다. VM에만 Debian arm64 `qmicli` 1.36.0과 실행에 필요한 라이브러리, 시험용 inittab과 합성 DMS 상대를 추가했다. Debian 서명 인덱스와 패키지 해시를 확인했고 조회기 바이너리는 수정하지 않았다. 합성 상대가 RAM FIFO로 연결된 실제 GLINK의 `IPCRTR` 채널을 열자 앱 쪽에 `qcom_smd_qrtr`가 연결됐다. 상대는 QRTR 서비스 2를 광고했다. 모뎀 펌웨어를 공급하지 않았다.
