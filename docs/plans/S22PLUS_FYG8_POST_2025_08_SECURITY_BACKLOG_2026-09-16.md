@@ -75,8 +75,8 @@ The rows that touch the lab stack are the `boot chain`, `CP firmware` and
 | Dec-2025 | CVE-2025-58478 | `libimagecodec.quram.so` | stock userspace | remote OOB write | `PUBLISHED` | Quram lineage |
 | Dec-2025 | CVE-2025-58479 | `libimagecodec.quram.so` | stock userspace | remote OOB read | `PUBLISHED` | Quram lineage |
 | Dec-2025 | CVE-2025-58480 | `libimagecodec.quram.so` | stock userspace | remote heap-based buffer overflow | `PUBLISHED` | higher-interest Quram memory-safety candidate |
-| Jan-2026 | CVE-2026-20968 | DualDAR | Samsung kernel? | UAF -> local privileged arbitrary code execution | `PUBLISHED` | kernel/root-oriented boundary candidate |
-| Jan-2026 | CVE-2026-20971 | PROCA driver | Samsung kernel | UAF -> potential arbitrary code execution | `PUBLISHED` | **high-value kernel/driver candidate** |
+| Jan-2026 | CVE-2026-20968 | DualDAR | Samsung kernel | UAF -> local privileged arbitrary code execution | `DIFFED` | `CONFIG_DDAR=y` in every native-init candidate; FYG8→GZH3 kernel delta confined to `dd_mmap` + new `dd_vm_close` ([report](../reports/S22PLUS_FYG8_GZH3_KERNEL_PROCA_DDAR_DIFF_H0_2026-11-22.md)) |
+| Jan-2026 | CVE-2026-20971 | PROCA driver | Samsung kernel | UAF -> potential arbitrary code execution | `DIFFED` | **lab stack**: PROCA is an LSM, `=y` in every native-init candidate (pre-fix FYG8 source); 12/43 functions changed vs 1.6 % kernel baseline, in task-descriptor lifecycle; attribution by elimination ([report](../reports/S22PLUS_FYG8_GZH3_KERNEL_PROCA_DDAR_DIFF_H0_2026-11-22.md)) |
 | Jan-2026 | CVE-2026-20973 | `libimagecodec.quram.so` | stock userspace | remote OOB read | `PUBLISHED` | long-running Quram lineage |
 | Feb-2026 | CVE-2026-20980 | PACM | stock userspace | physical attacker may execute arbitrary commands | `PUBLISHED` | factory/service command boundary |
 | Feb-2026 | CVE-2026-20981 | FacAtFunction | stock userspace | privileged physical attacker may execute arbitrary command with system privilege | `PUBLISHED` | service/factory interface candidate |
