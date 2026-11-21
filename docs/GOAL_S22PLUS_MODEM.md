@@ -323,3 +323,11 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 같은 ARM64 VM 안에서 메인라인 커널 자체의 GLINK native 두 끝점을 연결했다. SMEM 드라이버의 FIFO 읽기·쓰기·정렬 코드는 해당 소스와 동일하고, 큐는 게스트 RAM에 두었다. 실제 메일박스와 IRQ만 VM 작업 알림으로 대체했다. 양쪽 모두 intent를 사용하는 모드이고, 앱 쪽 DT에는 IPCRTR 자식 노드가 없다. 원격 역할의 일반 RPMsg 문자 장치에서 정상 IPCRTR 채널을 열자, 전에는 없던 앱 쪽 rpmsg 장치가 생겼다. OF 자식 링크 없이 `qcom_smd_qrtr` 드라이버에 연결됐다.
 
 별도 노드에서 이 GLINK 채널로 QRTR 서비스를 발견했고, 수정하지 않은 Debian 데몬과 열기·할당·읽기·닫기를 왕복했다. 원본 파일과 공유 버퍼 전체를 대조했다. 이 시험 클라이언트는 앞선 `qrtr-tun` 경로를 열지 않는다. 원래 SysV init, 분할 펌웨어의 USB NCM 수신·검증·게시까지 같은 부팅에서 수행했다. 따라서 이 정상 원격 개방에 필요한 **RPMsg 장치 등록과 드라이버 매칭**을 위해 ML053에 순정 DT 자식을 복사할 근거는 없다. FYG1의 실제 개방 시각·intent 크기, IPCC 신호 전달과 물리 SMEM의 가시성은 아직 미측정이다. 결과와 원시 로그는 `glink-valid-pass.json`과 `glink-vm-valid/`에 있다.
+
+## 2026-11-22 · SCM 드라이버가 RMTFS 권한 요청 전에 대기하는 조건
+
+S22+의 메인라인 DT에서 SCM은 인터커넥트 경로를 먼저 요청한다. 최종 ARM64 vmlinux에서 다시 생성한 Image가 백엔드 검증에 사용한 Image와 동일했다. 실제 OF 매치 테이블과 링크된 포인터를 따라가면 `qxm_crypto → qns_a2noc_snoc → qnm_aggre2_noc → qns_gemnoc_sf → qnm_snoc_sf → qns_llcc → llcc_mc → ebi`가 이어진다. 네 SM8450 공급자(aggre2-noc, system-noc, gem-noc, mc-virt)는 모두 DT에서 활성 상태이고 같은 BCM voter를 참조한다. 실제 대역폭 요청의 인가는 별도다. 링크된 `qcom_icc_set`은 voter의 반환값을 버리고 0을 반환하므로 이 값만으로 하드웨어 적용을 판정할 수 없다.
+
+같은 커널을 사용한 두 ARM64 VM에서 실제 SCM 플랫폼 장치의 지연 사유를 읽었다. 합성 DT 공급자가 바인딩되기 전에는 장치 코어가 공급자 대기를 기록했다. 바인딩 후에는 두 경우 모두 SCM probe가 인터커넥트 획득 실패를 기록했고 SCM 가용 플래그는 0이었다. 별도 시험 장치가 같은 경로를 조회하자, 목적지 공급자를 게시하지 않은 경우에는 출발·도착·경로가 각각 `0, -517, -517`이었고, 양 끝을 게시하되 연결하지 않은 경우에는 `0, 0, -517`이었다. 두 경우의 최종 SCM 진단은 같았다. 따라서 SCM이 나타나지 않을 때는 개별 공급자 등록, 경로 완성, SCM probe 완료, RMTFS 권한 반환을 구분해야 한다. 실제 기기에서 이 경로가 실패했다는 관측은 없다.
+
+재현 입력과 ELF 검증, 두 VM의 원시 로그는 `workspace/private/analysis/s22plus-ml053-scm-icc.LKMCuZz1/`에 있다. 결합 기록 `joined.json`의 SHA-256은 `9faa354428333544ed2aa57f5d8c2afa95878d988117fc546cb4fe86eda79138`이다. 초기 시험 코드에서 음수 errno를 잘못된 printf 폭으로 출력한 문제를 수정하고 두 VM을 다시 검증했다.
