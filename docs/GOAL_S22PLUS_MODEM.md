@@ -407,6 +407,23 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 **더 이른 서비스 응답.** 같은 부팅의 무선 로그에서 NAS의 동기 `GET_SYS_INFO` 송신, 해당 메시지의 일반 수신, `Result(0), Error(0)`가 동일 RILD 스레드의 연속 세 행으로 나온 경우가 24건이었다. 첫 성공은 DMS 모드 조회 성공보다 5 ms 앞섰다. 한편 다른 NAS 조회(`GET_LTE_CPHY_CA_INFO`)는 수신 행에 `err(0)`을 기록했지만, 바로 다음 같은 스레드의 디코딩 결과에는 `Result(1), Error(74)`가 있었다. 수신 행만 남아 있을 때 확인할 수 있는 범위는 RILD가 해당 메시지의 수신을 기록했다는 사실까지다. 각 거래의 QRTR 주소와 선로 거래 번호는 미확인이다. 배포 파일 해시, 바이트코드 경로와 원본 행 위치는 `workspace/private/analysis/s22plus-android-radio-cache.MXCUJBFO/h0.json`에 있다.
 
+### 과거 FYG8 부팅의 LTE 셀 관측과 망 등록 응답
+
+R4W1-A 부팅에서 DMS가 `ONLINE`을 통지한 시각을 기준으로, 같은 무선 로그의 슬롯 0 음성·데이터 등록 조회를 대조했다. RILJ 프로세스, 요청 종류와 일련번호가 일치한 요청·응답은 각각 6쌍이었다.
+
+| DMS 통지 이후 | RILD와 Android가 기록한 상태 |
+| --- | --- |
+| +0.901초, +0.906초 | 첫 데이터·음성 응답이 차례로 미등록·망 검색 중을 보고했다. 각 종류의 첫 세 응답이 이 상태였다. |
+| +4.925초 | RILD가 처음으로 성공한 NAS 셀 위치 조회에서 LTE 셀 항목 1개를 처리하고 서빙 셀의 신호 측정값을 기록했다. |
+| +4.936초, +4.940초 | 데이터·음성 응답이 차례로 미등록·망 검색 중이며 긴급통화가 활성화됐다고 보고했다. 각 종류의 마지막 세 응답이 이 상태였다. |
+| +7.812초, +7.828초 | 성공한 두 셀 위치 조회에서 RILD가 각각 LTE 셀 항목 5개를 처리하고 서빙 셀 측정값을 한 번씩 기록했다. 마지막 음성 등록 응답은 +7.835초였다. |
+
+셀 위치 조회 수신 11건 모두 수신 행에 `err(0)`이 있었다. 같은 RILD 스레드에서 바로 뒤의 디코딩 결과까지 대조하자 처음 8건은 `Result(1), Error(13)`, 마지막 3건은 `Result(0), Error(0)`이었다. FYG8 배포 RIL의 `FillLteIntraCellInfo`에는 조건에 따라 서빙 셀 측정값을 출력하는 경로가 있다. 표의 시각은 해당 로그 행이 기록된 때다.
+
+등록 응답 12건 모두 무선 접속 기술(RAT)을 `UNKNOWN`으로 반환했다. Android 서비스 상태 갱신 로그 4건에서도 음성과 데이터는 모두 `OUT_OF_SERVICE`였다. 이 구간에서 확인한 것은 RILD가 LTE 서빙 셀을 식별해 측정값을 보고했다는 점이다. 단말의 캠핑 완료, 망 등록 성공, 실제 긴급통화 연결이나 RF 송신은 이 자료로 확인할 수 없다. [Android Radio HAL 등록 상태 정의](https://android.googlesource.com/platform/hardware/interfaces/%2B/3e9d442/radio/1.0/types.hal)
+
+원본 ZIP·무선 로그·배포 라이브러리의 해시와 행별 대조 결과는 `workspace/private/analysis/s22plus-nas-registration.m0KowmgL/result.json`에 보관했다.
+
 ### Debian 조회기로 확인한 메인라인 DMS 응답
 
 ML053 기반 모뎀 서비스용 Image와 RAM 아카이브를 ARM64 VM에서 부팅했다. VM에만 Debian arm64 `qmicli` 1.36.0과 실행에 필요한 라이브러리, 시험용 inittab과 합성 DMS 상대를 추가했다. Debian 서명 인덱스와 패키지 해시를 확인했고 조회기 바이너리는 수정하지 않았다. 합성 상대가 RAM FIFO로 연결된 실제 GLINK의 `IPCRTR` 채널을 열자 앱 쪽에 `qcom_smd_qrtr`가 연결됐다. 상대는 QRTR 서비스 2를 광고했다. 모뎀 펌웨어를 공급하지 않았다.
