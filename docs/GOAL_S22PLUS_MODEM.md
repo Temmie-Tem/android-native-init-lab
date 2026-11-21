@@ -397,6 +397,8 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 메인라인에서 첫 서비스 통신을 관측할 때는 상대와 거래가 확인된 읽기 전용 모드 조회가 유효한 값을 반환하면 그 값을 그대로 기록한다. 조회 성공을 판정하는 데 `ONLINE`이나 별도의 설정 요청은 필요하지 않다. 순정 캡처 원본, 배포 라이브러리 해시와 근거 행은 `workspace/private/analysis/s22plus-dms-mode.4Ch1j6Oa/result.json`에 묶었다. SHA-256은 `1065b01369f9b9bcfdbf481a3efd0aea300ddbb3e5079e55e231e295a852c12e`이다.
 
+**과거 부팅의 DMS 응답 시점.** 같은 R4W1-A 캡처에서 RILD의 조회 성공 행은 Android 로그 시계로 `boot_progress_pms_start`보다 19 ms 뒤, `boot_progress_pms_system_scan_start`보다 197 ms 앞이었다. 두 표식은 각각 시스템 로그와 커널 로그에 같은 system_server 스레드로 한 번씩 나온다. 커널 시각 10.329251초와 10.545752초를 기준으로 각각 환산한 성공 행의 시각은 10.348251초와 10.348752초다. 이 부팅에서는 MPSS 기동 완료 표식(9.092829초) 약 1.26초 뒤에 RILD가 모드 5의 성공을 기록한 것으로 추정한다. 두 추정치의 차이 0.501 ms는 시계 대조의 일치도이며 전송 지연이나 오차 상한을 측정한 값은 아니다. 원본 해시와 대응 행은 `workspace/private/analysis/s22plus-dms-clock.LR5PGHda/result.json`에 있다.
+
 ### Debian 조회기로 확인한 메인라인 DMS 응답
 
 ML053 기반 모뎀 서비스용 Image와 RAM 아카이브를 ARM64 VM에서 부팅했다. VM에만 Debian arm64 `qmicli` 1.36.0과 실행에 필요한 라이브러리, 시험용 inittab과 합성 DMS 상대를 추가했다. Debian 서명 인덱스와 패키지 해시를 확인했고 조회기 바이너리는 수정하지 않았다. 합성 상대가 RAM FIFO로 연결된 실제 GLINK의 `IPCRTR` 채널을 열자 앱 쪽에 `qcom_smd_qrtr`가 연결됐다. 상대는 QRTR 서비스 2를 광고했다. 모뎀 펌웨어를 공급하지 않았다.
