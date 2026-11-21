@@ -80,8 +80,9 @@ change. They do not form images.
    - Checked 2026-11-22: no WLAN host driver in either FYG8 module inventory
      (`docs/module-map/s22plus-fyg8{,-super}/inventory.tsv`). Only
      `rmnet_wlan.ko` and `wlan_firmware_service.ko` appear.
-   - It likely ships in the vendor partition. The FYG8 super images are not
-     retained in `workspace/private`, so this question needs a re-extraction.
+   - It likely ships in the vendor partition. A hash-bound FYG8 `vendor.img`
+     exists on the external lab disk (see the security side-track memo's
+     2026-11-22 update), so no re-extraction is needed.
 2. Is the S22+ Wi-Fi chip QCA6490 or Kiwi? The waipio DT references both.
 3. What does the userspace path to enable peer CFR capture look like, and where
    is data delivered (relayfs/debugfs, netlink)? Recalled, not verified.

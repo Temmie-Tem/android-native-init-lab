@@ -207,15 +207,29 @@ This side track can produce three useful outputs beyond vulnerability research i
 State: no candidate has left `PUBLISHED`. The backlog now runs through
 SMR Nov-2026.
 
-### Local evidence blocker
+### Local evidence location (corrected 2026-11-22)
 
-- **FYG8 system/vendor images are not on disk.** The FYG8 super partition
-  images (`system.img`, `vendor.img`, `odm.img`) are not in `workspace/private`.
-  The module-map manifest still names their old `super-corpus-work` paths,
-  which no longer exist. Only boot, vendor_boot, dtbo, recovery, vbmeta and
-  ramdisk extractions remain. So `libimagecodec.quram.so`, `libsavsvc.so`,
-  `libpadm.so` and similar libraries cannot be promoted to `PRESENT` until the
-  stock FYG8 package is re-extracted.
+- **The FYG8 logical images are on the external lab disk, not under
+  `workspace/private`.** An earlier same-day note here wrongly said they were
+  absent. The module-map manifest names old `super-corpus-work` paths that no
+  longer exist, but an existing extraction sits at
+  `/mnt/android-lab-sd/extract/ap-fyg8/`:
+  - `super.img`, plus `logical/{system,system_ext,product,vendor,odm}.img`;
+  - boot, vendor_boot, dtbo, recovery, vbmeta and vendor_dlkm images.
+- **It is bound to FYG8.** Checked 2026-11-22:
+  - `boot`, `vendor_boot`, `dtbo` and `vbmeta` match the retained FYG8
+    extractions byte for byte (sha256).
+  - `vendor_dlkm.img` matches the module-map manifest
+    (`e5386d68…6b26`).
+  - The source SamFW ZIP is on the same disk; the
+    [evidence policy](../operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md)
+    pins its hash.
+  - The extraction log records `super.img` sha256 `f418abff…43c8` but
+    `content_checksum_verified: false`. Binding the logical images through
+    vbmeta hashtree descriptors would close that gap.
+- No re-download is needed. `PRESENT` checks for
+  `libimagecodec.quram.so`, `libsavsvc.so`, `libpadm.so` and the rest can
+  read these images read-only.
 - **One local `libsec-ril.so` copy exists.** sha256 `d1878d44…455f`, ELF
   build-id `133163f8ddf06a70e7c1bb05fd96423d`, kept under the private FYG1
   AP/CP baseline analysis. Its acquisition path is not recorded in that
