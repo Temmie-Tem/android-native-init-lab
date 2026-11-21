@@ -40,11 +40,11 @@ Do not infer exploitability from Android-version membership alone.
 
 | SMR | CVE | Component / boundary | Published impact | FYG8 state | Priority note |
 |---|---|---|---|---|---|
-| Sep-2025 | CVE-2025-21034 | `libsavsvc.so` | local OOB write; potential arbitrary code execution | `PUBLISHED` | first proprietary video-codec diff candidate |
+| Sep-2025 | CVE-2025-21034 | `libsavsvc.so` | local OOB write; potential arbitrary code execution | `PRESENT` | pre-fix lineage confirmed FYG8→GYJ1 (917/917 exports); delta unlocalised in rebuild churn ([report](../reports/S22PLUS_FYG8_BACKLOG_LIBS_LINEAGE_H0_2026-11-22.md)) |
 | Sep-2025 | CVE-2025-21043 | `libimagecodec.quram.so` | remote OOB write -> arbitrary code execution; Samsung notes exploit existed in the wild | `PRESENT` | **P0 first mini-study**; pre-fix lineage confirmed by FYG8→GYJ1 diff; per-CVE attribution open ([report](../reports/S22PLUS_FYG8_QURAM_DNG_PATCH_DIFF_H0_2026-11-22.md)) |
 | Oct-2025 | CVE-2025-21044 | fingerprint trustlet | local privileged OOB write | `PUBLISHED` | TEE/trustlet boundary candidate |
 | Oct-2025 | CVE-2025-21048 | Knox Enterprise | relative path traversal -> local arbitrary code execution | `PUBLISHED` | privileged-userspace boundary candidate |
-| Oct-2025 | CVE-2025-21051 / 21052 / 21053 / 21054 | `libpadm.so` JPEG path | local OOB read/write and memory corruption | `PUBLISHED` | alternate Samsung JPEG implementation family |
+| Oct-2025 | CVE-2025-21051 / 21052 / 21053 / 21054 | `libpadm.so` JPEG path | local OOB read/write and memory corruption | `PRESENT` | pre-fix lineage confirmed FYG8→GYJ1; candidate delta `padme_get_qt`; attribution open ([report](../reports/S22PLUS_FYG8_BACKLOG_LIBS_LINEAGE_H0_2026-11-22.md)) |
 | Oct-2025 | CVE-2025-21055 | `libimagecodec.quram.so` | remote OOB read/write | `PRESENT` | same FYG8→GYJ1 diff (GYJ1 carries Sep+Oct fixes); attribution open |
 | Nov-2025 | CVE-2025-21071 | fingerprint trustlet | local privileged OOB write | `PUBLISHED` | compare recurring fingerprint trustlet fixes |
 | Nov-2025 | CVE-2025-21074 | `libimagecodec.quram.so` | remote OOB read | `PUBLISHED` | Quram lineage |
@@ -86,7 +86,7 @@ Do not infer exploitability from Android-version membership alone.
 | Sep-2026 | CVE-2026-21101 | DualDAR driver | local privileged input-validation bug -> potential root arbitrary code execution | `PUBLISHED` | **root-boundary candidate** |
 | Sep-2026 | CVE-2026-21093 | PROCA trustlet | local privileged stack-buffer overflow -> OOB write | `PUBLISHED` | TEE/PROCA candidate |
 | Sep-2026 | CVE-2026-21102 | DualDAR | UAF -> local privileged arbitrary code execution with root privilege | `PUBLISHED` | **root-boundary candidate** |
-| Oct-2026 | CVE-2026-21114 | `libsmkvextractor.so` | local OOB write -> arbitrary code execution | `PUBLISHED` | MKV extractor lineage (also 21116, 21156) |
+| Oct-2026 | CVE-2026-21114 | `libsmkvextractor.so` | local OOB write -> arbitrary code execution | `PUBLISHED` | MKV extractor lineage (also 21116, 21156); GYJ1 also pre-fix (control in [lineage report](../reports/S22PLUS_FYG8_BACKLOG_LIBS_LINEAGE_H0_2026-11-22.md)) |
 | Oct-2026 | CVE-2026-21116 | `libsmkvextractor.so` | local OOB write | `PUBLISHED` | MKV extractor lineage |
 | Oct-2026 | CVE-2026-21120 | WSM service | UAF -> potential arbitrary code execution with system privilege | `PUBLISHED` | privileged native-service candidate |
 | Oct-2026 | CVE-2026-21122 | `libsamsungtts.so` | local OOB write -> arbitrary code execution | `PUBLISHED` | TTS engine surface |
@@ -97,7 +97,7 @@ Do not infer exploitability from Android-version membership alone.
 | Oct-2026 | CVE-2026-21118 | DownloadProvider | access to files in scoped storage | `PUBLISHED` | low priority |
 | Nov-2026 | CVE-2026-21155 | bootloader | physical attacker OOB write | `PUBLISHED` | **bootloader boundary**; static diff only (lab ABL work, see contract) |
 | Nov-2026 | CVE-2026-21158 | CP | local privileged attacker SIM-lock bypass (improper certificate validation) | `PUBLISHED` | modem/CP boundary; diff-only, never reproduce |
-| Nov-2026 | CVE-2026-21153 | `libsecuibc.so` | stack buffer overflow -> local arbitrary code execution | `PUBLISHED` | privileged native-library candidate |
+| Nov-2026 | CVE-2026-21153 | `libsecuibc.so` | stack buffer overflow -> local arbitrary code execution | `PUBLISHED` | privileged native-library candidate; GYJ1 also pre-fix (control in [lineage report](../reports/S22PLUS_FYG8_BACKLOG_LIBS_LINEAGE_H0_2026-11-22.md)) |
 | Nov-2026 | CVE-2026-21154 | `libsecuibc.so` | dump-data access (improper authorization) | `PUBLISHED` | same library as 21153 |
 | Nov-2026 | CVE-2026-21152 | `libMyFilterPlugin.camera.samsung.so` | potential local arbitrary code execution (user interaction) | `PUBLISHED` | camera plugin surface |
 | Nov-2026 | CVE-2026-21151 | TransitionPlayer | privileged local arbitrary code execution with launcher privilege | `PUBLISHED` | launcher boundary |

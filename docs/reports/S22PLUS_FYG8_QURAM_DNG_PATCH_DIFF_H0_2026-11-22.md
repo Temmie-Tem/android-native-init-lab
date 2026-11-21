@@ -115,9 +115,10 @@ The GYJ1 package is at `workspace/private/inputs/firmware/S906NKSU7GYJ1_SKC/`.
 
 ## Next
 
-- Read `readTile`, `makeTmpStage2Image`, `RepeatSubArea` and the opcode
-  `processArea` deltas instruction by instruction. radare2 function-level diff
-  needs permission; objdump suffices for the exported functions.
-- Repeat the method for `libsavsvc.so`, `libpadm.so`, `libsecuibc.so` and
-  `libsmkvextractor.so`. All differ between FYG8 and GYJ1. Only the
-  Sep/Oct-2025 advisories apply to this pair.
+- Instruction-level reading of `readTile`, `makeTmpStage2Image`,
+  `RepeatSubArea` and the opcode `processArea` deltas is **out of scope**. It
+  would reconstruct the memory-corruption mechanism, which this side track
+  excludes. This report stops at the patch-diff summary.
+- The same method was applied to `libsavsvc.so`, `libpadm.so`,
+  `libsecuibc.so` and `libsmkvextractor.so`. See the
+  [backlog library lineage report](S22PLUS_FYG8_BACKLOG_LIBS_LINEAGE_H0_2026-11-22.md).
