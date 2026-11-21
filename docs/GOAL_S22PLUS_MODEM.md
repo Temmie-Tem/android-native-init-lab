@@ -579,3 +579,20 @@ FYG8 라이브러리의 DMS 응답 테이블에서 이 메시지에 해당하는
 배포 RILD의 수신 행은 `err`를 부호 있는 10진수로, 해석 결과 행은 `result`와 `err`를 16진수로 출력한다. 예를 들어 해석 결과 행의 `err(10)`은 십진수 16이다. 보관된 무선 로그에서 UID·태그·메시지 조건에 맞춰 RILD 5,828행에 필터를 적용하자 GET 송신·수신·해석 세 줄만 남았다. 동일 PID·TID의 표시 순서는 확인할 수 있다. 이 세 줄에는 전송 거래 번호와 물리 에지 정보가 없다.
 
 **순정 버퍼 관측 준비.** 고정 관측기는 S22+의 대상·포트·부팅을 확인한 뒤 로그 읽기 그룹에 속한 Android shell에서 radio 버퍼를 한 번 읽는다. 반환 범위는 UID 1001, RILD 태그, 위 세 GET 메시지 형식, 최대 48행이다. 빈 출력일 때 판정은 표시된 일치 행 0건이다. 호스트의 대상·부팅·권한·출력 대조 14건과 독립 검토를 마쳤다. 이 기록은 실기 실행 전 준비에 해당한다. 비공개 검증 결과는 `workspace/private/analysis/s22plus-stock-dms-radio.D9CeREqN/`의 `idl/result.json`, `fixtures.json`, `review.json`에 있다. [Android logcat 필터 동작](https://android.googlesource.com/platform/system/logging/%2B/refs/heads/android15-s1-release/logcat/logcat.cpp)
+
+### FYG8 공장 배포본에서 원격 저장소 초기 파일명 확인
+
+FYG8 파티션 표는 MODEMST1·MODEMST2·FSG의 플래시 파일 이름을 각각 `nvrebuild1.bin`, `nvrebuild2.bin`, `nvrebuild3.bin`으로 지정한다. CP 내부와 Odin 직접 멤버에 이어, 같은 배포본의 파일시스템 14개와 FOTA ZIP 두 개를 확인했다. 디렉터리 항목의 마지막 이름을 대소문자 구별 없이 비교했고 압축 확장자 `.lz4`도 허용했다.
+
+| 검사한 배포 자료 | 확인한 이름 수 | 세 파일명과 일치 |
+| --- | ---: | ---: |
+| AP `super` 안의 system·odm·product·system_ext·vendor·vendor_dlkm | 13,581 | 0 |
+| CSC·HOME_CSC의 cache·omr·prism·optics, 중복 이미지를 제외한 다섯 개 | 287 | 0 |
+| AP가 배포한 persist·vm-bootsys·userdata | 54 | 0 |
+| AP·CSC의 FOTA ZIP 직접 항목 | 1,459 | 0 |
+
+공장 AP와 `super`의 SHA-256을 보관된 배포 검증 기록과 대조했다. 각 논리 파티션의 길이를 확인했고, system·vendor를 다시 추출한 해시는 이전 독립 추출과 일치했다. F2FS는 읽기 전용으로 마운트한 호스트 경로에서 검사기를 dry-run으로 실행했다. 공장 userdata에서는 이름이 있는 항목 27개, 루트 1개, 슈퍼블록이 지정한 쿼터 관리용 inode 3개를 합쳐 체크포인트의 31개와 대조했다. ext4는 루트 inode부터 하위 디렉터리 항목을 따라갔다. 모두 배포 파일을 대상으로 한 호스트 검사다.
+
+vendor의 `init.qcom.efs.sync.sh`도 확인했다. inode 안에 직접 들어 있는 원문은 기존 추출과 바이트 단위로 일치했다. 스크립트 본문은 경로 환경을 설정하고 sysfs의 `force_sync` 속성 두 개를 읽는다. 초기 파일을 복사하거나 생성하는 명령은 없었다.
+
+이 범위에서 파티션 표에 지정된 이름의 초기 파일은 발견되지 않았다. 파일 본문 안에 다른 이름·형식으로 들어 있는 데이터와 단말별 저장소 내용은 미확인이다. 기존 합성 FS1·FS2·FSG 입력은 계속 VM 시험용이다. 파티션별 원시 목록과 해시, ZIP 멤버 대조는 `workspace/private/analysis/s22plus-factory-seed-census.lNjZjfDv/coverage.json`에서 추적할 수 있다.
