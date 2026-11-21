@@ -56,6 +56,24 @@ Most rows are `stock userspace`, so they are curiosity-level for the lab.
 The rows that touch the lab stack are the `boot chain`, `CP firmware` and
 `TEE` rows, plus `Samsung kernel` rows on Samsung-kernel candidates.
 
+**Mainline view (2026-11-22).** On a mainline kernel only two Samsung SMR
+layers remain relevant:
+- `boot chain`, which is mostly a physical-access surface;
+- on-device firmware the kernel loads: modem, Wi-Fi BCM4389, ADSP/CDSP, GPU
+  and video. Modem and Wi-Fi are the realistic over-the-air surfaces. The
+  device stays on FYG8 firmware, so later firmware fixes are absent.
+
+`Samsung kernel` rows do not apply because mainline does not contain those
+drivers. `TEE` rows are out of the threat model, because reaching the TEE
+needs kernel privilege, which the lab already holds. Two things fall outside
+this SMR backlog and need separate tracking:
+- the mainline kernel's own upstream Linux CVEs, especially the network stack
+  and the drivers enabled;
+- Debian security updates for the userspace.
+
+While Wi-Fi and the modem stay off (USB-only bring-up), the over-the-air
+firmware surface is not exposed.
+
 ## Backlog
 
 | SMR | CVE | Component / boundary | Lab layer | Published impact | FYG8 state | Priority note |
