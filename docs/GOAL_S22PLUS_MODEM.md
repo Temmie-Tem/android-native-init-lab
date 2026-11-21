@@ -423,6 +423,23 @@ ML053 기반 모뎀 서비스용 Image와 RAM 아카이브를 ARM64 VM에서 부
 
 VM 입력, 원시 직렬 로그 해시와 메시지별 대조 결과는 `workspace/private/analysis/s22plus-qrtr-dms-cli.67GugaKr/result.json`에 있다. SHA-256은 `6f7cf6188f156c71533d3a731bd1c45afedab787fe1bd4ad80676712ad360379`이다.
 
+### 같은 DMS 응답이 어느 전송 경로로 들어왔는지 확인한 ARM64 VM 시험
+
+ML053 기반의 기존 커널 Image와 Debian `qmicli`를 사용했다. VM에만 넣은 `qrtr-smd` 드라이버 사본은 모델의 `vm-glink-app` 부모 아래에서만 연결된다. 이 드라이버는 고정된 시험용 QRTR v1 DMS 요청·응답 형식에 대해 RPMsg 장치·부모·채널, 발신·수신 주소, QMI 메시지·거래 번호와 방향을 기록한다. 송신은 `rpmsg_send` 성공 뒤, 수신은 재조립된 패킷을 `qrtr_endpoint_post`가 받아들인 뒤에 기록한다. 클라이언트 쪽에서는 배포판 `strace`로 `recvmsg`가 반환한 발신 주소와 응답 18바이트 전체를 확인했다.
+
+같은 부팅에서 GLINK의 `IPCRTR`와 QRTR 터널을 모두 열고 각 시험 상대가 DMS를 광고했다. 동일한 Image·RAM 아카이브로 두 번 부팅해 두 상대의 노드 번호만 맞바꿨다. 각 부팅에서 별도 클라이언트 프로세스로 네 번 조회했다.
+
+| 부팅당 조회 | 클라이언트 소켓 수신 | GLINK 드라이버 기록 | 조회기 결과 |
+| --- | --- | --- | --- |
+| GLINK, 모드 5 | 발신 주소와 응답 전체 일치 | 송신·수신 각 1건 | 모드 5 |
+| 터널, 같은 모드 5 | 발신 주소와 응답 전체 일치 | 0건 | 모드 5 |
+| GLINK, 다른 거래 번호의 모드 0 | 발신 주소와 응답 전체 일치 | 송신·수신 각 1건 | 시간 초과 |
+| GLINK, 요청과 일치하는 거래 번호의 모드 0 | 발신 주소와 응답 전체 일치 | 송신·수신 각 1건 | 모드 0 |
+
+노드 번호를 바꾼 두 부팅 사이에서 QRTR 양끝 주소·QMI 요청·응답 바이트·조회기 출력이 모두 같은 GLINK와 터널 사례를 대조했다. 어느 채널을 통과했는지는 드라이버 관측으로 구별할 수 있었다. 같은 부팅에서 터널 시험 전후의 GLINK 양성 대조도 성립했다. 반대로 거래 번호가 다른 응답은 GLINK와 클라이언트 소켓까지 도착했지만 조회 성공으로 이어지지 않았다. 두 부팅을 합쳐 GLINK 왕복 6건 중 2건에서는 수신 로그가 송신 로그보다 먼저 표시됐다. 양쪽 모두 함수 성공 뒤에 찍으므로 판독에는 방향·주소·거래 필드와 해당 조회 구간을 사용했다.
+
+VM의 마지막 전송 경로를 식별한 결과다. S22+에서 이 관측기를 실행하거나 FYG1을 기동하지 않았다. 정상·교환 부팅의 원시 직렬 로그, 실제 소켓 반환값, 모듈·입력 해시와 대조 결과는 `workspace/private/analysis/s22plus-dms-ingress.wyIRXM8h/result.json`에 있다.
+
 ### 순정 QRTR 이름 서비스에서 DMS 광고 조회
 
 앞선 두 FYG8 Android 보고서의 `dumpstate.txt`와 `dumpstate_board.txt`에서는 서비스 2의 QRTR 광고 행을 찾지 못했다. FYG8 vendor 이미지에는 서비스 번호를 지정할 수 있는 `/vendor/bin/qrtr-lookup`이 들어 있다. 이 도구는 로컬 QRTR 제어 포트로 `NEW_LOOKUP`을 보내고, 이름 서비스에 등록된 광고에서 버전·인스턴스·노드·포트를 출력한다. [상위 구현의 조회 처리](https://github.com/linux-msm/qrtr/blob/master/src/lookup.c)
