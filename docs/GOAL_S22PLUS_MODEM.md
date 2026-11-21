@@ -317,3 +317,9 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 운영자 소유 순정 S22+에서 기존 Magisk 권한으로 보관된 부팅 로그의 정확한 IPCRTR 장치 한 개를 확인했다. 앞의 서비스 D0와 같은 부팅이었다. 채널은 MPSS 플랫폼 장치의 자손이자 rpmsg 버스 소속이고, OF 링크는 순정 모뎀의 명시적 QRTR 자식 노드를 가리켰다. 실제 드라이버는 `qcom_smd_qrtr`, 연결 모듈은 `qrtr_smd`였다. 조회 전후의 채널 소속과 단말·부팅을 확인했다. 독립 검토와 합성 시험 24건, 해시 대조한 원시 캡처 7건은 각각 `workspace/private/analysis/s22plus-fyg1-glink-d0.qQ8tD7tM/`, `workspace/private/runs/s22plus-fyg1-glink-d0-qQ8tD7tM/`에 있다.
 
 두 과거 부팅의 같은 커널 워커에서 해당 장치의 드라이버 probe와 성공 로그를 찾았다. 확보된 dumpstate에는 IPCRTR의 OPEN 송수신 시각 쌍이 없었다. 배포 `qcom_glink.ko`에서 일반 rpmsg 장치를 등록하는 유일한 호출은 `qcom_glink_rx_open`에 있다. 같은 이름의 로컬 채널이 이미 있으면 새 장치 등록을 건너뛰고, 없으면 원격 OPEN을 처리하면서 DT 자식을 조회해 장치를 등록한다. 따라서 해당 등록 경로에서 DT 자식은 채널 정보를 제공한다. 실제 선로에서 어느 OPEN이 몇 시에 먼저 나갔는지는 직접 관측하지 않았다. 명령을 보내지 않은 이번 D0에서 새 CP 응답을 측정한 것은 아니다.
+
+## 2026-11-21 · 채널 DT 자식 없이 메인라인 GLINK로 전달한 첫 읽기
+
+같은 ARM64 VM 안에서 메인라인 커널 자체의 GLINK native 두 끝점을 연결했다. SMEM 드라이버의 FIFO 읽기·쓰기·정렬 코드는 해당 소스와 동일하고, 큐는 게스트 RAM에 두었다. 실제 메일박스와 IRQ만 VM 작업 알림으로 대체했다. 양쪽 모두 intent를 사용하는 모드이고, 앱 쪽 DT에는 IPCRTR 자식 노드가 없다. 원격 역할의 일반 RPMsg 문자 장치에서 정상 IPCRTR 채널을 열자, 전에는 없던 앱 쪽 rpmsg 장치가 생겼다. OF 자식 링크 없이 `qcom_smd_qrtr` 드라이버에 연결됐다.
+
+별도 노드에서 이 GLINK 채널로 QRTR 서비스를 발견했고, 수정하지 않은 Debian 데몬과 열기·할당·읽기·닫기를 왕복했다. 원본 파일과 공유 버퍼 전체를 대조했다. 이 시험 클라이언트는 앞선 `qrtr-tun` 경로를 열지 않는다. 원래 SysV init, 분할 펌웨어의 USB NCM 수신·검증·게시까지 같은 부팅에서 수행했다. 따라서 이 정상 원격 개방에 필요한 **RPMsg 장치 등록과 드라이버 매칭**을 위해 ML053에 순정 DT 자식을 복사할 근거는 없다. FYG1의 실제 개방 시각·intent 크기, IPCC 신호 전달과 물리 SMEM의 가시성은 아직 미측정이다. 결과와 원시 로그는 `glink-valid-pass.json`과 `glink-vm-valid/`에 있다.
