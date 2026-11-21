@@ -121,6 +121,9 @@ and rewrite strings. Function-size churn alone is not evidence of a fix.
   - CVE-2026-21049 (`libpadm.so`);
   - CVE-2026-21069/21071/21072 (`libsavsvc.so`).
 
+Follow-up: the [GYJ1 → GZH3 diff](S22PLUS_GYJ1_GZH3_LIBS_DIFF_H0_2026-11-22.md)
+covers the Jul/Aug-2026 rows with the latest FUS build (SPL 2026-08-05).
+
 ## Limits
 
 - Only exported symbols are sized. Static functions are folded into the
