@@ -15,6 +15,21 @@ Related: [security side-track candidates](S22PLUS_FYG8_SECURITY_SIDE_TRACK_CANDI
 Open question 1 below reads the same WLAN host driver binary, so either track's
 extraction serves both.
 
+> **Correction 2026-11-22.** The
+> [FYG8 component inventory](../reports/S22PLUS_FYG8_COMPONENT_INVENTORY_H0_2026-11-22.md)
+> shows that S22+ Wi-Fi is **Broadcom BCM4389**:
+> - host driver `dhd.ko` (DHD 101.24.18);
+> - dongle firmware `bcmdhd_sta.bin` 20.82.44 (ROM-offloaded).
+>
+> No Qualcomm WLAN host driver ships, so the `qcacld-3.0` CFR rows below
+> describe the shared waipio source tree, not this product. The shipped `dhd.ko`
+> symbols and strings, and the RAM firmware strings, show no CSI/CFR
+> capability. Broadcom CSI prior art (Nexmon) patches firmware, which the
+> boundary below excludes.
+>
+> **UWB is now the most plausible stock path.** The stock HAL
+> `uwb_uci.hal.so` contains a CIR sample logging path (`uwb_CIR_data` log).
+
 ## Idea
 
 Phone radios produce channel measurements that normal APIs discard. Those
@@ -48,7 +63,8 @@ change. They do not form images.
     intra-device antenna phase differences.
   - Each node's position must be calibrated.
   - Nodes must schedule airtime.
-- **Practical topology:** the S22+ is the CFR receiver. The other phones only
+- **Practical topology** (premise invalidated 2026-11-22: there is no stock
+  CFR on the S22+): the S22+ is the CFR receiver. The other phones only
   transmit ordinary Wi-Fi frames, which gives bistatic illumination from
   several directions. CFR support is needed only on the receiver.
 
@@ -80,17 +96,22 @@ change. They do not form images.
    - Checked 2026-11-22: no WLAN host driver in either FYG8 module inventory
      (`docs/module-map/s22plus-fyg8{,-super}/inventory.tsv`). Only
      `rmnet_wlan.ko` and `wlan_firmware_service.ko` appear.
-   - It likely ships in the vendor partition. An AVB-verified FYG8
-     `vendor.img` (hashtree checked against the policy-pinned package) exists
-     on the external lab disk. See the security side-track memo's 2026-11-22
-     update. No re-extraction is needed.
+   - **Answered 2026-11-22: no.** No Qualcomm WLAN module ships. The Wi-Fi
+     stack is Broadcom `dhd.ko`, and it shows no CSI/CFR symbols or strings.
 2. Is the S22+ Wi-Fi chip QCA6490 or Kiwi? The waipio DT references both.
+   **Answered 2026-11-22: neither.** It is Broadcom BCM4389 (`4389c1`).
 3. What does the userspace path to enable peer CFR capture look like, and where
    is data delivered (relayfs/debugfs, netlink)? Recalled, not verified.
 4. Does the stock UWB HAL or the SR100 firmware expose CIR, for example through
    a debug-log config, vendor UCI notifications or test mode? Search the stock
    vendor partition for the HAL binary and firmware blob, then list
    CIR/debug/test strings and UCI vendor GIDs.
+   **Partly answered 2026-11-22:**
+   - The HAL is `/vendor/lib64/uwb_uci.hal.so`, and its CIR logging path
+     exists (`CIR samples received`, `uwb_CIR_data` log file, `NxpUciR`).
+   - The firmware is `/vendor/firmware/uwb/libsr100t_{prod,dev}_fw.bin`.
+   - Still open: the trigger that makes the firmware emit CIR notifications,
+     and the sample format and completeness.
 5. What do Samsung `uwb_logger` and the `SET_DBG` ioctl record?
 6. Auxiliary nodes:
    - Confirm the S20+ Wi-Fi chip (believed QCA6390) and the A90 WCN3990

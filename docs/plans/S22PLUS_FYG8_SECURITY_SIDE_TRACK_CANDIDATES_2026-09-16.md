@@ -7,7 +7,9 @@ Status: candidate memo only; no device action is authorized by this document.
 
 Related: [post-2025-08 CVE backlog](S22PLUS_FYG8_POST_2025_08_SECURITY_BACKLOG_2026-09-16.md),
 [RF-sensing side track](S22PLUS_RF_SENSING_SIDE_TRACK_CANDIDATES_2026-11-21.md)
-(Candidate E shares its Qualcomm WLAN host driver target).
+(Candidate E shares its WLAN host driver target. On S22+ that is Broadcom
+`dhd.ko`, not Qualcomm; see the
+[FYG8 component inventory](../reports/S22PLUS_FYG8_COMPONENT_INVENTORY_H0_2026-11-22.md)).
 
 ## Purpose
 
@@ -251,11 +253,16 @@ SMR Nov-2026.
 - No re-download is needed. `PRESENT` checks for
   `libimagecodec.quram.so`, `libsavsvc.so`, `libpadm.so` and the rest can
   read these images read-only.
-- **One local `libsec-ril.so` copy exists.** sha256 `d1878d44…455f`, ELF
-  build-id `133163f8ddf06a70e7c1bb05fd96423d`, kept under the private FYG1
-  AP/CP baseline analysis. Its acquisition path is not recorded in that
-  analysis's `verify.py`. Bind it to the FYG8 vendor image before using it for
-  CVE-2025-58475.
+- **The private `libsec-ril.so` copy is bound.** sha256 `d1878d44…455f`, ELF
+  build-id `133163f8ddf06a70e7c1bb05fd96423d`. It is byte-identical to FYG8
+  `/vendor/lib64/libsec-ril.so` in the AVB-verified image (component inventory,
+  2026-11-22).
+- **Component inventory done (step 0).** The
+  [FYG8 component inventory](../reports/S22PLUS_FYG8_COMPONENT_INVENTORY_H0_2026-11-22.md)
+  lists sha256 and ELF build-id for every backlog component found. That covers
+  the Quram, savsvc/savsac, padm, secuibc, smkvextractor, edmnativehelper, RIL,
+  flacdec and `wpa_supplicant` lines, plus the advisory names not found.
+  States stay `PUBLISHED`: observing the file is not lineage.
 
 ### Comparison firmware
 

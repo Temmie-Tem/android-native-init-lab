@@ -12,6 +12,15 @@ Related planning memos:
 
 Last SMR checked: Nov-2026 (rows added 2026-11-22).
 
+FYG8 component hashes and build-ids (step 0, 2026-11-22):
+[FYG8 component inventory](../reports/S22PLUS_FYG8_COMPONENT_INVENTORY_H0_2026-11-22.md).
+- Observed on FYG8: most component families.
+- Not found under the advisory spelling: `libsimba.heifdec.media.samsung.so`,
+  `libimagecodec.media.quram.so`, `libmdnie.so`, `libsamsungtts.so` and
+  `libcodec2secqcelpdec.so`. See the report's listing caveats.
+- Observing a file does not promote a row to `PRESENT`; that also needs the
+  code lineage.
+
 ## Evidence rule
 
 Every item in this file starts at `PUBLISHED` only.
