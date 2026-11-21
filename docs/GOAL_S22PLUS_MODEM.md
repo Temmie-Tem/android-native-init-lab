@@ -397,6 +397,22 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 메인라인에서 첫 서비스 통신을 관측할 때는 상대와 거래가 확인된 읽기 전용 모드 조회가 유효한 값을 반환하면 그 값을 그대로 기록한다. 조회 성공을 판정하는 데 `ONLINE`이나 별도의 설정 요청은 필요하지 않다. 순정 캡처 원본, 배포 라이브러리 해시와 근거 행은 `workspace/private/analysis/s22plus-dms-mode.4Ch1j6Oa/result.json`에 묶었다. SHA-256은 `1065b01369f9b9bcfdbf481a3efd0aea300ddbb3e5079e55e231e295a852c12e`이다.
 
+### Debian 조회기로 확인한 메인라인 DMS 응답
+
+ML053 기반 모뎀 서비스용 Image와 RAM 아카이브를 ARM64 VM에서 부팅했다. VM에만 Debian arm64 `qmicli` 1.36.0과 실행에 필요한 라이브러리, 시험용 inittab과 합성 DMS 상대를 추가했다. Debian 서명 인덱스와 패키지 해시를 확인했고 조회기 바이너리는 수정하지 않았다. 합성 상대가 RAM FIFO로 연결된 실제 GLINK의 `IPCRTR` 채널을 열자 앱 쪽에 `qcom_smd_qrtr`가 연결됐다. 상대는 QRTR 서비스 2를 광고했다. 모뎀 펌웨어를 공급하지 않았다.
+
+같은 부팅에서 조회기를 세 번 실행했다. 각 실행에서 합성 상대가 받은 서비스 데이터는 본문 없는 `GET_OPERATING_MODE`(0x2d) 한 건이었다. 수신 요청과 송신 응답의 노드·포트, 메시지 번호, 거래 번호 및 응답 필드를 원시 바이트에서 대조했다.
+
+| 합성 상대가 보낸 응답 | 조회기 결과 |
+| --- | --- |
+| 거래 번호 일치, 성공, 모드 5 | `shutting-down`, 종료 코드 0 |
+| 거래 번호 일치, 성공, 모드 0 | `online`, 종료 코드 0 |
+| 바로 앞 응답과 비교해 거래 번호만 다름 | 시간 초과, 모드 출력 없음, 종료 코드 1 |
+
+첫 서비스 통신을 조회하는 데 배포판 클라이언트를 그대로 쓸 수 있었다. 세 실행에서 모드 설정 요청은 관측되지 않았다. 성공한 두 응답에는 선택적인 하드웨어 제한 필드가 없었지만 조회기는 모두 `HW restricted: 'no'`로 표시했다. 따라서 해당 속성을 판정하려면 출력 문자열 외에 응답 필드의 존재도 확인해야 한다. 이 VM에서 확인한 상대와 모드는 합성값이다. 실기 FYG1의 메인라인 DMS 경로와 응답은 미확인이다. [qmicli 1.36.0의 모드 출력 처리](https://github.com/linux-mobile-broadband/libqmi/blob/1.36.0/src/qmicli/qmicli-dms.c)
+
+VM 입력, 원시 직렬 로그 해시와 메시지별 대조 결과는 `workspace/private/analysis/s22plus-qrtr-dms-cli.67GugaKr/result.json`에 있다. SHA-256은 `6f7cf6188f156c71533d3a731bd1c45afedab787fe1bd4ad80676712ad360379`이다.
+
 ## 2026-11-22 · SCM 드라이버가 RMTFS 권한 요청 전에 대기하는 조건
 
 S22+의 메인라인 DT에서 SCM은 인터커넥트 경로를 먼저 요청한다. 최종 ARM64 vmlinux에서 다시 생성한 Image가 백엔드 검증에 사용한 Image와 동일했다. 실제 OF 매치 테이블과 링크된 포인터를 따라가면 `qxm_crypto → qns_a2noc_snoc → qnm_aggre2_noc → qns_gemnoc_sf → qnm_snoc_sf → qns_llcc → llcc_mc → ebi`가 이어진다. 네 SM8450 공급자(aggre2-noc, system-noc, gem-noc, mc-virt)는 모두 DT에서 활성 상태이고 같은 BCM voter를 참조한다. 실제 대역폭 요청의 인가는 별도다. 링크된 `qcom_icc_set`은 voter의 반환값을 버리고 0을 반환하므로 이 값만으로 하드웨어 적용을 판정할 수 없다.
