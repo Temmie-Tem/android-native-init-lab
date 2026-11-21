@@ -11,14 +11,20 @@ def replace_once(text, before, after):
     return text.replace(before, after)
 
 
-def stage_sources(output, *, lifecycle_model=False):
-    """Write fresh offline sources. The VM observer uses NCM and keeps its VM evidence flag."""
+def stage_sources(output, *, lifecycle_model=False, board=False):
+    """Stage an isolated wire profile. All builds use NCM; only the board decodes sealed captures."""
+    if board and lifecycle_model:
+        raise ValueError('The platform model is VM-only')
     output = Path(output)
     output.mkdir(mode=0o700)
     subject = 'platform-model' if lifecycle_model else 'scm'
     schema = 's22plus-debian-scm-usb-h0-v1-' + subject
     domain = 'G0Q-SCM-USB-H0-v1-' + subject
     prefix = 'G0QT' if lifecycle_model else 'G0QO'
+    if board:
+        schema = 's22plus-fyg8-debian-scm-usb-v1'
+        domain = 'G0Q-FYG8-DEBIAN-SCM-USB-v1'
+        prefix = 'G0QB'
     request, response = prefix + 'RQ1', prefix + 'RS1'
 
     source = (HERE / 'init.c').read_text()
@@ -35,7 +41,12 @@ def stage_sources(output, *, lifecycle_model=False):
         subject_guard += '#define SCM_USB_LIFECYCLE_MODEL\n'
     source = subject_guard + source
     (output / 'init.c').write_text(source)
-    (output / 'scm-usb-observe.h').write_bytes((HERE / 'scm-usb-observe.h').read_bytes())
+    header = (HERE / 'scm-usb-observe.h').read_text()
+    if board:
+        header = replace_once(header, '!defined(CANARY_H0_VM)', 'defined(CANARY_H0_VM)')
+        header = replace_once(header, 'requires the H0 Debian RAM profile',
+                              'requires the board Debian RAM profile')
+    (output / 'scm-usb-observe.h').write_text(header)
 
     protocol = (HERE / 'protocol.h').read_text()
     protocol = replace_once(protocol, '#elif defined(CANARY_DEBIAN_RAM)\n#define G0Q_BODY_SIZE 352U',
@@ -56,15 +67,31 @@ def stage_sources(output, *, lifecycle_model=False):
         f'    return {domain.encode()!r}, {request.encode()+bytes(1)!r}, '
         f'{response.encode()+bytes(1)!r}, 356\n\n\n'
     ) + verifier[end:]
+    mode_check = ("    require(vm is False, 'board capture required')\n" if board else
+                  "    require(vm is True, 'SCM decoder is qualified only for H0')\n")
     verifier = replace_once(verifier, "    require(manifest['vm'] is vm,",
-                            "    require(vm is True, 'SCM decoder is qualified only for H0')\n"
-                            "    require(manifest['vm'] is vm,")
+                            mode_check + "    require(manifest['vm'] is vm,")
+    if board:
+        start, end = verifier.index('def verify(raw_path,'), verifier.index('def verify_capture(')
+        verifier = verifier[:start] + verifier[end:]
+        verifier = replace_once(verifier, 'def verify_capture(handle,manifest,nonce):',
+                                'def verify_capture(handle,manifest,nonce,*,expected_loader_fdt_sha256):')
+        verifier = replace_once(
+            verifier, '    return _verify(raw,manifest,nonce,vm=False,directory=handle.receipt_path.parent)',
+            '    result = _verify(raw,manifest,nonce,vm=False,directory=handle.receipt_path.parent)\n'
+            '    require(result["live_fdt_sha256"] == expected_loader_fdt_sha256,\n'
+            '            "live FDT differs from qualified loader output")\n'
+            '    return result')
     verifier = replace_once(verifier, '    extra={}\n',
                             "    readout, = struct.unpack_from('<I', body, 352)\n"
                             f"    states = {STATUS!r}\n"
                             "    require(readout < len(states), 'unknown SCM binding value')\n"
                             f"    extra = {{'scm_binding': states[readout], 'subject': {subject!r}}}\n")
-    verifier = replace_once(verifier, "'PASS_H0_VM_DEBIAN_SYSVINIT_RAM'",
-                            "'AUTHENTICATED_H0_SCM_USB_OBSERVATION'")
+    if board:
+        verifier = replace_once(verifier, "'AUTHENTICATED_DEBIAN_SYSVINIT_RAM_OBSERVATION'",
+                                "'AUTHENTICATED_SCM_USB_TRANSCRIPT'")
+    else:
+        verifier = replace_once(verifier, "'PASS_H0_VM_DEBIAN_SYSVINIT_RAM'",
+                                "'AUTHENTICATED_H0_SCM_USB_OBSERVATION'")
     (output / 'scm_verify.py').write_text(verifier)
     return schema
