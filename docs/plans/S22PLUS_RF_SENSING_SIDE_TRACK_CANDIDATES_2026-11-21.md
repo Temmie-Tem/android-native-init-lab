@@ -9,6 +9,12 @@ Starting UWB or Wi-Fi radio activity is a device action under
 [AGENTS.md](../../AGENTS.md) and would need its own goal, target lane and
 approval. The modem goal's no-RF-transmission boundary is unchanged.
 
+Related: [security side-track candidates](S22PLUS_FYG8_SECURITY_SIDE_TRACK_CANDIDATES_2026-09-16.md)
+(Candidate E: Wi-Fi/network-facing components) and the
+[post-2025-08 CVE backlog](S22PLUS_FYG8_POST_2025_08_SECURITY_BACKLOG_2026-09-16.md).
+Open question 1 below reads the same WLAN host driver binary, so either track's
+extraction serves both.
+
 ## Idea
 
 Phone radios produce channel measurements that normal APIs discard. Those
@@ -71,6 +77,11 @@ change. They do not form images.
    such as symbols, strings or the vendor nl80211 CFR command path? This
    decides whether CFR is alive in the product build rather than only in
    source defaults.
+   - Checked 2026-11-22: no WLAN host driver in either FYG8 module inventory
+     (`docs/module-map/s22plus-fyg8{,-super}/inventory.tsv`). Only
+     `rmnet_wlan.ko` and `wlan_firmware_service.ko` appear.
+   - It likely ships in the vendor partition. The FYG8 super images are not
+     retained in `workspace/private`, so this question needs a re-extraction.
 2. Is the S22+ Wi-Fi chip QCA6490 or Kiwi? The waipio DT references both.
 3. What does the userspace path to enable peer CFR capture look like, and where
    is data delivered (relayfs/debugfs, netlink)? Recalled, not verified.

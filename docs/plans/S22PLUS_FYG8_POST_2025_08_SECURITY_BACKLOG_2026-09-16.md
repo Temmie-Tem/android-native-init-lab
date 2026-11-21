@@ -5,9 +5,12 @@ Target: Samsung Galaxy S22+ `SM-S906N` / `g0q`
 Baseline: `S906NKSS7FYG8`, Android 15, 2025-08 security patch
 Status: candidate backlog only; no device action is authorized by this document.
 
-Related planning memo:
+Related planning memos:
 
-- `docs/plans/S22PLUS_FYG8_SECURITY_SIDE_TRACK_CANDIDATES_2026-09-16.md`
+- [Security side-track candidates](S22PLUS_FYG8_SECURITY_SIDE_TRACK_CANDIDATES_2026-09-16.md)
+- [RF-sensing side track](S22PLUS_RF_SENSING_SIDE_TRACK_CANDIDATES_2026-11-21.md). It reads the same Qualcomm WLAN host driver as the network/radio lane below.
+
+Last SMR checked: Nov-2026 (rows added 2026-11-22).
 
 ## Evidence rule
 
@@ -74,6 +77,33 @@ Do not infer exploitability from Android-version membership alone.
 | Sep-2026 | CVE-2026-21101 | DualDAR driver | local privileged input-validation bug -> potential root arbitrary code execution | `PUBLISHED` | **root-boundary candidate** |
 | Sep-2026 | CVE-2026-21093 | PROCA trustlet | local privileged stack-buffer overflow -> OOB write | `PUBLISHED` | TEE/PROCA candidate |
 | Sep-2026 | CVE-2026-21102 | DualDAR | UAF -> local privileged arbitrary code execution with root privilege | `PUBLISHED` | **root-boundary candidate** |
+| Oct-2026 | CVE-2026-21114 | `libsmkvextractor.so` | local OOB write -> arbitrary code execution | `PUBLISHED` | MKV extractor lineage (also 21116, 21156) |
+| Oct-2026 | CVE-2026-21116 | `libsmkvextractor.so` | local OOB write | `PUBLISHED` | MKV extractor lineage |
+| Oct-2026 | CVE-2026-21120 | WSM service | UAF -> potential arbitrary code execution with system privilege | `PUBLISHED` | privileged native-service candidate |
+| Oct-2026 | CVE-2026-21122 | `libsamsungtts.so` | local OOB write -> arbitrary code execution | `PUBLISHED` | TTS engine surface |
+| Oct-2026 | CVE-2026-21124 / 21125 / 21126 | `libsimba.heifdec.media.samsung.so` (cover image, `sheifd` parsing) | input validation / OOB write -> potential arbitrary code execution | `PUBLISHED` | **new HEIF parser family**; compare with Quram lineage |
+| Oct-2026 | CVE-2026-21123 | Locksettings | root attacker can access tied-profile data before first unlock | `PUBLISHED` | credential/profile-encryption boundary |
+| Oct-2026 | CVE-2026-21115 | `libcodec2-sec-flacdec.so` | local OOB write | `PUBLISHED` | follow-up to CVE-2026-21066 |
+| Oct-2026 | CVE-2026-21117 | CocktailBarService | sensitive information access (access control) | `PUBLISHED` | low priority |
+| Oct-2026 | CVE-2026-21118 | DownloadProvider | access to files in scoped storage | `PUBLISHED` | low priority |
+| Nov-2026 | CVE-2026-21155 | bootloader | physical attacker OOB write | `PUBLISHED` | **bootloader boundary**; static diff only (lab ABL work, see contract) |
+| Nov-2026 | CVE-2026-21158 | CP | local privileged attacker SIM-lock bypass (improper certificate validation) | `PUBLISHED` | modem/CP boundary; diff-only, never reproduce |
+| Nov-2026 | CVE-2026-21153 | `libsecuibc.so` | stack buffer overflow -> local arbitrary code execution | `PUBLISHED` | privileged native-library candidate |
+| Nov-2026 | CVE-2026-21154 | `libsecuibc.so` | dump-data access (improper authorization) | `PUBLISHED` | same library as 21153 |
+| Nov-2026 | CVE-2026-21152 | `libMyFilterPlugin.camera.samsung.so` | potential local arbitrary code execution (user interaction) | `PUBLISHED` | camera plugin surface |
+| Nov-2026 | CVE-2026-21151 | TransitionPlayer | privileged local arbitrary code execution with launcher privilege | `PUBLISHED` | launcher boundary |
+| Nov-2026 | CVE-2026-21156 | `libsmkvextractor.so` | local OOB write | `PUBLISHED` | MKV extractor lineage |
+| Nov-2026 | CVE-2026-21149 | StatusBarManagerService | privileged API use | `PUBLISHED` | system-server policy boundary |
+| Nov-2026 | CVE-2026-21150 | edmnativehelper | sensitive information access (Android 15–17 only) | `PUBLISHED` | Knox/EDM native helper |
+| Nov-2026 | CVE-2026-21148 | Samsung Messages | sensitive information access (incorrect authorization) | `PUBLISHED` | app-level, low priority |
+| Nov-2026 | CVE-2026-21141 / 21142 | Samsung Dialer / Contacts | information / profile-config access | `PUBLISHED` | app-level, low priority |
+| Nov-2026 | CVE-2026-21143 – 21147 | Samsung Contacts widget/cover-screen components | place calls without permission (exported components) | `PUBLISHED` | app-level, low priority; one family |
+
+Oct/Nov-2026 notes:
+
+- Rows come from the official bulletin page, read 2026-11-22 by automated fetch. Recheck each against the advisory before promotion.
+- Excluded because the stated range omits Android 15: CVE-2026-21119 ("Selected Android 16, 17") and CVE-2026-21121 ("Android XR 14").
+- Samsung announced 27 SVE items for Oct and 24 for Nov, but disclosed only 13 and 17. The rest are marked "cannot be disclosed at this time".
 
 ## Suggested research lanes
 
@@ -84,6 +114,7 @@ Rather than analyzing the list chronologically, use one representative candidate
 3. **Kernel / driver** — PROCA (`CVE-2026-20971`) or DualDAR (`CVE-2026-20968`).
 4. **TEE / trustlet** — fabricKeymaster (`CVE-2026-21046`) or KnoxVault (`CVE-2026-21104`).
 5. **Network / radio** — `wpa_supplicant` (`CVE-2026-21094`) or `libril_sem.so` (`CVE-2026-21068`).
+6. **Boot chain (added 2026-11-22)** — bootloader `CVE-2026-21155`. Static diff only. It overlaps the lab's ABL evidence, but any reproduction would cross the device-safety contract.
 
 This avoids turning the side track into a single-library Quram study and instead covers different Samsung security boundaries on the same preserved FYG8 platform.
 
@@ -120,6 +151,6 @@ Notes / uncertainty:
 
 ## Public source basis
 
-Primary source for this backlog is Samsung Mobile Security monthly SMR material for Sep-2025 through Sep-2026. Candidate descriptions should be rechecked against the current vendor advisory before promotion from `PUBLISHED`.
+Primary source for this backlog is Samsung Mobile Security monthly SMR material for Sep-2025 through Nov-2026. Candidate descriptions should be rechecked against the current vendor advisory before promotion from `PUBLISHED`.
 
 - https://security.samsungmobile.com/securityUpdate.smsb

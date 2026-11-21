@@ -5,6 +5,10 @@ Target: Samsung Galaxy S22+ `SM-S906N` / `g0q`
 Baseline: `S906NKSS7FYG8`, Android 15, 2025-08 security patch
 Status: candidate memo only; no device action is authorized by this document.
 
+Related: [post-2025-08 CVE backlog](S22PLUS_FYG8_POST_2025_08_SECURITY_BACKLOG_2026-09-16.md),
+[RF-sensing side track](S22PLUS_RF_SENSING_SIDE_TRACK_CANDIDATES_2026-11-21.md)
+(Candidate E shares its Qualcomm WLAN host driver target).
+
 ## Purpose
 
 Record a bounded security-research side track for the preserved FYG8 baseline without displacing the main native-PID1 / Debian bring-up work.
@@ -197,3 +201,54 @@ This side track can produce three useful outputs beyond vulnerability research i
 - updating the physical FYG8 device solely to obtain patched comparison binaries;
 - crossing Samsung anti-rollback / SW REV boundaries without a separate project decision;
 - allowing this side track to block the main S22+ native-init milestone.
+
+## Update 2026-11-22
+
+State: no candidate has left `PUBLISHED`. The backlog now runs through
+SMR Nov-2026.
+
+### Local evidence blocker
+
+- **FYG8 system/vendor images are not on disk.** The FYG8 super partition
+  images (`system.img`, `vendor.img`, `odm.img`) are not in `workspace/private`.
+  The module-map manifest still names their old `super-corpus-work` paths,
+  which no longer exist. Only boot, vendor_boot, dtbo, recovery, vbmeta and
+  ramdisk extractions remain. So `libimagecodec.quram.so`, `libsavsvc.so`,
+  `libpadm.so` and similar libraries cannot be promoted to `PRESENT` until the
+  stock FYG8 package is re-extracted.
+- **One local `libsec-ril.so` copy exists.** sha256 `d1878d44…455f`, ELF
+  build-id `133163f8ddf06a70e7c1bb05fd96423d`, kept under the private FYG1
+  AP/CP baseline analysis. Its acquisition path is not recorded in that
+  analysis's `verify.py`. Bind it to the FYG8 vendor image before using it for
+  CVE-2025-58475.
+
+### Comparison firmware
+
+- The S22 series moved to One UI 8 (Android 16) in late 2025. Reported later
+  S906N builds include `S906NKSS9GZE5` (May 2026), and S22 patches were reported
+  through at least Aug-2026 (secondary sources).
+- Patched comparison binaries will therefore mostly come from the Android 16
+  lineage. Expect diff noise beyond the security fix. Prefer the first patched
+  Android 15 build where one exists.
+- Binary revision 9 against FYG8's 7 means anti-rollback. Acquire comparison
+  firmware offline only; never flash it to the research device.
+
+### Candidate A reference
+
+- Google Project Zero, "android-itw-dng" (Benoît Sevens, 2025-12-12), analyzes
+  an in-the-wild Quram DNG exploit whose bug "was fixed in April 2025". That
+  predates FYG8, so it is a methodology and lineage reference, not an FYG8
+  target.
+- Attributing it to CVE-2025-21042 / LANDFALL (Unit 42, 2025-11-07) is a
+  recollection and was not confirmed in the page text read.
+- CVE-2025-21043 still has no authoritative root-cause write-up. Secondary
+  blogs disagree (DNG opcode-count check vs IFD entry-size check), so the patch
+  diff stays the deciding evidence.
+
+### New boundary families from Oct/Nov 2026
+
+- HEIF decoder `libsimba.heifdec.media.samsung.so`: a second image-parser
+  family next to Quram.
+- `libsmkvextractor.so`: three fixes in two months.
+- Bootloader CVE-2026-21155: physical OOB write; static diff only.
+- CP CVE-2026-21158: SIM-lock certificate validation; diff only, never reproduce.
