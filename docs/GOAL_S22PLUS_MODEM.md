@@ -260,3 +260,9 @@ ELF에서 compatible 매치 항목 → SM8450 클럭 배열 → 0번 객체를 �
 ML053의 원본 빌드 출력을 별도 디렉터리에 복사하고 원본 소스를 읽기 전용으로 고정했다. 새 ARM64 Image에서 추출한 설정은 빌드 설정과 일치했다. 변경은 일곱 심볼로, REMOTEPROC는 내장이고 PAS·MDT 로더·Q6 공통·PIL 정보·remoteproc 공통·sysmon은 모듈이다. 같은 빌드에서 RMTFS 메모리·GLINK·QRTR를 포함한 모듈 15개를 생성했다. Image의 SHA-256은 `fa44d1735d48587109b32830b78258feb6f58a5c454bdabea246082c0934c7e9`다. 빌드 명령, 설정 차이, 개별 모듈 해시는 `workspace/private/analysis/s22plus-ml053-pas-initramfs.BEBv3qNj/`에 보존했다.
 
 순정 S22+에서는 기존 Magisk 권한으로 같은 부팅에 속한 네 항목을 순서대로 읽었다. MPSS의 바인딩은 `qcom_q6v5_pas`, RMTFS 메모리의 바인딩은 `msm_sharedmem`이었다. MPSS remoteproc 상태와 Android의 `vendor.rmt_storage` 서비스 상태는 모두 `running`이었다. 원시 캡처 7건의 종료 상태·크기·해시와 조회 전후 부팅 일치를 확인했다. 이 관측에서 개별 저장소 요청이나 메인라인 커널의 기동은 측정하지 않았다. 관측기·검토·합성 시험 15건은 `workspace/private/analysis/s22plus-fyg1-service-d0.mEI3IW5k/`, 실측 기록은 `workspace/private/runs/s22plus-fyg1-service-d0-mEI3IW5k/`에 있다.
+
+## 2026-11-21 · 최종 initramfs에서 확인한 파일 의존성
+
+새 gzip 아카이브(56,933,584바이트, SHA-256 `270e8ea91d7eae32707283a4b1df6152303681d9bbf42ef8632d152b6f05ac9c`)를 다시 풀어 107개 항목을 검사했다. 원본 31개 항목의 헤더와 내용은 보존됐다. 기본 요청 이름 `modem.mdt`와 로더가 요청하는 분할 펌웨어를 합친 FYG1 파일 28개(109,340,422바이트)가 모두 원본 해시와 일치했다. 새 모듈 15개의 해시와 강한 미해결 심볼을 검사했다. PAS의 모듈 의존성 8개(자신 포함)가 실제 경로로 해석됐고, MPSS 및 RMTFS의 DT 별칭이 해당 모듈을 가리켰다. SCM, SMEM, SMP2P, IPCC, RPMh 전원·클록 등을 포함한 공급자 10개의 내장 구성을 확인했다. 별도 DTB는 MPSS의 status만 okay로 바뀌었다.
+
+인증한 Debian arm64 패키지에서 가져온 `rmtfs`·libqrtr·libudev·libcap과 원본 ML053의 glibc·ELF 인터프리터를 조합했다. 재추출한 파일만 보이는 환경에서 AArch64 동적 로더가 기존 init과 새 데몬의 의존성을 모두 찾았고, 데몬의 옵션 처리도 실행됐다. 아카이브의 기본 init은 여전히 원래 실험을 시작한다. 메인라인 모뎀 기동, 서비스 자동 시작, 부트 파티션에 대한 적합성은 이 파일 검증 범위 밖이다. 빌드 입력과 검증기는 앞의 빌드 디렉터리의 `package.py`·`verify_package.py`, 결과는 `package-build.json`·`archive-verified.json`이다.
