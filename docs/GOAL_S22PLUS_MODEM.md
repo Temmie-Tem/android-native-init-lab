@@ -580,6 +580,10 @@ FYG8 라이브러리의 DMS 응답 테이블에서 이 메시지에 해당하는
 
 **순정 버퍼 관측 준비.** 고정 관측기는 S22+의 대상·포트·부팅을 확인한 뒤 로그 읽기 그룹에 속한 Android shell에서 radio 버퍼를 한 번 읽는다. 반환 범위는 UID 1001, RILD 태그, 위 세 GET 메시지 형식, 최대 48행이다. 빈 출력일 때 판정은 표시된 일치 행 0건이다. 호스트의 대상·부팅·권한·출력 대조 14건과 독립 검토를 마쳤다. 이 기록은 실기 실행 전 준비에 해당한다. 비공개 검증 결과는 `workspace/private/analysis/s22plus-stock-dms-radio.D9CeREqN/`의 `idl/result.json`, `fixtures.json`, `review.json`에 있다. [Android logcat 필터 동작](https://android.googlesource.com/platform/system/logging/%2B/refs/heads/android15-s1-release/logcat/logcat.cpp)
 
+**순정 실기 D0 결과 (2026-11-22 05:31 KST).** 운영자가 선택한 rev81 관측기를 한 번 실행했다. FYG8 Android·FYG1 모뎀을 확인한 뒤 일반 ADB shell에서 읽은 radio 버퍼에는 고정 필터에 맞는 RILD의 DMS 모드 조회 송신·수신·해석 행이 **0건**이었다. 명령은 시간 초과 없이 정상 종료했고 48행 상한에 도달하지 않았다. 이 결과로 해당 부팅에서 과거에 조회가 있었는지, 응답이 성공했는지, 모드가 무엇이었는지는 판정할 수 없다.
+
+원시 캡처 7개를 호스트에서 재검증했다. 읽기 전후의 대상·USB 포트·부팅이 일치했고, 앞서 MPSS의 `IPCRTR` 드라이버 연결과 DMS 서비스 광고 한 건을 확인한 부팅과도 같았다. 이번 관측에서 DMS 요청을 전송한 횟수는 0회다. 원시 출력과 범위 기록은 `workspace/private/runs/s22plus-stock-dms-radio-D9CeREqN/`, 관측기·검증기 해시와 이전 부팅 대조 결과는 `workspace/private/analysis/s22plus-stock-dms-radio.D9CeREqN/live-verified.json`에 보관했다.
+
 ### FYG8 공장 배포본에서 원격 저장소 초기 파일명 확인
 
 FYG8 파티션 표는 MODEMST1·MODEMST2·FSG의 플래시 파일 이름을 각각 `nvrebuild1.bin`, `nvrebuild2.bin`, `nvrebuild3.bin`으로 지정한다. CP 내부와 Odin 직접 멤버에 이어, 같은 배포본의 파일시스템 14개와 FOTA ZIP 두 개를 확인했다. 디렉터리 항목의 마지막 이름을 대소문자 구별 없이 비교했고 압축 확장자 `.lz4`도 허용했다.
