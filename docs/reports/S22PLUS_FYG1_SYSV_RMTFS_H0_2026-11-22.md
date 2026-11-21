@@ -30,4 +30,6 @@ VM 시험 장치가 커널에 가상 예약 메모리와 두 GLINK 끝점을 제
 
 최종 Image·대상 DT·정상 아카이브를 다시 링크했다. 기존 RAM 배치에서 네 구간의 충돌은 없었고 96 MiB 부트 외피에 52,782,976바이트가 남았다. 메인라인 S22+에서 필요한 실기 증거는 고정 RMTFS 메모리 권한의 실제 수락과 FYG1 노드의 실제 요청이다. 이 아카이브의 합성 입력을 실기 모뎀 데이터로 쓸 근거는 없다.
 
+FYG8 배포 표가 MODEMST1·MODEMST2·FSG에 지정한 플래시 파일은 각각 `nvrebuild1.bin`, `nvrebuild2.bin`, `nvrebuild3.bin`이다. 보관한 공장 펌웨어 ZIP에서 AP·BL·CP·CSC·HOME_CSC의 크기와 SHA-256을 검증하고, 각 Odin 아카이브에 직접 들어 있는 일반 파일 55개를 확인했다. 세 이름은 압축용 `.lz4` 확장자를 제외하고 대조해도 발견되지 않았다. 이 결과는 배포 표에 지정된 파일이 직접 공급되는지에 대한 판정이다. 파티션 내부의 다른 파일이나 기기별 저장소 내용을 조사한 것은 아니다. 파일별 대조는 `factory.json`에 있다.
+
 비공개 근거는 `workspace/private/analysis/s22plus-ml053-sysv-rmtfs.WKv8YAj6/`에 있다. `package-valid.json`과 `layout.json`은 아카이브·실행 파일·배치를 식별하고, `normal.json`과 `lost.json`은 GLINK 거래·버퍼 해시 및 원시 로그를 가리킨다. 다섯 정지 결과와 독립 H0 검토에 사용한 입력은 `close.json`에 함께 기록했다.
