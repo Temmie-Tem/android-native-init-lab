@@ -169,6 +169,41 @@ SCM observer. The SCM harness passed with `-dtb` earlier the same day. This
 profile needs no DT edits, so its runner boots with QEMU's internal DTB. The
 cause is not investigated.
 
+## Attended cue helper (fix for the ML051/ML052 cue loss)
+
+[`s22plus_mainline_cue_dialog_v1.py`](../../workspace/public/src/scripts/host_tools/s22plus_mainline_cue_dialog_v1.py)
+replaces the per-run `cue-watch.py`. It calls only the reviewed
+`s22plus_mainline_attach_cue_v1.py` through its fixed self-capture CLI
+(`issue`, `resolve`), so the reviewed interlock code and records are
+unchanged.
+
+Flow:
+1. On the journal's `step-start mainline-evidence`, it starts the Stage 0
+   host port watch.
+2. At window+22 s it issues the cue, using the same retry and refusal rules
+   as before.
+3. On `CUE_RECORDED_DISPLAY_NOW` it plays a sound and shows a zenity dialog
+   with **다시 꽂았음** and **취소**.
+4. A click calls `resolve completed` or `resolve cancelled`. The operator
+   statement names the button clicked and the time.
+
+Timing:
+- The dialog closes 8 s before the 120 s window ends.
+- If it times out, nothing is resolved and the owner's interlock closes the
+  attempt as before.
+- Neither the assistant's turn nor typing is on the critical path any more.
+
+Six tests run with a fake runner. They cover:
+- button-to-resolution mapping;
+- dialog timeout;
+- refusals that never resolve;
+- retry naming;
+- no window;
+- calling only the reviewed tool.
+
+Before use it needs the operator to accept the click as the operator
+resolution, plus a profile review.
+
 ## Not done / remaining
 
 - **No board package or loader.** The board RAM archive, Image and DTB exist,
