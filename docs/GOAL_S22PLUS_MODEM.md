@@ -381,6 +381,22 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 두 부팅의 원시 커널 추적과 응답 기록, 패키지·시험 프로그램·소스 해시는 `workspace/private/analysis/s22plus-glink-data-trace.FXwmVeQB/result.json`에 연결했다. SHA-256은 `255cff85326c8d48bf08763a376b95751ca5a44114f098d3a13671198b50a0ab`이다.
 
+### 순정 DMS의 첫 서비스 응답과 ONLINE 보고 시점
+
+14:20 보고서의 현재 부팅에서 RILD가 받은 첫 DMS 일반 응답은 이벤트 보고 설정(`SET_EVENT_REPORT`)에 대한 것이었다. 같은 스레드가 성공 결과를 기록한 뒤 동작 모드를 조회했다. 두 거래의 로그 시각은 밀리초 단위에서 같았다.
+
+| 모드 조회 응답 기준 | 같은 순정 부팅의 RILD 기록 |
+| ---: | --- |
+| 0 ms | `GET_OPERATING_MODE` 성공. 응답의 `oper=5`는 libqmi 정의에서 `SHUTTING_DOWN`에 해당한다. FYG8 RIL이 별도로 계산한 `RadioPowerState`는 1이었다. |
+| +1,200 ms | DMS 이벤트를 받았으나 동작 모드 필드의 유효 표시는 0이었다. |
+| +4,206 ms | RILD가 저장해 둔 모드 5와 요청 모드 0을 기록하고 `SET_OPERATING_MODE`를 보냈다. |
+| +4,207 ms | 설정 요청의 일반 응답이 성공했다. |
+| +4,208 ms | 별도 수신 스레드가 DMS 이벤트에서 유효한 동작 모드 0(`ONLINE`)을 기록했다. |
+
+배포 `libsec-ril.so`에서 첫 조회 로그의 `oper`는 디코딩한 응답 필드에서 직접 읽는다. 이벤트 처리기는 유효 표시를 검사한 뒤 수신 필드로 내부 값을 갱신하고 이를 `Operating Mode of Indication`으로 출력한다. 따라서 마지막 행에서는 요청한 값 외에 DMS가 보고한 값도 확인된다. 두 관측 사이의 4.208초는 로그 시각 차이다. 설정 요청이 상태 변화를 일으켰는지, 망 등록이나 RF 송신이 언제 이뤄졌는지는 이 거래들로 판정할 수 없다. [libqmi 동작 모드 정의](https://github.com/linux-mobile-broadband/libqmi/blob/1cad48593c8335b9b18992f97bf5320b110a112a/src/libqmi-glib/qmi-enums-dms.h#L187-L197)
+
+메인라인에서 첫 서비스 통신을 관측할 때는 상대와 거래가 확인된 읽기 전용 모드 조회가 유효한 값을 반환하면 그 값을 그대로 기록한다. 조회 성공을 판정하는 데 `ONLINE`이나 별도의 설정 요청은 필요하지 않다. 순정 캡처 원본, 배포 라이브러리 해시와 근거 행은 `workspace/private/analysis/s22plus-dms-mode.4Ch1j6Oa/result.json`에 묶었다. SHA-256은 `1065b01369f9b9bcfdbf481a3efd0aea300ddbb3e5079e55e231e295a852c12e`이다.
+
 ## 2026-11-22 · SCM 드라이버가 RMTFS 권한 요청 전에 대기하는 조건
 
 S22+의 메인라인 DT에서 SCM은 인터커넥트 경로를 먼저 요청한다. 최종 ARM64 vmlinux에서 다시 생성한 Image가 백엔드 검증에 사용한 Image와 동일했다. 실제 OF 매치 테이블과 링크된 포인터를 따라가면 `qxm_crypto → qns_a2noc_snoc → qnm_aggre2_noc → qns_gemnoc_sf → qnm_snoc_sf → qns_llcc → llcc_mc → ebi`가 이어진다. 네 SM8450 공급자(aggre2-noc, system-noc, gem-noc, mc-virt)는 모두 DT에서 활성 상태이고 같은 BCM voter를 참조한다. 실제 대역폭 요청의 인가는 별도다. 링크된 `qcom_icc_set`은 voter의 반환값을 버리고 0을 반환하므로 이 값만으로 하드웨어 적용을 판정할 수 없다.
