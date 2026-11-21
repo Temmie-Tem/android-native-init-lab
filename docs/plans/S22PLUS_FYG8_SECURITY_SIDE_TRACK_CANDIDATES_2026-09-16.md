@@ -225,8 +225,29 @@ SMR Nov-2026.
     [evidence policy](../operations/S22PLUS_FYG8_STOCK_FIRMWARE_EVIDENCE_POLICY_2026-07-08.md)
     pins its hash.
   - The extraction log records `super.img` sha256 `f418abff…43c8` but
-    `content_checksum_verified: false`. Binding the logical images through
-    vbmeta hashtree descriptors would close that gap.
+    `content_checksum_verified: false`. The AVB binding below closes that gap.
+- **AVB binding: `ALL_VERIFIED` (2026-11-22, host-only, read-only).**
+  - **ZIP and AP tar.** The ZIP sha256 equals the policy value `f831e5fb…a2c8`.
+    A streamed pass over the ZIP gives an AP tar sha256 equal to the policy
+    value `7934579f…0bb2`.
+  - **vbmeta.** `vbmeta.img` (`1031323a…047b`) and `vbmeta_system.img`
+    (`6d19a37e…4f96`) taken straight from that AP tar are byte-identical to
+    the SD copies.
+  - **Signatures.** Both vbmeta signatures verify (SHA256_RSA4096, public key
+    sha1 `e03300ab66600a17e63d91ad7f2357380a46a65c`).
+  - **dtbo.** The chained dtbo footer verifies with the same key, and its own
+    hash matches.
+  - **Hash descriptors.** `boot` and `vendor_boot` match.
+  - **Hashtree descriptors.** All regenerate to the descriptor root digest and
+    match the on-disk tree: `system`, `system_ext`, `product`, `vendor`, `odm`
+    and `vendor_dlkm`. Root digests agree between `vbmeta` and
+    `vbmeta_system`.
+  - **Not covered.** `abl`, `hyp`, `tz` and `xbl` are BL-side; `recovery` was
+    not included in this run; `prism` and `optics` have no image on disk.
+  - **What the chain proves.** Origin comes from the policy-pinned ZIP hash.
+    Signatures and hashtrees bind every logical image block to it.
+  - Script and result: private analysis `s22plus-fyg8-avb-binding.r3EEIvVg`
+    (`verify.py`, `zip-extract.sh`, `verified.json`).
 - No re-download is needed. `PRESENT` checks for
   `libimagecodec.quram.so`, `libsavsvc.so`, `libpadm.so` and the rest can
   read these images read-only.
