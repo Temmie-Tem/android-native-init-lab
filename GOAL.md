@@ -36,9 +36,11 @@ each run's report remains the authoritative record. The
 [2026-11-22 uniLoader LOGM control](docs/reports/S22PLUS_UNILOADER_LOGM_RUN_2026-11-22.md)
 proved the loader's byte-for-byte readback and recovered one candidate frame
 from the running vendor Android snapshot. Its original-A return closed healthy
-after a health-only continuation. The latest mainline physical closure remains
-ML050 (`ANDROID_CLOSED_HEALTHY`, 2026-11-11). ML049 was prepared and reviewed
-but never executed. Every consumed run, grant and candidate stays consumed.
+after a health-only continuation. The [SCM USB run](docs/reports/S22PLUS_MAINLINE_SCM_USB_RUN_2026-11-22.md)
+then observed the mainline SCM driver bound on the physical S22+. Its one
+original-A transfer and subsequent health-only continuation closed healthy.
+ML050 closed healthy on 2026-11-11. ML049 was prepared and reviewed but
+never executed. Every consumed run, grant and candidate stays consumed.
 
 **Proven on mainline (RAM only):** uniLoader entry, PID1 and USB/NCM;
 packaged Debian SysVinit as initial PID1; a fixed unprivileged same-boot SSH
