@@ -1,9 +1,11 @@
 # S20+ UniLoader Android F1 owner
 
-The first attended `SM-G986N / y2q / G986NKSS8IYC2` run ended
-`NO_PROOF_UNILOADER_ORIGINAL_ROOT_RETURNED`. Odin rejected the candidate AP
-before USB transfer. The original Magisk AP was restored, rooted Android
-returned healthy, and the FDT marker was absent on that returned boot.
+The corrected candidate AP transferred once on the exact
+`SM-G986N / y2q / G986NKSS8IYC2`. Candidate Android and its FDT
+marker remained unproved after the bounded observation. The operator
+entered physical Download and the owner restored the original Magisk
+boot. Fresh rooted Android passed, with its FDT marker absent.
+The terminal is `NO_PROOF_UNILOADER_ORIGINAL_ROOT_RETURNED`.
 [Binding target section](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-uniloader-android-compatibility-attended-f1)
 
 The [owner](../../workspace/public/src/scripts/revalidation/s20plus_g986n_uniloader_android_f1.py)
@@ -139,6 +141,31 @@ issued one journaled ADB Download request and qualified the new endpoint
 on the demonstrated recovery topology at 22:40:38 KST on November 22.
 The new prepared record SHA-256 is
 `cf8a28aa76e192e49fcf98a1f36107470fec31242bac0757c2f8dc5b0aa50b36`.
-The session holds the shared action guard and awaits its own attended
-approval, valid through 22:55:38 KST. Approval consumption, candidate
-transfer and rollback transfer are all absent from the new journal.
+The session held the shared action guard while awaiting its own attended
+approval. The operator returned the exact token before its 22:55:38 KST
+expiry.
+
+## Corrected AP result
+
+| KST on November 22 | Observed transition |
+| --- | --- |
+| 22:41:28 | Odin completed one boot-only transfer of the corrected candidate. Process quiescence passed. |
+| 22:44:30 | The 180-second candidate readiness window closed as `NO_PROOF`, with no qualified Android ADB, root capture, or FDT marker capture. The boot stage remains unknown. |
+| 22:50:36 | After the operator entered Download, the owner proved the exact endpoint on the prepared physical topology. |
+| 22:50:43 | Odin completed one transfer of the original Magisk AP. |
+| 22:51:30 | A fresh exact Android boot passed with Magisk 30.7, UID 0, and SELinux Enforcing. |
+| 22:51:32 | The same returned boot proved the FDT marker absent. The terminal was published and the shared S20+ guard released. |
+
+The candidate transfer SHA-256 is
+`6c5104ef742f935b55deef426184e6bd7caf65dd10ccf52288d95aeb985efef1`.
+The original rollback transfer SHA-256 is
+`f72afa1db597042c5a5b73d646722f3a835eb4735fab7f2b0be1fda94157d309`.
+The terminal SHA-256 is
+`76bd800582989b93bcd4b8404a901f62379a6a649a11a90f9e512fea2870d0e3`.
+The private close record SHA-256 is
+`850b288d571e609acebe82a7769e4a57f84b91fd8472197c92a52531f29a60bc`.
+
+Candidate and rollback transfer completions are one each. The exact
+candidate content claim remains consumed. Both transfer replays are
+forbidden. Recovery-partition operations and commands to other targets
+were zero.
