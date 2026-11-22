@@ -4493,3 +4493,49 @@ Known unavailability remains an observed channel status. A parse, capture
 or identity failure closes that invocation. This measures the FDT exported by
 the observed Android boot and authorizes no candidate, staging, reboot, partition access,
 or change to device or system configuration.
+
+## S20+ foreground Samsung log argument D0
+
+For the current operator-authorized SM-G986N/y2q/y2qksx/G986NKSS8IYC2
+mainline research task, the fixed read-only
+`workspace/public/src/scripts/revalidation/s20plus_g986n_sec_log_argument_d0.py`
+may compare the restored Android boot's effective and chosen Samsung kernel
+log arguments with the two numeric arguments to the retained normal IYC2
+LinuxLoader's sec_log formatter. That 2 MiB ring is distinct from the
+15 MiB XBL mapping and from the latter's overlap with the Kernel region.
+This foreground D0 ends with the task. It requires the canonical private
+activation for the exact owner, argument filter, health and session
+dependencies, authority section, common rules and risk tiers following a
+zero-finding independent PASS_GO. Existing profiles and receipts grant no
+activation for this owner. No attendance is required for this fixed read.
+After failure, a new prospective observation requires a fresh decision.
+
+The CLI accepts either host-only `--review-input` or one `--connected` read.
+Use the foreground FDT layout D0's exact ADB, stock/Magisk health requirements,
+target selection, unique USB port, pre/post inventory and public snapshots,
+and exclusion of shared or pending controls. Bind that authority section
+in the new owner identity. The six commands are inventory,
+selected devpath, public snapshot, the fixed root observation, the same
+snapshot, and final inventory. Recheck admission at dispatch. Only the verified
+current boot ID varies in the remote command. Health is checked internally
+before reading either source. Require the same completed enforcing Android
+boot at the end.
+
+The only argument sources are regular canonical `/proc/cmdline` in procfs
+and `/sys/firmware/devicetree/base/chosen/bootargs` in sysfs. Read at most
+8,193 bytes per source with fixed od, including one overflow sentinel.
+The existing digest-bound Magisk 30.7 BusyBox runs the fixed
+`workspace/public/src/mainline/s20plus_y2q_h0/sec_log_argument.awk`
+filter on the phone. Each result is one fixed classification of the Samsung
+argument before the kernel command-line separator, with its proper source
+terminator. Compare numeric size and base in the modeled unsigned 32-bit
+domain, accepting supported kernel number forms. Unmodeled and invalid
+syntax returns unsupported. Missing,
+unreadable, unsupported, absent, different and ambiguous are distinct.
+The root read has a 25-second deadline and a 2,048-byte combined-output bound.
+Publish only the bounded capture status, sizes and digests, sanitized binding
+and health, command counts and fixed classifications under
+`workspace/private/runs/s20plus-g986n-sec-log-argument-d0/`. Preserve the
+receipt before parsing and publish a terminal failure on invalid output.
+The capability observes this boot's arguments. It grants no log-body access,
+RAM access, stage-marker write, reboot or transfer.
