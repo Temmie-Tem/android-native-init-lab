@@ -31,3 +31,24 @@
 이 항목을 다시 열 근거는 이 기기·펌웨어에서 사용할 수 있는 복구 전이가 **부여 직후 강제 중단이나 반환 실패 후에도 해당 영역의 VMID 15 권한을 해제한다는 증거**, 또는 동일 영역의 잔여 권한을 독립적으로 확인하고 복원할 수 있는 검증된 경로다. Qualcomm의 공개 가이드는 전원이 꺼진 상태의 콜드 부팅 흐름을 설명한다. 이번 대상의 물리 Download 전환에서 같은 권한 초기화가 일어나는지는 확인되지 않았다. [Qualcomm APSS cold boot flow](https://docs.qualcomm.com/bundle/publicresource/topics/80-70022-4/bootloader-architecture.html)
 
 호스트 재검증 코드와 결과는 `workspace/private/analysis/s22plus-vmid15-recovery-h0-20261122-1/`의 `check.py`와 `result.json`에 있다. 여기에는 두 기기 트리, 모듈과 소스 해시, 실행한 분기와 결과, 이전 종료 기록 및 복구 AP의 참조가 있다. 이번 실기 권한 요청 횟수는 0이다.
+
+## FYG8 펌웨어와 리셋 기록의 후속 확인
+
+**강제 리셋 뒤 이 영역에서 VMID 15의 읽기·쓰기 권한이 해제되는지는 미확인이다.** P441에서 구분한 두 커널 부팅 사이에 펌웨어의 warm reset 표식이 있다. 원본 캡처에서 각 커널 구간의 길이·해시를 검증하고 주소 범위를 다시 비교했다. 양쪽 부팅 모두 대상 2.5 MiB 전체를 포함하는 구간을 Linux 하위 시스템 PROCA가 `System RAM`으로 기록했다. P445에서도 같은 RAM 분류와 뒤이은 warm reset 표식이 있다. 이 행들은 Linux가 열거한 메모리 범위를 알려준다. 이 영역에 대한 리셋 직전의 권한 부여나 직후의 펌웨어 소유자 목록은 어느 캡처에서도 식별되지 않았다. 직전 SCM 실기의 물리 Download·Android 복구는 별개의 실행이다. [P441 리셋 맥락](S22PLUS_AUTOBOOT_WATCHDOG_P441_RUN_2026-10-20.md) · [SCM 실기 종료](S22PLUS_MAINLINE_SCM_USB_RUN_2026-11-22.md)
+
+공장 ZIP에서 FYG8 BL을 다시 읽어 보존 해시와 대조했다. 압축을 해제한 7개 구성요소 중 HYP·TZ·XBL·ABL은 해당 FYG8 `vbmeta` 해시 디스크립터와도 일치했다. 7개 이미지의 평문 ASCII·UTF-16LE 진단 문자열을 확인한 범위에서는 해당 영역의 권한 회수를 명시한 리셋 기록을 얻지 못했다. 이 검사는 패키지 식별과 보이는 진단 문구에 한정되며 펌웨어 내부 실행 경로까지 배제하지 않는다. Qualcomm은 Gunyah 보호 VM의 메모리 내용이 warm reset 뒤 정리될 수 있다고 설명한다. 그 설명은 FYG8의 물리 Download 전환에서 이 RMTFS 영역의 VMID 15 권한이 철회된다는 보증을 제공하지 않는다. [Qualcomm의 Gunyah warm reset 설명](https://www.qualcomm.com/developer/blog/2024/08/learn-about-gunyah--qualcomm-s-open-source--lightweight-hypervis)
+
+### 순정 조회·회수 경로의 적용 범위
+
+FYD9 기준 소스와 FYG8 변경 아카이브의 해시를 기존 출처 기록과 대조했다. FYG8 `vendor_boot`의 AVB 해시 범위 안에서 램디스크를 읽어 `mem_buf`, `mem_buf_dev`, `gh_rm_drv`, `secure_buffer`, `msm_sharedmem` 모듈 5개가 보관본과 바이트 단위로 일치함을 확인했다. [Samsung 소스 배포본의 기준과 변경분](S22PLUS_FYG8_P319_FYD9_FYG8_USB_DELTA_CLOSURE_H0_2026-08-23.md)
+
+| 확인한 경로 | 이 영역에 대해 판정할 수 있는 범위 |
+| --- | --- |
+| DMA-BUF 단독 소유 조회 | 유효한 버퍼 파일 디스크립터가 필요하다. 실제 출하 모듈의 정상 반환 경로는 잠금 안에서 해당 버퍼 객체의 플래그가 0인지 검사한다. 이전 부팅에서 바뀐 페이지의 현재 펌웨어 권한을 독립적으로 판독하는 경로는 확인되지 않았다. |
+| DMA-BUF 회수 | 해당 객체가 대여·공유한 버퍼인지 확인하고 그 객체가 기록한 메모리 목록과 권한 정보로 회수한다. 메인라인 RMTFS의 직접 SCM 요청에서 순정 Android로 인계되는 DMA-BUF 객체를 식별하지 못했다. |
+| Gunyah 리소스 매니저 | 이미 등록된 메모리 묶음(memparcel)을 찾아 핸들을 얻고 그 핸들로 회수하는 경로가 있다. 선정한 메인라인 모듈의 외부 참조와 소스를 대조했을 때 이 요청에 대응하는 memparcel 등록을 찾지 못했고, 해당 묶음이 리셋 후에도 조회된다는 보관 증거도 없다. |
+| 순정 모뎀 UIO 드라이버 | 앞서 실측한 순정 버퍼는 다른 영역이다. 출하 모듈의 제거 함수에서는 UIO 장치 등록 해제만 확인됐다. |
+
+따라서 현재 자료로 검증한 조회·회수 경로는 이 고정 영역의 리셋 후 권한 복구를 입증하지 못한다. 권한이 유지된다는 판정도 내릴 수 없다. 다시 판단할 수 있는 근거는 FYG8의 해당 리셋 경로가 이 영역까지 포함해 권한을 초기화한다는 기기별 정책 또는 실행 기록, 혹은 동일 영역의 펌웨어 권한을 읽고 회수 결과를 확인한 기록이다. 실기 준비도 조회, 부팅 후보 활성화, 권한 요청은 수행하지 않았다.
+
+비공개 근거는 `workspace/private/analysis/s22plus-fyg8-reset-owner.xlvDep2g/`의 `firmware.json`, `sources.json`, `lifecycle-sources.json`, `result.json`에 있다. 결과 파일은 두 원본 리셋 캡처, 순정 진단 파일 5개와 직전 실기의 종료 기록을 연결한다.
