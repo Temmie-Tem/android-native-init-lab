@@ -1,7 +1,7 @@
 # Goal: S20+ G986N controlled onboarding
 
 Current research goal: establish a verified mainline handoff on the operator-owned SM-G986N/y2q. The [IYC2 placement and FDT investigation](docs/reports/S20PLUS_G986N_MAINLINE_HANDOFF_RESEARCH_2026-11-23.md) reproduced a pre-FDT alignment stop and qualified a separate aligned destination in QEMU.
-The next discriminator is a target-derived RAM, initrd and reservation map for first-fit validation against the actual kernel runtime extent.
+The successful IYC2 named-region EFI path yields one common aligned 4.5 MiB destination across six stock board trees. The next discriminator is whether the effective original-boot RAM banks, reservations and initrd admit that destination and the full source interval. See the [firmware and VM comparison](docs/reports/S20PLUS_G986N_MAINLINE_HANDOFF_RESEARCH_2026-11-23.md).
 
 This file records current state only. It grants no device authority. The
 binding target contract is
