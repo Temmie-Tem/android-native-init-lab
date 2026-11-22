@@ -50,9 +50,10 @@ blocker below, which changes the same files again.
    CLI, and the statement names the button and the time. The prepared typed
    command (`! …resolve…`) remains the fallback if the dialog cannot be shown.
    Codex's review (`97d9ba794e`) put the helper's adoption on hold for four
-   reasons. All four were fixed afterwards, and the helper now needs a
-   separate review. Until then, the direct cue and explicit `resolve` path
-   is used.
+   reasons, which were fixed in `efb2950fc5`. A separate Codex review of that
+   fix returned `HELPER_HOLD` with five further findings, all fixed
+   afterwards (see the agenda log). The helper needs a re-review. Until then,
+   the direct cue and explicit `resolve` path is used.
 4. **Fresh task.** That means a new task, D0, pre-approval audit and the exact
    approval line.
 
@@ -64,17 +65,17 @@ blocker below, which changes the same files again.
 | Approval and dispatch | operator, then assistant | The assistant dispatches and **ends its turn immediately**. No polling call stays open. |
 | W (window opens) | helper | Starts the Stage 0 host port watch on `3-1.3` and `2-1.3` (`<prep>/cue-dialog/host-port-watch/`). |
 | W+22 s (on the sealed BOOTTIME window) | helper | Calls the reviewed `issue`. The dialog is shown only when the call exits 0 and its stdout result is `CUE_RECORDED_DISPLAY_NOW`, and only when its cue receipt is this operation's `mainline-attach-cue.json` bound to this window. A refusal is retried only while no cue exists and more than 60 s remain. |
-| On the dialog | operator | Unplug the phone end for about 3 s and reconnect with the same cable, port and orientation. Press no phone buttons. Then click **다시 꽂았음**, or **취소** if the replug will not happen. **닫기**, Esc or closing the window record nothing, and the dialog reappears. |
-| Click | helper | Calls the reviewed `resolve completed` or `resolve cancelled`. The statement names the button, the wall time and the time relative to the sealed window. Success requires exit 0 and the receipt of `mainline-attach-resolution.json`. |
-| deadline − 8 s | helper | The dialog closes if nothing was clicked. Nothing is resolved, and the owner's interlock handles the attempt as before. |
+| On the dialog | operator | The dialog shows the reviewed instruction verbatim. Unplug the phone end **once** for about 3 s and reconnect with the same cable, port and orientation. Press no phone buttons and do not repeat. Then click **다시 꽂았음**, or **취소** if the replug will not happen. **닫기**, Esc or closing the window record nothing; the dialog reappears with a warning not to replug again. Before each display the helper checks that the step is current and that no resolution, closure or recovery fence exists. |
+| Click | helper | Rechecks the same conditions, then calls the reviewed `resolve completed` or `resolve cancelled`. The statement names the button and the time the helper observed it (wall time and W+ on the sealed window). Success requires exit 0 and the receipt of `mainline-attach-resolution.json`. Zenity runs without `ZENITY_*` exit-code overrides. |
+| deadline − 8 s | helper | The dialog closes if nothing was clicked, and a button observed after this point is discarded. Nothing is resolved, and the owner's interlock handles the attempt as before. |
 | After the base response | owner | `close_issuance` needs the resolution before W+120 s. In ML052 the replug at about W+27 s gave the base response at W+75.7 s, so a prompt click leaves about 40 s of margin. |
 
 The helper only calls `s22plus_mainline_attach_cue_v1.py issue|resolve` with
 `--capture-directory`. It never writes operation records, never touches
 USB/ADB and opens no grant. Its exit codes:
 - 0: resolved;
-- 2: cue not possible;
-- 3: no window;
+- 2: cue not possible, or the cue stopped being open (step ended, fenced, resolved elsewhere);
+- 3: no window, or a window of another operation or host boot;
 - 4: dialog timeout;
 - 5: resolve failed.
 

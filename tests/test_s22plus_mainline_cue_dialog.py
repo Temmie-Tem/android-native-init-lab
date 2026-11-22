@@ -2,9 +2,12 @@
 from pathlib import Path
 import argparse
 import json
+import os
 import sys
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'workspace/public/src/scripts/host_tools'))
@@ -27,7 +30,7 @@ class Harness:
     def __init__(self, op, *, start, issue=('ok',), dialogs=((0, ''),), resolve='ok'):
         self.op, self.t, self.calls = op, start, []
         self.issue, self.dialogs, self.resolve = list(issue), list(dialogs), resolve
-        self.dialog_timeouts = []
+        self.dialog_timeouts, self.dialog_texts, self.dialog_envs = [], [], []
 
     def clock(self):
         return self.t
@@ -41,14 +44,24 @@ class Harness:
         if argv[0] == 'paplay':
             return FakeProc(0)
         if argv[0] == 'zenity':
-            self.dialog_timeouts.append(int(argv[argv.index('--timeout') + 1]))
-            code, out = self.dialogs.pop(0)
-            self.t += 5 * NS
+            timeout = int(argv[argv.index('--timeout') + 1])
+            self.dialog_timeouts.append(timeout)
+            self.dialog_texts.append(argv[argv.index('--text') + 1])
+            self.dialog_envs.append(kw.get('env'))
+            code, out, *rest = self.dialogs.pop(0)
+            advance = rest[0] if rest else min(5, timeout)  # zenity closes itself at --timeout
+            if len(rest) > 1:
+                rest[1](self)
+            self.t += int(advance * NS)
             return FakeProc(code, out)
         verb = argv[2]
         window = pin(self.op / 'io-mainline-evidence/window.json')
         if verb == 'issue':
             mode = self.issue.pop(0)
+            if mode == 'timeout':
+                raise subprocess.TimeoutExpired(argv, 45)
+            if mode == 'non-object':
+                return FakeProc(0, json.dumps({'raw_capture': {}, 'result': ['CUE_RECORDED_DISPLAY_NOW']}))
             if mode == 'refused-with-text':
                 return FakeProc(1, '', json.dumps({'status': 'CUE_CALL_REFUSED',
                                                    'diagnostics': {'note': 'CUE_RECORDED_DISPLAY_NOW'}}))
@@ -56,7 +69,8 @@ class Harness:
             if mode == 'wrong-receipt':
                 cue = dict(cue, sha256='0' * 64)
             return FakeProc(0, json.dumps({'raw_capture': {}, 'result': {
-                'status': 'CUE_RECORDED_DISPLAY_NOW', 'instruction': 'replug', 'cue': cue}}))
+                'status': 'CUE_RECORDED_DISPLAY_NOW', 'instruction': 'REVIEWED-INSTRUCTION do not repeat',
+                'cue': cue}}))
         if verb == 'resolve':
             self.resolution = (argv[4], argv[5])
             res = publish(self.op / 'mainline-attach-resolution.json', dict(resolution=argv[4]))
@@ -97,7 +111,8 @@ class CueDialogTests(unittest.TestCase):
         self.assertEqual(self.go(late), 0)
         # issued at once, and the dialog still closes 8 s before the real deadline
         self.assertEqual(late.dialog_timeouts, [int((DEADLINE - 8 * NS - (OPENED + 40 * NS)) / NS)])
-        self.assertIn('W+45.0 s', late.resolution[1])  # click 5 s after the dialog opened
+        self.assertIn('W+45.0 s', late.resolution[1])  # button observed 5 s after the dialog opened
+        self.assertIn('observed the button', late.resolution[1])
 
     def test_explicit_buttons_and_close_or_expiry(self):
         h = Harness(self.op, start=OPENED, dialogs=[(1, '취소\n')])
@@ -118,7 +133,7 @@ class CueDialogTests(unittest.TestCase):
     def test_close_never_extends_past_deadline_minus_margin(self):
         h = Harness(self.op, start=OPENED, dialogs=[(1, '')] * 40)
         self.assertEqual(self.go(h), 4)
-        self.assertLessEqual(h.t, DEADLINE - 8 * NS + 5 * NS)
+        self.assertLessEqual(h.t, DEADLINE - 8 * NS)
         self.assertFalse(any(c[2] == 'resolve' for c in h.calls if len(c) > 2))
 
     def test_only_the_current_step_opens_the_window(self):
@@ -148,8 +163,50 @@ class CueDialogTests(unittest.TestCase):
         (self.op / 'io-mainline-evidence/window.json').unlink()
         publish(self.op / 'io-mainline-evidence/window.json', dict(operation=pin(self.op.parent / 'other.json'),
                 host_boot=host_boot(), opened_ns=OPENED, deadline_ns=DEADLINE))
-        with self.assertRaisesRegex(ValueError, 'another operation'):
-            self.go(Harness(self.op, start=OPENED))
+        h = Harness(self.op, start=OPENED)
+        self.assertEqual(self.go(h), 3)  # structured exit, no traceback
+        self.assertEqual(h.calls, [])
+
+    def test_a_button_returned_after_the_cutoff_is_discarded(self):
+        h = Harness(self.op, start=OPENED, dialogs=[(0, '', 200)])  # zenity hung past its own timeout
+        self.assertEqual(self.go(h), 4)
+        self.assertFalse(any(len(c) > 2 and c[2] == 'resolve' for c in h.calls))
+
+    def test_zenity_exit_code_overrides_are_stripped(self):
+        with mock.patch.dict(os.environ, {'ZENITY_CANCEL': '0', 'ZENITY_ESC': '0', 'ZENITY_TIMEOUT': '0'}):
+            h = Harness(self.op, start=OPENED)
+            self.assertEqual(self.go(h), 0)
+        self.assertTrue(h.dialog_envs and all(e is not None and not any(k.startswith('ZENITY_') for k in e)
+                                              for e in h.dialog_envs))
+
+    def test_stale_prompt_is_never_shown_or_resolved(self):
+        fence = lambda h: publish(self.op / 'mainline-attach-recovery.json', {'operation': 'fenced'})
+        h = Harness(self.op, start=OPENED, dialogs=[(1, '', 5, fence), (0, '')])
+        self.assertEqual(self.go(h), 2)  # recovery fenced while open: no reopening
+        self.assertEqual(len(h.dialog_timeouts), 1)
+        (self.op / 'mainline-attach-recovery.json').unlink()
+        (self.op / 'mainline-attach-cue.json').unlink()
+        other = lambda h: publish(self.op / 'mainline-attach-resolution.json', {'resolution': 'elsewhere'})
+        h = Harness(self.op, start=OPENED, dialogs=[(0, '', 5, other)])
+        self.assertEqual(self.go(h), 2)  # resolved by another caller before the click: no resolve
+        self.assertFalse(any(len(c) > 2 and c[2] == 'resolve' for c in h.calls))
+
+    def test_dialog_carries_the_reviewed_instruction_and_warns_on_reopen(self):
+        h = Harness(self.op, start=OPENED, dialogs=[(1, ''), (0, '')])
+        self.assertEqual(self.go(h), 0)
+        first, again = h.dialog_texts
+        self.assertIn('REVIEWED-INSTRUCTION do not repeat', first)
+        self.assertIn('반복하지 마세요', first)
+        self.assertTrue(again.startswith(cd.AGAIN) and not first.startswith(cd.AGAIN))
+
+    def test_malformed_or_timed_out_issue_never_displays(self):
+        h = Harness(self.op, start=OPENED, issue=['non-object', 'ok'])
+        self.assertEqual(self.go(h), 0)  # non-object result is a refusal, retried while no cue
+        for f in ('mainline-attach-cue.json', 'mainline-attach-resolution.json'):
+            (self.op / f).unlink()
+        h = Harness(self.op, start=OPENED, issue=['timeout', 'ok'])
+        self.assertEqual(self.go(h), 0)
+        self.assertEqual(len(self.issued_at(h)), 2)
 
     def test_only_reviewed_tool_is_called(self):
         h = Harness(self.op, start=OPENED)
