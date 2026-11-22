@@ -1,6 +1,6 @@
 # Goal: S20+ G986N controlled onboarding
 
-Current research goal: establish a physically verified mainline handoff on the SM-G986N/y2q. The [handoff investigation](docs/reports/S20PLUS_G986N_MAINLINE_HANDOFF_RESEARCH_2026-11-23.md) reaches Linux 6.18 device-tree verification and unflatten return in QEMU using the incoming stock board description.
+Current research goal: establish a physically verified mainline handoff on the SM-G986N/y2q. The [handoff investigation](docs/reports/S20PLUS_G986N_MAINLINE_HANDOFF_RESEARCH_2026-11-23.md) traces the IYC2 firmware’s final ARM64 call through the y2q Linux 6.18 FDT and populated-root markers in QEMU with modeled firmware inputs.
 The exact Linux stage AP (6ba1cf82) and original Magisk rollback (1b33d098) have a reviewed and activated attended owner. Its host qualification and post-activation checks passed. Current attendance is needed for connected preparation, then the separate 900-second grant for candidate transfer. Physical Linux entry, first-return retained stages and PID 1 remain unproved.
 
 This file records current state only. It grants no device authority. The
