@@ -77,14 +77,15 @@ class FakeDialog:
 class Harness:
     """Fake BOOTTIME clock and fake processes; records are real files."""
 
-    def __init__(self, op, *, start, issue=('ok',), dialogs=((0, ''),), resolve='ok', jitter=0, row_cost=0):
+    def __init__(self, op, *, start, issue=('ok',), dialogs=((0, ''),), resolve='ok', jitter=0, row_cost=0,
+                 exec_delay=0):
         self.op, self.t, self.calls, self.killed = op, start, [], []
         self.issue, self.dialogs, self.resolve = list(issue), list(dialogs), resolve
         self.dialog_timeouts, self.dialog_texts, self.dialog_envs = [], [], []
         self.resolution = None
         self.journal_broken = False
         self.jitter, self.row_cost = jitter, row_cost  # wake-up latency; journal validation cost
-        self.spawn_kw = []
+        self.spawn_kw, self.exec_delay = [], exec_delay  # fork-to-exec pause, checked by the child guard
 
     def clock(self):
         return self.t
@@ -99,6 +100,11 @@ class Harness:
         self.dialog_texts.append(argv[argv.index('--text') + 1])
         self.dialog_envs.append(kw.get('env'))
         self.spawn_kw.append(kw)
+        guard = kw['preexec_fn']
+        self.t += self.exec_delay
+        if self.t > guard.exec_by_ns:  # what child_guard does in the forked child
+            self.refused_exec = getattr(self, 'refused_exec', 0) + 1
+            return FakeDialog(self, argv, (126, '', 0))
         return FakeDialog(self, argv, self.dialogs.pop(0))
 
     def runner(self, argv, **kw):
@@ -315,6 +321,22 @@ class CueDialogTests(unittest.TestCase):
         self.assertEqual(self.go(h), 4)  # alive at the cutoff: killed, nothing recorded
         self.assertEqual(self.resolved_calls(h), [])
 
+    def test_a_button_the_dialog_returned_just_after_the_cutoff_is_kept(self):
+        late = (1, '취소', ('abs', CUTOFF + 1), None, 0, True)  # exits right after the cutoff, before the late poll
+        hung = (0, '', 999, None, 0, True)
+        # 21 ms wake latency keeps polls off the cutoff, so the first post-cutoff wake comes after the exit
+        h = Harness(self.op, start=OPENED, dialogs=[hung, late], jitter=int(0.021 * NS))
+        self.assertEqual(self.go(h), 0)  # an explicit answer, timestamped honestly; resolver takes late evidence
+        self.assertEqual(h.resolution[0], 'cancelled')
+        self.assertIn('W+112.0 s', h.resolution[1])
+
+    def test_the_child_refuses_a_late_instruction_launch(self):
+        h = Harness(self.op, start=DEADLINE - int(61.05 * NS), exec_delay=int(1.1 * NS))
+        self.go(h)  # parent checks pass at 61.05 s; the exec would land at 59.95 s
+        self.assertEqual(getattr(h, 'refused_exec', 0), 1)
+        self.assertEqual(h.dialog_texts and len(h.dialog_texts), 1)
+        self.assertEqual(self.resolved_calls(h), [])
+
     def test_the_sixty_second_check_is_sampled_after_validation(self):
         h = Harness(self.op, start=DEADLINE - int(61.05 * NS), row_cost=int(0.1 * NS))
         self.assertEqual(self.go(h), 2)  # 61.05 s before validation, 60.95 s after: suppressed
@@ -323,7 +345,13 @@ class CueDialogTests(unittest.TestCase):
     def test_zenity_dies_with_the_helper(self):
         h = Harness(self.op, start=OPENED)
         self.assertEqual(self.go(h), 0)
-        self.assertTrue(all(kw.get('preexec_fn') is cd._die_with_parent for kw in h.spawn_kw))
+        self.assertTrue(all(kw['preexec_fn'].parent_pid == os.getpid() for kw in h.spawn_kw))
+        # the real guard in real forked children (it never runs in this process)
+        now = cd.boottime()
+        run = lambda guard: subprocess.run([sys.executable, '-c', 'pass'], preexec_fn=guard).returncode
+        self.assertEqual(run(cd.child_guard(os.getpid(), now + 30 * NS)), 0)
+        self.assertEqual(run(cd.child_guard(os.getpid(), now - NS)), 126)  # launched too late
+        self.assertEqual(run(cd.child_guard(os.getpid() + 999999, now + 30 * NS)), 127)  # parent gone
         with self.assertRaises(SystemExit):
             cd._terminate_cleanly(15, None)
         seen = {}

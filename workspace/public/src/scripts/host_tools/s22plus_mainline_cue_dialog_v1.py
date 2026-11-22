@@ -30,13 +30,15 @@ helper noticed the journal:
 6. buttons: **다시 꽂았음** -> `resolve completed`; **취소** -> `resolve
    cancelled`; **닫기**, Esc, window close and timeout record nothing. The
    dialog is killed at deadline - 8 s (polling wakes exactly at the cutoff;
-   every exit path, including an exception, kills and reaps it) and a button
-   observed later is discarded. A dialog that exits on its own while being
-   withdrawn keeps its answer, and a natural exit found by the first poll at
-   the cutoff is in time. An instruct dialog withdrawn within 2 s of launch
-   counts as never shown. The 60 s check is sampled after the other checks
-   with a 1 s launch margin. Zenity dies with the helper (PR_SET_PDEATHSIG),
-   and SIGTERM/SIGHUP/SIGINT unwind through the cleanup. Zenity gets an
+   every exit path, including an exception, kills and reaps it). That cutoff
+   bounds display only: a button the dialog itself returned is recorded with
+   its observed time (the reviewed resolver accepts late resolution as
+   evidence); a killed dialog carries no answer. An instruct dialog withdrawn
+   within 2 s of launch counts as never shown. The 60 s check is sampled
+   after the other checks with a 1 s launch margin, and again inside the
+   forked child just before exec (CLOCK_BOOTTIME), which also refuses if the
+   helper already died and sets PR_SET_PDEATHSIG. SIGTERM/SIGHUP/SIGINT
+   unwind through the cleanup. Zenity gets an
    allow-listed environment, so no `ZENITY_*` or `DIALOG_*` exit-code
    override reaches it;
 7. a click is recorded only while the cue exists with no resolution or
@@ -84,6 +86,7 @@ MARGIN_NS = 8_000_000_000
 MIN_REMAINING_NS = 60_000_000_000
 MIN_SEEN_NS = 2_000_000_000
 SPAWN_MARGIN_NS = 1_000_000_000  # an instruction needs > 60 s left after this much launch time
+EXEC_BUDGET_NS = 500_000_000  # the child refuses to exec zenity later than this after the parent's checks
 POLL_S = 0.2
 NS = 1_000_000_000
 
@@ -175,25 +178,41 @@ def zenity_env(environ=None):
     return {k: v for k, v in environ.items() if k in ENV_ALLOW or k.startswith('LC_')}
 
 
-def _die_with_parent():
-    """Child pre-exec: zenity gets SIGKILL if the helper dies by any means (Linux prctl)."""
-    try:
-        ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0)  # PR_SET_PDEATHSIG
-    except (OSError, AttributeError):
-        pass
+def child_guard(parent_pid, exec_by_ns):
+    """Pre-exec check run *inside* the forked child, the last point before zenity exists.
+
+    1. PR_SET_PDEATHSIG=SIGKILL, so zenity dies with the helper; refuse if prctl fails.
+    2. Refuse if the helper already died between fork and step 1 (getppid changed).
+    3. Refuse if CLOCK_BOOTTIME is past `exec_by_ns` (a pause after the parent's checks)."""
+    def guard():
+        try:
+            if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0:
+                os._exit(125)
+        except (OSError, AttributeError):
+            os._exit(125)
+        if os.getppid() != parent_pid:
+            os._exit(127)
+        if time.clock_gettime_ns(time.CLOCK_BOOTTIME) > exec_by_ns:
+            os._exit(126)
+    guard.parent_pid, guard.exec_by_ns = parent_pid, exec_by_ns
+    return guard
 
 
 def _terminate_cleanly(signum, frame):
     raise SystemExit(128 + signum)  # unwinds through dialog_once's finally, which kills zenity
 
 
-def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
+def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, zenity='zenity'):
     """(choice, observed_ns, wall, alive_ns).
 
-    choice: completed / cancelled / dismissed / expired / withdrawn. The dialog
-    is killed at `cutoff_ns` or as soon as `keep()` turns false or raises
-    ('withdrawn'); a button observed after `cutoff_ns` is 'expired'. A dialog
-    that exited on its own just before the kill keeps its own answer."""
+    choice: completed / cancelled / dismissed / expired / withdrawn.
+    `cutoff_ns` bounds *display*: the dialog is killed there, or as soon as
+    `keep()` turns false or raises ('withdrawn'). A button the dialog itself
+    returned is the operator's explicit answer and is kept with its observed
+    time, even if that poll ran just after the cutoff: the cutoff is this
+    helper's own screen margin (deadline - 8 s), not a policy boundary, and the
+    reviewed resolver accepts late resolution as evidence. Only a dialog that
+    had to be killed carries no answer. `exec_by_ns` is enforced in the child."""
     def stamp():
         return clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
 
@@ -213,14 +232,14 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
             '--timeout', str(int(remaining))]
     try:
         p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env(),
-                  preexec_fn=_die_with_parent)
+                  preexec_fn=child_guard(os.getpid(), min(exec_by_ns, clock() + EXEC_BUDGET_NS)))
     except OSError:
         return ('expired', *stamp(), 0)
     started = clock()
-    forced, alive_seen = None, started
+    forced = None
     try:
         while p.poll() is None:
-            now = alive_seen = clock()
+            now = clock()
             if now >= cutoff_ns:
                 forced = 'expired'
             elif not keeping():
@@ -239,12 +258,6 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
     if forced and p.returncode < 0:
         return forced, observed, wall, alive
     out = (p.stdout.read() if p.stdout else '').strip()
-    # A natural exit is found by the poll that wakes at (or just after) the
-    # cutoff at the latest; it was still alive at `alive_seen` < cutoff, so the
-    # button came before the cutoff (plus scheduler latency). Only a process
-    # already seen alive at/after the cutoff is late, and that one was killed.
-    if alive_seen >= cutoff_ns:
-        return 'expired', observed, wall, alive
     if p.returncode == 0 and not out:
         return 'completed', observed, wall, alive
     if p.returncode == 1 and out == CANCEL_LABEL:
@@ -343,7 +356,9 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
             keep = lambda: record_ok(op) and instruct_ok(op, live_rows(), deadline, clock)
         else:
             text, keep = REPORT, lambda: record_ok(op)
-        choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep)
+        # instruct: the child refuses to exec once 60 s or less remain (the policy's final check)
+        exec_by = deadline - MIN_REMAINING_NS if mode == 'instruct' else cutoff - NS
+        choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep, exec_by)
         if choice != 'withdrawn' or alive >= MIN_SEEN_NS:
             shown += 1  # a dialog killed within 2 s of launch is treated as never seen
         log('DIALOG', mode, choice, f'observed W+{(observed - opened) / NS:.1f}s alive {alive / NS:.1f}s')
