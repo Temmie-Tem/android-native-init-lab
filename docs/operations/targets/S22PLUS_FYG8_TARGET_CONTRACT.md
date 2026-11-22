@@ -315,6 +315,15 @@ original observation window, bounded physical attach condition, separate
 physical Download/original-A return, final health and consumed no-replay rules.
 It is mutually exclusive with `entry_park`; preparation alone is H0.
 
+The [one attended SCM binding observation](../S22PLUS_MAINLINE_SCM_USB_V1.md)
+adopts the exact qualified moduleless Debian RAM image specified there. Its
+SCM platform probe, wait-queue handling, shared-memory bridge, dump/debug
+configuration, QTEE query and dependent platform initialization have the
+closed scope of that policy. It uses the existing fixed foreground preapproval
+D0, one finite attended mainline RAM operation, one authenticated USB
+observation and physical Download for the original-A return. Exact source
+review, current identity, usable recovery and final Android health apply.
+
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive
 public-key session executing a fixed UID/GID 1000 command. Its complete signed
