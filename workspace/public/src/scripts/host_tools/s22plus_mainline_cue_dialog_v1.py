@@ -14,19 +14,28 @@ helper noticed the journal:
 3. at window open + 22 s, call `issue`; display only when the call exits 0,
    its stdout object says `CUE_RECORDED_DISPLAY_NOW` with an instruction, and
    its cue receipt equals the operation's `mainline-attach-cue.json`, which in
-   turn binds this window. A refusal is retried only while no cue exists and
-   more than 60 s of the window remain;
-4. show a dialog carrying the reviewed instruction verbatim (one replug, do
-   not repeat) with three buttons. **다시 꽂았음** -> `resolve completed`;
-   **취소** -> `resolve cancelled`; **닫기**, Esc or closing the window record
-   nothing. The dialog reappears while time remains, saying not to replug
-   again. Before every (re)display and before `resolve`, the step must still
-   be current with no resolution, closure or recovery fence published. A
-   button returned after deadline - 8 s is discarded. Zenity runs with its
-   exit-code overrides (`ZENITY_*`) stripped from the environment;
-5. a click is recorded only when `resolve` exits 0 and returns the receipt of
-   the operation's `mainline-attach-resolution.json`. The statement says when
-   the helper *observed* the button (sampled as the dialog returned).
+   turn binds this window. A refusal (the call returned non-zero) is retried
+   only while no cue exists and more than 60 s of the window remain. A call
+   whose outcome is uncertain (timed out or could not start) is never retried;
+4. **instruct** mode shows the reviewed instruction verbatim (one replug, do
+   not repeat). It is allowed only while the step is current, no resolution,
+   closure or recovery fence exists, and more than 60 s of the window remain
+   (the policy's display suppression). Reopening after 닫기 adds a warning not
+   to replug again;
+5. once an instruction has been shown, if instruct conditions fail, the
+   dialog (including one already on screen, which is replaced) switches to
+   **report** mode: it asks for no physical action, only whether the earlier
+   replug happened. A report remains valid after owner stop or a recovery
+   fence because the reviewed resolver accepts evidence then;
+6. buttons: **다시 꽂았음** -> `resolve completed`; **취소** -> `resolve
+   cancelled`; **닫기**, Esc, window close and timeout record nothing. The
+   dialog is killed at deadline - 8 s and a button observed later is
+   discarded. Zenity gets an allow-listed environment, so no `ZENITY_*` or
+   `DIALOG_*` exit-code override reaches it;
+7. a click is recorded only while the cue exists with no resolution or
+   closure, and counts only when `resolve` exits 0 and returns the receipt of
+   `mainline-attach-resolution.json`. The statement gives the time the helper
+   *observed* the button and which mode the dialog was in.
 
 The operator accepted an explicit click as their resolution (2026-11-22).
 This helper still needs its own review before an attended run uses it.
@@ -53,7 +62,13 @@ TEXT = ('폰 쪽 USB 케이블을 한 번만 약 3초 뽑았다가 같은 케이
         '폰 버튼은 누르지 마세요. 반복하지 마세요.\n'
         '끝나면 [다시 꽂았음], 하지 않을 거면 [취소]. [닫기]는 아무것도 기록하지 않습니다.')
 AGAIN = '이 창이 다시 떴습니다. 이미 다시 꽂았다면 또 하지 말고 버튼만 누르세요.\n'
-STOP_RECORDS = ('mainline-attach-resolution.json', 'mainline-attach-closed.json', 'mainline-attach-recovery.json')
+REPORT = ('지금은 케이블을 새로 뽑거나 꽂지 마세요.\n'
+          '앞서 안내에 따라 이미 다시 꽂았다면 [다시 꽂았음], 하지 않았다면 [취소]를 누르세요. '
+          '[닫기]는 아무것도 기록하지 않습니다.')
+RESOLUTION, CLOSED, FENCE = ('mainline-attach-resolution.json', 'mainline-attach-closed.json',
+                             'mainline-attach-recovery.json')
+ENV_ALLOW = ('PATH', 'HOME', 'USER', 'LOGNAME', 'LANG', 'LANGUAGE', 'DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY',
+             'XDG_RUNTIME_DIR', 'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'DBUS_SESSION_BUS_ADDRESS')
 OK_LABEL, CANCEL_LABEL, CLOSE_LABEL = '다시 꽂았음', '취소', '닫기'
 SOUND = '/usr/share/sounds/freedesktop/stereo/complete.oga'
 MARGIN_NS = 8_000_000_000
@@ -102,14 +117,21 @@ def issue_display(operation, window_pin, code, stdout):
     return read(verify(result['cue'])).get('window') == window_pin
 
 
-def still_open(operation, rows):
-    """The cue may still be acted on: step current, nothing resolved, closed or fenced."""
+def instruct_ok(operation, rows, deadline, now):
+    """A physical instruction may be shown: step current, nothing settled or fenced, > 60 s left."""
     try:
         if current_window(operation, rows) is None:
             return False
     except ValueError:
         return False
-    return not any((Path(operation) / name).exists() for name in STOP_RECORDS)
+    op = Path(operation)
+    return deadline - now > MIN_REMAINING_NS and not any((op / n).exists() for n in (RESOLUTION, CLOSED, FENCE))
+
+
+def record_ok(operation):
+    """An observed answer may still be recorded (the resolver decides the rest)."""
+    op = Path(operation)
+    return (op / 'mainline-attach-cue.json').is_file() and not (op / RESOLUTION).exists() and not (op / CLOSED).exists()
 
 
 def resolved(operation, code, stdout):
@@ -119,12 +141,12 @@ def resolved(operation, code, stdout):
         result = json.loads(stdout)['result']
     except (ValueError, KeyError, TypeError):
         return False
-    path = Path(operation) / 'mainline-attach-resolution.json'
+    path = Path(operation) / RESOLUTION
     return path.is_file() and result == pin(path)
 
 
 def call(argv, run):
-    """(code, stdout, stderr); code None when the call timed out or could not start."""
+    """(code, stdout, stderr); code None when the outcome is uncertain (timed out / did not start)."""
     try:
         p = run(argv, capture_output=True, text=True, timeout=45)
     except (OSError, subprocess.TimeoutExpired) as e:
@@ -132,26 +154,42 @@ def call(argv, run):
     return p.returncode, p.stdout or '', p.stderr or ''
 
 
-def zenity_env():
-    return {k: v for k, v in os.environ.items() if not k.startswith('ZENITY_')}
+def zenity_env(environ=None):
+    environ = os.environ if environ is None else environ
+    # allow-list: zenity also honours DIALOG_* aliases, so a deny-list is not enough
+    return {k: v for k, v in environ.items() if k in ENV_ALLOW or k.startswith('LC_')}
 
 
-def dialog_once(text, cutoff_ns, run, clock, zenity='zenity'):
-    """(choice, observed_ns, wall). choice: completed / cancelled / dismissed / expired.
+def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
+    """(choice, observed_ns, wall). choice: completed / cancelled / dismissed / expired / withdrawn.
 
-    A result observed after `cutoff_ns` is 'expired' whatever the button."""
-    timeout_s = (cutoff_ns - clock()) / NS
+    The dialog is killed at `cutoff_ns`, or as soon as `keep()` turns false
+    ('withdrawn'). A button observed after `cutoff_ns` is 'expired'."""
+    remaining = (cutoff_ns - clock()) / NS
+    if remaining < 1:
+        return 'expired', clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
     argv = [zenity, '--question', '--title', TITLE, '--text', text, '--ok-label', OK_LABEL,
             '--cancel-label', CLOSE_LABEL, '--extra-button', CANCEL_LABEL, '--width', '520',
-            '--timeout', str(max(1, int(timeout_s)))]
+            '--timeout', str(int(remaining))]
     try:
-        p = run(argv, capture_output=True, text=True, timeout=max(1, timeout_s) + 2, env=zenity_env())
-    except (OSError, subprocess.TimeoutExpired):
-        p = None
+        p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env())
+    except OSError:
+        return 'expired', clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
+    outcome = None
+    while p.poll() is None:
+        if clock() >= cutoff_ns:
+            outcome = 'expired'
+        elif not keep():
+            outcome = 'withdrawn'
+        if outcome:
+            p.kill()
+            p.wait()
+            return outcome, clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
+        sleep(0.2)
     observed, wall = clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
-    if p is None or observed > cutoff_ns:
+    out = (p.stdout.read() if p.stdout else '').strip()
+    if observed > cutoff_ns:
         return 'expired', observed, wall
-    out = (p.stdout or '').strip()
     if p.returncode == 0 and not out:
         return 'completed', observed, wall
     if p.returncode == 1 and out == CANCEL_LABEL:
@@ -161,17 +199,18 @@ def dialog_once(text, cutoff_ns, run, clock, zenity='zenity'):
     return 'expired', observed, wall  # 5 = zenity timeout; anything else is not a choice
 
 
-def statement(choice, window, observed_ns, wall):
+def statement(choice, window, observed_ns, wall, mode):
     label = OK_LABEL if choice == 'completed' else CANCEL_LABEL
+    shown = ('the reviewed cue instruction (one phone-end disconnect ~3 s, same cable/port/orientation, '
+             'no buttons, do not repeat)' if mode == 'instruct' else
+             'a report-only prompt asking whether the earlier instructed replug happened, with no new action')
     return (f'Operator clicked "{label}" in the attended cue dialog; the helper observed the button '
             f'at {wall} (W+{(observed_ns - window["opened_ns"]) / NS:.1f} s on the sealed observation window, '
-            'sampled when the dialog returned; the click itself is at or before that). Instruction shown: '
-            'the reviewed cue instruction, one phone-end disconnect ~3 s, same cable/port/orientation, '
-            'no buttons, do not repeat.')
+            f'sampled when the dialog returned; the click itself is at or before that). Dialog showed {shown}.')
 
 
-def run(args, *, rows=journal_rows, runner=subprocess.run, sleep=time.sleep, clock=boottime,
-        wait_clock=time.monotonic, notify=True):
+def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Popen, sleep=time.sleep,
+        clock=boottime, wait_clock=time.monotonic, notify=True):
     op, caps = Path(args.operation), Path(args.captures)
     caps.mkdir(mode=0o700, parents=True, exist_ok=True)
     give_up = wait_clock() + args.wait_limit
@@ -202,11 +241,8 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, sleep=time.sleep, clo
         sleep(wait / NS)
     attempt = 0
     while True:
-        if not still_open(op, rows(op)):
-            log('WINDOW_STEP_ENDED')
-            return 2
-        if deadline - clock() <= MIN_REMAINING_NS:
-            log('CUE_WINDOW_PASSED')
+        if not instruct_ok(op, rows(op), deadline, clock()):
+            log('CUE_NOT_ISSUABLE')  # step ended, fenced, settled, or 60 s or less left
             return 2
         attempt += 1
         cap = caps / ('cue-issue-raw' if attempt == 1 else f'cue-issue-raw-{attempt}')
@@ -218,6 +254,9 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, sleep=time.sleep, clo
         if issue_display(op, window_pin, code, out):
             instruction = json.loads(out)['result']['instruction']
             break
+        if code is None:
+            log('ISSUE_OUTCOME_UNCERTAIN', cap)  # never replay while execution is uncertain
+            return 2
         if (op / 'mainline-attach-cue.json').exists():
             log('CUE_EXISTS_NOT_DISPLAYED')  # never re-issue or infer a physical action
             return 2
@@ -228,30 +267,38 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, sleep=time.sleep, clo
         except (OSError, subprocess.TimeoutExpired):
             pass
     cutoff = deadline - MARGIN_NS
-    text = f'{TEXT}\n\n검토된 지시: {instruction}'
-    shown = 0
+    instruct_text = f'{TEXT}\n\n검토된 지시: {instruction}'
+    mode, shown = 'instruct', 0
     while True:
-        if not still_open(op, rows(op)):
-            log('CUE_NO_LONGER_OPEN')  # owner stopped, recovery fenced, or already resolved
+        if not record_ok(op):
+            log('CUE_SETTLED_ELSEWHERE')  # resolved or closed by the owner: nothing to ask
             return 2
-        if cutoff - clock() < NS:
-            log('NO_RESOLUTION_RECORDED')
-            return 4
-        choice, observed, wall = dialog_once(text if not shown else AGAIN + text, cutoff, runner, clock)
+        if mode == 'instruct' and not instruct_ok(op, rows(op), deadline, clock()):
+            if not shown:
+                log('CUE_DISPLAY_SUPPRESSED')  # nothing was shown; the cue stays for the typed fallback
+                return 2
+            mode = 'report'
+            log('DIALOG_MODE report')
+        if mode == 'instruct':
+            text = instruct_text if not shown else AGAIN + instruct_text
+            keep = lambda: record_ok(op) and instruct_ok(op, rows(op), deadline, clock())
+        else:
+            text, keep = REPORT, lambda: record_ok(op)
+        choice, observed, wall = dialog_once(text, cutoff, spawn, clock, sleep, keep)
         shown += 1
-        log('DIALOG', choice, f'observed W+{(observed - opened) / NS:.1f}s')
+        log('DIALOG', mode, choice, f'observed W+{(observed - opened) / NS:.1f}s')
         if choice in ('completed', 'cancelled'):
             break
         if choice == 'expired':
             log('NO_RESOLUTION_RECORDED')
             return 4
-    if not still_open(op, rows(op)):
-        log('CUE_NO_LONGER_OPEN_AFTER_CLICK', choice)
+    if not record_ok(op):
+        log('CUE_SETTLED_BEFORE_RECORD', choice)
         return 2
     rcap = caps / 'cue-resolution-raw'
     rcap.mkdir(mode=0o700, exist_ok=True)
     code, out, err = call([sys.executable, str(CUE_TOOL), 'resolve', str(op), choice,
-                           statement(choice, window, observed, wall), '--capture-directory', str(rcap)], runner)
+                           statement(choice, window, observed, wall, mode), '--capture-directory', str(rcap)], runner)
     log('RESOLVE', code, (out or err)[:300].replace('\n', ' '))
     return 0 if code is not None and resolved(op, code, out) else 5
 
