@@ -3026,6 +3026,48 @@ fixed candidate/rollback and finite prepared-approval rules. It creates no
 prepared run or approval. A source or authority mismatch rejects new use;
 consumed effects and recovery ownership are never reset by another record.
 
+## S20+ UniLoader Android compatibility attended F1
+
+Status: **DEFINED — CONNECTED USE REQUIRES THE EXACT REVIEWED UNILOADER ACTIVATION RECORD**
+
+This ordinary boot-only F1 profile covers the one candidate AP
+`a7a0b09633043bbdac869b3c416fa4f4f01574499602e7848eeb977ec3e59003`
+and original resident Magisk AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Its owner is `workspace/public/src/scripts/revalidation/s20plus_g986n_uniloader_android_f1.py`.
+The reviewed owner and exact dormant-to-active record must agree. No
+P0/P1/P2 run, approval, activation, or consumed effect carries over.
+
+This is an Android compatibility test. Full rooted Android is required
+before and after the attempt. The connected preparation request requires
+current attendance and physical Download demonstration via the already
+reviewed payload-free exit lane. The owner joins its healthy Android return
+to the current exact serial, topology and boot, revalidates both APs and the
+global claim registry, and proves the fixed FDT marker is absent. It then
+owns one journaled Download entry and an exact prepared token valid for
+900 seconds. A fresh operator response granting that token and attendance
+are required before the candidate transfer.
+
+The inherited target lease, shared guard, process cage, content claim and
+one-shot transfer/control journals remain mandatory. The fixed
+`/sys/firmware/devicetree/base/chosen/codex,y2q-uniloader-android-v1`
+root read is permitted only in the reviewed preflight, candidate, and final
+stages. Each read allows 10 seconds, 111 stdout bytes and 1,024 stderr bytes.
+The raw marker and fixed Magisk health captures belong only within the owning
+private run. All boot identifiers and USB binding values are private.
+The fixed marker must match on the exact fresh, rooted candidate boot with
+its proven transfer. An unavailable read leaves candidate proof unresolved.
+
+Original resident Magisk restore remains mandatory after candidate intent.
+A qualified candidate Android can enter Download through the original
+one-shot control. Otherwise the owner requires attended physical Download
+through its original recovery journal. Rollback runs once with the original
+approval. Reporting cuts never replay the candidate, control or rollback.
+No completed terminal follows from an uncertain rollback. Closure requires
+the proved original transfer, a different exact healthy rooted Android boot,
+and raw-derived marker absence on that same boot. Pre-candidate abort retains
+the inherited payload-free return without a candidate or rollback transfer.
+
 ## S20+ P1 PID1 exec-handoff witness F1 candidate
 
 Status: **CONSUMED - NO_PROOF - RESIDENT ROLLBACK AND FINAL HEALTH COMPLETE - NOT ACTIVE**

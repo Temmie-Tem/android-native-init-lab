@@ -10,7 +10,7 @@ returned `PASS_GO` for the exact D0 onboarding closure and the payload-free
 Download-return D1 helper; `AGENTS.md` contains one exact S20+ registry row.
 This file still grants no standing device authority.
 The [onboarding report](docs/reports/S20PLUS_G986N_ONBOARDING_D0_H0_2026-08-12.md) retains the identity evidence.
-The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22.md) builds a USB-first RAM witness. The independently reviewed [TWRP observation and UniLoader preparation](docs/reports/S20PLUS_G986N_TWRP_OBSERVE_SOURCE_VIEW_2026-11-22.md) resolved the source-pin mismatch, proved current retained-T2 TWRP health, and checked the candidate and original Magisk rollback against live boot capacity. The UniLoader F1 owner, current physical Download fallback and attended grant are pending.
+The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22.md) builds a USB-first RAM witness. The [TWRP observation and AP audit](docs/reports/S20PLUS_G986N_TWRP_OBSERVE_SOURCE_VIEW_2026-11-22.md) proved retained-T2 health and checked both boot images against the live capacity. The [UniLoader attended F1 owner](docs/reports/S20PLUS_G986N_UNILOADER_ANDROID_F1_2026-11-22.md) passed independent review and is active. Current physical Download proof, live preparation and transfer approval remain pending.
 
 ## Current State
 
