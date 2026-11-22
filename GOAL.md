@@ -30,6 +30,11 @@ identities, goals, artifacts and authority remain separate.
 
 ## Current state and evidence
 
+The operator closed the separate S22+ modem research on **2026-11-22**.
+The FYG1, GYI7 and GZE4 comparisons found no verified input for transmitting
+user-supplied I/Q samples. The proposed VMID 15 permission test and A/B
+waveform transmissions were never run. [Modem research closure](docs/GOAL_S22PLUS_MODEM.md)
+
 Per-run detail through ML050 is preserved byte-for-byte in
 [the ML050 snapshot](docs/archive/roadmaps/GOAL_THROUGH_ML050_MAINLINE_UFS_2026-11-19.md);
 each run's report remains the authoritative record. The
