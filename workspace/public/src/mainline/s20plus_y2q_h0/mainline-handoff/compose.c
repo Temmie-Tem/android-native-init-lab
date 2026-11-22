@@ -272,6 +272,10 @@ static int chosen(const void *stock, void *out, uint64_t expected_size)
     return fdt_setprop_string(out,dst,"bootargs","rdinit=/init");
 }
 
+#ifdef Y2Q_STAGE_EVIDENCE
+#include "stage-geometry.h"
+#endif
+
 int y2q_compose(const void *stock, const void *board, void *out, int capacity,
                 uint64_t fw_lo, uint64_t fw_len, uint64_t initrd_size)
 {
@@ -293,5 +297,8 @@ int y2q_compose(const void *stock, const void *board, void *out, int capacity,
         if (fdt_get_mem_rsv(stock,i,&a,&n) || a>=PHYS_END || !n || n>PHYS_END-a ||
             fdt_add_mem_rsv(out,a,n)) return -1;
     }
+#ifdef Y2Q_STAGE_EVIDENCE
+    if (y2q_record_permission(stock, out, &banks)) return -1;
+#endif
     return fdt_pack(out);
 }

@@ -167,7 +167,7 @@ def audit_leaf(elf, sym):
     return len(rows)
 
 
-def build(output):
+def build(output, *, stage_image=None):
     output = output.resolve()
     if not output.is_relative_to(PRIVATE) or output == PRIVATE:
         raise ValueError("private build directory required")
@@ -176,10 +176,13 @@ def build(output):
             MODEL, "7866183bf68ba52b9268a8e88e24be5a3db04625f40208d9f9d3aa48326a309c"
         )
     )
-    image = read_bound(
-        BENCH / "kernel-build/arch/arm64/boot/Image",
-        "907811f72a251c0e67647e2a8375143037188ce29a891d07411da1355a272fe8",
-    )
+    if stage_image is None:
+        image = read_bound(
+            BENCH / "kernel-build/arch/arm64/boot/Image",
+            "907811f72a251c0e67647e2a8375143037188ce29a891d07411da1355a272fe8",
+        )
+    else:
+        image = stage_image
     board = read_bound(
         BENCH / "sm8250-samsung-y2q-h0.dtb",
         "d84c08ac2d429637d0a381865d95de8a5a942f8baa554aa5f7473a9cd6934b14",
@@ -251,6 +254,8 @@ def build(output):
                 extra.append("-Dmemset=unused_unic_memset")
             if unit.parent == HERE:
                 extra += ["-Wall", "-Wextra", "-Werror"]
+            if stage_image is not None and unit == HERE / "compose.c":
+                extra.append("-DY2Q_STAGE_EVIDENCE")
             if unit.name == "guard.c":
                 extra += [
                     "-O2",
@@ -308,7 +313,9 @@ def build(output):
     if "There are no relocations in this file." not in relocations:
         raise ValueError("runtime relocations in the early handoff")
     result = {
-        "kind": "Y2Q_HOST_ONLY_MAINLINE_HANDOFF",
+        "kind": "Y2Q_HOST_ONLY_MAINLINE_HANDOFF"
+        if stage_image is None
+        else "Y2Q_HOST_ONLY_STAGE_HANDOFF",
         "image_sha256": digest(blob),
         "elf_sha256": digest(elf.read_bytes()),
         "layout": cfg,
