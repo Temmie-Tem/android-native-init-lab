@@ -50,8 +50,8 @@ blocker below, which changes the same files again.
    CLI, and the statement names the button and the time. The prepared typed
    command (`! …resolve…`) remains the fallback if the dialog cannot be shown.
    Codex's review (`97d9ba794e`) put the helper's adoption on hold for four
-   reasons, which were fixed in `efb2950fc5`. Six further Codex reviews
-   returned `HELPER_HOLD` (5, 4, 4, 3, 3, then 2 findings). Each round was fixed
+   reasons, which were fixed in `efb2950fc5`. Seven further Codex reviews
+   returned `HELPER_HOLD` (5, 4, 4, 3, 3, 2, then 2 findings). Each round was fixed
    (see the agenda log), and the helper needs another re-review. Until then,
    the direct cue and explicit `resolve` path is used.
 4. **Fresh task.** That means a new task, D0, pre-approval audit and the exact

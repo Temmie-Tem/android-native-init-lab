@@ -182,11 +182,13 @@ def zenity_env(environ=None):
 def child_guard(parent_pid, exec_by_ns, forbid=()):
     """Pre-exec check run *inside* the forked child, the last point before zenity exists.
 
-    1. PR_SET_PDEATHSIG=SIGKILL, so zenity dies with the helper; refuse if prctl fails.
-    2. Refuse if the helper already died between fork and step 1 (getppid changed).
-    3. Refuse if CLOCK_BOOTTIME has reached `exec_by_ns` (a pause after the parent's checks).
-    4. Refuse if any record in `forbid` exists (instruct mode: resolution, closure,
-       recovery fence published after the parent's check)."""
+    1. PR_SET_PDEATHSIG=SIGKILL, so zenity dies with the helper; refuse if prctl fails (125).
+    2. Refuse if the helper already died between fork and step 1 (getppid changed, 127).
+    3. Refuse if any path in `forbid` exists (124). Instruct mode passes the
+       resolution, closure and recovery-fence records and the *next* journal
+       row after the parent's check, so any owner event since then refuses.
+    4. Last, immediately before exec: refuse once CLOCK_BOOTTIME has reached
+       `exec_by_ns` (126), so the lookups above cannot carry it past the bound."""
     def guard():
         try:
             if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0:
@@ -195,10 +197,10 @@ def child_guard(parent_pid, exec_by_ns, forbid=()):
             os._exit(125)
         if os.getppid() != parent_pid:
             os._exit(127)
-        if time.clock_gettime_ns(time.CLOCK_BOOTTIME) >= exec_by_ns:
-            os._exit(126)
         if any(os.path.lexists(path) for path in forbid):
             os._exit(124)
+        if time.clock_gettime_ns(time.CLOCK_BOOTTIME) >= exec_by_ns:
+            os._exit(126)
     guard.parent_pid, guard.exec_by_ns, guard.forbid = parent_pid, exec_by_ns, tuple(map(str, forbid))
     return guard
 
@@ -207,7 +209,10 @@ def _terminate_cleanly(signum, frame):
     raise SystemExit(128 + signum)  # unwinds through dialog_once's finally, which kills zenity
 
 
-def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, forbid=(), zenity='zenity'):
+REFUSED = (124, 126, 127)  # child_guard refusals: nothing was shown
+
+
+def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, forbid=lambda: (), zenity='zenity'):
     """(choice, observed_ns, wall, alive_ns).
 
     choice: completed / cancelled / dismissed / expired / withdrawn.
@@ -237,7 +242,7 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, forbid=(
             '--timeout', str(int(remaining))]
     try:
         p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env(),
-                  preexec_fn=child_guard(os.getpid(), min(exec_by_ns, clock() + EXEC_BUDGET_NS), forbid))
+                  preexec_fn=child_guard(os.getpid(), min(exec_by_ns, clock() + EXEC_BUDGET_NS), forbid()))
     except OSError:
         return ('expired', *stamp(), 0)
     started = clock()
@@ -262,6 +267,8 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, forbid=(
     alive = observed - started
     if forced and p.returncode < 0:
         return forced, observed, wall, alive
+    if p.returncode in REFUSED:
+        return 'refused', observed, wall, 0
     out = (p.stdout.read() if p.stdout else '').strip()
     if p.returncode == 0 and not out:
         return 'completed', observed, wall, alive
@@ -345,7 +352,7 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
             pass
     cutoff = deadline - MARGIN_NS
     instruct_text = f'{TEXT}\n\n검토된 지시: {instruction}'
-    mode, shown = 'instruct', 0
+    mode, shown, snapshot = 'instruct', 0, {'rows': None}
     while True:
         if not record_ok(op):
             log('CUE_SETTLED_ELSEWHERE')  # resolved or closed by the owner: nothing to ask
@@ -358,13 +365,24 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
             log('DIALOG_MODE report')
         if mode == 'instruct':
             text = instruct_text if not shown else AGAIN + instruct_text
-            keep = lambda: record_ok(op) and instruct_ok(op, live_rows(), deadline, clock)
+            def keep():
+                seen = live_rows()
+                snapshot['rows'] = None if seen is None else len(seen)
+                return record_ok(op) and instruct_ok(op, seen, deadline, clock)
         else:
             text, keep = REPORT, lambda: record_ok(op)
         # instruct: the child refuses to exec once 60 s or less remain (the policy's final check)
         exec_by = deadline - MIN_REMAINING_NS if mode == 'instruct' else cutoff - NS
-        forbid = tuple(op / n for n in (RESOLUTION, CLOSED, FENCE)) if mode == 'instruct' else (op / CLOSED,)
+        if mode == 'instruct':  # evaluated right after the parent's last keep()
+            forbid = lambda: tuple(op / n for n in (RESOLUTION, CLOSED, FENCE)) + (
+                op / 'journal' / f"{snapshot['rows']:04d}.json",)
+        else:
+            forbid = lambda: (op / CLOSED,)
         choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep, exec_by, forbid)
+        if choice == 'refused':
+            log('DIALOG_LAUNCH_REFUSED', mode)  # the child saw a change; re-evaluate from the top
+            sleep(POLL_S)
+            continue
         if choice != 'withdrawn' or alive >= MIN_SEEN_NS:
             shown += 1  # a dialog killed within 2 s of launch is treated as never seen
         log('DIALOG', mode, choice, f'observed W+{(observed - opened) / NS:.1f}s alive {alive / NS:.1f}s')

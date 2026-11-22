@@ -349,6 +349,17 @@ class CueDialogTests(unittest.TestCase):
         self.assertEqual(getattr(h, 'refused_exec', 0), 1)
         self.assertEqual(self.resolved_calls(h), [])
 
+    def test_an_owner_event_between_parent_and_child_checks_blocks_the_instruction(self):
+        def stopped(h):
+            self.rows.append({'event': 'stopped', 'data': {}})
+            (self.op / 'journal').mkdir(exist_ok=True)
+            (self.op / 'journal' / f'{len(self.rows) - 1:04d}.json').write_text('{}')
+        h = Harness(self.op, start=OPENED)
+        h.before_exec = stopped
+        self.assertEqual(self.go(h), 2)  # refused in the child, then the parent sees the step ended
+        self.assertEqual(getattr(h, 'refused_exec', 0), 1)
+        self.assertEqual(len(h.dialog_texts), 1)
+
     def test_the_sixty_second_check_is_sampled_after_validation(self):
         h = Harness(self.op, start=DEADLINE - int(61.05 * NS), row_cost=int(0.1 * NS))
         self.assertEqual(self.go(h), 2)  # 61.05 s before validation, 60.95 s after: suppressed
@@ -368,6 +379,8 @@ class CueDialogTests(unittest.TestCase):
         fence = self.op / 'mainline-attach-recovery.json'
         fence.write_text('{}')
         self.assertEqual(run(cd.child_guard(os.getpid(), now + 30 * NS, (fence,))), 124)  # fence appeared
+        # order: the record lookups run first and the clock is read last, right before exec
+        self.assertEqual(run(cd.child_guard(os.getpid(), now - NS, (fence,))), 124)
         fence.unlink()
         with self.assertRaises(SystemExit):
             cd._terminate_cleanly(15, None)
