@@ -43,6 +43,14 @@ blocker below, which changes the same files again.
 
 ## Blockers before the run
 
+**Update (2026-11-22, adoption `a2f0e74eb8`).** Blockers 1 and 2 are done. The
+shared cue branch, integrated with loader timing-v3, was adopted into `main`
+as one squash. That commit carries the PASS_GO reviews v57, timing-v3 cue and
+SCM ordinary cue v2, and points the gateway selector at v57. The cutover
+checker passed under the operating locks. Blocker 3 is done too (helper
+`HELPER_PASS_GO`). Only blocker 4 remains, and it now requires a fresh V13
+capability, review and candidate qualification, because ML053 is retired.
+
 1. **Shared cue fixes (Codex).** Agenda item 3 in
    [the ordinary-route cue agenda](../plans/S22PLUS_MAINLINE_ORDINARY_CUE_AGENDA_2026-11-22.md),
    accepted in `a8517e4ff0`, applies to the UFS cue route as well. Codex
@@ -98,7 +106,7 @@ calls to the reviewed tool only.
 
 ## Order of work
 
-1. Codex lands and adopts `codex/s22-mainline-ordinary-cue-h0`.
+1. ~~Codex lands and adopts `codex/s22-mainline-ordinary-cue-h0`~~ — adopted in `a2f0e74eb8` (2026-11-22).
 2. ~~Review the cue dialog helper~~ — `HELPER_PASS_GO` at `be439bee37`; click-check the three buttons on screen once.
 3. Build a fresh V13 capability, candidate qualification and key-only
    candidate on the adopted sources (ML053 is retired at cutover), then the
