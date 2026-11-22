@@ -15,10 +15,20 @@ name `ml053-v13-key-only`):
   ID `6871a9f6…`.
 - It was built and pre-approval audited on 2026-11-19 (`PASS_FRESH_V13_PREAPPROVAL`).
 - It was never granted or transferred, and its ID is absent from the
-  consumed-candidate registry. The artifact itself can therefore still be
-  used.
+  consumed-candidate registry.
 - The SCM adoption (`f95650a5b4`) kept the V13 capability's fixed fields and
   retained evidence.
+
+**Correction (2026-11-22, integration review of `4a02740d64`): the ML053
+candidate is retired at the shared cue cutover.** Its capability pins 84
+sources. Five of them differ on the integration branch, and an independent
+re-review reproduced `record receipt changed` for a V13 capability built from
+current `main` after a simulated cutover. This is inherent: the shared cue
+fixes (agenda item 3) apply to the UFS route, so a capability pinned to the
+pre-cutover sources must not run afterwards. Its artifacts stay as evidence.
+The next V13 attempt needs a fresh capability, candidate qualification and
+key-only build against the adopted sources. The cutover checker refuses while
+any V13 or other mainline-ram task is still open.
 
 **Not reusable: the ML053 task** (`task.json` `9d9fb256…`). It pins 86 sources,
 and 6 of them have changed since 2026-11-19, mostly through the SCM merge and
@@ -90,6 +100,7 @@ calls to the reviewed tool only.
 
 1. Codex lands and adopts `codex/s22-mainline-ordinary-cue-h0`.
 2. ~~Review the cue dialog helper~~ — `HELPER_PASS_GO` at `be439bee37`; click-check the three buttons on screen once.
-3. Create the new task for the ML053 candidate, or a fresh key-only build,
-   then pre-approval audit and D0.
+3. Build a fresh V13 capability, candidate qualification and key-only
+   candidate on the adopted sources (ML053 is retired at cutover), then the
+   task, pre-approval audit and D0.
 4. Hold the attended run with the card above.
