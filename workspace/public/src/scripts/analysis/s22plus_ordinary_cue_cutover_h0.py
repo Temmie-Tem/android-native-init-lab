@@ -31,6 +31,7 @@ GIT_ENV = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_NO_LAZY_FETCH='1')
 VALIDATOR_BOOTSTRAP = """
 import json
 from pathlib import Path
+import re
 import sys
 
 def host_only(event, args):
@@ -85,12 +86,14 @@ bindings = selector_path.parent
 routes = [('loader', task.LOADER_CUE_REVIEW, {'selected': loader}),
           ('SCM', task.profile.SCM_CUE_REVIEW, {'image': {'schema': task.profile.SCM_SCHEMA},
                                                 'ordinary_cue': True})]
-mx_receipt = bindings/'s22plus_mainline_max77705_usb_v1_review.json'
+mx_review = getattr(task.profile, 'MX_REVIEW', None)
 mx_policy = snapshot/'docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md'
-if hasattr(task.profile, 'MX_REVIEW') or mx_policy.exists() or (snapshot/mx_receipt).exists():
-    terminal.require(Path(task.profile.MX_REVIEW) == mx_receipt, 'proposed MAX77705 review selection differs')
-    routes.append(('MAX77705', task.profile.MX_REVIEW, {'image': {'schema': task.profile.MX_SCHEMA},
-                                                       'ordinary_cue': True}))
+mx_review_name = r's22plus_mainline_max77705_usb_v[1-9][0-9]*_review[.]json'
+if mx_review is not None or mx_policy.exists() or any((snapshot/bindings).glob('s22plus_mainline_max77705_usb_v*_review.json')):
+    terminal.require(type(mx_review) is str and re.fullmatch(mx_review_name, Path(mx_review).name),
+                     'proposed MAX77705 review selection differs')
+    routes.append(('MAX77705', mx_review, {'image': {'schema': task.profile.MX_SCHEMA},
+                                         'ordinary_cue': True}))
 
 gateway_path = gateway_file.relative_to(snapshot)
 reviews = {gateway_path}

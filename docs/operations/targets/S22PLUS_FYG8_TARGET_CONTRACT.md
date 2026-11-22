@@ -333,6 +333,23 @@ D0, one finite attended mainline RAM operation, one authenticated USB
 observation and physical Download for the original-A return. Exact source
 review, current identity, usable recovery and final Android health apply.
 
+The [one attended MAX77705 USB switch observation](../S22PLUS_MAINLINE_MAX77705_USB_V1.md)
+adopts the exact qualified moduleless Debian RAM image with the read-only
+MAX77705 observer specified there. Its built-in SCM platform probe, wait-queue
+handling, shared-memory bridge, download-mode and SDI requests, QTEE query and
+dependent platform initialization, its SE5 I2C enablement, the observer's bus
+effects (at most 32 `CONTROL1_R` mailbox commands, register-address writes for
+reads, no register value written to the PMIC or FSA4480, never `CONTROL1_W`,
+and reads that clear the volatile `UIC_INT` and `CC_INT` latches) and the
+disabled MPSS, UFS, SD, remote processors, TLMM and `gpi_dma0` have the closed
+scope of that policy. It uses the existing fixed foreground preapproval D0,
+one finite attended mainline RAM operation with the ordinary attach cue and
+its operator-resolution interlock, one authenticated USB observation and
+physical Download for the original-A return. Exact board qualification,
+source review, current identity, usable recovery and final Android health
+apply. It grants no `CONTROL1_W`, Linux storage, reset, automatic-recovery or
+replay capability.
+
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive
 public-key session executing a fixed UID/GID 1000 command. Its complete signed

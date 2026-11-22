@@ -108,7 +108,7 @@ IMAGE_V2 = 's22plus-mainline-ufs-image-v2'
 CAPABILITY_SCHEMA = 's22plus-mainline-ufs-capability-v2'
 CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_KEY_ONLY_V2'
 CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md'
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v2_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v3_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.

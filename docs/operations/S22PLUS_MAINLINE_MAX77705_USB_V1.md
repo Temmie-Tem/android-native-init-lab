@@ -1,8 +1,8 @@
 # S22+ one attended MAX77705 USB switch observation
 
-Status: **DRAFT_H0**
+Status: **REVIEW_GATED_CAPABILITY**
 
-For the proposed SM-S906N / g0q / FYG8 observation, the existing mainline RAM owner would run one Android-origin operation. Every condition of that owner applies unchanged:
+For the SM-S906N / g0q / FYG8 observation, the existing mainline RAM owner runs one Android-origin operation. Every condition of that owner applies unchanged:
 - physical attendance;
 - effect-time identity and health;
 - the fixed observation window;
@@ -20,6 +20,14 @@ MPSS, UFS, SD and every remote processor stay disabled. TLMM and `gpi_dma0` stay
 
 **Bus effects.** The only register values the observer writes are the two USBC mailbox bytes for one `CONTROL1_R` command: `0x05 → 0x21` and `0x00 → 0x41` on `0x25`. There are at most 32 such commands. Each read also sends its register address in write direction, to the PMIC, USBC and FSA4480 alike. No register value is written to the PMIC or FSA4480, and `CONTROL1_W` is never sent. Reads clear the volatile `UIC_INT` and `CC_INT` latches. The [SE5 sharing review](../reports/S22PLUS_MAINLINE_MAX77705_OBSERVER_H0_2026-11-22.md#se5-sharing-review) lists what the mainline driver writes to the serial engine for each handoff state.
 
+**Kernel effects for the exact candidate.** The boot package has SHA-256 `3b4f30394111891b268bcdd62cfce47c191c7ec98c54b8ae3bd295c9342d2c86`. Its kernel was built from the same source tree as the adopted SCM candidate (`s22plus-mainline-ml035-bcm-alias-h0-20261110-1/transport-build-1/kernel-source`), with `CONFIG_QCOM_SCM=y`, `CONFIG_QCOM_TZMEM_MODE_SHMBRIDGE=y`, `CONFIG_QCOM_QSEECOM` and `CONFIG_GUNYAH_WATCHDOG` not set, and no download-mode default, so `download_mode` is 0 (off). The loader-produced FDT keeps the same enabled `/firmware/scm` node as the SCM candidate (`qcom,scm-sm8450`, `qcom,dload-mode = <TCSR 0x13000>`, its interconnects). These SCM effects are reachable during boot, before the observer runs, and are the same as those listed in the [SCM policy](S22PLUS_MAINLINE_SCM_USB_V1.md#kernel-effects-for-the-exact-candidate):
+- the platform probe can acquire its interconnect and clock resources, initialize the TrustZone memory allocator and register the wait-queue IRQ that firmware reports. If the IRQ fires, the driver can query pending wait contexts repeatedly while firmware reports more pending work;
+- the driver queries shared-memory bridge support and can request bridge enablement. Its kernel memory pool starts empty and can allocate up to 256 KiB on demand. Modem VMID 15 assignment is outside this experiment;
+- with download mode off, the probe performs a read and conditional NODUMP update of the TCSR download-mode field and requests that watchdog debugging and SDI be disabled. A kernel shutdown that reaches the SCM callback may request NODUMP again. Firmware persistence of the SDI setting is unverified. Physical Download and restoration of original A are independent of a successful USB observation;
+- the kernel can issue the fixed zero-length QTEE support query and conditionally register its platform device. Its Gunyah watchdog helper can register a platform device when the platform conditions match; the selected configuration omits the Gunyah watchdog driver.
+
+The enabled SM8450 SMMU can proceed with normal platform initialization once SCM is available. SE5, its QUP wrapper and the I2C GENI driver add the serial-engine effects in the SE5 sharing review. MPSS remains disabled. The USB observation supplies no return value for any individual firmware request and makes no IRQ-registration claim. Kernel initialization and IRQ activity can precede the evidence window or continue until the physical reset.
+
 **Observation and outcomes.** A single NCM challenge returns the record, which spans boot to request. The existing transfer window, endpoint continuity, authenticated request, sealed response and exact loader FDT apply.
 
 | Evidence | Outcome |
@@ -35,10 +43,15 @@ Final Android return and health must be established independently before termina
 
 **Scope of the result.** A verdict describes this one record and is not causal. Interpreting it is the [root-cause plan](../reports/S22PLUS_MAINLINE_REPLUG_DEPENDENCY_ROOT_CAUSE_H0_2026-11-22.md)'s task. A `CONTROL1_W` profile (Stage 2) is out of scope.
 
-This scope is prepared in an isolated checkout. Execution requires:
-- independent review of the affecting owner closure;
-- explicit target adoption;
-- the exact finite attended run grant under the [mainline RAM policy](S22PLUS_MAINLINE_RAM_V1.md).
+**Target adoption (2026-11-22).** The [target contract](targets/S22PLUS_FYG8_TARGET_CONTRACT.md) adopts this scope as a **REVIEW_GATED_CAPABILITY**. Each run requires:
+- the selected MAX77705 review at `PASS_GO` for the exact owner closure, checked before candidate code is imported;
+- the exact board qualification named by the binding module;
+- current target identity and a usable original-A recovery path;
+- the existing fixed foreground preapproval D0 on a fresh task;
+- one new finite attended mainline RAM grant under the [mainline RAM policy](S22PLUS_MAINLINE_RAM_V1.md);
+- the operator's attendance for the cued replug and its explicit resolution.
+
+It grants no `CONTROL1_W`, Linux storage, installed-root, reset, automatic-recovery, retry or replay capability. Preparing a task is H0.
 
 **No-attach refinement (independent review, 2026-11-22).** The pinned board decoder derives `OPEN_NO_ATTACH_SEEN` from the event array only. The producer, however, saves the boot-time UIC latch before its first CONTROL1 command, and the phone normally boots with the cable in. The binding module refines that one verdict from the decoded latch, without changing the qualified decoder or the board artifact:
 - an unread latch gives `OPEN_INITIAL_LATCH_UNREAD`, which is inconclusive;
@@ -53,7 +66,7 @@ listed in the first draft were adopted into `main` in `a2f0e74eb8`. This
 version keeps the cue tool unchanged and adds only:
 - the `MX_*` constants, `max77705_board()`, and a MAX77705 branch in
   `ordinary_cue(adapter, request)`. The cue opens only when the task binds
-  this scope's own review ([`s22plus_mainline_max77705_usb_v1_review.json`](../../workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v1_review.json)).
+  this scope's own review ([`s22plus_mainline_max77705_usb_v2_review.json`](../../workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v2_review.json)).
   There is no MAX77705 scope without the cue;
 - the wire and image-binding dispatch;
 - a `rederive` branch. It checks the review closure before importing
@@ -72,7 +85,7 @@ survives.
 
 ## Successor reviews and adoption
 
-The H0 branch selects four pending records under
+The H0 branch staged four records under
 `workspace/public/src/device-action/bindings/`.
 
 - `s22plus_approved_terminal_persistent_v58_review.json`
@@ -90,7 +103,26 @@ and tasks with the old reviews, and resolve staged approvals before the
 switch. Run the read-only checker against the exact proposed commit while
 the old checkout is still in place.
 
-MAX77705 remains H0 until its separate target adoption. If that adoption
-changes a source bound by these drafts, regenerate the affected pins and
-review the resulting bytes before publication. The exact board
+These four records were adopted in `9a697cb415`. The target adoption edits
+this policy and the target contract, which those records pin, so it is
+published with its own successor review set (see the section below). The exact board
 qualification and separate finite attended approval apply to any later run.
+
+## Successor reviews for target adoption
+
+The target-adoption branch selects four pending records under
+`workspace/public/src/device-action/bindings/`.
+
+- `s22plus_approved_terminal_persistent_v59_review.json`
+- `s22plus_loader_android_timing_v3_cue_v3_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v4_review.json`
+- `s22plus_mainline_max77705_usb_v2_review.json`
+
+After independent review of the exact bytes, publish the target adoption,
+all four `PASS_GO` records, the task selectors, and the gateway selector pin
+for the approved v59 receipt in one squash on the operating HEAD. Keep the
+published receipts and task evidence. Under the existing admission lock and
+target session lease, use the [shared cutover procedure](../reports/S22PLUS_MAINLINE_ORDINARY_CUE_H0_2026-11-22.md#integration-hold-and-atomic-adoption)
+to close old owners and tasks with their original reviews and resolve staged
+approvals. Run the read-only checker against the exact squash before switching
+the operating checkout.

@@ -53,7 +53,7 @@ def unchanged(receipt,maximum=128*1024*1024):
 SCM_POLICY = 'docs/operations/S22PLUS_MAINLINE_SCM_USB_V1.md'
 SCM_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_usb_v1_review.json'
 SCM_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_V1'
-SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v3_review.json'
+SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v4_review.json'
 SCM_CUE_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_WITH_ORDINARY_CUE_V1'
 SCM_CUE_ADOPTION = b'Ordinary cue status: **REVIEW_GATED_CAPABILITY**'
 SCM_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_scm_v1.py'
@@ -67,7 +67,7 @@ def scm_board(image):
 
 
 MX_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md'
-MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v1_review.json'
+MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v2_review.json'
 MX_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_USB_V1'
 MX_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_v1.py'
 MX_SCHEMA = 's22plus-mainline-max77705-image-v1'
