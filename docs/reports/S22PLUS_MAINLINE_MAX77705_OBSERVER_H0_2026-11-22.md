@@ -386,11 +386,23 @@ rather than retrying blindly.
 - **No device authority.** The AP is a host artifact only. An attended run
   needs:
   - the session draft on the isolated branch `claude/s22-max77705-attended-h0`
-    (`859557d408`, `DRAFT_H0`). It binds this candidate, the board decoder and
-    the expected FDT in the existing mainline RAM owner, ported from the SCM
-    draft. An offline binding check against the real artifact passed, and
-    seven identity substitutions were rejected;
-  - independent review and target adoption of that draft;
+    (`fbfc48e75f`, `DRAFT_H0`, rebased on the SCM adoption). It binds this
+    candidate, the board decoder and the expected FDT in the existing
+    mainline RAM owner. It also extends the attach cue to this image's
+    ordinary evidence route. An offline binding check against the real
+    artifact passed, and seven identity substitutions were rejected;
+  - two Codex review rounds returned NO_GO. Their findings in the draft and
+    decoder are fixed. The remaining findings sit in the shared cue and
+    recovery code (the policy draft lists them). Merging the draft would
+    invalidate eight review records that pin the shared files;
+  - independent review and target adoption of that draft.
+- **Replug dependency is now in question.** The adopted SCM run
+  (2026-11-22, same Image and base DT, no SE5) authenticated without any cue,
+  about 98 s after the Download device left the host. If no unrecorded replug
+  happened, the dependency this observer was built to explain may be
+  conditional, for example on window length or on the UFS-enabled DT, rather
+  than universal. That should be checked against the earlier untouched-cable
+  runs before spending a device run on this observer.
   - D0, current Download recovery and approval.
 - **Board behaviour is unknown:** FIFO versus GSI mode on SE5, whether XBL
   left the pins muxed, and whether `0x25` answers under mainline. The table
