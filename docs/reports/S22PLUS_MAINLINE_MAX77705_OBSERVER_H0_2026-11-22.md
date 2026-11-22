@@ -222,13 +222,14 @@ The scripts were copied into a new private directory, not run in place.
 
 | Item | Value |
 |---|---|
-| AP | `680ad421de3998d4ce0ffed683532d7ce3b947ba8f7022ca61ae0f4d27f51850`, 25,497,641 B; two independent packagings are byte-identical |
-| boot v4 (96 MiB) | `4e1b41f6…f91b`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
-| uniLoader | `2fe43335…0c52`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
+| AP | `f3f5cec7fb3af9e28e91e073fa42d03b94fdeb55e22880a0594f053ae6df2bc4`, 25,497,641 B; two independent packagings are byte-identical |
+| boot v4 (96 MiB) | `008e753b…8786`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
+| uniLoader | `4094fc9e…f09f`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
 | Image / DT inside the loader | `d7df52a1…f609` / `51b58a40…8235` (Stage 1b) |
-| Board observer | `d439d64c…35aa`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
-| RAM archive | `14f61239…9416`; versus ML022, only the observer member differs |
-| Loader-handed DT | 500,000 B, `7647ee25…6176` (the verifier's expected FDT) |
+| Board observer | `1f866d38…6410`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
+| RAM archive | `01ab592a…7de5`; versus ML022, only the observer member differs |
+| Loader-handed DT | 500,000 B, `f00ba7f1…3c8d` (the verifier's expected FDT) |
+| Board decoder | `41d9d892…da72`; the record decoder is embedded (see below) |
 | Original A | `2e541703…967e`, equal to the target's final-health boot |
 
 **Loader checks.**
@@ -275,8 +276,18 @@ The setup needed two harness inputs on this host: the retained
 `s22plus-mainline-loader-h0-20261028-1`. The first attempts, using the host
 gdb (no aarch64) and lacking unicorn, are kept as failed logs.
 
-Artifacts: private `s22plus-max77705-board-artifact.G06Ao4bm/`. The
-manifest is `final-9r6ede5x/qualified-artifact.json` (`17555750…68c5`).
+**Rebuild for a self-contained decoder.** The first package (AP `680ad421…`,
+private `s22plus-max77705-board-artifact.G06Ao4bm/`) had a board decoder that
+loaded `max77705_record.py` from its own directory at verify time. The
+attended session runs a decoder only from hash-checked bytes, with no
+`__file__`, so that second read would have been unpinned. The generator now
+embeds the record decoder, and a wire test runs the decoder from bytes with
+the sibling file deleted. Because the candidate identity commits to the
+generated sources, the whole package was rebuilt; every check above passed
+again on the rebuild.
+
+Artifacts: private `s22plus-max77705-board-artifact.wte280LA/`. The manifest
+is `final-61o95ix5/qualified-artifact.json` (`0f7779e1…94e4e2`).
 
 ## SE5 sharing review
 

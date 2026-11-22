@@ -99,6 +99,19 @@ class StagingTests(unittest.TestCase):
         self.assertEqual(result['status'], 'AUTHENTICATED_H0_MAX77705_USB_OBSERVATION')
         self.assertEqual(result['max77705_verdict'], 'OPEN_THEN_COM_USB_AFTER_ATTACH')
         self.assertEqual([e['ctrl1'] for e in result['max77705']['events']], [0x3f, 0x09])
+        self.assertEqual(result['subject'], 'max77705')
+
+    def test_decoder_runs_from_pinned_bytes_without_sibling_file(self):
+        # The attended session execs the decoder from checked bytes, with no __file__.
+        v, manifest, d = self.profile()
+        events = [(5, 0, 0x80, 0x3f, 0), (60000, 3, 0xa2, 0x09, 0)]
+        self.raw.write_bytes(self.response(v, manifest, record(events=events)))
+        source = (d / 'max77705_verify.py').read_bytes()
+        (d / 'max77705_record.py').unlink()
+        namespace = {'__name__': 'pinned_max77705_decoder'}
+        exec(compile(source, '<pinned>', 'exec'), namespace)
+        result = namespace['verify'](self.raw, manifest, self.nonce, vm=True)
+        self.assertEqual(result['max77705_verdict'], 'OPEN_THEN_COM_USB_AFTER_ATTACH')
 
     def test_tamper_and_rejected_write(self):
         v, manifest, _ = self.profile()

@@ -95,11 +95,15 @@ def stage_sources(output, *, board=False):
             '    return result')
     verifier = replace_once(
         verifier, '    extra={}\n',
-        '    import importlib.util as _u\n'
-        '    _s = _u.spec_from_file_location("max77705_record", Path(__file__).with_name("max77705_record.py"))\n'
-        '    _r = _u.module_from_spec(_s); _s.loader.exec_module(_r)\n'
-        f'    _decoded = _r.decode(body[352:{BODY}])\n'
-        "    extra = {'max77705': _decoded, 'max77705_verdict': _r.verdict(_decoded)}\n")
+        # The record decoder is embedded so a host that loads this file from
+        # pinned bytes (exec, no __file__) needs no second, unpinned read.
+        '    _r = {"__name__": "max77705_record"}\n'
+        '    exec(compile(_MAX77705_RECORD_SOURCE, "<embedded max77705_record>", "exec"), _r)\n'
+        f'    _decoded = _r["decode"](body[352:{BODY}])\n'
+        "    extra = {'max77705': _decoded, 'max77705_verdict': _r['verdict'](_decoded), 'subject': 'max77705'}\n")
+    record_source = (HERE / 'max77705_record.py').read_text()
+    verifier = replace_once(verifier, 'def protocol(manifest=None):',
+                            f'_MAX77705_RECORD_SOURCE = {record_source!r}\n\n\ndef protocol(manifest=None):')
     verifier = replace_once(verifier, "'PASS_H0_VM_DEBIAN_SYSVINIT_RAM'", "'AUTHENTICATED_H0_MAX77705_USB_OBSERVATION'")
     if board:
         verifier = replace_once(verifier, "'AUTHENTICATED_DEBIAN_SYSVINIT_RAM_OBSERVATION'",
