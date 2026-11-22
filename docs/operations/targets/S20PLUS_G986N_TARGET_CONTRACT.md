@@ -3072,6 +3072,65 @@ the proved original transfer, a different exact healthy rooted Android boot,
 and raw-derived marker absence on that same boot. Pre-candidate abort retains
 the inherited payload-free return without a candidate or rollback transfer.
 
+## S20+ UniLoader retained boot-stage attended F1
+
+Status: **DEFINED — CONNECTED USE REQUIRES THE EXACT REVIEWED STAGE ACTIVATION RECORD**
+
+This ordinary boot-only Process-v2 successor admits one exact fresh stage
+candidate AP
+`e7a3353821f39ab1d3e71a09e416f8e1f0cc8f266289cce9f707f489a2a0c9b7`
+and one original resident Magisk AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+The isolated owner
+`workspace/public/src/scripts/revalidation/s20plus_g986n_uniloader_stage_f1.py`
+inherits the reviewed UniLoader Android F1 transfer, target, recovery and
+rooted health predicates above. Its new pair, source-bound zero-finding
+review, activation, prepared token, run directory and content claim are
+independent of the consumed compatibility candidate. Preparation requires
+current attendance, demonstrated physical Download recovery, fresh exact
+Android health and original FDT marker absence. The owner issues a 900-second
+token after qualified Download arrival. The candidate requires the actual
+returned exact approval and continuing physical attendance.
+
+The stage candidate may record only its build-bound ordered stages in the
+exact stock ramoops PMSG RAM slot after its CPU/FDT guard and positive
+slot admission. This overwrites the prior PMSG header and short payload
+prefix. The candidate FDT isolates that tail and adds the build-specific
+kernel command-line tag. No host or candidate block operation is authorized
+beyond the single boot partition transfer and single original restore.
+No candidate or rollback replay is permitted. A timed-out or failed
+candidate Android observer follows the inherited physical Download
+recovery with the original approval. A proved candidate Android keeps
+the inherited exact one-shot ADB Download path. Pre-candidate abort
+keeps the inherited payload-free return.
+
+After proved candidate and rollback transfers, the same owner admits one
+fixed read of `/sys/fs/pstore/pmsg-ramoops-0` and
+`/sys/fs/pstore/console-ramoops-0` on the first qualified rooted Android
+return observed after rollback. The identity must match the prepared
+serial and topology, and a fresh final-health boot ID must match the root
+reader before and after the scan. The script also checks absent candidate
+FDT, the fixed pstore mount and record descriptors. It may inspect only
+fixed boot-ID and mount metadata and the two bounded records. The
+record caps are 1,024 and 262,144 bytes with one overflow sentinel per
+read. Only an exact PMSG prefix classification and a unique matched
+console tag classification leave the device. The command allows 12
+seconds, 192 stdout bytes and 1,024 stderr bytes. No record deletion,
+mount, permission change, generic log access or body extraction is
+admitted. A known later boot is ineligible. This procedure cannot count
+unobserved physical boots before the first host-observed return.
+
+The command requires one durable exact intent. A capture/reporting cut
+retains that intent and never reissues the pstore scan. After the read or
+unavailable result, inherited raw-derived original marker absence and
+same-boot Magisk root health are still required for cleanup. Unavailable
+records, cuts, unmatched records and an unproved candidate transfer produce
+no retained-stage claim. A matching stage records only its exact
+boundary. The retained-stage result does not raise the old compatibility
+verdict, which still requires same-boot candidate Magisk and FDT proof.
+Original Magisk restore and final health remain mandatory after candidate
+intent under the inherited one-shot recovery rules.
+
 ## S20+ P1 PID1 exec-handoff witness F1 candidate
 
 Status: **CONSUMED - NO_PROOF - RESIDENT ROLLBACK AND FINAL HEALTH COMPLETE - NOT ACTIVE**

@@ -104,3 +104,50 @@ The corrected-run byte comparison receipt SHA-256 is
 `31a12004f58e59b6ca6c9aaeac5c84364c73abe6966b5e76d6793db5f9cf66f9`.
 This was H0 preparation plus one bounded D0 read. Candidate dispatch,
 new device authority, partition access and S22+/A90 commands were zero.
+
+## Attended first-return owner
+
+The captured host pair is pinned to the stage AP and verified original
+Magisk AP above. The successor owner exact-loads the previously reviewed
+compatibility owner in isolation and reuses its target lease, Download
+arrival, consumed-claim ledger, process cages, and one-shot recovery.
+The new activation binds both relevant target sections, the exact owner
+and reader, the selected pair and the focused tests. The older
+compatibility owner's activation still validates.
+[Stage F1 target contract](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-uniloader-retained-boot-stage-attended-f1)
+
+Once the owner has proved original rollback and fresh final rooted
+Android health, the new read compares the build-bound pattern in only
+the two fixed pstore files. It checks the same boot before and after
+and verifies candidate FDT absence before opening records. The private
+capture contains compact classifications and the boot digest. It does
+not export pstore bodies. A failed or cut scan carries no retained-stage
+claim and does not authorize replay. The inherited final FDT absence and
+rooted Android checks still control healthy closure. Signatures from a
+later observed boot are outside this read.
+[First-return reader](../../workspace/public/src/scripts/revalidation/s20plus_g986n_uniloader_return_pstore.py)
+
+Host validation checked the APs and retained physical Download recovery.
+The focused regression run passed 46 tests, including a captured shell
+fixture, a failed record producer, malformed and stale markers, and a
+direct check of exact reader argv at the inherited dispatch fence.
+An independent review returned `PASS_GO` with zero outstanding findings.
+The reviewed owner was activated through its single boolean change and
+the separate canonical activation record SHA-256
+`6a46c27aab9f769e8527b40ddfa051a47da7f698918af18c816570e8ac9c3f6d`.
+Active host closure validation passed before connected preparation.
+The new connected D0 root-health receipt before preparation is
+`3fd12f249b6ed814ef6553fce1b12899a0fdf27ac3caaa24356f3247eff3aa08`.
+The stock Android shell and command flags used by the reader are covered
+by these primary reference sources.
+[AOSP mksh pipefail conformance](https://android.googlesource.com/platform/external/mksh/+/2e46594a0b7f5014d1a6751020dabe80e576c954/src/check.t)
+[AOSP Android 13 Toybox flags](https://android.googlesource.com/platform/external/toybox/+/refs/tags/android-13.0.0_r28/android/device/generated/newtoys.h)
+
+Connected preparation proved fresh original rooted Android and FDT
+marker absence, then proved Download arrival at the same physical USB
+topology. The exact prepared record was published at 23:03 KST on
+November 22 and expires at 23:18:12 KST. Prepared receipt SHA-256 is
+`1318ca5842ab2b4b5ad2ca158923b3b793f0866f50b902cca86bd06af1cbe3f0`.
+At this checkpoint the stage owner held the S20+ guard and awaited the
+operator's approval. Candidate and rollback transfers, pstore record
+reads, and commands to S22+ or A90 were zero.
