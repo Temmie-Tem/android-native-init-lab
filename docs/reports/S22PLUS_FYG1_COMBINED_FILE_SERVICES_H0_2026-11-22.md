@@ -72,3 +72,13 @@ ML053 기반 MPSS 활성 DT에서 PAS 드라이버 표에 맞는 네 장치 중 
 네 번의 완료 부팅에서 커널이 기록한 프로그램 실행·모듈 적재·probe 반환을 대조했다. 정상 부팅에서는 시작 프로그램의 실행, 메모리 모듈 적재, 배포 데몬 실행의 PID가 일치했고 최종 데몬은 SysV의 직계 자식이었다. 각 추적 구간은 기록 수와 보존된 이벤트 수가 일치했다. `qcom_scm_assign_mem` 호출은 네 구간 모두 0건이었다. MPSS 활성 대상 DT의 RMTFS 메모리 노드는 VMID 15를 지정한다. 실제 SCM 공급자가 있을 때의 권한 부여 결과와 실기용 저장소 입력은 계속 미확인이다. [Linux의 RMTFS 메모리 DT 속성](https://www.kernel.org/doc/Documentation/devicetree/bindings/reserved-memory/qcom,rmtfs-mem.yaml)
 
 첫 정상 조건 VM은 가상 CDC-NCM 호스트 연결 시간 초과로 펌웨어 전송 전에 끝났다. 호스트가 받은 인증 바이트는 0이었다. 실패 로그를 보존하고 동일한 커널·RAM 아카이브로 새로 부팅해 표의 정상 결과를 얻었다. 정상 H0 아카이브는 2,988,428바이트이며 `workspace/private/analysis/s22plus-sysv-mem-owner.7PXKREeY/valid.cpio.gz`에 있다. 같은 디렉터리의 `result.json`에 원본·변경 항목 해시, 네 완료 부팅의 원시 기록과 첫 실패 기록을 연결했다.
+
+## 최신 Debian 아카이브의 로더 인계
+
+원격 저장소 메모리 모듈을 적재하는 최신 Debian 아카이브(2,988,428바이트)를 ML053 로더의 기존 오브젝트와 다시 링크했다. 모뎀 연구용 Image와 MPSS 활성 DT를 사용했다. 로더가 링크된 주소에서 시작하는 정상 EL1 경로를 ARM64 에뮬레이터로 실행했다. 커널 첫 명령 직전에 멈춰 인계 레지스터와 그 레지스터가 가리키는 DT, 메모리에 복사된 Image와 초기 파일시스템을 읽었다.
+
+- Image와 초기 파일시스템의 바이트가 각각 입력 전체와 일치했다. 로더가 쓴 DT의 `linux,initrd-start`와 `linux,initrd-end`가 가리킨 길이는 2,988,428바이트였다. 그 두 속성을 제외한 DT 노드·속성과 메모리 예약표는 입력과 같았다.
+- 실제 Image 헤더의 커널 사용 범위와 인계된 initrd를 1 GiB 경계에서 시작하는 31 GiB 창 하나가 모두 덮었다. AArch64 부팅 규약의 상한은 32 GiB다. 이 창은 두 배치 주소의 간격을 나타낸다. [Linux의 AArch64 부팅 규약](https://docs.kernel.org/arch/arm64/booting.html)
+- Image에 내장된 고정 명령줄은 `rdinit=/init`을 지정한다. 인계된 아카이브 안에서 이 경로는 실행 가능한 Debian `/usr/sbin/init`으로 연결됐고, 그 ARM64 ELF 인터프리터도 있었다. inittab은 펌웨어 수신 작업이 끝나기를 기다린 뒤 원격 저장소와 TFTP 시작 프로그램을 호출하도록 구성돼 있었다. 이 에뮬레이션의 관측 지점은 커널 진입이며 PID 1과 두 서비스의 실행 증거는 앞의 VM 부팅에서 얻었다.
+
+보류 중인 SCM 전용 AP를 별도로 해제해 대조했다. 두 구성의 Image는 바이트가 같았다. SCM 전용 AP에는 MPSS가 비활성인 DT와 커널 모듈이 없는 RAM 아카이브가 들어 있었다. 이번 서비스 로더가 넘긴 DT에서는 MPSS가 활성이고 원격 저장소 메모리에 VMID 15가 지정돼 있었다. 파일 서비스에 성공한 VM의 같은 메모리에는 VMID가 없었다. 이 결과로 실제 S22+에서 SCM이 VMID 15의 권한 요청을 수락하는지는 판정할 수 없다. 링크 산출물, 진입점의 DT와 소스·입력 해시, 두 패키지 대조 결과는 `workspace/private/analysis/s22plus-fyg1-loader-handoff.hh_vsf5_/`의 `result.json`과 `comparison.json`에 보관했다.
