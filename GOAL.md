@@ -32,10 +32,13 @@ identities, goals, artifacts and authority remain separate.
 
 Per-run detail through ML050 is preserved byte-for-byte in
 [the ML050 snapshot](docs/archive/roadmaps/GOAL_THROUGH_ML050_MAINLINE_UFS_2026-11-19.md);
-each run's report remains the authoritative record. No device owner, grant or
-prepared task is open. The last physical closure is ML050
-(`ANDROID_CLOSED_HEALTHY`, 2026-11-11). ML049 was prepared and reviewed but
-never executed. Every consumed run, grant and candidate stays consumed.
+each run's report remains the authoritative record. The
+[2026-11-22 uniLoader LOGM control](docs/reports/S22PLUS_UNILOADER_LOGM_RUN_2026-11-22.md)
+proved the loader's byte-for-byte readback and recovered one candidate frame
+from the running vendor Android snapshot. Its original-A return closed healthy
+after a health-only continuation. The latest mainline physical closure remains
+ML050 (`ANDROID_CLOSED_HEALTHY`, 2026-11-11). ML049 was prepared and reviewed
+but never executed. Every consumed run, grant and candidate stays consumed.
 
 **Proven on mainline (RAM only):** uniLoader entry, PID1 and USB/NCM;
 packaged Debian SysVinit as initial PID1; a fixed unprivileged same-boot SSH
