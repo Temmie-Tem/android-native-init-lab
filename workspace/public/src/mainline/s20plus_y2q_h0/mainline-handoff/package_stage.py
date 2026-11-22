@@ -61,12 +61,12 @@ def package(stage_build, output):
         size=resident.MAGISKBOOT_SIZE,
         sha256=resident.MAGISKBOOT_SHA256,
     )
-    rollback = resident.BASE_BOOT.with_name("AP.tar.md5")
+    rollback = transport.retained.ROLLBACK_AP
     rollback_pin = resident.exact_receipt(
         rollback,
         "original Magisk AP",
-        size=25835561,
-        sha256="1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2",
+        size=transport.retained.ROLLBACK_AP_SIZE,
+        sha256=transport.retained.ROLLBACK_AP_SHA256,
     )
     output.mkdir(mode=0o700, exist_ok=False)
     boot = output / "boot.img"

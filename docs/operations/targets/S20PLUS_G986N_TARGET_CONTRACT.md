@@ -4539,3 +4539,80 @@ and health, command counts and fixed classifications under
 receipt before parsing and publish a terminal failure on invalid output.
 The capability observes this boot's arguments. It grants no log-body access,
 RAM access, stage-marker write, reboot or transfer.
+
+## S20+ y2q mainline retained kernel stages attended F1
+
+This exact boot-only Process-v2 profile is dormant until an independent
+zero-finding review covers its reachable machinery, both activation literal
+values and its canonical private activation. It applies only to the
+operator-owned SM-G986N/y2q/y2qksx/G986NKSS8IYC2. The owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_mainline_stage_f1.py`.
+It inherits the attended UniLoader Android transport, raw evidence, current
+identity, process cage, registry, pre-candidate abort, original Magisk health
+and demonstrated physical Download requirements. Its run root, exact content
+claim, review and finite approval are separate from all consumed runs.
+
+The one candidate AP is
+`6ba1cf82de4c8385aa04cf3332416f77fd02c3b615b67252f344844a6a7eaf7f`.
+The one original Magisk rollback AP is
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Both contain only the fixed regular boot.img.lz4 member.
+The exact candidate starts the RAM-only Linux 6.18 y2q kernel with its
+retained USB gadget initramfs. It has no block layer, UFS or module loading.
+Entry may fail before Linux. Firmware placement simulation found the same
+starting addresses and same broad XBL SEC LOG intersections as the original
+at all 64 modeled placements. Live firmware ownership is unmeasured.
+The existing physical Download return and exact original AP must be available
+at preparation and under the inherited effect-time checks.
+
+Only this candidate may publish the two build-specific diagnostic frames at
+the reviewed post-FDT and populated-y2q-root call sites. It may overwrite
+up to 256 distinct already-enumerated bytes per kernel entry in the fixed Samsung RAM kernel
+log after its CPU, incoming and outgoing DT, bank, reservation, header and
+index checks. It preserves all LOGM header words. These writes can replace
+previous diagnostic data in those two subslots. No candidate partition or
+other persistent storage operation is admitted. Existing limits on firmware
+and recovery partition operations remain in force.
+
+One direct, currently attended request permits preparation. Before Download
+entry the owner checks fresh rooted stock Android, exact serial and USB
+topology against the demonstrated physical recovery, a clean candidate claim,
+and one complete fixed baseline scan showing neither frame. It uses the
+inherited empty Download baseline, no-replay entry, stable arrival and 900-second
+prepared approval. An interrupted preparation before the initial Download intent
+can release its own guard under the exclusive run transaction after verifying
+only pre-control records and an unconsumed candidate. This close preserves the
+run, issues zero device controls and makes no final health claim. The operator
+must grant the exact fresh approval and remain present. The uninterrupted path
+waits 180 seconds after the verified candidate transfer with zero candidate
+commands. An interrupted observation with durable intent may proceed to recovery
+with a gap. Return uses physical Download on the same original USB port. The
+operator separately confirms either the identified endpoint already in Download
+or the fresh attended arrival. The former branch establishes no button history.
+The owner reidentifies the endpoint before transfer. An uncertain transfer never replays.
+
+The only log-body source is /proc/last_kmsg in procfs. Each of the two
+fixed root scans is scoped to its run, nonce, phase and stock boot identity,
+with at most 120 seconds, 96 stdout bytes and 1024 stderr bytes. Read at
+most 2,097,137 bytes including one overflow sentinel with IYC2 Toybox od.
+The exact existing Magisk BusyBox and reviewed filter classify complete
+frames on the device. Root and target checks precede the scan and the
+stock boot-ID digest must match both before and after. Only classifications,
+counts, capture evidence and the inherited bounded health/identity results
+may leave the phone. Root acquisition of the baseline requires the current
+prepare lease. A return acquisition requires the original physical
+confirmation process that began without rollback intent, proved both
+transfers and observed the fresh qualified original Android boot.
+A subsequent finalizer may derive saved evidence or close restored health
+with a gap. It may never newly scan an intervening boot and call it the first
+return. A first observed stock boot does not exclude every transient
+unobserved firmware reset.
+
+The new owner binds physical claims to the complete private capture in the
+named run. A single first-stage frame proves that execution point. A single
+second frame or one adjacent ordered pair proves the populated-root check.
+Neither proves PID 1 or USB. A missing, failed, cut, empty, stale, ambiguous
+or non-continuous result yields no stage proof. Prior candidate, original
+Magisk and Download actions remain consumed. This section is not a grant
+for a different candidate, a second transfer, an unattended run, or use of
+the S22+ executor.
