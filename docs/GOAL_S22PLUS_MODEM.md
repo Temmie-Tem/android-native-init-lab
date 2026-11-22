@@ -431,6 +431,10 @@ GLINK의 채널 열기에는 별도의 확인 응답(`OPEN_ACK`)이 쓰인다. F
 
 **보관 구간의 첫 수신과 첫 명시적 성공.** 같은 radio 로그에서 RILD의 첫 `ReceiveMessage`는 DMS 모드 조회 성공보다 199 ms 앞선 VOICE의 `END_CALL` 응답이었다. 수신 행은 `err(0)`이었고, 같은 스레드의 다음 행은 `Result(1), Error(41)`이었다. 통화 성립을 보여주는 기록은 아니다. 이 구간에서 처음으로 `Result(0), Error(0)`이 명시된 행은 DMS보다 6 ms 앞선 NAS 통지 등록 응답에 속했다. 바로 뒤에서 RILD는 LTE 반송파 집성 통지 항목을 지원한다고 기록했다. 이어 같은 스레드가 같은 메시지 번호로 다시 요청했을 때에는 `Result(1), Error(17)`과 함께 E911 SMS 상태 통지 항목을 지원하지 않는다고 기록했다. 첫 `GET_SYS_INFO` 성공은 그 뒤 1 ms였다. 이는 보관 로그와 배포 RILD의 판정 범위이며, 실제 선로의 첫 패킷이나 LTE 반송파 집성 동작을 특정하지 않는다. 원본 행과 시각 대조는 `workspace/private/analysis/s22plus-nas-registration.m0KowmgL/early.json`에 있다.
 
+**순정 실기 NAS 수신 기록 (2026-11-22 09:17 KST).** 운영자가 선택한 rev81 관측기로 FYG8 Android·FYG1 모뎀의 무선 로그 버퍼를 일반 ADB 셸에서 한 번 읽었다. 고정 필터에 맞는 RILD의 NAS `GET_SYS_INFO` 수신 헤더는 **0건**이었다. 명령은 시간 초과 없이 정상 종료했고 24건 상한에 도달하지 않았다. 이 결과는 읽은 시점에 표시된 행 수다. 이 부팅에서 NAS 조회가 실행됐는지, 어떤 응답이나 결과가 있었는지는 판정할 수 없다.
+
+보존한 원시 캡처 7개에서 읽기 전후의 단말·USB 포트·부팅이 일치했다. 이전 관측에서 모뎀 `IPCRTR` 채널의 `qcom_smd_qrtr` 연결과 DMS 광고를 확인한 부팅과도 일치했다. 이번 관측에서 새 모뎀 요청은 보내지 않았다. 원시 출력은 `workspace/private/runs/s22plus-stock-nas-radio-MXCUJBFO/`에, 관측기·셸 본문·캡처의 해시와 이전 부팅 대조 결과는 `workspace/private/analysis/s22plus-android-radio-cache.MXCUJBFO/nas-live-verified.json`에 있다.
+
 ### 과거 FYG8 부팅의 LTE 셀 관측과 망 등록 응답
 
 R4W1-A 부팅에서 DMS가 `ONLINE`을 통지한 시각을 기준으로, 같은 무선 로그의 슬롯 0 음성·데이터 등록 조회를 대조했다. RILJ 프로세스, 요청 종류와 일련번호가 일치한 요청·응답은 각각 6쌍이었다.
