@@ -96,7 +96,8 @@ def prepare(artifact_root, output):
         require(rollback["only_member"]["size"] == retained.ROLLBACK_MEMBER_SIZE
                 and rollback["only_member"]["sha256"] == retained.ROLLBACK_MEMBER_SHA256,
                 "resident Magisk rollback member differs")
-    ap = output / "candidate.AP.tar.md5"
+    # Match the AP.tar basename recorded in the MD5 trailer for Odin4.
+    ap = output / "AP.tar.md5"
     with tempfile.TemporaryDirectory(dir=output) as scratch_name:
         scratch = Path(scratch_name)
         lz4 = scratch / "candidate.lz4"

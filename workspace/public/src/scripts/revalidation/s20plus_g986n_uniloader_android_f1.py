@@ -27,7 +27,7 @@ RUN_ROOT = RUNS / "s20plus-g986n-uniloader-android-f1"
 REGISTRY_ROOT = PRIVATE / "consumed-candidate-registry-v1"
 GUARD = source_view.RUN_ROOT / "active-action.json"
 CAGE_ROOT = Path("/sys/fs/cgroup")
-ACTIVATION = RUN_ROOT / "activation-v2.json"
+ACTIVATION = RUN_ROOT / "activation-v3.json"
 P2_RUN = RUNS / "s20plus-g986n-p2-ram-snapshot-f1/run-1790103602144341728"
 P2_CLOSE = PRIVATE / "outputs/s20plus_g986n/p2_live_close_2026-09-23/close.json"
 P2_CLOSE_SHA = "073d52b8eb3bcd7597ccfb905523a1c5362d1d9f6a1b694217a208c1284a4b6d"
@@ -38,8 +38,9 @@ P0 = SCRIPTS / "s20plus_g986n_p0_pid1_odin_f1.py"
 P0_SHA = "c9486ec43ad5f0ed6acc2b34436a9d1be7007e9be9d81bbdcd17c2e0d423d6ef"
 P0_ENGINE_SHA = "82ec4cee48c3a39aa8dc4de6136e8fda3fbefe88d4821a71bdb0df55d2a17c2a"
 PROFILE = "s20plus-g986n-uniloader-android-v1"
-PAIR = PRIVATE / "outputs/s20plus-y2q-uniloader-h0-20261122.sgJEum/physical-prep-2/artifact-pair.json"
-PAIR_SHA = "48ce3ac3e5a574859088e9bd904c6f23c22e2c9f7a79470fa0749447e10b5559"
+PAIR = PRIVATE / "outputs/s20plus-y2q-uniloader-h0-20261122.sgJEum/physical-prep-3/artifact-pair.json"
+PAIR_SIZE = 1_808
+PAIR_SHA = "efd21f4e630cbed0131c92f5bed7ef95703bcfe1ec0e93869531d649abc73bfc"
 MARKER_SOURCE = ROOT / "workspace/public/src/mainline/s20plus_y2q_h0/uniloader_android_observation.py"
 MARKER_SHA = "750a2a87abbfd153e7aa2fa3859efc2e665bf64d129b2d7cb7984e76fdd6452a"
 BUILDER = MARKER_SOURCE.with_name("build_uniloader_android.py")
@@ -173,12 +174,14 @@ def load_exact(path, name, raw):
 
 def read_pair():
     data = source_view.read_file(PAIR)
-    require(source_view.file_receipt(data)["sha256"] == PAIR_SHA, "AP pair receipt differs")
+    require(source_view.file_receipt(data) == {"size": PAIR_SIZE, "sha256": PAIR_SHA},
+            "AP pair receipt differs")
     value = json.loads(data)
     require(value["target"] == TARGET and value["device_commands"] == 0
             and value["live_prepared"] is False, "AP pair is not exact H0 evidence")
     for role in ("candidate", "rollback"):
         require(value[role]["only_member"]["name"] == "boot.img.lz4", "non-boot AP member")
+        require(Path(value[role]["ap"]["path"]).name == "AP.tar.md5", "Odin AP basename differs")
     return value
 
 
@@ -631,7 +634,7 @@ def _configure_runtime(module):
     original_wait = engine.wait_download
     candidate = pair["candidate"]
     values = {"VERSION": PROFILE, "RUN_ROOT": RUN_ROOT, "CLAIM_ROOT": RUN_ROOT / "consumed-candidates",
-              "OUTPUT_ROOT": PAIR.parent, "MANIFEST": PAIR, "MANIFEST_SIZE": 1818,
+              "OUTPUT_ROOT": PAIR.parent, "MANIFEST": PAIR, "MANIFEST_SIZE": PAIR_SIZE,
               "MANIFEST_SHA256": PAIR_SHA, "REGISTRY_MANIFEST_ID": PROFILE, "P0_F1_ACTIVE": ACTIVE,
               "BUILDER_PATH": BUILDER, "BUILDER_SIZE": BUILDER.stat().st_size,
               "BUILDER_SHA256": BUILDER_SHA,

@@ -2,6 +2,7 @@
 
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -33,6 +34,23 @@ class UniLoaderOwnerTests(unittest.TestCase):
         with patch.object(owner, "ACTIVE", False):
             with self.assertRaisesRegex(owner.Stop, "NOT_ACTIVE"):
                 owner.require_active()
+
+    def test_pinned_pairs_use_the_odin_md5_trailer_basename(self):
+        pair = {"target": owner.TARGET, "device_commands": 0, "live_prepared": False}
+        for role in ("candidate", "rollback"):
+            pair[role] = {"only_member": {"name": "boot.img.lz4"},
+                          "ap": {"path": f"/fixture/{role}/AP.tar.md5"}}
+        for basename, expected in (("AP.tar.md5", True), ("candidate.AP.tar.md5", False)):
+            pair["candidate"]["ap"]["path"] = f"/fixture/candidate/{basename}"
+            raw = json.dumps(pair).encode()
+            with (patch.object(owner, "PAIR_SIZE", len(raw)),
+                  patch.object(owner, "PAIR_SHA", hashlib.sha256(raw).hexdigest()),
+                  patch.object(owner.source_view, "read_file", return_value=raw)):
+                if expected:
+                    self.assertEqual(owner.read_pair(), pair)
+                else:
+                    with self.assertRaisesRegex(owner.Stop, "Odin AP basename differs"):
+                        owner.read_pair()
 
     def test_runtime_substitutes_owner_and_current_registry_only(self):
         original = owner.P0.read_bytes()

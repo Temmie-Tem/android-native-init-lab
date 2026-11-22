@@ -1,8 +1,9 @@
 # S20+ UniLoader Android F1 owner
 
-The exact `SM-G986N / y2q / G986NKSS8IYC2` attended capability is
-independently reviewed and active. Its successor activation reuses the
-retained same-device physical Download recovery described below.
+The first attended `SM-G986N / y2q / G986NKSS8IYC2` run ended
+`NO_PROOF_UNILOADER_ORIGINAL_ROOT_RETURNED`. Odin rejected the candidate AP
+before USB transfer. The original Magisk AP was restored, rooted Android
+returned healthy, and the FDT marker was absent on that returned boot.
 [Binding target section](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-uniloader-android-compatibility-attended-f1)
 
 The [owner](../../workspace/public/src/scripts/revalidation/s20plus_g986n_uniloader_android_f1.py)
@@ -87,7 +88,44 @@ retained physical recovery topology. Preparation completed at 22:35:13
 KST on November 22. The prepared record SHA-256 is
 `9af1931bae2641b78ec28d679dcc25790c396d1bd7f61cba70c4a5ce4e64f68a`.
 
-The owner holds the S20+ action guard for this session. The prepared
-approval expires at 22:50:13 KST. Candidate and rollback intents and
-transfers remain zero. Current candidate boot and original Magisk return
-verification remain pending that bound attended approval.
+The operator confirmed attendance and returned the exact approval before
+expiry. The executed source and activation remain bound to this journal.
+
+## First run result
+
+| KST on November 22 | Observation |
+| --- | --- |
+| 22:36:07 | Odin returned 1 with `md5 fail` and `Fail parse` for `candidate.AP.tar.md5`. No USB session or candidate transfer started. |
+| 22:36:08 | The owner recorded `NO_PROOF`. Candidate Android and FDT observation were never reached. The global claim was released through the certified pre-session local-parse lane. The run remains closed to replay. |
+| 22:37:37 | One proved transfer of the bound original Magisk AP on the same already-present Download session. Temporary target-lease contention was resolved before confirmation. |
+| 22:38:13 | Fresh exact Android boot completed with Magisk 30.7, UID 0, and SELinux Enforcing. |
+| 22:38:15 | The same returned boot proved the FDT marker absent. The owner published the terminal and released the S20+ guard. |
+
+The terminal SHA-256 is
+`5a3caf769f23bdd4dd291414af4059cb8226906adf4d6a4c3f906be08c20cf78`.
+The rollback transfer record SHA-256 is
+`6b5f80b2d0649603d2653295ac9e9dc714fc926aa76afd6c12574b3665249853`.
+Candidate and rollback transfer completions are zero and one respectively.
+Other-target commands and recovery-partition operations are zero.
+
+## Candidate AP filename correction
+
+The AP byte digest and TAR MD5 trailer were correct. In a host namespace
+with the USB device tree and network hidden, the pinned Odin binary
+reproduced the parse failure for `candidate.AP.tar.md5`. The same bytes
+under `AP.tar.md5` passed parsing and reached the intentionally absent USB
+endpoint. The corrected packager writes `AP.tar.md5`; a fresh package
+compared byte-for-byte equal to the original candidate and kept the
+same decoded boot, FDT marker, and original rollback AP identities.
+The corrected pair has SHA-256
+`efd21f4e630cbed0131c92f5bed7ef95703bcfe1ec0e93869531d649abc73bfc`.
+It requires a fresh preparation and approval because the absolute AP path
+and pair receipt are part of the binding.
+
+The corrected binding received independent `PASS_GO` with zero findings.
+All 38 focused tests passed. The successor active owner SHA-256 is
+`5a8d865ccac1d4c1dde94088fb2ea0550a0d0b80727d4d7e9d6da9b20fe53d42`.
+The separate activation record SHA-256 is
+`f5c4dd1fdcfc510a388b003dd278f9d4733459e7d5365609208dab980eba5cee`.
+Activation and artifact validation sent no device commands. The first
+run's original AP, source activation, and journal remain preserved.
