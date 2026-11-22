@@ -20,6 +20,18 @@ FYG1 코드에 대한 결과는 호스트에 보관한 순정 파일의 정적 �
 
 추후 단말 입력이 확인되면 A/B 판별에는 길이와 평균 전력이 같고 복소 샘플 패턴이 다른 두 입력을 쓴다. 단말 설정을 고정하고 독립 수신 기록에서 입력 순서를 가린 채 A·B를 식별하며, 무송신 대조 구간에서도 오검출을 확인한다. 이번 조사는 호스트에서 마쳤고 단말용 실험 패키지나 송신 기록은 생성하지 않았다.
 
+### 국내형 S22+용 삼성 서명 시험 펌웨어 후보
+
+공개 자료에서 국내 양산형 `SM-S906N`이 수락하는 삼성 서명 시험용 모뎀(CP) 중 사용자 지정 송신 I/Q를 받는 버전은 식별하지 못했다. 같은 단말에서 사용자 입력과 RF 출력을 짝지은 성공 기록도 찾지 못했다.
+
+| 후보 또는 기록 | 확인한 범위 |
+| --- | --- |
+| 국내 배포 펌웨어 | 삼성의 공개 업데이트 이력과 보관 ZIP의 AP·CP 멤버명을 대조했다. AP 끝자리와 CP 끝자리는 각각 FYG8 → FYG1, GYJ1 → GYI7, GZH3 → GZE4다. 세 배포 ZIP 모두 이름 끝이 `_fac.zip`이다. 이 세 건에서 확인한 용도는 일반 소프트웨어 업데이트다. GYI7·GZE4는 패키지 식별까지 확인했으며 내부 I/Q 처리와 실기 기동은 이번 조사에서 검증하지 않았다. [삼성 SM-S906N 업데이트 이력](https://doc.samsungmobile.com/SM-S906N/021692220301/kor.html) |
+| TEMS Pocket 계측 단말 | 판매사 Lesitel은 S22+의 지역별 모델 목록에 `SM-S906N`을 적었다. Infovista의 제품 문서에는 망 측정·단말 제어·프로토콜 로그 기능이 있고 전체 지원 단말 목록은 고객 포털로 안내한다. 확인한 공개 문서에는 한국 모델의 CP 빌드 번호, 삼성 서명 확인 자료, 단말 송신용 I/Q 입력 형식이 없다. [판매사 모델 목록](https://lesitel.com/product/tems-pocket-s22/) · [Infovista 제품 설명](https://www.infovista.com/sites/default/files/pdfs/ds_infovista_tems_pocket.pdf) · [지원 단말 안내](https://know.infovista.com/products/tems-pocket/quote-request) |
+| 국내형 RF 실측 | 국립전파연구원의 `SM-S906N` 등록값은 머리 전자파흡수율(SAR) 0.618 W/kg이다. 공개 표에는 시험용 CP 버전이나 입력 파형 파일이 없다. 위 NVIDIA 자료에는 수신 I/Q가 있으나 국내형 모델 번호와 사용자 지정 송신 샘플이 없다. [국립전파연구원 SAR 목록](https://www.rra.go.kr/ko/license/D_c_sarlist.do?cpage=63&searchCon=&searchTxt=) · [NVIDIA 측정 조건](https://huggingface.co/datasets/nvidia/aerial-isac-srs-iq) |
+
+삼성 내부 빌드 목록과 Infovista 고객 전용 목록은 확인하지 못했다. 이번 결과는 공개 문서와 보관 배포본의 범위에 한정된다.
+
 ## 지정한 I/Q 샘플과 n78 송신 측정의 대조
 
 **모뎀 코드가 지정한 I/Q 샘플열이 그대로 n78 RF 출력에 반영됐는지는 미확인이다.** 보관된 FYG1 CP 아카이브의 SHA-256을 아래 기준값과 다시 대조했다. 기존 H0 기록(`sample-return-h0.9ij7zs43/result.json`)에서 조사한 순정 함수는 유효한 입력 레코드에서도 반환값과 출력 샘플 길이가 모두 0이며, 호출자는 복사 전에 종료한다. 따라서 이 경로에서 실제 송신에 쓰였다고 식별할 입력 샘플열이 없다. 이 결과의 범위는 해당 순정 함수와 호출자까지다.
