@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only
+
+#include "sm8250-samsung-common.dtsi"
+
+/ {
+	model = "Samsung Galaxy S20+ 5G (SM-G986N)";
+	compatible = "samsung,y2q", "qcom,sm8250";
+	chassis-type = "handset";
+};
+
+/* Keep the splash reservation while deferring the framebuffer mode. */
+&framebuffer {
+	status = "disabled";
+};
+
+/* Keep the Korean stock record layout. This build omits the pstore driver. */
+&{/reserved-memory/ramoops@9fa00000} {
+	record-size = <0x40000>;
+};
+
+/* First boot exercises only the common USB 2.0 peripheral path. */
+&gpio_keys {
+	status = "disabled";
+};
+
+&pon_pwrkey {
+	status = "disabled";
+};
+
+&pon_resin {
+	status = "disabled";
+};
+
+&ufs_mem_hc {
+	status = "disabled";
+};
+
+&ufs_mem_phy {
+	status = "disabled";
+};
