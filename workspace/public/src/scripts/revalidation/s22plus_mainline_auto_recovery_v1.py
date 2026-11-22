@@ -123,19 +123,7 @@ def admit_ticket(adapter,request,receipt,ticket):
     require(clock()<end,'automatic A arrival exceeded original cap')
 
 
-def cue_settled(operation):
-    """Late resolution remains evidence only; it never renews the attach window."""
-    with attach.locked(operation):
-        cue=operation/'mainline-attach-cue.json'
-        if not cue.exists():return True
-        value=read(cue);resolution=operation/'mainline-attach-resolution.json'
-        if not resolution.exists():return False
-        resolved=read(resolution);binding=attach.binding(operation,value['window'])
-        require(all(value[k]==resolved[k]==v for k,v in binding.items()) and
-                resolved['cue']==pin(cue) and resolved['resolution'] in ('completed','cancelled') and
-                type(resolved['operator_statement']) is str and 0<len(resolved['operator_statement'].strip())<=4096 and
-                value['issued_ns']<=resolved['resolved_ns'],'automatic recovery attach resolution differs')
-        return True
+cue_settled = attach.cue_settled
 
 
 def observe(session,receipt,folder):

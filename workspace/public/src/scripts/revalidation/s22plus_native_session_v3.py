@@ -400,6 +400,11 @@ class Session:
             return Coordinator(self).recover(attended=attended)
         return self._recover_android(attended=attended)
 
+    def final_evidence_recorded(self, step):
+        return ((self.directory/(step.name+'.json')).exists() or any(
+            row['event']=='step-complete' and row['data']['step']==step.name for row in self.rows())
+            or self.adapter.final_protocol_completed(step,self.request))
+
     def _recover_android(self, *, attended, recovery_window=None):
         require(attended is True,'original A recovery requires actual attendance')
         require(not (self.directory/'terminal.json').exists(),'terminal already published; only H0 close repair remains')
@@ -409,9 +414,7 @@ class Session:
         require(len(android)<=1,'multiple Android transfer intents')
         later_android=bool(android and not any(step.name==android[0]['data']['step']
             and step.action=='transfer' and step.role=='A' for step in normal))
-        final_recorded=(self.directory/(normal[-1].name+'.json')).exists() or any(
-            row['event']=='step-complete' and row['data']['step']==normal[-1].name for row in self.rows())
-        final_recorded=final_recorded or self.adapter.final_protocol_completed(normal[-1],self.request)
+        final_recorded=self.final_evidence_recorded(normal[-1])
         try:
             # Raw proofs may survive even when their result or terminal file
             # does not. Only a complete normal sequence selects this branch.
@@ -437,6 +440,10 @@ class Session:
             # its result publication failed. An uncertain dispatch never retries.
             self.result(transfer,self.adapter.recover_transfer_result(transfer,self.request))
         else:
+            if self.request['operation']=='mainline-ram':
+                from s22plus_mainline_attach_v1 import close_for_recovery
+                require(close_for_recovery(self.directory),
+                        'resolve the issued attach cue before original-A recovery')
             self.perform(transfer,recovery=True,recovery_window=recovery_window)
         if not (self.directory/(final.name+'.json')).exists():
             self.perform(final,recovery=True)
@@ -474,7 +481,13 @@ class Session:
                 self.adapter.validate_sequence(plan,values,self.request)
             except (ValueError,OSError,KeyError,RawCaptureError):
                 require(len(android)==1,'no completed normal sequence or unique A recovery')
-                plan=(Step(android[0]['data']['step'],'transfer','A'),Step('recovery-health','health','A'))
+                transfer=Step(android[0]['data']['step'],'transfer','A')
+                # A missing observation closure cannot invalidate independent
+                # normal A/final health. Re-read both exact proofs in H0.
+                normal_health = (self.request['operation']=='mainline-ram' and transfer==plan[-2] and
+                                 self.final_evidence_recorded(plan[-1]))
+                final=plan[-1] if normal_health else Step('recovery-health','health','A')
+                plan=(transfer,final)
                 values=[self.adapter.recover_step_result(step,self.request) for step in plan]
                 for step,value in zip(plan,values): self.adapter.validate_result(step,value,self.request)
                 self.adapter.validate_sequence(plan,values,self.request)

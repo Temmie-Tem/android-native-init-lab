@@ -210,14 +210,10 @@ def observe(adapter,request,guard,before_permit):
         require(clock()<limit,'ML030 endpoint capture exceeded window')
     def initial_guard():
         guard();require(clock()<window['deadline_ns'],'ML030 first observation expired')
-    found=None
-    for number in range(1,121):
-        initial_guard();found=access.endpoint(access.capture_endpoint(folder,f'usb-{number:03d}'),manifest)
-        if found is not None:break
-        time.sleep(min(1,max(0,(window['deadline_ns']-clock())/1e9)))
-    require(found is not None,'ML030 USB endpoint absent')
+    found = access.poll_endpoint(folder, manifest, window['deadline_ns'], initial_guard,
+                                 attach_operation=adapter.directory)
     found=access.configure(adapter.configuration(request)['mainline_access'],manifest,found,folder,initial_guard,
-                           deadline_ns=window['deadline_ns'])
+                           deadline_ns=window['deadline_ns'],attach_operation=adapter.directory)
     def socket_guard(phase):
         require(phase in ('before-connect','after-connect','before-control'),'ML030 socket phase')
         checked_endpoint(phase,late['deadline_ns'] if phase=='before-control' else window['deadline_ns'])

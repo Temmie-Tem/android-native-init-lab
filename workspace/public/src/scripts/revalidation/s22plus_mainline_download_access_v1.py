@@ -2,7 +2,6 @@
 from pathlib import Path
 import secrets
 import socket
-import time
 
 import device_action_raw_capture_v1 as raw
 import s22plus_mainline_access_v1 as access
@@ -128,7 +127,9 @@ def capture_connection(folder,manifest,found,*,deadline_ns,guard,before_control,
 def rederive_base(adapter,request):
     require(selected(request),'unselected Download evidence')
     folder=adapter.folder(profile.SELECTION);window=read(folder/'window.json');attempt=read(folder/'attempt.json')
-    completed=read(folder/'base-complete.json');manifest=profile.image_binding(request['N'])
+    completed=read(folder/'base-complete.json')
+    access.validate_capture_fields(window, attempt, completed)
+    manifest=profile.image_binding(request['N'])
     require(profile.codec.has_download(manifest) and window==access.window_for(adapter,request) and
             completed['attempt']==pin(folder/'attempt.json') and completed['response']==pin(folder/'response.capture.json') and
             completed['prefix']==pin(folder/'prefix.capture.json') and completed['framing']=='length' and
@@ -141,7 +142,7 @@ def rederive_base(adapter,request):
             for label in ('usb-before-connect','usb-after-connect')),'Download base endpoint changed')
     for label in ('network-create','network-up'):access.require_host(raw.load_handle(folder/(label+'.capture.json')))
     nonce=bytes.fromhex(attempt['nonce']);require(len(nonce)==32,'Download nonce length')
-    planned=raw.load_handle(verify(attempt['request']));raw.require_success(planned)
+    planned=access.retained_request(attempt)
     require(raw.read_stdout(planned,maximum=72)==profile.codec.request(Path(manifest['key_path']).read_bytes(),
             bytes.fromhex(manifest['candidate_id']),nonce,manifest=manifest),'retained base request changed')
     prefix=raw.load_handle(verify(completed['prefix']));raw.require_success(prefix)
@@ -149,7 +150,7 @@ def rederive_base(adapter,request):
     response=raw.load_handle(verify(completed['response']));raw.require_success(response)
     data=raw.read_stdout(response,maximum=384+profile.codec.FDT_LIMIT)
     require(data[:384]==prefix_bytes and len(data)==codec(manifest).frame_size(prefix_bytes),'sealed frame length differs')
-    proof=profile.codec.verify_capture(response,manifest,nonce)
+    proof=access.verify_response(profile.codec,response,manifest,nonce)
     return dict(action=ACTION,proof=proof,response=completed['response'],base=pin(folder/'base-complete.json'),
         attempt=pin(folder/'attempt.json'),endpoint=pin(folder/'endpoint.json'),window=pin(folder/'window.json'))
 
@@ -234,11 +235,7 @@ def observe(adapter,request,guard,before_control):
     window_pin=publish(folder/'window.json',window);deadline=window['deadline_ns'];found=None
     def bound_guard():
         guard();require(clock()<deadline,'original Download observation window expired')
-    for number in range(1,121):
-        bound_guard();found=access.endpoint(access.capture_endpoint(folder,f'usb-{number:03d}'),manifest)
-        if found is not None:break
-        time.sleep(min(1,max(0,(deadline-clock())/1e9)))
-    require(found is not None,'Download observer USB endpoint did not arrive')
+    found = access.poll_endpoint(folder, manifest, deadline, bound_guard)
     found=access.configure(plan,manifest,found,folder,bound_guard,deadline_ns=deadline)
     def socket_guard(phase):
         require(phase in ('before-connect','after-connect','before-control'),'unknown socket phase')

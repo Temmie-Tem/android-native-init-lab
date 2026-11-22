@@ -2,6 +2,8 @@
 
 Status: **REVIEW_GATED_CAPABILITY**
 
+Ordinary cue status: **REVIEW_GATED_CAPABILITY**
+
 For the SM-S906N / g0q / FYG8 observation, the existing mainline RAM owner uses one Android-origin operation with its existing physical attendance, effect-time identity, health, fixed observation window, manual Download, original-A return and no-replay conditions. The selected board artifact is the [qualified moduleless Debian RAM candidate](../reports/S22PLUS_MAINLINE_SCM_BOARD_ARTIFACT_H0_2026-11-22.md). Its exact qualification pins one AP, key commitment, decoder and loader-produced FDT. The [Image review](../reports/S22PLUS_MAINLINE_SCM_USB_H0_2026-11-22.md) identifies the kernel's own SCM initialization effects. MPSS, UFS and SD controllers are disabled.
 
 ## Kernel effects for the exact candidate
@@ -20,3 +22,42 @@ The enabled SM8450 SMMU can proceed with normal platform initialization once SCM
 A single NCM challenge samples the first binding of the identified SCM device. The original transfer window, endpoint continuity, authenticated request, sealed response and exact loader FDT apply. A valid bound or unbound sample records the observed state. A valid indeterminate sample retains the authenticated boot evidence and the indeterminate value. Missing or rejected evidence leaves SCM unproved. An observation error follows the existing physical recovery path. Final Android return and health must be established independently before terminal closure. Physical recovery requires the same original owner and original A.
 
 The foreground preapproval `ready` operation uses the mainline RAM policy’s existing fixed Android transcript. The exact source-bound SCM review, qualified package, current target and recovery bindings, and the existing one-operation attended grant are required by the [mainline RAM policy](S22PLUS_MAINLINE_RAM_V1.md). One operation authorizes one boot-only N transfer and at most one original-A return on the same owner. The operator must be present and able to enter physical Download. The owner rechecks the original A and final rooted Android health. Consumed candidates and uncertain transfers remain consumed.
+
+## Ordinary USB attach cue
+
+The S22+ target contract's SCM observation may use the existing bounded
+phone-end attach procedure on its ordinary `mainline-evidence` step. The
+new task must bind the dedicated [SCM ordinary-cue source review](../../workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v2_review.json)
+and meet the existing SCM qualification, finite approval, attendance and
+rollback requirements. Earlier SCM tasks retain their original review and
+operation records. The qualification named above was consumed in the
+[SCM USB run](../reports/S22PLUS_MAINLINE_SCM_USB_RUN_2026-11-22.md). A
+subsequent run requires its own reviewed qualification, fresh exact task and
+finite attended approval.
+
+Use the fixed cue caller. It checks raw-complete N and the active original
+120-second observation window with more than 60 seconds remaining, the latest
+sealed census showing USB2 absence with no related children, and the absence
+of endpoint selection, a request, a stop or a return. Only a durable cue
+eligible for display permits the operator to detach the phone end once for
+about three seconds and then reconnect with the same cable, host port and
+orientation, without pressing buttons. The operator records one actual
+completion or cancellation. A cable or enumeration race retains the one-shot
+request and stop rules. The cue cannot extend the observation window.
+Recording the operator's statement may wait up to one second to acquire the
+operation lock. The local wait gives no additional time to the observation.
+
+The ordinary observation rederives the authenticated result with an
+operation-bound cue closure at or after the sealed response. With a pending
+cue, the owner cannot request a physical Download return or start a new
+original-A recovery. After a stop, further cue issuance is closed for the
+original owner. A late actual completion or cancellation can settle that
+owner's recovery interlock without renewing the observation or grant. An
+existing A intent follows its original raw-completion and health-only rules.
+Independently proved A and final health can support H0 terminal repair when
+the observation closure is unavailable.
+
+This adopts the physical attach condition within the existing SCM observation
+and return scope. Replugging supplies no proof of the cause of USB absence.
+The separate physical Download, exact A, final Android health and no-replay
+conditions continue to apply.

@@ -258,6 +258,61 @@ class CueTests(unittest.TestCase):
         self.assertEqual(diagnostics['latest_census_path'], str(self.io/'usb-002.capture.json'))
         self.assertFalse((self.op/'mainline-attach-cue.json').exists())
 
+    def test_numbered_observer_waits_for_cue_lock_before_sealing_next_census(self):
+        started = threading.Event()
+        result = []
+        errors = []
+
+        def observe():
+            try:
+                result.append(cue.access.poll_endpoint(
+                    self.io, {}, self.now + 120_000_000_000, started.set, attach_operation=self.op))
+            except BaseException as error:
+                errors.append(error)
+
+        chosen = {'interface': 'fixture'}
+        def capture(folder, label):
+            self.assertEqual(label, 'usb-001')
+            self.assertTrue((self.op/'mainline-attach-cue.json').is_file())
+            return self.usb(2, errno=None)
+
+        observer = threading.Thread(target=observe, daemon=True)
+        def start_while_issuing():
+            observer.start()
+            self.assertTrue(started.wait(2))
+            # The guard finished, but the real observer cannot run its
+            # census producer until the issuer publishes and drops the lock.
+            self.assertFalse((self.io/'usb-002.capture.json').exists())
+
+        with self.after_read(start_while_issuing), patch.object(cue.access, 'clock', lambda: self.now), \
+                patch.object(cue.access, 'capture_endpoint', side_effect=capture), \
+                patch.object(cue.access, 'endpoint', return_value=chosen):
+            self.issue()
+            observer.join(2)
+        self.assertFalse(observer.is_alive())
+        self.assertFalse(errors)
+        self.assertEqual(result, [chosen])
+
+    def test_recovery_fence_waits_for_real_late_resolution(self):
+        self.issue()
+        window = cue.pin(self.io/'window.json')
+        actual_cue = cue.pin(self.op/'mainline-attach-cue.json')
+        self.now = 250_000_000_000
+        self.assertFalse(cue.attach.close_for_recovery(self.op))
+        self.assertFalse((self.op/'mainline-attach-closed.json').exists())
+        self.assertFalse((self.op/'mainline-attach-resolution.json').exists())
+        cue.attach.resolve(self.op, window, cue=actual_cue, resolution='cancelled',
+                           operator_statement='Fixture operator cancelled the action.')
+        self.assertTrue(cue.attach.close_for_recovery(self.op))
+        self.assertFalse((self.op/'mainline-attach-closed.json').exists())
+        self.assertEqual(cue.pin(self.io/'window.json'), window)
+
+    def test_interrupted_owner_without_cue_closes_late_issuance(self):
+        self.assertTrue(cue.attach.close_for_recovery(self.op))
+        with self.assertRaisesRegex(ValueError, 'issuance is closed'):
+            self.issue()
+        self.assertFalse((self.op/'mainline-attach-cue.json').exists())
+
     def test_state_change_after_final_census_is_refused(self):
         with self.after_read(lambda: self.journal.append('stopped', error_message='fixture post-census stop')):
             with self.assertRaisesRegex(ValueError, 'selection changed'):

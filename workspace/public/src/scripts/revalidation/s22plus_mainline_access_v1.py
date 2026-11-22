@@ -1,4 +1,5 @@
 """One exact USB2 NCM observation; raw first, one connection, no control API."""
+from contextlib import nullcontext
 import errno
 import ipaddress
 import json
@@ -13,6 +14,8 @@ import uuid
 import device_action_raw_capture_v1 as raw
 import s22plus_native_target_io_v3 as target
 import s22plus_mainline_profile_v1 as profile
+import s22plus_mainline_attach_v1 as attach
+from s22plus_fyg8_p319_max77705_irq_dt_audit import AuditError
 from s22plus_native_records_v3 import canonical,clock,digest,host_boot,pin,publish,read,require,verify
 
 USB_FIELDS=('idVendor','idProduct','serial','product','manufacturer','busnum','devnum','speed')
@@ -141,20 +144,21 @@ def inspect_connection(plan,folder,label):
         'connection','show','uuid',plan['uuid']],folder,label)
 
 
-def configure(plan,manifest,found,folder,guard,*,deadline_ns):
+def configure(plan,manifest,found,folder,guard,*,deadline_ns,attach_operation=None):
     """Bind the current name once, before the first owned profile effect."""
     before=host_command(plan,'ip',['-j','address','show'],folder,'addresses-before')
     network_conflicts(before,manifest,own_ifindex=found['ifindex'])
     require(not connection_identity(inspect_connection(plan,folder,'profile-before'),plan,found),
             'network UUID was already present')
     guard()
-    current=endpoint(capture_endpoint(folder,'usb-before-configure'),manifest)
-    require(current is not None and
-            {k:v for k,v in current.items() if k!='interface'}==
-            {k:v for k,v in found.items() if k!='interface'},
-            'NCM identity changed before configuration')
-    found=current
-    publish(folder/'endpoint.json',found)
+    with selection_lock(attach_operation, deadline_ns):
+        current=endpoint(capture_endpoint(folder,'usb-before-configure'),manifest)
+        require(current is not None and
+                {k:v for k,v in current.items() if k!='interface'}==
+                {k:v for k,v in found.items() if k!='interface'},
+                'NCM identity changed before configuration')
+        found=current
+        publish(folder/'endpoint.json',found)
     publish(folder/'network-intent.json',dict(plan=plan,endpoint=found))
     prefix=ipaddress.IPv4Network('0.0.0.0/'+manifest['network']['netmask']).prefixlen
     args=['connection','add','save','no','type','ethernet','con-name',plan['name'],
@@ -236,9 +240,52 @@ def capture_connection(folder,manifest,found,*,deadline_ns,guard,connect=None):
     return handle
 
 
+def selection_lock(operation, deadline_ns):
+    return nullcontext() if operation is None else attach.locked(operation, deadline_ns)
+
+
+def poll_endpoint(folder, manifest, deadline, guard, *, attach_operation=None):
+    for number in range(1, 121):
+        guard()
+        require(clock() < deadline, 'original USB observation window expired')
+        # Cue issuance sees either the previous census or this sealed census.
+        with selection_lock(attach_operation, deadline):
+            found = endpoint(capture_endpoint(folder, f'usb-{number:03d}'), manifest)
+        if found is not None:
+            return found
+        time.sleep(min(1, max(0, (deadline - clock()) / 1e9)))
+    raise ValueError('canary USB endpoint did not arrive')
+
+
+def validate_capture_fields(window, attempt, completed):
+    require(all(type(value) is dict for value in (window, attempt, completed)),
+            'observation record shape differs')
+    require(all(type(value) is int for value in (
+        window['opened_ns'], window['deadline_ns'], attempt['opened_ns'],
+        attempt['deadline_ns'], completed['finished_ns'])), 'observation timestamps must be integers')
+    require(type(attempt['nonce']) is str, 'observation nonce must be hex text')
+
+
+def verify_response(wire, handle, manifest, nonce):
+    try:
+        return wire.verify_capture(handle, manifest, nonce)
+    except AuditError as error:
+        raise ValueError('invalid device tree in authenticated observation') from error
+
+
+def retained_request(attempt):
+    receipt = attempt.get('request')
+    require(type(receipt) is dict and type(receipt.get('path')) is str,
+            'observation request receipt path must be text')
+    handle = raw.load_handle(verify(receipt))
+    raw.require_success(handle)
+    return handle
+
+
 def rederive_base(adapter,request):
     folder=adapter.folder(profile.SELECTION)
     window=read(folder/'window.json');attempt=read(folder/'attempt.json');connection=read(folder/'connection.json')
+    validate_capture_fields(window, attempt, connection)
     manifest=profile.image_binding(request['N'])
     wanted=window_for(adapter,request)
     require(window['operation']==pin(adapter.directory/'operation.json') and
@@ -258,13 +305,12 @@ def rederive_base(adapter,request):
     require_host(raw.load_handle(folder/'network-create.capture.json'))
     require_host(raw.load_handle(folder/'network-up.capture.json'))
     nonce=bytes.fromhex(attempt['nonce']);require(len(nonce)==32,'nonce length differs')
-    planned=raw.load_handle(verify(attempt['request']))
-    raw.require_success(planned)
+    planned=retained_request(attempt)
     wire=profile.observation_wire(manifest)
     expected=wire.request(Path(manifest['key_path']).read_bytes(),bytes.fromhex(manifest['candidate_id']),nonce,
                                    manifest=manifest)
     require(raw.read_stdout(planned,maximum=72)==expected,'retained request differs')
-    proof=wire.verify_capture(raw.load_handle(verify(connection['response'])),manifest,nonce)
+    proof=verify_response(wire,raw.load_handle(verify(connection['response'])),manifest,nonce)
     return dict(action='mainline-evidence',proof=proof,response=connection['response'],attempt=pin(folder/'attempt.json'),
                 endpoint=pin(folder/'endpoint.json'),window=pin(folder/'window.json'))
 
@@ -315,8 +361,16 @@ def rederive(adapter,request):
         # Validate candidate-only code before importing it on that path.
         try:
             from s22plus_mainline_task_v1 import capability
-            capability(adapter.root, image=request['N'])
-            return rederive_base(adapter,request)
+            ordinary_cue = profile.ordinary_cue(adapter, request)
+            capability(adapter.root, image=request['N'], ordinary_cue=ordinary_cue)
+            value = rederive_base(adapter, request)
+            if ordinary_cue:
+                closure = attach.rederive(adapter.directory, value['window'])
+                connection = read(adapter.folder(profile.SELECTION)/'connection.json')
+                require(connection['finished_ns'] <= read(verify(closure))['closed_ns'],
+                        'ordinary attach closure precedes the sealed response')
+                value['attach'] = closure
+            return value
         except (ImportError, SyntaxError) as error:
             raise ValueError('SCM observation code unavailable') from error
     value=rederive_base(adapter,request)
@@ -366,6 +420,8 @@ def window_for(adapter,request):
     receipt=adapter.recover_transfer_result(Step('install-native-first','transfer','N'),request)['launch']
     launch=read(verify(receipt))
     grant=read(verify(request['grant']))
+    require(type(launch['boottime_ns']) is int and type(grant['deadline_ns']) is int,
+            'launch and grant timestamps must be integers')
     return dict(operation=pin(adapter.directory/'operation.json'),candidate_launch=receipt,host_boot=grant['host_boot'],
         opened_ns=launch['boottime_ns'],deadline_ns=min(grant['deadline_ns'],launch['boottime_ns']+profile.OBSERVATION_NS))
 
@@ -373,16 +429,13 @@ def window_for(adapter,request):
 def observe(adapter,request,guard):
     manifest=profile.image_binding(request['N']);plan=adapter.configuration(request)['mainline_access']
     folder=adapter.folder(profile.SELECTION,create=True);window=window_for(adapter,request)
-    publish(folder/'window.json',window);deadline=window['deadline_ns'];found=None
-    for number in range(1,121):
-        guard();require(clock()<deadline,'canary USB observation window expired')
-        found=endpoint(capture_endpoint(folder,f'usb-{number:03d}'),manifest)
-        if found is not None:break
-        time.sleep(min(1,max(0,(deadline-clock())/1e9)))
-    require(found is not None,'canary USB endpoint did not arrive')
+    window_pin = publish(folder/'window.json',window)
+    deadline = window['deadline_ns']
+    operation = adapter.directory if profile.ordinary_cue(adapter, request) else None
+    found = poll_endpoint(folder, manifest, deadline, guard, attach_operation=operation)
     def bound_guard():
         guard();require(clock()<deadline,'original mainline window expired')
-    found=configure(plan,manifest,found,folder,bound_guard,deadline_ns=deadline)
+    found=configure(plan,manifest,found,folder,bound_guard,deadline_ns=deadline,attach_operation=operation)
     guard_calls=0
     def socket_guard():
         nonlocal guard_calls
@@ -392,6 +445,8 @@ def observe(adapter,request,guard):
         require(endpoint(value,manifest)==found,'NCM changed at socket connection')
     capture_connection(folder,manifest,found,deadline_ns=deadline,guard=socket_guard)
     require(endpoint(capture_endpoint(folder,'usb-after-response'),manifest)==found,'NCM changed during response')
+    if operation is not None:
+        attach.close_issuance(operation, window_pin, guard=bound_guard)
     if profile.codec.has_ssh(manifest):
         base=rederive_base(adapter,request)
         capture_ssh(folder,manifest,plan,found,base['proof'],deadline_ns=deadline,guard=bound_guard)

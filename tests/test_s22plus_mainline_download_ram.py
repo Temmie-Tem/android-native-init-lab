@@ -165,6 +165,29 @@ class AttachTests(unittest.TestCase):
             self.assertLess(time.monotonic()-started,.2)
         self.assertFalse((self.op/'mainline-attach-closed.json').exists())
 
+    def test_resolution_waits_for_the_observer_lock_and_times_out_without_a_write(self):
+        import fcntl
+
+        cue = self.issue()
+        lock = self.op/'mainline-attach.lock'
+        resolution = self.op/'mainline-attach-resolution.json'
+        with lock.open('r+') as held:
+            fcntl.flock(held, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            now = records.clock()
+            with mock.patch.object(attach, 'clock',
+                    side_effect=(now, now, now, now+attach.RESOLUTION_LOCK_WAIT_NS)), \
+                    mock.patch.object(attach.time, 'sleep'), \
+                    self.assertRaisesRegex(ValueError, 'attach lock deadline expired'):
+                attach.resolve(self.op, self.window, cue=cue,
+                               resolution='completed', operator_statement='actual report')
+            self.assertFalse(resolution.exists())
+            with mock.patch.object(attach.time, 'sleep',
+                                   side_effect=lambda _: fcntl.flock(held, fcntl.LOCK_UN)) as waited:
+                receipt = attach.resolve(self.op, self.window, cue=cue,
+                                         resolution='completed', operator_statement='actual report')
+            waited.assert_called_once()
+        self.assertEqual(records.read(records.verify(receipt))['operator_statement'], 'actual report')
+
 
 class DownloadWireTests(debian_tests.DebianWireTests):
     @classmethod

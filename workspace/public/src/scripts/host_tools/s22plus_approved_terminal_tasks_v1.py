@@ -97,6 +97,48 @@ def checked_file(root, receipt, *, maximum=4 * 1024 * 1024):
     return records.verify(receipt, maximum=maximum)
 
 
+# Runtime imports reached by the backend outside its common task source set.
+BACKEND_RUNTIME_IMPORTS = (
+    'mainline/s22plus_canary_h0/debian_ram.py',
+    'mainline/s22plus_canary_h0/download_ram.py',
+    'mainline/s22plus_canary_h0/download_vm.py',
+    'mainline/s22plus_canary_h0/retained_marker.py',
+    'mainline/s22plus_canary_h0/retained_probe.py',
+    'mainline/s22plus_canary_h0/retained_probe_v10.py',
+    'mainline/s22plus_canary_h0/retained_trace.py',
+    'mainline/s22plus_canary_h0/service_ram.py',
+    'mainline/s22plus_canary_h0/ssh_ram.py',
+    'mainline/s22plus_udc_observation_h0/decode.py',
+    'mainline/s22plus_ufs_link_h0/link_wire.py',
+    'mainline/s22plus_ufs_link_h0/report_modes.py',
+    'scripts/analysis/s22plus_journal_replay_tool_h0.py',
+    'scripts/analysis/s22plus_native_ext4_h0.py',
+    'scripts/analysis/s22plus_native_journal_recovery_h0.py',
+    'scripts/analysis/s22plus_native_root_inspect_h0.py',
+    'scripts/host_tools/s22plus_mainline_attach_cue_v1.py',
+    'scripts/revalidation/s22plus_debian_apt_access_v1.py',
+    'scripts/revalidation/s22plus_debian_artifact_v1.py',
+    'scripts/revalidation/s22plus_debian_autoboot_access_v1.py',
+    'scripts/revalidation/s22plus_debian_autoboot_protocol_v1.py',
+    'scripts/revalidation/s22plus_debian_autoboot_qualification_v1.py',
+    'scripts/revalidation/s22plus_debian_autoboot_transition_v1.py',
+    'scripts/revalidation/s22plus_debian_file_first_plan_v1.py',
+    'scripts/revalidation/s22plus_debian_file_profile_v1.py',
+    'scripts/revalidation/s22plus_debian_file_protocol_v1.py',
+    'scripts/revalidation/s22plus_debian_reboot_access_v1.py',
+    'scripts/revalidation/s22plus_debian_reboot_baseline_v1.py',
+    'scripts/revalidation/s22plus_debian_reboot_qualification_v1.py',
+    'scripts/revalidation/s22plus_debian_usb_protocol_v1.py',
+    'scripts/revalidation/s22plus_mainline_ufs_access_v1.py',
+    'scripts/revalidation/s22plus_mainline_ufs_candidate_v2.py',
+    'scripts/revalidation/s22plus_mainline_ufs_image_v1.py',
+    'scripts/revalidation/s22plus_native_android_storage_v1.py',
+    'scripts/revalidation/s22plus_native_gpt_android_v1.py',
+    'scripts/revalidation/s22plus_native_gpt_source_v1.py',
+    'scripts/revalidation/s22plus_native_staged_preflight_evidence_v1.py',
+)
+
+
 def review_sources(root):
     paths=[root / name for name in (
         'AGENTS.md', 'docs/operations/DEVICE_ACTION_CONTRACT_DETAILS.md',
@@ -120,10 +162,14 @@ def review_sources(root):
         'workspace/public/src/scripts/host_tools/s22plus_mainline_terminal_v1.py')]
     from s22plus_mainline_task_v1 import source_paths,loader_build_only,marker_only
     import s22plus_loader_android_profile_v1 as loader_android
+    import s22plus_mainline_profile_v1 as mainline
     loader_sources={p for p in source_paths(root,loader_android)
         if not loader_build_only(str(p.relative_to(root))) and not marker_only(str(p.relative_to(root)))}
     mainline_sources={p for p in source_paths(root) if not marker_only(str(p.relative_to(root)))}
-    return sorted(set(paths)|mainline_sources|loader_sources)
+    scm_sources={p for p in source_paths(root,image={'schema':mainline.SCM_SCHEMA},ordinary_cue=True)
+        if not marker_only(str(p.relative_to(root)))}
+    runtime_sources={root/'workspace/public/src'/path for path in BACKEND_RUNTIME_IMPORTS}
+    return sorted(set(paths)|mainline_sources|loader_sources|scm_sources|runtime_sources)
 
 
 def verify_bridge(root, expected=None):
@@ -508,6 +554,10 @@ class Controller:
             require(not any((operation / name).exists() for name in
                 ('install-android.json', 'recover-android.json', 'android-final.json', 'recovery-health.json')),
                 'Android result without a unique original intent')
+            if bound['operation']=='mainline-ram':
+                from s22plus_mainline_attach_v1 import close_for_recovery
+                require(close_for_recovery(operation),
+                        'resolve the issued attach cue before original-A recovery')
             evidence['remaining_health_only'] = False
         else:
             require(not android and not any(row['event'] == 'stopped' for row in rows),

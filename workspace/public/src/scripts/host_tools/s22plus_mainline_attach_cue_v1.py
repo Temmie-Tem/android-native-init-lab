@@ -36,9 +36,8 @@ def context(operation):
     require((operation / 'journal').is_dir(), 'existing operation journal required')
     adapter = Adapter(ROOT, operation)
     session = Session(ROOT, operation, adapter)
-    require(session.request['operation'] == 'mainline-ram' and
-            session.request['N'].get('ufs_link') is True,
-            'caller selects only the mainline UFS-link observation')
+    require(session.request['operation'] == 'mainline-ram', 'mainline operation required')
+    observation_action(adapter, session.request)
 
     def guard():
         session.check()
@@ -46,6 +45,13 @@ def context(operation):
         registry.require_f1_owner(ROOT, operation, session.binding)
 
     return adapter, session.request, guard
+
+
+def observation_action(adapter, request):
+    if request['N'].get('ufs_link') is True:
+        return 'mainline-download'
+    require(access.profile.ordinary_cue(adapter, request), 'no reviewed ordinary cue scope')
+    return 'mainline-evidence'
 
 
 def inspect(adapter, request, guard, *, diagnostics=None):
@@ -64,7 +70,7 @@ def inspect(adapter, request, guard, *, diagnostics=None):
     rows = Journal(operation / 'journal').rows()
     require(rows and rows[-1]['event'] == 'step-start' and
             rows[-1]['data']['step'] == 'mainline-evidence' and
-            rows[-1]['data']['action'] == 'mainline-download', 'observation is not active')
+            rows[-1]['data']['action'] == observation_action(adapter, request), 'observation is not active')
     require(sum(row['event'] == 'step-complete' and row['data']['step'] ==
                 'install-native-first' for row in rows) == 1 and
             not any(row['event'] == 'stopped' for row in rows), 'N completion or stop differs')
@@ -75,7 +81,7 @@ def inspect(adapter, request, guard, *, diagnostics=None):
     forbidden += [operation / name for name in (
         'mainline-evidence.json', 'mainline-return-ready.json', 'terminal.json',
         'install-android.json', 'recover-android.json', 'mainline-attach-cue.json',
-        'mainline-attach-resolution.json', 'mainline-attach-closed.json')]
+        'mainline-attach-resolution.json', 'mainline-attach-closed.json', attach.RECOVERY_FENCE)]
     require(not any(path.exists() for path in forbidden), 'selection, return or cue already exists')
     require(window['deadline_ns'] - clock() > MIN_REMAINING_NS, 'cue needs more than 60 seconds')
     # Finish the potentially expensive source/artifact/owner guard before

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'workspace/public/src/scripts/revalidation'))
+sys.path.insert(0, str(ROOT / 'workspace/public/src/scripts/host_tools'))
 import s22plus_mainline_access_v1 as access
 import s22plus_mainline_profile_v1 as profile
 import s22plus_mainline_scm_v1 as scm
@@ -38,7 +39,7 @@ class ScmSessionTests(unittest.TestCase):
         self.assertFalse(result['authenticated_usb'])
 
     def test_optional_candidate_code_failure_uses_recoverable_error(self):
-        adapter = SimpleNamespace(root=ROOT)
+        adapter = SimpleNamespace(root=ROOT, configuration=lambda request: {'review': {'path': '/prior'}})
         for failure in (ModuleNotFoundError, SyntaxError):
             with self.subTest(error=failure), patch.object(task, 'capability'), \
                     patch.object(access, 'rederive_base', side_effect=failure):
@@ -48,6 +49,36 @@ class ScmSessionTests(unittest.TestCase):
                 patch.object(access, 'rederive_base', side_effect=AssertionError('unchecked import')):
             with self.assertRaisesRegex(ValueError, 'review differs'):
                 access.rederive(adapter, self.request)
+
+    def test_new_cue_is_bound_to_dedicated_review_and_ordinary_action(self):
+        import s22plus_mainline_attach_cue_v1 as cue
+        for review, action in ((profile.SCM_REVIEW, None), (profile.SCM_CUE_REVIEW, 'mainline-evidence')):
+            adapter = SimpleNamespace(root=ROOT, configuration=lambda request: {'review': {'path': str(ROOT/review)}})
+            if action:
+                self.assertEqual(cue.observation_action(adapter, self.request), action)
+            else:
+                with self.assertRaisesRegex(ValueError, 'no reviewed ordinary cue'):
+                    cue.observation_action(adapter, self.request)
+        for image in ({'udc_observation': {}}, {'profile': 'loader-android-v1'}):
+            with self.assertRaisesRegex(ValueError, 'no reviewed ordinary cue'):
+                cue.observation_action(adapter, {'N': image})
+
+    def test_common_capture_checks_deliver_recovery_errors(self):
+        from unittest.mock import Mock
+
+        window = {'opened_ns': 1, 'deadline_ns': 10}
+        attempt = {'nonce': '00', 'opened_ns': 2, 'deadline_ns': 10}
+        with self.assertRaisesRegex(ValueError, 'timestamps must be integers'):
+            access.validate_capture_fields(window, attempt, {'finished_ns': None})
+        audit = access.AuditError('malformed fixture FDT')
+        wire = Mock()
+        wire.verify_capture.side_effect = audit
+        with self.assertRaisesRegex(ValueError, 'invalid device tree') as result:
+            access.verify_response(wire, None, {}, b'')
+        self.assertIs(result.exception.__cause__, audit)
+        wire.verify_capture.side_effect = RuntimeError('unexpected failure')
+        with self.assertRaisesRegex(RuntimeError, 'unexpected failure'):
+            access.verify_response(wire, None, {}, b'')
 
     def test_original_a_review_skips_only_candidate_code_in_fixture(self):
         with tempfile.TemporaryDirectory() as folder:

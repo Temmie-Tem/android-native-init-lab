@@ -186,14 +186,18 @@ class Coordinator(PhysicalCoordinator):
         try:
             from s22plus_mainline_auto_recovery_v1 import attempt
             recovered=attempt(self.session)
-            return recovered if recovered is not None else pending
+            if recovered is not None:
+                return recovered
         except Exception as recovery_error:
             from s22plus_native_session_v3 import ResultPublicationError
             if isinstance(recovery_error,ResultPublicationError) or getattr(recovery_error,'protocol_completed',False):
                 raise
             self.session.journal.append('automatic-recovery-stopped',error_type=type(recovery_error).__name__,
                 error_message=str(recovery_error)[:4096],transfer_failure=getattr(recovery_error,'transfer_failure',None))
-            return pending
+        from s22plus_mainline_attach_v1 import cue_settled
+        if not cue_settled(self.session.directory):
+            pending['next_action'] = 'Resolve the issued attach cue as completed or cancelled before entering Download.'
+        return pending
 
     def execute(self,*,attended):
         try:return super().execute(attended=attended)

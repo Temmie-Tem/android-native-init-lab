@@ -29,10 +29,87 @@ MODULES=('s22plus_mainline_task_v1','s22plus_mainline_profile_v1','s22plus_mainl
     'consumed_candidate_registry_v1','device_action_raw_capture_v1','device_action_read_dependencies_v1')
 
 
+# Eager dependencies of the shared coordinator and Adapter are part of the
+# loader and ordinary SCM review subjects even if another profile owns them.
+REVIEW_SHARED_IMPORTS = (
+    's22plus_debian_access_v1',
+    's22plus_debian_apt_v1',
+    's22plus_debian_autoboot_minimal_v1',
+    's22plus_debian_autoboot_phase_v1',
+    's22plus_debian_autoboot_profile_v1',
+    's22plus_debian_cron_config_v1',
+    's22plus_debian_cron_v1',
+    's22plus_debian_download_v1',
+    's22plus_debian_early_profile_v1',
+    's22plus_debian_early_protocol_v1',
+    's22plus_debian_evidence_v1',
+    's22plus_debian_handoff_profile_v1',
+    's22plus_debian_handoff_protocol_v1',
+    's22plus_debian_integrated_profile_v1',
+    's22plus_debian_integrated_protocol_v1',
+    's22plus_debian_package_v1',
+    's22plus_debian_profile_v1',
+    's22plus_debian_reboot_v1',
+    's22plus_debian_usb_observation_v1',
+    's22plus_fyg8_p363_return_spec',
+    's22plus_local_display_observer_v1',
+    's22plus_native_baseline_health_v1',
+    's22plus_native_baseline_observer_v1',
+    's22plus_native_baseline_protocol_v1',
+    's22plus_native_baseline_resident_v2',
+    's22plus_native_console_observer_v1',
+    's22plus_native_evidence_profile_v1',
+    's22plus_native_ext4_profile_v1',
+    's22plus_native_ext4_source_v1',
+    's22plus_native_gpt_profile_v1',
+    's22plus_native_journal_recovery_profile_v1',
+    's22plus_native_log_profile_v1',
+    's22plus_native_log_protocol_v1',
+    's22plus_native_observation_v3',
+    's22plus_native_output_drain_source_v1',
+    's22plus_native_preflight_profile_v1',
+    's22plus_native_reconnect_source_v1',
+    's22plus_native_resident_observer_v1',
+    's22plus_native_resident_protocol_v1',
+    's22plus_native_resident_source_v1',
+    's22plus_native_root_inspect_profile_v1',
+    's22plus_native_root_inspect_session_v1',
+    's22plus_native_source_v1',
+    's22plus_native_staged_preflight_profile_v1',
+    's22plus_native_storage_census_v1',
+    's22plus_native_thermal_observer_v1',
+    's22plus_native_thermal_observer_v2',
+    's22plus_native_thermal_observer_v3',
+    's22plus_native_thermal_source_v1',
+    's22plus_native_thermal_source_v2',
+    's22plus_native_thermal_source_v3',
+    's22plus_native_ufs_source_v1',
+    's22plus_native_userspace_probe_profile_v1',
+    's22plus_native_wire_v3',
+    's22plus_root_console_v1',
+    's22plus_switch_root_profile_v1',
+    's22plus_switch_root_protocol_v1',
+)
+
+LOADER_BUILD_IMPORTS = (
+    'workspace/public/src/scripts/revalidation/build_s22plus_direct_p3_boot.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_fyg8_r4w1b_candidate.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_fyg8_r4w1c_watchdog_carrier.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_inplace_m23_dts_exact_qmp_park.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_inplace_m4t1_magiskboot.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_m31b_wdt_managed_park.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_marker_m31_boot.py',
+    'workspace/public/src/scripts/revalidation/build_s22plus_ramoops_dtbo_enable.py',
+    'workspace/public/src/scripts/revalidation/s22plus_boot_slice.py',
+    'workspace/public/src/scripts/revalidation/s22plus_fyg8_p286_boot_only_packager.py',
+)
+
 IMAGE_V2 = 's22plus-mainline-ufs-image-v2'
 CAPABILITY_SCHEMA = 's22plus-mainline-ufs-capability-v2'
 CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_KEY_ONLY_V2'
 CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_review.json'
+ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
 V2_RETIRED = {
@@ -64,7 +141,7 @@ def selected_profile(image):
     require(False,'unselected mainline-project comparison profile')
 
 
-def source_paths(root,selected=profile,*,image=None):
+def source_paths(root,selected=profile,*,image=None,ordinary_cue=False):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
@@ -91,7 +168,10 @@ def source_paths(root,selected=profile,*,image=None):
         'workspace/public/src/mainline/s22plus_canary_h0/retained_probe_v10.py',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/revalidation/device_action_f1_legacy_consumed_candidate_authority_v1.json']
+    if selected is not profile or ordinary_cue:
+        paths += ['workspace/public/src/scripts/revalidation/'+name+'.py' for name in REVIEW_SHARED_IMPORTS]
     if selected is not profile:
+        paths += LOADER_BUILD_IMPORTS
         require(selected.PROFILE=='loader-android-v1','unselected source closure')
         paths += [selected.POLICY,
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_profile_v1.py',
@@ -120,13 +200,14 @@ def source_paths(root,selected=profile,*,image=None):
     return tuple(root/path for path in sorted(set(paths)))
 
 
-def source_pins(root,selected=profile,*,image=None):
+def source_pins(root,selected=profile,*,image=None,ordinary_cue=False):
     root=Path(root)
-    return [dict(pin(path),path=str(path.relative_to(root))) for path in source_paths(root,selected,image=image)]
+    return [dict(pin(path),path=str(path.relative_to(root))) for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue)]
 
 
 def loader_build_only(path):
-    return (path.startswith('workspace/public/src/mainline/s22plus_loader_android_h0/')
+    return (path in LOADER_BUILD_IMPORTS or
+        path.startswith('workspace/public/src/mainline/s22plus_loader_android_h0/')
         and path!='workspace/public/src/mainline/s22plus_loader_android_h0/timing.py' or
         path=='workspace/public/src/scripts/revalidation/s22plus_fyg8_retained_snapshot_model.py' or
         path in {'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
@@ -153,10 +234,10 @@ def marker_only(path):
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe.py',
                     'workspace/public/src/mainline/s22plus_canary_h0/retained_probe_v10.py',
                     'workspace/public/src/scripts/revalidation/s22plus_mainline_retention_v1.py',
-                    'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py')
+                    ANDROID_STORAGE_SOURCE)
 
 
-def capability(root,*,recovery=False,selected=profile,image=None):
+def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=False):
     root=Path(root)
     if candidate_v2(image):
         # This metadata branch deliberately does not import any v2 builder or
@@ -178,28 +259,35 @@ def capability(root,*,recovery=False,selected=profile,image=None):
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
     udc = image is not None and 'udc_observation' in image
-    review = selected.REVIEW
+    # Keep the loader profile bytes bound by the retained timing qualification.
+    review = LOADER_CUE_REVIEW if selected.PROFILE == 'loader-android-v1' else selected.REVIEW
     if udc:
         review = profile.UDC_TIMER_REVIEW if profile.timed_udc(image) else profile.UDC_REVIEW
     scope = selected.REVIEW_SCOPE
     if image is not None and profile.scm_board(image):
-        review, scope = profile.SCM_REVIEW, profile.SCM_SCOPE
+        review, scope = (profile.SCM_CUE_REVIEW, profile.SCM_CUE_SCOPE) if ordinary_cue else (
+            profile.SCM_REVIEW, profile.SCM_SCOPE)
+    else:
+        require(not ordinary_cue, 'ordinary cue review applies only to the SCM profile')
     path = root / review
     value = read(path)
     require(set(value)=={'schema','verdict','scope','sources','reviewer','findings'} and
         value['schema']==selected.REVIEW_SCHEMA and value['verdict']=='PASS_GO' and
         value['scope']==scope and value['findings']==[] and
         type(value['reviewer']) is str and value['reviewer'].strip(),'mainline independent review is not PASS_GO')
-    expected=[str(path.relative_to(root)) for path in source_paths(root,selected,image=image)]
+    expected=[str(path.relative_to(root)) for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue)]
     require([r['path'] for r in value['sources']]==expected,'mainline review source closure differs')
     for row in value['sources']:
         # Loader comparison recovery neither rebuilds nor requalifies N. Keep
         # only its actually imported owner/observer/transport/authority closure
         # mandatory after a stop; candidate build/checker files are not A inputs.
-        if recovery and (marker_only(row['path']) or row['path']==profile.SCM_MODULE or selected is not profile and loader_build_only(row['path']) or
-                         udc and row['path'] in (profile.UDC_DECLARATION, profile.UDC_TIMER_DECLARATION,
+        source = row['path']
+        # Loader access imports the Android storage helper even during recovery.
+        optional_marker = marker_only(source) and (selected is profile or source != ANDROID_STORAGE_SOURCE)
+        if recovery and (optional_marker or source==profile.SCM_MODULE or selected is not profile and loader_build_only(source) or
+                         udc and source in (profile.UDC_DECLARATION, profile.UDC_TIMER_DECLARATION,
                              'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py')):continue
-        tasks.unchanged(dict(row,path=str(root/row['path'])))
+        tasks.unchanged(dict(row,path=str(root/source)))
     return pin(path)
 
 
@@ -230,7 +318,9 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
         re.fullmatch('[A-Za-z0-9._:-]{1,128}',task['target']['serial']) and
         task['target']['topology']==target.lane.SOURCE_TOPOLOGY,'mainline target binding differs')
     target.lane.validate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
-    require(task['review']==capability(root,recovery=recovery,selected=selected,image=task['N']),'mainline capability changed')
+    ordinary_cue = task['review'].get('path') == str(root / profile.SCM_CUE_REVIEW)
+    require(task['review']==capability(root,recovery=recovery,selected=selected,image=task['N'],
+        ordinary_cue=ordinary_cue),'mainline capability changed')
     require(task['runtime_scope']==task['N']['runtime_sources'],'mainline runtime scope differs')
     if not recovery:
         manifest=selected.image_binding(task['N'])
@@ -262,6 +352,9 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
             require(Path(profile.SCM_POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
                     b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/profile.SCM_POLICY),
                     'SCM observation lacks target adoption')
+            if ordinary_cue:
+                require(profile.SCM_CUE_ADOPTION in read_bytes(root/profile.SCM_POLICY),
+                        'ordinary SCM cue lacks target adoption')
         if not recovery and selected is profile and task['N'].get('ufs_link') is True:
             from s22plus_mainline_ufs_image_v1 import policy_for
             policy=policy_for(task['N'])
@@ -388,9 +481,10 @@ def prepare(root,output,image,retained_task):
     selected_profile_value.image_binding(image,artifact_bytes=True)
     selected={k:previous[k] for k in ('target','lane','host_installation','recovery_evidence')}
     ident=str(uuid.uuid4())
+    ordinary_cue = profile.scm_board(image) and profile.SCM_CUE_ADOPTION in read_bytes(root/profile.SCM_POLICY)
     task=dict(selected,schema=selected_profile_value.TASK_SCHEMA,N=image,E=None,A=tasks.android_artifact(root),
         adb=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024*1024),
-        odin=read(root/tasks.PROFILE)['transport']['odin'],review=capability(root,selected=selected_profile_value,image=image),
+        odin=read(root/tasks.PROFILE)['transport']['odin'],review=capability(root,selected=selected_profile_value,image=image,ordinary_cue=ordinary_cue),
         operations=[selected_profile_value.OPERATION],seconds=selected_profile_value.SECONDS,
         operation_budget=1,recovery_mode='attended',reentry=False,hud=False,
         usb_reconnect=False,admission=None,prior_terminal=None,runtime_scope=image['runtime_sources'])
@@ -404,7 +498,8 @@ def prepare(root,output,image,retained_task):
     # Source provenance is ordinary private preparation output, not a new
     # authority gate. Preserve the bytes named by the review before effects.
     snapshot=[]
-    for source in (*source_paths(root,selected_profile_value,image=image),Path(task['review']['path']),
+    sources = source_paths(root,selected_profile_value,image=image,ordinary_cue=ordinary_cue)
+    for source in (*sources,Path(task['review']['path']),
                    *([Path(image['capability']['path'])] if candidate_v2(image) else [])):
         destination=output/'source-snapshot'/source.relative_to(root)
         destination.parent.mkdir(mode=0o700,parents=True,exist_ok=True)

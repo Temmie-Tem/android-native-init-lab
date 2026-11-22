@@ -12,15 +12,19 @@ import time
 from s22plus_native_records_v3 import clock,host_boot,pin,publish,read,require,verify
 
 
+RECOVERY_FENCE = 'mainline-attach-recovery.json'
+RESOLUTION_LOCK_WAIT_NS = 1_000_000_000
+
+
 @contextmanager
 def locked(operation,deadline_ns=None):
     fd=os.open(Path(operation)/'mainline-attach.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
     try:
         while True:
-            if deadline_ns is not None:require(clock()<deadline_ns,'original attach lock window expired')
+            if deadline_ns is not None:require(clock()<deadline_ns,'attach lock deadline expired')
             try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);break
             except BlockingIOError:
-                if deadline_ns is None:raise  # Evidence-only resolution may retry, without waiting or authority.
+                if deadline_ns is None:raise
                 time.sleep(min(.01,max(0,(deadline_ns-clock())/1e9)))
         yield
     finally:
@@ -40,7 +44,8 @@ def issue(operation,window,*,evidence,check):
     operation=Path(operation)
     deadline=read(verify(window))['deadline_ns']
     with locked(operation,deadline):
-        require(not (operation/'mainline-attach-closed.json').exists(),'attach issuance is closed')
+        require(not (operation/RECOVERY_FENCE).exists() and
+                not (operation/'mainline-attach-closed.json').exists(), 'attach issuance is closed')
         value=binding(operation,window)
         require('udc_observation' not in read(verify(value['operation']))['N'],
                 'ML049 requires a continuously connected cable')
@@ -54,7 +59,9 @@ def issue(operation,window,*,evidence,check):
 def resolve(operation,window,*,cue,resolution,operator_statement):
     """Only record an actual returned completion/cancellation, never silence."""
     operation=Path(operation)
-    with locked(operation):
+    # Wait briefly for the observer to finish its capture or closure check.
+    # This is a local lock budget and can be used after observation expiry.
+    with locked(operation, clock()+RESOLUTION_LOCK_WAIT_NS):
         require(not (operation/'mainline-attach-closed.json').exists(),'attach issuance is closed')
         value=binding(operation,window)
         require(cue==pin(operation/'mainline-attach-cue.json') and
@@ -68,8 +75,11 @@ def resolve(operation,window,*,cue,resolution,operator_statement):
 def rederive(operation,window):
     operation=Path(operation);expected=binding(operation,window,live=False)
     value=read(operation/'mainline-attach-closed.json')
-    require(set(value)==set(expected)|{'cue','resolution','closed_ns'} and
+    bounds=read(verify(window))
+    require(type(value) is dict and set(value)==set(expected)|{'cue','resolution','closed_ns'} and
             all(value[k]==v for k,v in expected.items()),'attach closure binding differs')
+    require(all(type(timestamp) is int for timestamp in
+        (bounds['opened_ns'], bounds['deadline_ns'], value['closed_ns'])), 'attach closure timestamps differ')
     if value['cue'] is None:
         require(value['resolution'] is None and not (operation/'mainline-attach-cue.json').exists() and
                 not (operation/'mainline-attach-resolution.json').exists(),'unissued cue has a resolution')
@@ -80,10 +90,49 @@ def rederive(operation,window):
         require(all(cue[k]==resolved[k]==v for k,v in expected.items()) and resolved['cue']==value['cue'] and
                 resolved['resolution'] in ('completed','cancelled') and
                 type(resolved['operator_statement']) is str and 0<len(resolved['operator_statement'].strip())<=4096 and
+                type(cue['issued_ns']) is type(resolved['resolved_ns']) is int and
                 cue['issued_ns']<=resolved['resolved_ns']<=value['closed_ns'],'attach resolution differs')
-    require(read(verify(window))['opened_ns']<=value['closed_ns']<read(verify(window))['deadline_ns'],
+    require(bounds['opened_ns']<=value['closed_ns']<bounds['deadline_ns'],
             'attach closure outside the original window')
     return pin(operation/'mainline-attach-closed.json')
+
+
+def _cue_settled(operation):
+    cue = operation/'mainline-attach-cue.json'
+    resolution = operation/'mainline-attach-resolution.json'
+    if not cue.exists():
+        require(not resolution.exists(), 'attach resolution without an issued cue')
+        return True
+    value = read(cue)
+    if not resolution.exists():
+        return False
+    resolved = read(resolution)
+    expected = binding(operation, value['window'])
+    require(all(value[k] == resolved[k] == v for k, v in expected.items()) and
+            resolved['cue'] == pin(cue) and resolved['resolution'] in ('completed', 'cancelled') and
+            type(resolved['operator_statement']) is str and 0 < len(resolved['operator_statement'].strip()) <= 4096 and
+            type(value['issued_ns']) is type(resolved['resolved_ns']) is int and
+            value['issued_ns'] <= resolved['resolved_ns'], 'recovery attach resolution differs')
+    return True
+
+
+def cue_settled(operation):
+    """Late resolution is evidence and leaves the original window untouched."""
+    with locked(operation):
+        return _cue_settled(Path(operation))
+
+
+def close_for_recovery(operation):
+    """Retire issuance before one original-A recovery, including after an interrupted owner."""
+    operation = Path(operation)
+    with locked(operation):
+        fence = operation/RECOVERY_FENCE
+        value = dict(operation=pin(operation/'operation.json'), host_boot=host_boot())
+        if fence.exists():
+            require(read(fence) == value, 'attach recovery fence differs')
+        else:
+            publish(fence, value)
+        return _cue_settled(operation)
 
 
 def close_issuance(operation,window,*,guard):
@@ -93,7 +142,8 @@ def close_issuance(operation,window,*,guard):
         with locked(operation,read(verify(window))['deadline_ns']):
             value=binding(operation,window)
             require(clock()<read(verify(window))['deadline_ns'],'original attach/control window expired')
-            require(not (operation/'mainline-attach-closed.json').exists(),'attach closure already consumed')
+            require(not (operation/RECOVERY_FENCE).exists() and
+                    not (operation/'mainline-attach-closed.json').exists(), 'attach closure is unavailable')
             cue=operation/'mainline-attach-cue.json';resolution=operation/'mainline-attach-resolution.json'
             if not cue.exists() or resolution.exists():
                 require(cue.exists() or not resolution.exists(),'resolution without an issued cue')

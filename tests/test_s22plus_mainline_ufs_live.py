@@ -65,7 +65,7 @@ class Ml030WireTests(unittest.TestCase):
                     case in ('expired-at-return','pre-effect-expired-at-return') and name=='usb-before-control'):
                 current[0]=start+540*10**9
             return raw.publish_captured_bytes(dest,name,stdout=b'fixture USB',stderr=b'')
-        def configure(plan,m,endpoint,dest,guard,deadline_ns):
+        def configure(plan,m,endpoint,dest,guard,deadline_ns,*,attach_operation=None):
             guard();records.publish(dest/'endpoint.json',endpoint)
             for name in ('network-create','network-up'):raw.publish_captured_bytes(dest,name,stdout=b'fixture',stderr=b'')
             return endpoint

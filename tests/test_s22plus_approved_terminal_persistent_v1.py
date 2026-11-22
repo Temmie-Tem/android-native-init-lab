@@ -66,6 +66,34 @@ class ContinuationRegression(previous.ContinuationTests):
         evidence=previous.records.read(self.base/backend.CONTINUATIONS['recover_approved_task'][0]/'intent.json')
         self.assertTrue(evidence['remaining_health_only'])
 
+    def test_pending_mainline_cue_preserves_recovery_dispatch(self):
+        import s22plus_mainline_attach_v1 as attach
+
+        self.stop_before_native()
+        # Rebind the temporary owner for the mainline branch of the controller.
+        # The existing terminal fixture supplies the approval and launcher.
+        backend.registry.retire_f1_owner(self.root, self.operation, self.op_pin['sha256'])
+        operation = previous.save(self.operation/'operation.json',
+                                  dict(self.request, operation='mainline-ram'))
+        previous.save(self.operation/'consumed.json', dict(schema=previous.records.SCHEMA,
+            operation_sha256=operation['sha256'], grant=self.grant))
+        backend.registry.begin_f1_owner(self.root, self.operation, operation['sha256'])
+        now = previous.records.clock()
+        window = previous.save(self.operation/'io-mainline-evidence/window.json', dict(
+            operation=operation, host_boot=previous.records.host_boot(), opened_ns=now,
+            deadline_ns=now+60_000_000_000))
+        cue = attach.issue(self.operation, window, evidence={}, check=lambda: None)
+        bundle = self.controller.bundle
+        with mock.patch.object(self.controller, 'bundle', side_effect=lambda *args, **kwargs:
+                               dict(bundle(*args, **kwargs), operation='mainline-ram')):
+            self.reject('recover_approved_task')
+            self.assertTrue((self.operation/attach.RECOVERY_FENCE).exists())
+            attach.resolve(self.operation, window, cue=cue, resolution='cancelled',
+                           operator_statement='Fixture operator cancelled the cue.')
+            self.assertTrue(self.call('recover_approved_task')['dispatched'])
+        self.assertEqual(self.wait_phase(backend.CONTINUATIONS['recover_approved_task'][0])['returncode'], 0)
+        self.raw_mock.assert_not_called()
+
     def test_recovery_rejects_unstopped_uncertain_or_ambiguous_a(self):
         self.reject('recover_approved_task')
         self.android_complete()

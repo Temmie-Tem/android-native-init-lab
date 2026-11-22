@@ -53,6 +53,9 @@ def unchanged(receipt,maximum=128*1024*1024):
 SCM_POLICY = 'docs/operations/S22PLUS_MAINLINE_SCM_USB_V1.md'
 SCM_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_usb_v1_review.json'
 SCM_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_V1'
+SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v2_review.json'
+SCM_CUE_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_WITH_ORDINARY_CUE_V1'
+SCM_CUE_ADOPTION = b'Ordinary cue status: **REVIEW_GATED_CAPABILITY**'
 SCM_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_scm_v1.py'
 SCM_SCHEMA = 's22plus-mainline-scm-image-v1'
 SCM_STATUS = 'AUTHENTICATED_SCM_USB_TRANSCRIPT'
@@ -61,6 +64,14 @@ SCM_WIRE_SCHEMA = 's22plus-fyg8-debian-scm-usb-v1'
 
 def scm_board(image):
     return image.get('schema') == SCM_SCHEMA
+
+
+def ordinary_cue(adapter, request):
+    """Only an SCM task bound to the dedicated reviewed scope can issue cues."""
+    image = request['N']
+    if not scm_board(image) or 'udc_observation' in image or image.get('ufs_link'):
+        return False
+    return adapter.configuration(request)['review']['path'] == str(adapter.root / SCM_CUE_REVIEW)
 
 
 def observation_wire(manifest):
