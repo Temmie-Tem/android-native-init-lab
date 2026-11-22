@@ -104,6 +104,8 @@ class Android:
     PROPERTIES_COMMAND=PROPERTIES
     READY_COMMAND='getprop sys.boot_completed'
     READY_MAXIMUM=16
+    READY_DISCONNECT_STDERR=()
+    READY_POLL_SECONDS=.5
     def __init__(self, tool, target, android, directory, *, guard):
         self.tool=tool; self.target=target; self.android=android
         self.directory=Path(directory); self.directory.mkdir(mode=0o700,exist_ok=True)
@@ -235,6 +237,10 @@ class Android:
             # A late completion cannot become readiness or renew this deadline.
             return self.command(arguments,name,timeout=remaining_timeout(),
                 before_launch=remaining_timeout)
+        unavailable=(
+            ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'),
+            *self.READY_DISCONNECT_STDERR,
+        )
         index=0
         while clock()<deadline_ns:
             inventory=observe(['devices','-l'],f'wait-{index:03d}-inventory')
@@ -255,8 +261,7 @@ class Android:
                 handle=observe(command,f'wait-{index:03d}-boot')
                 vanished=(handle.returncode==1 and not handle.timed_out and not handle.output_exceeded and
                     handle.producer_error_type is None and raw.read_stdout(handle,maximum=self.READY_MAXIMUM)==b'' and
-                    raw.read_stderr(handle,maximum=16384)==
-                    ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'))
+                    raw.read_stderr(handle,maximum=16384) in unavailable)
                 if vanished:
                     # Keep this immutable failure and select the exact target
                     # again in the next bounded inventory; never retry control.
@@ -269,7 +274,7 @@ class Android:
                     return
             index+=1
             require(index<256,'Android readiness inventory exceeds bound')
-            time.sleep(.5)
+            time.sleep(self.READY_POLL_SECONDS)
         raise TimeoutError('Android readiness did not complete')
 
 

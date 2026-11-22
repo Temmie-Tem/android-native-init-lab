@@ -81,6 +81,90 @@ class TimingTests(harness.ProofTests):
                                                   self.adapter.folder(profile.RETURN, create=True), lambda: None)
                     access.return_proof(self.adapter, self.request, result)
 
+    def test_starts_a_fresh_inventory_after_the_observed_early_close(self):
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                self.setUp()
+                self.set_arm(enabled)
+                events = []
+
+                def capture(client, arguments, name, **kwargs):
+                    events.append(name)
+                    if name not in ('wait-000-boot', 'wait-001-boot', 'wait-002-inventory'):
+                        return self.command(client, arguments, name, **kwargs)
+                    client.guard()
+                    kwargs['before_launch']()
+                    if name == 'wait-000-boot':
+                        return raw.publish_captured_bytes(client.directory, name,
+                            stdout=b'boot_completed=\nbootanim=running\n', stderr=b'', returncode=0)
+                    if name == 'wait-001-boot':
+                        self.generation = 'reattached-generation'
+                        return raw.publish_captured_bytes(client.directory, name,
+                            stdout=b'', stderr=b'error: closed\n', returncode=1)
+                    return raw.publish_captured_bytes(client.directory, name,
+                        stdout=b'List of devices attached\n', stderr=b'', returncode=0)
+
+                with mock.patch.object(access.CandidateAndroid, 'command', new=capture), \
+                        mock.patch.object(access.target.time, 'sleep') as sleep:
+                    value = self.observe()
+                self.assertEqual(events[:7], ['wait-000-inventory', 'wait-000-boot',
+                    'wait-001-inventory', 'wait-001-boot', 'wait-002-inventory',
+                    'wait-003-inventory', 'wait-003-boot'])
+                self.assertEqual(sleep.call_args_list, [mock.call(1)] * 3)
+                self.assertEqual(value['timing_control']['status'], 'TIMING_OBSERVED')
+                self.assertEqual(access.rederive(self.adapter, self.request), value)
+                proof = self.adapter.folder(profile.SELECTION) / 'proof'
+                failed = raw.load_handle(proof / 'wait-001-boot.capture.json')
+                self.assertEqual(raw.read_stderr(failed, maximum=128), b'error: closed\n')
+                self.assertEqual(records.read(proof / 'attempt.json')['usb_before']['identity'],
+                                 {'generation': 'reattached-generation'})
+
+    def test_early_close_exception_requires_timed_arm_and_exact_empty_failure(self):
+        for timed, stdout, stderr in (
+                (False, b'', b'error: closed\n'),
+                (True, b'partial', b'error: closed\n'),
+                (True, b'', b'error: offline\n')):
+            with self.subTest(timed=timed, stdout=stdout, stderr=stderr):
+                self.setUp()
+                if not timed:
+                    self.task['N'].pop('timing_control')
+                def capture(client, arguments, name, **kwargs):
+                    if name != 'wait-000-boot':
+                        return self.command(client, arguments, name, **kwargs)
+                    kwargs['before_launch']()
+                    return raw.publish_captured_bytes(client.directory, name,
+                        stdout=stdout, stderr=stderr, returncode=1)
+                with mock.patch.object(access.CandidateAndroid, 'command', new=capture):
+                    with self.assertRaises(raw.RawCaptureError):
+                        self.observe()
+                folder = self.adapter.folder(profile.SELECTION)
+                self.assertTrue((folder / 'proof/wait-000-boot.capture.json').exists())
+                self.assertFalse((folder / 'proof/wait-001-inventory.capture.json').exists())
+                self.assertFalse((folder / 'proof/complete.json').exists())
+
+    def test_early_close_reobservation_does_not_extend_the_deadline(self):
+        client = access.TimedCandidateAndroid(self.task, self.base / 'deadline', guard=lambda: None)
+        now = 1_000_000_000
+
+        def capture(client, arguments, name, **kwargs):
+            if name != 'wait-000-boot':
+                return self.command(client, arguments, name, **kwargs)
+            kwargs['before_launch']()
+            return raw.publish_captured_bytes(client.directory, name,
+                stdout=b'', stderr=b'error: closed\n', returncode=1)
+
+        def sleep(seconds):
+            nonlocal now
+            now += int(seconds * 1_000_000_000)
+
+        with mock.patch.object(access.CandidateAndroid, 'command', new=capture), \
+                mock.patch.object(access.target, 'clock', side_effect=lambda: now), \
+                mock.patch.object(access.target.time, 'sleep', side_effect=sleep):
+            with self.assertRaisesRegex(TimeoutError, 'readiness did not complete'):
+                client.wait_ready(deadline_ns=now + 500_000_000)
+        self.assertTrue((client.directory / 'wait-000-boot.capture.json').exists())
+        self.assertFalse((client.directory / 'wait-001-inventory.capture.json').exists())
+
     def test_timing_valid_negative_diagnostics_allow_healthy_return(self):
         for enabled in (False, True):
             with self.subTest(enabled=enabled):

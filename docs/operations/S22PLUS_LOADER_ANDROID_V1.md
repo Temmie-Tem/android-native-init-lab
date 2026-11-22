@@ -164,6 +164,17 @@ independent original-A closures. The ordinary 1,800-second grant, 240-second
 observation window, final candidate proof, one-shot restore and no-replay
 conditions remain the same.
 
+For both timed arms only, poll the exact selected Android readiness at
+one-second intervals inside that original observation window and existing
+inventory count bound. A completed readiness-property read with exit code 1,
+empty stdout and the exact `error: closed` stderr is retained as failed raw
+evidence. The next read starts at inventory and reselects the exact target.
+This applies before the first health bracket. Timeouts, other errors,
+ambiguous identity and failures during either health bracket, report
+collection or control retain their ordinary stops. Proof starts only after
+normal Android readiness and requires the existing complete checks on the
+current USB generation. The earlier stopped run stays consumed.
+
 ### Optional mainline prefix live witness
 
 Only the schema-exact `s22plus-loader-mainline-prefix-v1` `prefix_control`

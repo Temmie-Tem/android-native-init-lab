@@ -58,6 +58,13 @@ class CandidateAndroid(target.Android):
         return values=={'boot_completed':'1','bootanim':'stopped'}
 
 
+class TimedCandidateAndroid(CandidateAndroid):
+    # The boot animation can still be running while Android re-enumerates USB.
+    # Retain this failed read and select the exact target again before proof.
+    READY_DISCONNECT_STDERR=(b'error: closed\n',)
+    READY_POLL_SECONDS=1
+
+
 def window_for(adapter,request):
     from s22plus_native_session_v3 import Step
     receipt=adapter.recover_transfer_result(Step('install-native-first','transfer','N'),request)['launch']
@@ -72,7 +79,8 @@ def capture_health(adapter,request,folder,guard,window,*,wait):
     def bound_guard():
         guard();require(window['host_boot']==host_boot() and clock()<window['deadline_ns'],
                         'original loader observation window expired or host boot changed')
-    client=CandidateAndroid(task,folder,guard=bound_guard)
+    client_type=TimedCandidateAndroid if wait and 'timing_control' in request['N'] else CandidateAndroid
+    client=client_type(task,folder,guard=bound_guard)
     if wait:client.wait_ready(deadline_ns=window['deadline_ns'])
     bound_guard()
     before=target.usb_snapshot(target.lane.SOURCE_TOPOLOGY,folder)
