@@ -49,8 +49,10 @@ blocker below, which changes the same files again.
    actual cue resolution. The helper records it through the reviewed `resolve`
    CLI, and the statement names the button and the time. The prepared typed
    command (`! …resolve…`) remains the fallback if the dialog cannot be shown.
-   The helper itself still needs review before the run, either inside the
-   shared cue review or separately.
+   Codex's review (`97d9ba794e`) put the helper's adoption on hold for four
+   reasons. All four were fixed afterwards, and the helper now needs a
+   separate review. Until then, the direct cue and explicit `resolve` path
+   is used.
 4. **Fresh task.** That means a new task, D0, pre-approval audit and the exact
    approval line.
 
@@ -61,10 +63,10 @@ blocker below, which changes the same files again.
 | Before the approval line | operator or assistant (background) | Start `python3 workspace/public/src/scripts/host_tools/s22plus_mainline_cue_dialog_v1.py --operation <task>/operation-0001 --captures <prep>/cue-dialog --cable <c-to-a or c-to-c>`. It waits up to 600 s for the journal's `step-start mainline-evidence`. |
 | Approval and dispatch | operator, then assistant | The assistant dispatches and **ends its turn immediately**. No polling call stays open. |
 | W (window opens) | helper | Starts the Stage 0 host port watch on `3-1.3` and `2-1.3` (`<prep>/cue-dialog/host-port-watch/`). |
-| W+22 s | helper | Calls the reviewed `issue` once (it retries only on the tool's retryable refusals). On `CUE_RECORDED_DISPLAY_NOW` it plays a sound and shows the dialog. |
-| On the dialog | operator | Unplug the phone end for about 3 s and reconnect with the same cable, port and orientation. Press no phone buttons. Then click **다시 꽂았음**, or **취소** if the replug will not happen. |
-| Click | helper | Calls the reviewed `resolve completed` or `resolve cancelled`. The statement names the button and the local time. |
-| W+112 s | helper | The dialog closes if nothing was clicked. Nothing is resolved, and the owner's interlock handles the attempt as before. |
+| W+22 s (on the sealed BOOTTIME window) | helper | Calls the reviewed `issue`. The dialog is shown only when the call exits 0 and its stdout result is `CUE_RECORDED_DISPLAY_NOW`, and only when its cue receipt is this operation's `mainline-attach-cue.json` bound to this window. A refusal is retried only while no cue exists and more than 60 s remain. |
+| On the dialog | operator | Unplug the phone end for about 3 s and reconnect with the same cable, port and orientation. Press no phone buttons. Then click **다시 꽂았음**, or **취소** if the replug will not happen. **닫기**, Esc or closing the window record nothing, and the dialog reappears. |
+| Click | helper | Calls the reviewed `resolve completed` or `resolve cancelled`. The statement names the button, the wall time and the time relative to the sealed window. Success requires exit 0 and the receipt of `mainline-attach-resolution.json`. |
+| deadline − 8 s | helper | The dialog closes if nothing was clicked. Nothing is resolved, and the owner's interlock handles the attempt as before. |
 | After the base response | owner | `close_issuance` needs the resolution before W+120 s. In ML052 the replug at about W+27 s gave the base response at W+75.7 s, so a prompt click leaves about 40 s of margin. |
 
 The helper only calls `s22plus_mainline_attach_cue_v1.py issue|resolve` with
