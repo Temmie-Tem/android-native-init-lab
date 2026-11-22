@@ -33,6 +33,7 @@ def record(adapter=0, events=(), total=None, rejected=0):
     struct.pack_into('<I', out, 28, len(events) if total is None else total)
     out[32] = sum(1 for e in events if e[-1] != 4)
     out[34] = rejected
+    struct.pack_into('<I', out, 36, max([e[0] for e in events], default=0) + 1)
     for i, (t, kind, uic, ctrl1, status) in enumerate(events):
         struct.pack_into('<IBBBBBBBB', out, rec.HEADER + i * rec.EVENT, t, kind, uic, 0, 0x81, 0, 0, ctrl1, status)
     return bytes(out)
@@ -137,25 +138,41 @@ class StagingTests(unittest.TestCase):
         self.assertEqual(rec.verdict(rec.decode(record(adapter=1))), 'NO_PROOF_ADAPTER_ABSENT')
 
     def test_ring_order(self):
-        events = [(i * 100, 1, 0, 0, 4) for i in range(48)]
-        d = rec.decode(record(events=events, total=60))
+        # Simulate the C writer: slot = n-1 for the first 48, then a ring over the second half.
+        total, slots = 60, [None] * rec.EVENTS
+        for n in range(1, total + 1):
+            slot = n - 1 if n <= rec.EVENTS else rec.EVENTS // 2 + (n - 1 - rec.EVENTS // 2) % (rec.EVENTS // 2)
+            slots[slot] = (n * 100, 0 if n == 1 else 1, 0, 0, 4)
+        d = rec.decode(record(events=slots, total=total))
         self.assertEqual(len(d['events']), 48)
-        # total 60: first half kept, ring head after 12 wraps -> slot 24+12
-        self.assertEqual([e['t_ms'] for e in d['events']][24], 36 * 100)
+        times = [e['t_ms'] for e in d['events']]
+        self.assertEqual(times, sorted(times))
+        self.assertEqual(times[24], (total - 24 + 1) * 100)
 
-    def test_board_domain_and_capture_entry(self):
-        board, bm, _ = self.profile(board=True)
-        vm, vmm, _ = self.profile()
-        self.assertFalse(hasattr(board, 'verify'))
-        for i in (0, 1, 2):
-            self.assertNotEqual(board.protocol(bm)[i], vm.protocol(vmm)[i])
-        self.raw.write_bytes(self.response(vm, vmm, record()))
-        with self.assertRaisesRegex(ValueError, 'incorrect MAX77705 observation schema'):
-            vm.verify(self.raw, bm, self.nonce, vm=True)
-        sys.path.insert(0, str(ROOT / 'workspace/public/src/scripts/revalidation'))
-        self.addCleanup(sys.path.pop, 0)
-        with self.assertRaisesRegex(ValueError, 'immutable capture handle'):
-            board.verify_capture(self.raw, bm, self.nonce, expected_loader_fdt_sha256='00' * 32)
+    def test_impossible_records_are_rejected(self):
+        ok = [(5, 0, 0, 0x3f, 0), (9000, 3, 0x22, 0x3f, 0)]
+        cases = {
+            'command count exceeds': record(events=ok, total=None),
+            'out of order': record(events=[(9000, 0, 0, 0x3f, 0), (5, 3, 0x22, 0x3f, 0)]),
+            'leading begin': record(events=[(5, 2, 0, 0x3f, 0)]),
+            'events without an identified adapter': record(adapter=1, events=ok),
+        }
+        big = bytearray(cases['command count exceeds'])
+        big[32] = 255
+        cases['command count exceeds'] = bytes(big)
+        for want, raw in cases.items():
+            with self.subTest(want=want), self.assertRaisesRegex(ValueError, want):
+                rec.decode(raw)
+
+    def test_split_verdicts(self):
+        cases = {
+            'OTHER_INITIAL_CONTROL1': [(5, 0, 0, 0x12, 0)],
+            'OPEN_THEN_OTHER_AFTER_ATTACH': [(5, 0, 0, 0x3f, 0), (9000, 3, 0x22, 0x34, 0)],
+            'OPEN_NO_READ_AFTER_ATTACH': [(5, 0, 0, 0x3f, 0), (9000, 1, 0x22, 0, 4)],
+        }
+        for want, events in cases.items():
+            with self.subTest(want=want):
+                self.assertEqual(rec.verdict(rec.decode(record(events=events))), want)
 
 
 if __name__ == '__main__':

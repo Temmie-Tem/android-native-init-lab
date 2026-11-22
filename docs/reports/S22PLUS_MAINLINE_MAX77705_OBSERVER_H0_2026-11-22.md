@@ -129,11 +129,28 @@ loader's exact FDT hash.
 
 [`max77705_record.py`](../../workspace/public/src/mainline/s22plus_canary_h0/max77705_record.py)
 decodes the record and gives a coarse verdict:
-- `INITIAL_COM_USB`
-- `OPEN_THEN_COM_USB_AFTER_ATTACH`
-- `OPEN_UNCHANGED_AFTER_ATTACH`
-- `OPEN_NO_ATTACH_SEEN`
-- `NO_PROOF_*`
+- `INITIAL_COM_USB`: the first CONTROL1 read is `0x09`;
+- `OTHER_INITIAL_CONTROL1`: the first read is neither `0x09` nor `0x3f`;
+- `OPEN_NO_ATTACH_SEEN`: the first read is `0x3f` and no VBUSDetI or CHGTypI
+  was latched;
+- `OPEN_NO_READ_AFTER_ATTACH`: an attach was latched but no CONTROL1 read
+  followed it;
+- `OPEN_THEN_COM_USB_AFTER_ATTACH`: the last read after attach is `0x09`;
+- `OPEN_UNCHANGED_AFTER_ATTACH`: every read after attach is `0x3f`;
+- `OPEN_THEN_OTHER_AFTER_ATTACH`: any other value after attach;
+- `NO_PROOF_*`: adapter absent or failed to open, identity mismatch, or no
+  CONTROL1 read.
+
+Before any verdict, the decoder rejects records the observer cannot produce:
+- more than 32 commands;
+- an event count that disagrees with the total;
+- events or commands without an identified adapter;
+- anything other than exactly one leading `begin` event;
+- event times out of order or past the elapsed time;
+- more commanded events than commands.
+
+The HMAC proves the record's origin, not its sanity, so the decoder checks
+both.
 
 Six wire tests cover:
 - aarch64 compile of both profiles and rejection of the wrong mode flag;
@@ -222,14 +239,14 @@ The scripts were copied into a new private directory, not run in place.
 
 | Item | Value |
 |---|---|
-| AP | `f3f5cec7fb3af9e28e91e073fa42d03b94fdeb55e22880a0594f053ae6df2bc4`, 25,497,641 B; two independent packagings are byte-identical |
-| boot v4 (96 MiB) | `008e753b…8786`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
-| uniLoader | `4094fc9e…f09f`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
+| AP | `a3fd5a78a0c35662d0c1e3bf3a01a2ba8d3e488584286d7012dfcbf38e53a92e`, 25,497,641 B; two independent packagings are byte-identical |
+| boot v4 (96 MiB) | `1dd9736f…06d6`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
+| uniLoader | `d6714269…1f12`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
 | Image / DT inside the loader | `d7df52a1…f609` / `51b58a40…8235` (Stage 1b) |
-| Board observer | `1f866d38…6410`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
-| RAM archive | `01ab592a…7de5`; versus ML022, only the observer member differs |
-| Loader-handed DT | 500,000 B, `f00ba7f1…3c8d` (the verifier's expected FDT) |
-| Board decoder | `41d9d892…da72`; the record decoder is embedded (see below) |
+| Board observer | `4448c2d9…15f0`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
+| RAM archive | `8281864a…716d`; versus ML022, only the observer member differs |
+| Loader-handed DT | 500,000 B, `a08664d2…cba9` (the verifier's expected FDT) |
+| Board decoder | `112526af…f93a`; the record decoder is embedded (see below) |
 | Original A | `2e541703…967e`, equal to the target's final-health boot |
 
 **Loader checks.**
@@ -283,11 +300,19 @@ attended session runs a decoder only from hash-checked bytes, with no
 `__file__`, so that second read would have been unpinned. The generator now
 embeds the record decoder, and a wire test runs the decoder from bytes with
 the sibling file deleted. Because the candidate identity commits to the
-generated sources, the whole package was rebuilt; every check above passed
-again on the rebuild.
+generated sources, the whole package was rebuilt (AP `f3f5cec7…`).
 
-Artifacts: private `s22plus-max77705-board-artifact.wte280LA/`. The manifest
-is `final-61o95ix5/qualified-artifact.json` (`0f7779e1…94e4e2`).
+**Second rebuild for decoder sanity checks.** An independent Codex review
+(`gpt-6.2-sol`) showed that the decoder accepted a signed record with 255
+commands and out-of-order times, and still returned an observed verdict. It
+also showed that any first CONTROL1 value other than `0x09` counted as
+"open". The record checks and verdict split above were added, and the package
+was rebuilt again. Every check above passed, plus one more rejection (a
+command count of 255).
+
+Artifacts: private `s22plus-max77705-board-artifact.DL9qsjR8/`. The manifest
+is `final-h47n110g/qualified-artifact.json` (`d1d65b54…6cac`). AP `680ad421…`
+and AP `f3f5cec7…` are superseded.
 
 ## SE5 sharing review
 
@@ -315,18 +340,29 @@ known to use SE5.
 
 | SE5 state at handoff | Mainline action | Outcome for the run |
 |---|---|---|
-| Protocol not programmed | `geni_load_se_firmware` reads `firmware-name` from the wrapper. Our DT has none, so it returns `-EINVAL` before any request or register write | Probe fails; observer reports adapter absent |
-| I2C, FIFO disabled (GSI only) | `geni_se_select_mode(GPI)` writes the SE mode registers, then `dma_request_chan` fails because `gpi_dma0` is disabled | Probe fails after one mode write; adapter absent |
+| Protocol not programmed | `geni_load_se_firmware` reads `firmware-name` from the wrapper. Our DT has none, so it returns `-EINVAL` before any firmware request | Probe fails; observer reports adapter absent |
+| I2C, FIFO disabled (GSI only) | `geni_se_select_mode(GPI)` clears the SE interrupt state and writes several mode registers, then `dma_request_chan` fails because `gpi_dma0` is disabled | Probe fails after those writes; adapter absent |
 | I2C, FIFO enabled (r0q case) | FIFO init and packing configuration; 100 kHz (no `clock-frequency` in the node) | Adapter present; observer runs |
 | Another protocol | `-ENXIO` | Adapter absent |
+
+**Correction.** An earlier version of this table said the unprogrammed case
+makes no SE register write. That is wrong. Runtime resume runs before
+protocol detection in every row, turns the SE clocks and resources on, and
+enables the SE interrupt (`i2c-qcom-geni.c:1210-1222`). If an interrupt is
+pending, the ISR can clear interrupt state or write the TX watermark with no
+transfer in flight (`:300-380`). So every state can produce some SE5 register
+writes before the probe outcome. None of them reaches the I2C bus.
 
 **Bus load and limits.**
 - Each 200 ms tick reads five registers. That is about 3,000 reads over the
   120 s window.
 - On top of that, at most 32 mailbox commands, each with two writes, up to
   100 polls and two reads.
-- The only writes are the two allowlisted USBC mailbox bytes. FSA4480 sees
-  three reads. Nothing writes to the PMIC address.
+- The only register values written on the bus are the two allowlisted USBC
+  mailbox bytes. Every read is a combined transfer that first sends the
+  register address in write direction, to `0x66`, `0x25` and `0x42` alike.
+  FSA4480 sees three reads. No register value is written to the PMIC or
+  FSA4480.
 
 **Risk if a peer exists.** A collision would show up as I2C errors or wrong
 values in our reads. The risk to the peer is a corrupted transfer of its own,
