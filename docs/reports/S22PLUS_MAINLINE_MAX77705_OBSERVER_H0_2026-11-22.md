@@ -3,7 +3,7 @@
 Date: 2026-11-22
 Target: Galaxy S22+ `SM-S906N` / `g0q`, Linux 7.2.11 mainline + Debian RAM PID1.
 Scope: host-only build and qualification. No device contact. This produces
-no device authority, approved candidate or boot package.
+a host-built boot package but no device authority or approved candidate.
 Follows the [root-cause plan](S22PLUS_MAINLINE_REPLUG_DEPENDENCY_ROOT_CAUSE_H0_2026-11-22.md).
 
 ## Stage 0: host port watch (no phone change)
@@ -147,8 +147,13 @@ Artifacts (private, `s22plus-max77705-observe-h0.2QtaVD7S/`):
 
 | | VM | Board |
 |---|---|---|
-| Observer (static aarch64) | `e9910f5b…0a40` | `a968179e…2ef2` |
-| RAM archive (ML022 with only the observer replaced, other 27 members byte-equal) | `390cd01b…b99f` | `e7ba1313…a8a3` |
+| Observer (static aarch64) | `e9910f5b…0a40` | `a968179e…2ef2` (superseded) |
+| RAM archive (ML022 with only the observer replaced, other 27 members byte-equal) | `390cd01b…b99f` | `e7ba1313…a8a3` (superseded) |
+
+**Correction.** The board observer in this table was built with the VM
+fixture's network seal (`dummy_udc.0`, fixed fixture MACs and serial). It
+would never have enumerated on hardware. The board package below replaces it
+with an observer built the way the SCM board build derives its seal.
 
 VM runs used QEMU 10.2.1 virt, the guest NCM/dummy_hcd relay from the SCM
 harness (copied, not run in place) and QEMU's own DTB:
@@ -204,17 +209,135 @@ Six tests run with a fake runner. They cover:
 Before use it needs the operator to accept the click as the operator
 resolution, plus a profile review.
 
+## Board package (H0)
+
+A boot AP for SM-S906N / g0q / FYG8 was built on the host. It follows the
+SCM board-artifact build step for step (Codex's
+`s22plus-scm-board-artifact.Z9b5Fre8`), with three substitutions:
+- the I2C-enabled Image;
+- the SE5 DT;
+- the MAX77705 board observer.
+
+The scripts were copied into a new private directory, not run in place.
+
+| Item | Value |
+|---|---|
+| AP | `680ad421de3998d4ce0ffed683532d7ce3b947ba8f7022ca61ae0f4d27f51850`, 25,497,641 B; two independent packagings are byte-identical |
+| boot v4 (96 MiB) | `4e1b41f6…f91b`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
+| uniLoader | `2fe43335…0c52`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
+| Image / DT inside the loader | `d7df52a1…f609` / `51b58a40…8235` (Stage 1b) |
+| Board observer | `d439d64c…35aa`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
+| RAM archive | `14f61239…9416`; versus ML022, only the observer member differs |
+| Loader-handed DT | 500,000 B, `7647ee25…6176` (the verifier's expected FDT) |
+| Original A | `2e541703…967e`, equal to the target's final-health boot |
+
+**Loader checks.**
+- **Unicorn:** 20 cases pass (`PASS_H0_ACTUAL_ARM64_LOADER`), including 1,051
+  aligned copy cases.
+- **QEMU with the retained gdb-multiarch:** relocated entry at real EL1 and
+  EL2, rejection at EL3. These are the same terminal PCs and CPSRs as the SCM
+  candidate.
+
+**Independent check** (`check_package.py`):
+- Both AP copies unpack to the same boot image, and its kernel field is the
+  loader.
+- The Image, DT and ramdisk sliced from the loader's linker symbols match
+  their sources.
+- The observer, rebuilt from regenerated sources, is byte-identical.
+- A board build with the VM flag fails at `#error`.
+- The candidate identity re-derives from its pinned inputs.
+
+**Loader-handed DT.** Compared with the SCM candidate's (same loader source,
+same base DT), it differs in exactly five properties:
+- the four SE5 lines from Stage 1b;
+- `linux,initrd-end` on `/chosen`, which moves because the ramdisk size
+  changed.
+
+**Fixture responses.** These used a disjoint key and identity, signed by an
+AArch64 codec built from the shipped `protocol.h`; the C and Python HMACs
+agree.
+- The board verifier read four verdicts: `OPEN_THEN_COM_USB_AFTER_ATTACH`,
+  `OPEN_UNCHANGED_AFTER_ATTACH`, `INITIAL_COM_USB` and
+  `NO_PROOF_ADAPTER_ABSENT`.
+- It rejected nine cases:
+  - a non-handle input;
+  - a failed capture;
+  - the real candidate key;
+  - an old challenge;
+  - a VM claim;
+  - CONTROL1 changed after signing;
+  - a nonzero rejected-write count;
+  - an added empty DT leaf (FDT hash);
+  - SE5 set back to `disabled` (DT property check).
+
+The setup needed two harness inputs on this host: the retained
+`gdb-multiarch` and unicorn 2.1.4 from
+`s22plus-mainline-loader-h0-20261028-1`. The first attempts, using the host
+gdb (no aarch64) and lacking unicorn, are kept as failed logs.
+
+Artifacts: private `s22plus-max77705-board-artifact.G06Ao4bm/`. The
+manifest is `final-9r6ede5x/qualified-artifact.json` (`17555750…68c5`).
+
+## SE5 sharing review
+
+Stock FYG8 marks SE5 `qcom,shared`. It is the only SE with that flag in the
+base DT. Stock wraps every GSI transfer in lock/unlock so another execution
+environment can use the engine between transfers. Mainline has no such
+handling.
+
+**Peer.** The peer is still unidentified, but the trusted VM is excluded:
+- The FYG8 `vm-bootsys` partition holds Gunyah trusted-VM segments
+  `trustedvm.b00`–`b05`.
+- Its DT segment carries 10 board DTs (Waipio, Cape and Diwali; MTP, QRD,
+  CDP and RUMI).
+- They assign only SE1, SE4 and SE8 to the VM. None names SE5 or
+  `i2c@994000`.
+
+The mainline candidate starts no trusted VM and no remote processor:
+- SLPI, ADSP, CDSP and MPSS are all `disabled` in the DT;
+- `QCOM_Q6V5_PAS` is a module that the RAM archive does not carry.
+
+That leaves TZ or the hypervisor as possible concurrent users, and neither is
+known to use SE5.
+
+**Mainline driver behaviour** (7.2.11 `i2c-qcom-geni.c`, `qcom-geni-se.c`):
+
+| SE5 state at handoff | Mainline action | Outcome for the run |
+|---|---|---|
+| Protocol not programmed | `geni_load_se_firmware` reads `firmware-name` from the wrapper. Our DT has none, so it returns `-EINVAL` before any request or register write | Probe fails; observer reports adapter absent |
+| I2C, FIFO disabled (GSI only) | `geni_se_select_mode(GPI)` writes the SE mode registers, then `dma_request_chan` fails because `gpi_dma0` is disabled | Probe fails after one mode write; adapter absent |
+| I2C, FIFO enabled (r0q case) | FIFO init and packing configuration; 100 kHz (no `clock-frequency` in the node) | Adapter present; observer runs |
+| Another protocol | `-ENXIO` | Adapter absent |
+
+**Bus load and limits.**
+- Each 200 ms tick reads five registers. That is about 3,000 reads over the
+  120 s window.
+- On top of that, at most 32 mailbox commands, each with two writes, up to
+  100 polls and two reads.
+- The only writes are the two allowlisted USBC mailbox bytes. FSA4480 sees
+  three reads. Nothing writes to the PMIC address.
+
+**Risk if a peer exists.** A collision would show up as I2C errors or wrong
+values in our reads. The risk to the peer is a corrupted transfer of its own,
+and the mailbox writes are the only bytes we put on the bus. The read-to-clear
+`UIC_INT` and `CC_INT` are consumed by nobody else under mainline. Android's
+driver re-reads status at its own probe after the original A is restored.
+
+**Recommendation.** Keep the profile as is. If the run shows bus errors on
+`0x25` while the adapter probed, treat it as possible sharing interference
+rather than retrying blindly.
+
 ## Not done / remaining
 
-- **No board package or loader.** The board RAM archive, Image and DTB exist,
-  but no uniLoader or boot AP was built and no qualified candidate exists.
-  An attended run would need:
-  - profile review and adoption;
-  - review of the bus-sharing risk (`qcom,shared` SE5 without mainline
-    arbitration);
-  - a fresh candidate, D0 and approval.
+- **No device authority.** The AP is a host artifact only. An attended run
+  needs:
+  - a S22+ profile that binds this candidate, the board verifier and the
+    expected FDT (the SCM draft profile is the template);
+  - review and adoption of that profile;
+  - D0, current Download recovery and approval.
 - **Board behaviour is unknown:** FIFO versus GSI mode on SE5, whether XBL
-  left the pins muxed, and whether `0x25` answers under mainline.
+  left the pins muxed, and whether `0x25` answers under mainline. The table
+  above lists what each case produces.
 - **Stage 2** (one `CONTROL1_W(0x09)`) is not implemented, by design. It
   would be a separate profile, built only after Stage 1 reads `0x3f` on
   hardware.
