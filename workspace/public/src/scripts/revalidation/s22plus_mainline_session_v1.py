@@ -20,6 +20,8 @@ def validate_result(adapter,step,value,request):
               else 'AUTHENTICATED_CANARY_OBSERVATION')
     if profile.scm_board(request['N']):
         expected=profile.SCM_STATUS
+    if profile.max77705_board(request['N']):
+        expected=profile.MX_STATUS
     selected=download.selected(request)
     require(step.action==(download.ACTION if selected else 'mainline-evidence') and
             value==(download.rederive(adapter,request) if selected else access.rederive(adapter,request)) and
@@ -65,6 +67,18 @@ def terminal(adapter,request,*,recovered):
             from s22plus_mainline_scm_v1 import outcome
             result.update(outcome(value['proof']), mainline_pid1=True, authenticated_usb=True,
                           observation=value, physical_return_requested=not recovered)
+        except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
+            result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
+        return result
+    if profile.max77705_board(request.get('N', {})):
+        result['max77705_verdict']=None
+        # A is already healthy here. Missing candidate machinery or a missing
+        # cue closure only makes the observation unavailable.
+        try:
+            value=access.rederive(adapter,request)
+            from s22plus_mainline_max77705_v1 import outcome
+            result.update(outcome(value['proof']), mainline_pid1=True, authenticated_usb=True,
+                          observation=value, attach_closure=value['attach'], physical_return_requested=not recovered)
         except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
             result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
         return result

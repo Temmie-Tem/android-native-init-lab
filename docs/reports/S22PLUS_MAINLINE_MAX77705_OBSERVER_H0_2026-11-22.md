@@ -132,7 +132,12 @@ decodes the record and gives a coarse verdict:
 - `INITIAL_COM_USB`: the first CONTROL1 read is `0x09`;
 - `OTHER_INITIAL_CONTROL1`: the first read is neither `0x09` nor `0x3f`;
 - `OPEN_NO_ATTACH_SEEN`: the first read is `0x3f` and no VBUSDetI or CHGTypI
-  was latched;
+  was latched. **Correction (2026-11-22, independent review):** the decoder
+  checks only the event array, not the boot-time `initial_uic` latch saved
+  before the first command. The session binding refines this verdict to
+  `OPEN_BOOT_ATTACH_ONLY` (attach latched at boot) or
+  `OPEN_INITIAL_LATCH_UNREAD` (latch unread, inconclusive). See the
+  [policy](../operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md);
 - `OPEN_NO_READ_AFTER_ATTACH`: an attach was latched but no CONTROL1 read
   followed it;
 - `OPEN_THEN_COM_USB_AFTER_ATTACH`: the last read after attach is `0x09`;

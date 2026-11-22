@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'workspace/public/src/scripts/analysis'))
 import s22plus_ordinary_cue_cutover_h0 as cutover
 import s22plus_native_records_v3 as records
+import s22plus_mainline_task_v1 as mainline
 import s22plus_mainline_profile_v1 as profile
 from s22plus_mainline_task_v1 import IMAGE_V2
 from s22plus_mainline_terminal_v1 import ENTRY
@@ -286,7 +287,12 @@ class CutoverTests(unittest.TestCase):
         self.gateway = cutover.BINDINGS/selected.name
         deployment = selected.parents[len(self.gateway.parts)-1]
         self.reviews = {}
-        for path in (self.gateway, cutover.NEW_LOADER, cutover.SCM):
+        self.loader = Path(mainline.LOADER_CUE_REVIEW)
+        self.mx = getattr(mainline.profile, 'MX_REVIEW', None)
+        paths = [self.gateway, self.loader, Path(mainline.profile.SCM_CUE_REVIEW)]
+        if self.mx:
+            paths.append(Path(self.mx))
+        for path in paths:
             review = json.loads((ROOT/path).read_bytes())
             for row in review['sources'] + review.get('worker_sources', []):
                 name = Path(row['path'])
@@ -303,7 +309,7 @@ class CutoverTests(unittest.TestCase):
         return self.git('rev-parse', 'HEAD')
 
     def proposed_tree(self, *, pending=False, missing_schema=False, omit_source=False,
-                      loader_pending=False, refuse_recovery=False):
+                      pending_path=None, refuse_recovery=False):
         (self.root/cutover.BINDINGS).mkdir(parents=True, exist_ok=True)
         task_file = self.root/'workspace/public/src/scripts/revalidation/s22plus_mainline_task_v1.py'
         text = task_file.read_text()
@@ -313,8 +319,7 @@ class CutoverTests(unittest.TestCase):
             text = text.replace(signature, signature + "    require(not recovery, 'fixture refuses loader recovery')\n")
         task_file.write_text(text+'\n# reviewed fixture change\n')
         for path, original in self.reviews.items():
-            verdict = 'PENDING_INDEPENDENT_REVIEW' if pending or (
-                loader_pending and path == cutover.NEW_LOADER) else 'PASS_GO'
+            verdict = 'PENDING_INDEPENDENT_REVIEW' if pending or path == pending_path else 'PASS_GO'
             review = dict(original, verdict=verdict, reviewer='Synthetic H0 fixture')
             review['sources'] = [dict(records.pin(self.root/row['path']), path=row['path'])
                                  for row in original['sources']]
@@ -347,13 +352,21 @@ class CutoverTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'backend review is not PASS_GO'):
             cutover.require_adoption_commit(self.root, pending)
         self.assertEqual(cutover.require_adoption_commit(self.root, squash), squash)
+        self.git('reset', '--hard', squash)
+        active = cutover.production_check(self.root, cutover.OPERATING_LOADER_CHECK)
+        self.assertEqual(Path(active), self.loader)
 
     def test_production_rejects_review_sets_the_partial_check_accepted(self):
         base = self.init_operating_base()
-        for options, expected in (({'missing_schema': True}, 'review selector differs'),
-                                  ({'omit_source': True}, 'backend review source closure differs'),
-                                  ({'loader_pending': True}, 'mainline independent review is not PASS_GO'),
-                                  ({'refuse_recovery': True}, 'fixture refuses loader recovery')):
+        cases = [
+            ({'missing_schema': True}, 'review selector differs'),
+            ({'omit_source': True}, 'backend review source closure differs'),
+            ({'pending_path': self.loader}, 'mainline independent review is not PASS_GO'),
+            ({'refuse_recovery': True}, 'fixture refuses loader recovery'),
+        ]
+        if self.mx:
+            cases.append(({'pending_path': Path(self.mx)}, 'mainline independent review is not PASS_GO'))
+        for options, expected in cases:
             with self.subTest(options=options):
                 tree = self.proposed_tree(**options)
                 squash = self.git('commit-tree', tree, '-p', base, '-m', 'invalid proposed squash')

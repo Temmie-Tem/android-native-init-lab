@@ -373,6 +373,25 @@ def rederive(adapter,request):
             return value
         except (ImportError, SyntaxError) as error:
             raise ValueError('SCM observation code unavailable') from error
+    if profile.max77705_board(request['N']):
+        # As for SCM: verify the review closure before importing candidate code.
+        # This observation exists only with its cue scope.
+        try:
+            from s22plus_mainline_task_v1 import capability
+            require(profile.ordinary_cue(adapter, request), 'MAX77705 observation requires its cue scope')
+            capability(adapter.root, image=request['N'], ordinary_cue=True)
+            value = rederive_base(adapter, request)
+            closure = attach.rederive(adapter.directory, value['window'])
+            connection = read(adapter.folder(profile.SELECTION)/'connection.json')
+            require(connection['finished_ns'] <= read(verify(closure))['closed_ns'],
+                    'ordinary attach closure precedes the sealed response')
+            value['attach'] = closure
+            return value
+        except (ImportError, SyntaxError) as error:
+            raise ValueError('MAX77705 observation code unavailable') from error
+        except (TypeError, AttributeError, RuntimeError) as error:
+            # RuntimeError covers the DT audit's AuditError on a malformed FDT.
+            raise ValueError('malformed MAX77705 observation record') from error
     value=rederive_base(adapter,request)
     manifest=profile.image_binding(request['N'])
     if not profile.codec.has_ssh(manifest):return value

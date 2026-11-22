@@ -22,15 +22,13 @@ from s22plus_native_session_v3 import Session, live_grant
 
 BINDINGS = Path('workspace/public/src/device-action/bindings')
 OLD_LOADER = BINDINGS/'s22plus_loader_android_timing_v3_review.json'
-NEW_LOADER = BINDINGS/'s22plus_loader_android_timing_v3_cue_review.json'
-SCM = BINDINGS/'s22plus_mainline_scm_ordinary_cue_v2_review.json'
 SELECTOR = BINDINGS/'s22plus_approved_terminal_persistent_current.json'
 SOURCE_ROOTS = ('AGENTS.md', 'docs/operations', 'workspace/public/src')
 GIT_ENV = dict(os.environ, GIT_OPTIONAL_LOCKS='0', GIT_NO_LAZY_FETCH='1')
 
 # Run the proposed validators in a fresh interpreter so none of their
 # imports resolve to the operating checkout or the checker checkout.
-PRODUCTION_CHECK = """
+VALIDATOR_BOOTSTRAP = """
 import json
 from pathlib import Path
 import sys
@@ -40,12 +38,23 @@ def host_only(event, args):
         raise ValueError('unexpected external operation in proposal validation')
 
 sys.addaudithook(host_only)
-snapshot, operating, selector_path, loader_path, scm_path = map(Path, sys.argv[1:])
-scripts = snapshot/'workspace/public/src/scripts'
+root = Path(sys.argv[1])
+scripts = root/'workspace/public/src/scripts'
 sys.path[:0] = [str(scripts/name) for name in ('host_tools', 'revalidation')]
+import s22plus_mainline_task_v1 as task
+"""
+
+OPERATING_LOADER_CHECK = VALIDATOR_BOOTSTRAP + """
+loader = task.selected_profile({'profile': 'loader-android-v1'})
+receipt = task.capability(root, selected=loader)
+print(json.dumps(Path(receipt['path']).relative_to(root).as_posix()))
+"""
+
+PRODUCTION_CHECK = VALIDATOR_BOOTSTRAP + """
+snapshot = root
+operating, selector_path = map(Path, sys.argv[2:])
 import s22plus_approved_terminal_persistent_v1 as terminal
 import s22plus_approved_terminal_tasks_v1 as backend
-import s22plus_mainline_task_v1 as task
 
 def relocate(receipt):
     path = Path(receipt['path'])
@@ -72,20 +81,33 @@ terminal.require(type(gateway['reviewer']) is str and gateway['reviewer'].strip(
                  'adoption requires independent gateway review attribution')
 
 loader = task.selected_profile({'profile': 'loader-android-v1'})
-scm_image = {'profile': 'mainline-ram-v1', 'schema': task.profile.SCM_SCHEMA}
-scm = task.selected_profile(scm_image)
-for recovery in (False, True):
-    selected = task.capability(snapshot, selected=loader, recovery=recovery)
-    terminal.require(Path(selected['path']) == snapshot/loader_path, 'proposed loader review selection differs')
-selected = task.capability(snapshot, selected=scm, image=scm_image, ordinary_cue=True)
-terminal.require(Path(selected['path']) == snapshot/scm_path, 'proposed SCM review selection differs')
+bindings = selector_path.parent
+routes = [('loader', task.LOADER_CUE_REVIEW, {'selected': loader}),
+          ('SCM', task.profile.SCM_CUE_REVIEW, {'image': {'schema': task.profile.SCM_SCHEMA},
+                                                'ordinary_cue': True})]
+mx_receipt = bindings/'s22plus_mainline_max77705_usb_v1_review.json'
+mx_policy = snapshot/'docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md'
+if hasattr(task.profile, 'MX_REVIEW') or mx_policy.exists() or (snapshot/mx_receipt).exists():
+    terminal.require(Path(task.profile.MX_REVIEW) == mx_receipt, 'proposed MAX77705 review selection differs')
+    routes.append(('MAX77705', task.profile.MX_REVIEW, {'image': {'schema': task.profile.MX_SCHEMA},
+                                                       'ordinary_cue': True}))
 
-paths = {selector_path, gateway_file.relative_to(snapshot), loader_path, scm_path}
+gateway_path = gateway_file.relative_to(snapshot)
+reviews = {gateway_path}
+paths = {selector_path, gateway_path}
 paths.update(Path(row['path']).relative_to(snapshot) for key in ('sources', 'worker_sources')
              for row in gateway[key])
-for review in (loader_path, scm_path):
+for name, expected, options in routes:
+    review = Path(expected)
+    terminal.require(review.parent == bindings and review not in reviews,
+                     f'proposed {name} review path differs')
+    for recovery in (False, True):
+        selected = task.capability(snapshot, recovery=recovery, **options)
+        terminal.require(Path(selected['path']) == snapshot/review, f'proposed {name} review selection differs')
+    reviews.add(review)
+    paths.add(review)
     paths.update(Path(row['path']) for row in task.read(snapshot/review)['sources'])
-print(json.dumps(sorted(map(str, paths))))
+print(json.dumps(dict(paths=sorted(map(str, paths)), reviews=sorted(map(str, reviews)))))
 """
 
 
@@ -126,6 +148,16 @@ def blobs(root, requests):
         require(process.wait() == 0, 'could not read proposal Git blobs')
 
 
+def production_check(root, source, *args):
+    checked = subprocess.run(
+        [sys.executable, '-I', '-B', '-c', source, str(root), *map(str, args)],
+        cwd=root, capture_output=True, text=True, timeout=30)
+    if checked.returncode:
+        reason = checked.stderr.strip().splitlines()[-1:] or ['no validator diagnostic']
+        raise ValueError(f'production review validation failed: {reason[0]}')
+    return json.loads(checked.stdout)
+
+
 def validate_proposed_tree(root, entries):
     with TemporaryDirectory(prefix='s22-cue-proposal-') as folder:
         snapshot = Path(folder).resolve()
@@ -135,20 +167,15 @@ def validate_proposed_tree(root, entries):
             dest.write_bytes(data)
             if entries[relative][0] == b'100755':
                 dest.chmod(0o755)
-        checked = subprocess.run(
-            [sys.executable, '-I', '-B', '-c', PRODUCTION_CHECK,
-             str(snapshot), str(root), str(SELECTOR), str(NEW_LOADER), str(SCM)],
-            cwd=snapshot, capture_output=True, text=True, timeout=30)
-        if checked.returncode:
-            reason = checked.stderr.strip().splitlines()[-1:] or ['no validator diagnostic']
-            raise ValueError(f'proposed production validation failed: {reason[0]}')
-        paths = [Path(path) for path in json.loads(checked.stdout)]
+        checked = production_check(snapshot, PRODUCTION_CHECK, root, SELECTOR)
+        paths = [Path(path) for path in checked['paths']]
         require(all(path in entries for path in paths), 'proposed review pin is outside the Git snapshot')
-        return paths
+        return paths, [Path(path) for path in checked['reviews']]
 
 
-def require_worktree_sources(root, current, paths):
+def require_worktree_sources(root, current, paths, reviews):
     base = tree_entries(root, current)
+    require(not set(reviews).intersection(base), 'adoption must select new review records')
     tracked = {path: base[path] for path in paths if path in base}
     for path, original in blobs(root, tracked):
         require(read_bytes(root/path) == original, f'operating source differs from HEAD: {path}')
@@ -168,8 +195,8 @@ def require_adoption_commit(root, candidate):
     line = git(root, 'rev-list', '--parents', '-n', '1', proposed).decode().split()
     require(line == [proposed, current], 'adoption must be a single squash commit on the operating HEAD')
 
-    paths = validate_proposed_tree(root, tree_entries(root, proposed))
-    require_worktree_sources(root, current, paths)
+    paths, reviews = validate_proposed_tree(root, tree_entries(root, proposed))
+    require_worktree_sources(root, current, paths, reviews)
     require(git(root, 'rev-parse', 'HEAD').decode().strip() == current,
             'operating HEAD changed during proposal validation')
     return proposed
@@ -422,11 +449,12 @@ def require_mainline_quiescence(root, gateway_receipt):
     require(not blockers, 'mainline tasks must be quiescent before cutover:\n'+'\n'.join(sorted(blockers)))
 
 
-def require_task_closures(root):
+def require_task_closures(root, review_path=OLD_LOADER):
     require_no_f1_owner(root)
     private = private_path(root, root/'workspace/private')
-    old_review = pin(root/OLD_LOADER)
-    review = read(root/OLD_LOADER)
+    require(review_path.parent == BINDINGS, 'operating loader review is outside bindings')
+    old_review = pin(root/review_path)
+    review = read(root/review_path)
     require(review['schema'] == 's22plus-loader-android-review-v1' and
             review['scope'] == 'LOADER_ANDROID_F1_CAPABILITY' and
             review['verdict'] == 'PASS_GO' and review['findings'] == [],
@@ -488,7 +516,8 @@ def main():
         _, gateway_receipt = selected_review(root)
         require_mainline_quiescence(root, gateway_receipt)
         commit = require_adoption_commit(root, args.adoption_commit)
-        count = require_task_closures(root)
+        retiring_loader = Path(production_check(root, OPERATING_LOADER_CHECK))
+        count = require_task_closures(root, retiring_loader)
     except (ValueError, OSError, KeyError, TypeError, subprocess.SubprocessError) as error:
         parser.exit(1, f'Cutover held. {error}\n')
     print(json.dumps({'adoption_commit': commit, 'old_timing_v3_tasks_closed': count}))
