@@ -86,6 +86,7 @@ class Harness:
         self.journal_broken = False
         self.jitter, self.row_cost = jitter, row_cost  # wake-up latency; journal validation cost
         self.spawn_kw, self.exec_delay = [], exec_delay  # fork-to-exec pause, checked by the child guard
+        self.before_exec = None  # something the owner does between the parent's check and the child's
 
     def clock(self):
         return self.t
@@ -102,7 +103,11 @@ class Harness:
         self.spawn_kw.append(kw)
         guard = kw['preexec_fn']
         self.t += self.exec_delay
-        if self.t > guard.exec_by_ns:  # what child_guard does in the forked child
+        if self.before_exec:
+            self.before_exec(self)
+            self.before_exec = None
+        # what child_guard does in the forked child
+        if self.t >= guard.exec_by_ns or any(Path(f).exists() for f in guard.forbid):
             self.refused_exec = getattr(self, 'refused_exec', 0) + 1
             return FakeDialog(self, argv, (126, '', 0))
         return FakeDialog(self, argv, self.dialogs.pop(0))
@@ -337,6 +342,13 @@ class CueDialogTests(unittest.TestCase):
         self.assertEqual(h.dialog_texts and len(h.dialog_texts), 1)
         self.assertEqual(self.resolved_calls(h), [])
 
+    def test_a_fence_published_between_parent_and_child_checks_blocks_the_instruction(self):
+        h = Harness(self.op, start=OPENED)
+        h.before_exec = lambda h: publish(self.op / 'mainline-attach-recovery.json', {'operation': 'fenced'})
+        self.go(h)
+        self.assertEqual(getattr(h, 'refused_exec', 0), 1)
+        self.assertEqual(self.resolved_calls(h), [])
+
     def test_the_sixty_second_check_is_sampled_after_validation(self):
         h = Harness(self.op, start=DEADLINE - int(61.05 * NS), row_cost=int(0.1 * NS))
         self.assertEqual(self.go(h), 2)  # 61.05 s before validation, 60.95 s after: suppressed
@@ -352,6 +364,11 @@ class CueDialogTests(unittest.TestCase):
         self.assertEqual(run(cd.child_guard(os.getpid(), now + 30 * NS)), 0)
         self.assertEqual(run(cd.child_guard(os.getpid(), now - NS)), 126)  # launched too late
         self.assertEqual(run(cd.child_guard(os.getpid() + 999999, now + 30 * NS)), 127)  # parent gone
+        self.assertEqual(run(cd.child_guard(os.getpid(), cd.boottime())), 126)  # equality is refused
+        fence = self.op / 'mainline-attach-recovery.json'
+        fence.write_text('{}')
+        self.assertEqual(run(cd.child_guard(os.getpid(), now + 30 * NS, (fence,))), 124)  # fence appeared
+        fence.unlink()
         with self.assertRaises(SystemExit):
             cd._terminate_cleanly(15, None)
         seen = {}

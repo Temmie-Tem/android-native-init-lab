@@ -36,8 +36,9 @@ helper noticed the journal:
    evidence); a killed dialog carries no answer. An instruct dialog withdrawn
    within 2 s of launch counts as never shown. The 60 s check is sampled
    after the other checks with a 1 s launch margin, and again inside the
-   forked child just before exec (CLOCK_BOOTTIME), which also refuses if the
-   helper already died and sets PR_SET_PDEATHSIG. SIGTERM/SIGHUP/SIGINT
+   forked child just before exec (CLOCK_BOOTTIME, refused at 60 s or less),
+   which also refuses if a resolution, closure or recovery fence appeared, if
+   the helper already died, or if PR_SET_PDEATHSIG cannot be set. SIGTERM/SIGHUP/SIGINT
    unwind through the cleanup. Zenity gets an
    allow-listed environment, so no `ZENITY_*` or `DIALOG_*` exit-code
    override reaches it;
@@ -178,12 +179,14 @@ def zenity_env(environ=None):
     return {k: v for k, v in environ.items() if k in ENV_ALLOW or k.startswith('LC_')}
 
 
-def child_guard(parent_pid, exec_by_ns):
+def child_guard(parent_pid, exec_by_ns, forbid=()):
     """Pre-exec check run *inside* the forked child, the last point before zenity exists.
 
     1. PR_SET_PDEATHSIG=SIGKILL, so zenity dies with the helper; refuse if prctl fails.
     2. Refuse if the helper already died between fork and step 1 (getppid changed).
-    3. Refuse if CLOCK_BOOTTIME is past `exec_by_ns` (a pause after the parent's checks)."""
+    3. Refuse if CLOCK_BOOTTIME has reached `exec_by_ns` (a pause after the parent's checks).
+    4. Refuse if any record in `forbid` exists (instruct mode: resolution, closure,
+       recovery fence published after the parent's check)."""
     def guard():
         try:
             if ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0) != 0:
@@ -192,9 +195,11 @@ def child_guard(parent_pid, exec_by_ns):
             os._exit(125)
         if os.getppid() != parent_pid:
             os._exit(127)
-        if time.clock_gettime_ns(time.CLOCK_BOOTTIME) > exec_by_ns:
+        if time.clock_gettime_ns(time.CLOCK_BOOTTIME) >= exec_by_ns:
             os._exit(126)
-    guard.parent_pid, guard.exec_by_ns = parent_pid, exec_by_ns
+        if any(os.path.lexists(path) for path in forbid):
+            os._exit(124)
+    guard.parent_pid, guard.exec_by_ns, guard.forbid = parent_pid, exec_by_ns, tuple(map(str, forbid))
     return guard
 
 
@@ -202,7 +207,7 @@ def _terminate_cleanly(signum, frame):
     raise SystemExit(128 + signum)  # unwinds through dialog_once's finally, which kills zenity
 
 
-def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, zenity='zenity'):
+def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, forbid=(), zenity='zenity'):
     """(choice, observed_ns, wall, alive_ns).
 
     choice: completed / cancelled / dismissed / expired / withdrawn.
@@ -232,7 +237,7 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, exec_by_ns, zenity='
             '--timeout', str(int(remaining))]
     try:
         p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env(),
-                  preexec_fn=child_guard(os.getpid(), min(exec_by_ns, clock() + EXEC_BUDGET_NS)))
+                  preexec_fn=child_guard(os.getpid(), min(exec_by_ns, clock() + EXEC_BUDGET_NS), forbid))
     except OSError:
         return ('expired', *stamp(), 0)
     started = clock()
@@ -358,7 +363,8 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
             text, keep = REPORT, lambda: record_ok(op)
         # instruct: the child refuses to exec once 60 s or less remain (the policy's final check)
         exec_by = deadline - MIN_REMAINING_NS if mode == 'instruct' else cutoff - NS
-        choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep, exec_by)
+        forbid = tuple(op / n for n in (RESOLUTION, CLOSED, FENCE)) if mode == 'instruct' else (op / CLOSED,)
+        choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep, exec_by, forbid)
         if choice != 'withdrawn' or alive >= MIN_SEEN_NS:
             shown += 1  # a dialog killed within 2 s of launch is treated as never seen
         log('DIALOG', mode, choice, f'observed W+{(observed - opened) / NS:.1f}s alive {alive / NS:.1f}s')
