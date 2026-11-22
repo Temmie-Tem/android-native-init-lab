@@ -4440,3 +4440,56 @@ the 1,426-byte terminal SHA-256 is
 with verdict `NO_PROOF_S20PLUS_G986N_FASTBOOT_BOOT_RETURNED_HEALTHY`. The
 shared guard is absent. The run records one RAM payload-transfer attempt, zero
 partition writes, and zero persistent mutation; it proves no native PID1.
+
+## S20+ foreground FDT layout D0
+
+This separately named fixed read-only foreground profile applies to the current operator-authorized
+SM-G986N/y2q/IYC2 mainline handoff investigation under the common D0
+delegation. Connected use requires a zero-finding independent PASS_GO
+for the exact subject emitted by the new owner, recorded in the canonical
+private activation file. The foreground task covers each necessary
+invocation of this profile after activation. It requires no attendance.
+A new decision following failure starts a new private observation.
+The profile ends with the foreground task and grants no background session.
+
+The fixed entry point is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_fdt_layout_d0.py`.
+It binds the reviewed AWK source, owner, selected authority, common details,
+pinned model and geometry, Magisk health and inventory dependencies.
+The exact canonical evidence root is
+`workspace/private/runs/s20plus-g986n-fdt-layout-d0/`. The CLI accepts
+host-only `--review-input` or one `--connected` observation. It checks
+existing shared and campaign owners and pending controls at dispatch.
+
+The six host commands are inventory, exact devpath, fixed public-health
+snapshot, one fixed root observation, the same public-health snapshot,
+and final inventory. Reuse the root-health D0 selection, unique devpath,
+exact finished enforcing Android, unchanged boot and inventory checks.
+The selected serial binds ADB, and the internal pre-snapshot boot ID is the
+only variable in the remote script.
+The remote command rechecks the exact target/build/boot and the fixed
+Magisk/stock PID1 health transcript before the FDT read.
+
+The layout source is the canonical sysfs regular binary
+attribute `/sys/firmware/fdt`. The fixed shell checks its type and sysfs
+filesystem. The sole AWK provider is the canonical regular executable
+`/data/adb/magisk/busybox` from the existing Magisk 30.7 installation.
+Its exact 1,710,600-byte size and SHA-256
+`4d60ab3f5a59ebb2ca863f2f514e6924401b581e9b64f602665c008177626651` are
+checked before invocation. Bounded `od` feeds its fixed AWK filter.
+It consumes at most 2 MiB and one overflow sentinel. The remote output
+is one aggregate geometry line or one of the fixed unavailable states.
+The owner checks the command's return code, empty stderr and exact field
+grammar, including counts and booleans for full runtime bank containment,
+header and fixed reservation overlap, and initrd coverage/overlap. It
+conservatively includes disabled reservation declarations and counts dynamic pools.
+Known usable-memory overrides make this geometry projection unsupported. Boot arguments, seeds, raw FDT, addresses,
+identifiers and property values cannot be published by the filter.
+The root command has a 45-second host deadline and 2,048-byte combined
+output bound. A private root capture receipt contains sizes, status and
+hashes only, including bounded prefixes on timeout or overflow. Private results
+bind hashed boot, serial and topology and report target command counts.
+Known unavailability remains an observed channel status. A parse, capture
+or identity failure closes that invocation. This measures the FDT exported by
+the observed Android boot and authorizes no candidate, staging, reboot, partition access,
+or change to device or system configuration.
