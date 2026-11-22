@@ -342,9 +342,12 @@ rather than retrying blindly.
 
 - **No device authority.** The AP is a host artifact only. An attended run
   needs:
-  - a S22+ profile that binds this candidate, the board verifier and the
-    expected FDT (the SCM draft profile is the template);
-  - review and adoption of that profile;
+  - the session draft on the isolated branch `claude/s22-max77705-attended-h0`
+    (`859557d408`, `DRAFT_H0`). It binds this candidate, the board decoder and
+    the expected FDT in the existing mainline RAM owner, ported from the SCM
+    draft. An offline binding check against the real artifact passed, and
+    seven identity substitutions were rejected;
+  - independent review and target adoption of that draft;
   - D0, current Download recovery and approval.
 - **Board behaviour is unknown:** FIFO versus GSI mode on SE5, whether XBL
   left the pins muxed, and whether `0x25` answers under mainline. The table
