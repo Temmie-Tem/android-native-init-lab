@@ -325,6 +325,10 @@ ARM64 VM에서 이 초기 램디스크와 시험용 init을 부팅했다. 공급
 
 첫 스트림 시험은 게스트가 포트를 열기 전에 호스트가 송신해 읽기가 끝났다. 게스트 준비와 수신 완료를 양 끝에서 확인한 뒤 정상·변형 대조가 모두 통과했다. 이 결과가 검증한 공급 경로는 VM의 virtio다. 실제 S22+에서 필요한 부팅 후 전송 경로, 저장소 백엔드와 기동 주체는 별도로 정해야 한다. 결과는 같은 비공개 빌드 디렉터리의 `split-layout.json`, `split-valid-pass.json`, `split-altered-pass.json`에 있다.
 
+**Debian이 받은 FYG1에서 PAS 초기화용 메타데이터 구성 확인 (2026-11-22).** ML053 기반 ARM64 VM에서 기존 Debian 통합 RAM 아카이브를 사용했다. 파일 게시 전 커널의 `modem.mdt` 요청은 `ENOENT`였다. 가상 CDC-NCM으로 28개 파일(109,340,422바이트)을 보내고 완료 인증값을 확인한 뒤, 아카이브에 들어 있던 `mdt_loader.ko`의 `qcom_mdt_read_metadata()`를 호출했다. 반환된 5,584바이트 전체가 순정 CP에서 별도로 추출한 ELF 헤더(`modem.b00`, 1,076바이트)와 해시·서명 데이터(`modem.b31`, 4,508바이트)를 순서대로 이은 값과 일치했다. 두 대조 파일은 전송 목록에 없었다.
+
+같은 ML053 기반 모듈의 PAS 초기화 코드에서 이 함수의 반환 포인터와 길이가 정상 경로의 `qcom_scm_pas_init_image()` 인자로 전달됨을 확인했다. VM에서 측정한 범위는 그 입력 버퍼의 구성까지다. 실제 S22+ 보안 영역의 수락 여부와 모뎀 기동 결과는 미확인이다. 원본 CP·모듈·시험 코드 해시, Debian 아카이브와 VM 원시 기록은 `workspace/private/analysis/s22plus-mdt-metadata.LO2j7OA8/result.json`에 연결했다. [Linux MDT 로더의 메타데이터 처리](https://codebrowser.dev/linux/linux/drivers/soc/qcom/mdt_loader.c.html#160)
+
 ## 2026-11-21 · 합성 원격 QRTR 노드에서 첫 저장소 요청
 
 같은 노드의 소켓 시험에서 한 단계 더 나아가, 동일한 새 커널·전체 아카이브를 사용한 ARM64 VM에서 별도의 합성 QRTR 노드를 연결했다. 원격 상대는 커널의 `qrtr-tun`을 통해 정상 HELLO를 교환하고 서비스 14의 공지를 받았다. 공지에 담긴 실제 서비스 포트로 열기·할당·읽기·닫기를 요청했다. 네 응답의 송수신 노드와 포트, 트랜잭션, 결과 코드가 맞았고, Debian 데몬도 네 요청을 모두 합성 상대 노드에서 받은 것으로 기록했다. 공유 메모리 전체와 원본 파일을 바이트 단위로 확인했다. 여기에서 대체한 계층은 실제 S22+의 GLINK/SMEM과 FYG1 상대다. 로그와 재현 입력은 비공개 빌드 디렉터리의 `remote-vm-pass.json`, `remote-vm/`에 있다.
