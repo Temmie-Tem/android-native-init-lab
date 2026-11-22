@@ -9,7 +9,7 @@
 
 #define INLINE static __attribute__((always_inline)) inline
 #if defined(G0Q_LOGM_CONTROL) || defined(G0Q_PREFIX_CONTROL)
-#ifdef G0Q_PREFIX_CONTROL
+#if defined(G0Q_PREFIX_CONTROL) || defined(G0Q_BOOT_TIMING)
 #define FDT_MAX (2U * 1024U * 1024U - 768U)
 #else
 #define FDT_MAX (2U * 1024U * 1024U - 512U)
@@ -167,6 +167,9 @@ int loader_guard(const unsigned char *f, const struct guard_plan *p,
             }
             if (section == 1 && depth == 2) {
                 if (equal(name, length, "codex,uniloader-android-v1")) return 0;
+#ifdef G0Q_BOOT_TIMING
+                if (equal(name, length, "codex,uniloader-timing-v1")) return 0;
+#endif
 #ifdef G0Q_LOGM_CONTROL
                 if (equal(name, length, "codex,uniloader-logm-v1")) return 0;
 #endif

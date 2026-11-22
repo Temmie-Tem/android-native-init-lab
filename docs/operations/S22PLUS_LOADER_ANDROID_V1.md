@@ -126,6 +126,41 @@ neither establishes mainline execution, historical failure cause, reset/
 Download retention or automatic recovery. Original-A return and health retain
 their independent requirements.
 
+### Optional paired boot timing control
+
+The existing LOGM diagnostic also admits the exact boot timing descriptor
+`timing_control` with a boolean `logm_enabled` and the fixed
+`codex,uniloader-timing-v1` report property. It is mutually exclusive with
+the mainline prefix. Both arms retain the exact vendor Image, inherited
+initrd and ABL FDT semantics; each has its own candidate identity and approval.
+The candidate code and FDT allocation paths are identical in both arms.
+The off arm skips the LOGM call and retains its report seed. The on arm may
+execute the same qualified one-slot LOGM writer once with the existing guards.
+
+Reads of the ARM virtual counter occur after the existing entry guard, after
+FDT preparation, before and after the LOGM call or skip, and before report
+finalization. The frequency register is read before any LOGM access.
+A frequency outside the nonzero 32-bit report range skips LOGM and leaves
+the timer report unfinalized. The arm does not change exception vectors,
+mappings or timer controls. The physical timer accessibility check belongs
+to the attended candidate experiment; the unchanged physical Download
+and original-A recovery contract covers a failed boot. Emulator timing
+is qualification evidence for the code and wire format.
+
+Between the same two complete candidate Android brackets, this variant
+has two fixed bounded reads of 128 bytes each. It reads the LOGM report
+property and the timing report property. Both reads use the same fixed
+shell-v2, close-before-interpretation, time and USB binding as the original
+LOGM reads. This variant has no snapshot or post-closure read. Malformed or
+changed evidence is handled by the existing owner, and a matching unfinalized
+timing seed or ordinary negative writer outcome cannot be used as a valid
+performance sample. The host records elapsed time from original N launch to
+the first passed candidate ready check. Do not subtract timestamps from
+different clocks. A pair's report uses both condition labels and both
+independent original-A closures. The ordinary 1,800-second grant, 240-second
+observation window, final candidate proof, one-shot restore and no-replay
+conditions remain the same.
+
 ### Optional mainline prefix live witness
 
 Only the schema-exact `s22plus-loader-mainline-prefix-v1` `prefix_control`

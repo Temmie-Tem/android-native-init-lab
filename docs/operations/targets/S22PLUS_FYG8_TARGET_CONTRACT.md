@@ -49,6 +49,15 @@ imply a failure cause; acquisition failures retain the stopped original owner.
 Static candidate frames do not prove same-attempt or reset retention. The
 finite attended grant and original-A/no-replay rules remain unchanged.
 
+The linked policy also defines its exact paired boot timing variant. Each
+arm is one ordinary attended loader comparison. Both may read the architectural
+counter at the named post-guard points and add the fixed 128-byte final-FDT
+timing report. The LOGM-on arm retains the existing single-slot effect;
+LOGM-off skips that call. Two fixed 128-byte FDT reads within the linked
+same-boot bracket replace the original LOGM capture for these arms. Fresh
+independent review, exact per-arm qualification, physical Download recovery
+and the separately returned finite attended grant apply.
+
 Its mutually exclusive schema-exact mainline-prefix witness adopts only the
 linked policy's sequential two-Image boot, fixed return before
 `record_mmu_state`, unchanged two-slot V1 writers and 256-byte live-FDT report.

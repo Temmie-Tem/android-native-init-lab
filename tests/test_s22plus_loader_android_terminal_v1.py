@@ -60,12 +60,17 @@ class BackendClosureTests(unittest.TestCase):
         self.assertFalse(build.exists())
         persistent.transport.selected_review(self.root)
         persistent.backend.verify_bridge(self.root)
-        build.parent.mkdir(parents=True);build.write_text('unreviewed candidate development edit')
+        build.parent.mkdir(parents=True,exist_ok=True);build.write_text('unreviewed candidate development edit')
         persistent.transport.selected_review(self.root)
         persistent.backend.verify_bridge(self.root)
-        live=self.root/'workspace/public/src/scripts/revalidation/s22plus_loader_android_access_v1.py'
-        live.write_text(live.read_text()+'\n# changed live observer\n')
-        with self.assertRaises(ValueError):persistent.transport.selected_review(self.root)
+        for name in ('scripts/revalidation/s22plus_loader_android_access_v1.py',
+                     'mainline/s22plus_loader_android_h0/timing.py'):
+            with self.subTest(name=name):
+                live=self.root/'workspace/public/src'/name
+                original=live.read_bytes()
+                live.write_bytes(original+b'\n# changed live decoder\n')
+                with self.assertRaises(ValueError):persistent.transport.selected_review(self.root)
+                live.write_bytes(original)
 
 
 if __name__=='__main__':unittest.main()

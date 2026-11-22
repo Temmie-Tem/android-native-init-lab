@@ -29,14 +29,21 @@ def package(loader,qualification,entry_vm,output):
     require(output.is_relative_to(ROOT/'workspace/private'),'private package output')
     record=json.loads((loader/'result.json').read_text());blob=Path(record['loader']['path'])
     android_control=record['status']=='H0_LOADER_ANDROID_BUILT_NOT_DEVICE_ADMITTED'
+    timing=record.get('timing_control')
+    require(not timing or android_control,'timing package requires Android control')
     require(record['status'] in ('H0_LOADER_BUILT_RUNTIME_PLACEMENT_GUARDED',
                                 'H0_LOADER_ANDROID_BUILT_NOT_DEVICE_ADMITTED') and
             digest(blob)==record['loader']['sha256'],'loader input differs')
     statuses=(('PASS_H0_ACTUAL_ARM64_LOADER_ANDROID','PASS_H0_QEMU_ACTUAL_EL_LOADER_ANDROID')
               if android_control else ('PASS_H0_ACTUAL_ARM64_LOADER','PASS_H0_QEMU_ACTUAL_EXCEPTION_LEVELS'))
+    if timing:
+        statuses=('PASS_H0_LOADER_TIMING_PAIR_ARM','PASS_H0_QEMU_ACTUAL_EL_LOADER_TIMING')
     for path,status in zip((qualification,entry_vm),statuses):
         value=json.loads((path/'result.json').read_text())
         require(value['status']==status and value['loader_sha256']==digest(blob),'loader qualification differs')
+        if timing:
+            require(value['timing_control']==timing and value['device_actions']==0,
+                    'timing package evidence scope differs')
     target=json.loads((ROOT/'workspace/public/src/device-action/profiles/s22plus_fyg8.json').read_text())
     baseline=ROOT/'workspace/private/outputs/s22plus_magisk_root_boot_only/boot.img'
     original=baseline.read_bytes()
@@ -79,6 +86,9 @@ def package(loader,qualification,entry_vm,output):
         require(record['original_a']['sha256']==digest(baseline),'control kernel baseline differs from packaged A')
         result['profile']='loader-android-v1'
         result['outer_ramdisk_inherited_from_abl']=True
+    if timing:
+        result['status']='H0_LOADER_TIMING_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED'
+        result['timing_control']=timing
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print(json.dumps({'status':result['status'],'boot_bytes':records[0]['boot']['size'],
                       'ap_bytes':records[0]['ap']['size'],'two_packages_identical':True}))

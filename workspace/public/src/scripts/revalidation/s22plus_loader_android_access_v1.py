@@ -15,9 +15,12 @@ LOGM_READS=(('report','cat /sys/firmware/devicetree/base/chosen/codex,uniloader-
             ('last-kmsg','cat /proc/last_kmsg',4*1024*1024))
 
 PREFIX_READS=(('report','cat /sys/firmware/devicetree/base/chosen/codex,uniloader-prefix-v1',256),)
+TIMING_READS=(LOGM_READS[0],('timing','cat /sys/firmware/devicetree/base/chosen/codex,uniloader-timing-v1',128))
 
 
 def diagnostic(request):
+    if 'timing_control' in request['N']:
+        return 'timing',TIMING_READS
     return ('prefix',PREFIX_READS) if 'prefix_control' in request['N'] else ('logm',LOGM_READS)
 
 
@@ -155,6 +158,12 @@ def rederive_logm(adapter,request,first_receipt,window):
     if kind=='prefix':
         cfg=request['N']['prefix_control']
         result=prefix.report(data['report'],cfg['configuration'],0x80ba00000+cfg['entry_offset'])
+    elif kind=='timing':
+        image=request['N']
+        result=profile.timing_projection(data['timing'],data['report'],
+            image['logm_control']['configuration'],image['timing_control'])
+        first_attempt=read(verify(first_complete['attempt']))
+        result['host_transfer_launch_to_android_ready_ns']=first_attempt['started_ns']-window['opened_ns']
     else:result=profile.logm_projection(data['report'],data['last-kmsg'],request['N']['logm_control']['configuration'])
     result.update(capture=pin(folder/'complete.json'),before=first_receipt,after=complete['after'],
                   same_candidate_android_boot=True)

@@ -74,10 +74,15 @@ def guard_instructions(elf, syms, output):
                 source_page_alignment=4096, relocation_types=sorted(set(types)))
 
 
-def build(base, prepared, output, *, logm_control=False, prefix_kernel=None):
+def build(base, prepared, output, *, logm_control=False, prefix_kernel=None, timing_logm=None):
     base, prepared, output = [Path(p).resolve() for p in (base, prepared, output)]
     require(output.is_relative_to(ROOT/'workspace/private') and not output.exists(),
             'fresh private build directory required')
+    require(timing_logm is None or type(timing_logm) is bool, 'timing LOGM mode differs')
+    timed = timing_logm is not None
+    if timed:
+        import timing
+        logm_control = True
     require(not (logm_control and prefix_kernel), 'mutually exclusive loader diagnostics')
     prefix_control=None
     if prefix_kernel:
@@ -139,6 +144,8 @@ def build(base, prepared, output, *, logm_control=False, prefix_kernel=None):
     source = output/'source'
     shutil.copytree(upstream, source)
     patches = [port_patch, COMMON/'uniloader-g0q-entry.patch', HERE/'uniloader-android.patch']
+    if timed:
+        patches.append(HERE/'boot-timing.patch')
     for i, patch in enumerate(patches):
         log = output/f'patch-{i}.log'
         run(['patch','--batch','--fuzz=0','-p1','-i',patch],log,cwd=source)
@@ -161,6 +168,11 @@ def build(base, prepared, output, *, logm_control=False, prefix_kernel=None):
         generated+=f'#define G0Q_PREFIX_FRAME_OFFSET {prefix_control["frame_offset"]}\n'
         (source/'arch/aarch64/g0q-prefix-loader-writer.S').write_text(prefix.marker_module().render(cfg['retained_marker'],1))
         shutil.copyfile(prefix_control['image']['path'],source/'blob/prefix-Image')
+    if timed:
+        generated += f'#define G0Q_BOOT_TIMING 1\n#define G0Q_TIMING_LOGM {int(timing_logm)}\n'
+        generated += '#define G0Q_TIMING_SEED {' + ','.join(map(str,timing.seed(marker))) + '}\n'
+        for name in ('boot-timing.c','boot-timing.h'):
+            shutil.copyfile(HERE/name,source/'arch/aarch64'/name)
     (source/'arch/aarch64/g0q-android-marker.h').write_text(generated)
     shutil.copyfile(HERE/'guard.c',source/'arch/aarch64/guard.c')
     shutil.copyfile(HERE/'logm-layout.h',source/'arch/aarch64/logm-layout.h')
@@ -205,6 +217,12 @@ def build(base, prepared, output, *, logm_control=False, prefix_kernel=None):
                 raw[syms[symbol][0]-text_base:syms[symbol][0]-text_base+128]==bytes.fromhex(logm['configuration'][field]),
                 'linked LOGM frame/report seed differs')
         require('g0q_logm_control' in syms,'LOGM writer missing')
+    if timed:
+        for symbol,data in (('g0q_timing_seed',timing.seed(marker)),
+                            ('g0q_timing_logm',struct.pack('<I',int(timing_logm)))):
+            start,length=syms[symbol]
+            require(length==len(data) and raw[start-text_base:start-text_base+length]==data,
+                    'linked timing data differs: '+symbol)
     if prefix_control:
         ps=syms['g0q_prefix_image'][0]-text_base
         cfg=prefix_control['configuration']
@@ -262,6 +280,9 @@ def build(base, prepared, output, *, logm_control=False, prefix_kernel=None):
         loader_image_header=dict(text_offset=image_offset,image_size=image_size,flags=image_flags,file_size=len(raw)),
         retained_initrd_preserved=True,device_actions=0,activation=False)
     if logm:result['logm_control']=logm
+    if timed:
+        result['timing_control']=dict(logm_enabled=timing_logm,report_property=timing.PROPERTY)
+        result['source_pins'] += [pin(HERE/name) for name in ('boot-timing.c','boot-timing.h','timing.py')]
     if prefix_control:
         result['prefix_control']=prefix_control
         result['source_pins'] += [pin(HERE/name) for name in ('prefix-control.c','prefix-entry.S','prefix_image.py')]
@@ -276,4 +297,7 @@ if __name__ == '__main__':
     for name in ('base','prepared','output'): p.add_argument('--'+name,type=Path,required=True)
     p.add_argument('--logm-control',action='store_true')
     p.add_argument('--prefix-kernel',type=Path)
-    a=p.parse_args();build(a.base,a.prepared,a.output,logm_control=a.logm_control,prefix_kernel=a.prefix_kernel)
+    p.add_argument('--timing-logm',choices=('on','off'))
+    a=p.parse_args()
+    build(a.base,a.prepared,a.output,logm_control=a.logm_control,prefix_kernel=a.prefix_kernel,
+          timing_logm=None if a.timing_logm is None else a.timing_logm=='on')

@@ -4,6 +4,7 @@ import hmac
 from pathlib import Path
 import re
 import struct
+import sys
 
 from s22plus_native_records_v3 import pin,publish,read,require
 from s22plus_native_task_v3 import unchanged,android_artifact
@@ -12,12 +13,13 @@ import s22plus_boot_verify as boot
 import s22plus_loader_prefix_v1 as prefix
 
 ROOT=Path(__file__).resolve().parents[5]
+sys.path.insert(0,str(ROOT/'workspace/public/src'))
 PROFILE='loader-android-v1'
 OPERATION='loader-android'
 SELECTION='loader-android-evidence'
 RETURN='loader-android-download'
 POLICY='docs/operations/S22PLUS_LOADER_ANDROID_V1.md'
-REVIEW='workspace/public/src/device-action/bindings/s22plus_loader_android_scm_compat_v1_review.json'
+REVIEW='workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v1_review.json'
 NAMESPACE='la001'
 VERSION='loader-android-1'
 SECONDS=1800
@@ -27,6 +29,7 @@ REVIEW_SCHEMA='s22plus-loader-android-review-v1'
 REVIEW_SCOPE='LOADER_ANDROID_F1_CAPABILITY'
 MARKER_PROPERTY='codex,uniloader-android-v1'
 LOGM_PROPERTY='codex,uniloader-logm-v1'
+TIMING_PROPERTY='codex,uniloader-timing-v1'
 LOGM_SCHEMA='s22plus-loader-logm-control-v1'
 LOGM_MAGIC=b'S22LGM1!'
 LOGM_REPORT_MAGIC=b'S22LGR1!'
@@ -130,8 +133,40 @@ def logm_declarations(receipt,build):
     expected.update({'G0Q_LOGM_'+name:str(value) for name,value in LOGM_STATES.items()})
     for field,name in [('frame_hex','G0Q_LOGM_FRAME'),('report_seed_hex','G0Q_LOGM_REPORT_SEED')]:
         expected[name]='{'+','.join(str(x) for x in bytes.fromhex(config[field]))+'}'
+    if 'timing_control' in build:
+        from mainline.s22plus_loader_android_h0 import timing
+        armed=timing_mode(build['timing_control'])
+        expected.update(G0Q_BOOT_TIMING='1',G0Q_TIMING_LOGM=str(int(armed)),
+            G0Q_TIMING_SEED='{'+','.join(map(str,timing.seed(build['marker'])))+'}')
     require(macros==expected,'retained LOGM selection/frame/seed/enum declarations differ')
     return config
+
+
+def timing_mode(descriptor):
+    require(type(descriptor) is dict and set(descriptor)=={'logm_enabled','report_property'} and
+        descriptor['report_property']==TIMING_PROPERTY and type(descriptor['logm_enabled']) is bool,
+        'boot timing descriptor differs')
+    return descriptor['logm_enabled']
+
+
+def timing_projection(timer,writer,config,descriptor):
+    from mainline.s22plus_loader_android_h0 import timing
+    armed=timing_mode(descriptor)
+    writer_seed=bytes.fromhex(config['report_seed_hex'])
+    if not armed:
+        require(writer==writer_seed,'disabled LOGM writer changed its seed')
+    if timer==timing.seed(config['marker']):
+        observed=logm_report(writer,config) if armed and writer!=writer_seed else None
+        return dict(status='TIMING_UNAVAILABLE',logm_enabled=armed,writer=observed,counter=None)
+    sample=timing.project(timer,config['marker'],armed)
+    if armed:
+        observed=logm_report(writer,config)
+        success=observed['status']=='READBACK_MATCH' and not observed['header_changed_after_commit']
+    else:
+        observed=dict(status='DISABLED')
+        success=True
+    return dict(status='TIMING_OBSERVED' if success else 'TIMING_WITHOUT_VALID_LOGM_WRITE',
+                logm_enabled=armed,writer=observed,counter=sample)
 
 
 def prefix_binding(value,marker):
@@ -192,11 +227,22 @@ def _source_review(build,tests,entry,package):
         runtime_suffixes+=tuple('s22plus_loader_android_h0/'+name for name in
             ('prefix-control.c','prefix-entry.S','prefix_image.py','logm-layout.h'))
         runtime_suffixes+=('s22plus_canary_h0/retained-marker.S','s22plus_canary_h0/build_kernel.py')
+    timed='timing_control' in build
+    if timed:
+        runtime_suffixes+=tuple('s22plus_loader_android_h0/'+name for name in
+            ('boot-timing.c','boot-timing.h','boot-timing.patch','timing.py'))
     source_rows=[r for r in build['source_pins'] if any(r['path'].endswith(s) for s in runtime_suffixes)]
     require(len(source_rows)==len(runtime_suffixes),'retained loader runtime provenance incomplete')
-    source_rows += tests['source_pins']+[entry['source']]
+    source_rows += ([tests['source']] if timed else tests['source_pins'])+[entry['source']]
     for row in source_rows:
         relative=str(Path(row['path']).relative_to(ROOT))
+        if timed:
+            # Preserve the isolation-era producer receipt. Match exact bytes to
+            # their reviewed repository location, without reissuing that receipt.
+            retained(row)
+            prefix='workspace/private/'
+            if relative.startswith(prefix) and '/workspace/public/' in relative:
+                relative='workspace/public/'+relative.rsplit('/workspace/public/',1)[1]
         require(relative in approved and all(approved[relative][k]==row[k] for k in ('size','sha256')),
                 'runtime or current checker is outside reviewed capability')
     pack='workspace/public/src/mainline/s22plus_canary_h0/package_loader.py'
@@ -208,7 +254,11 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
           'runtime_sources','marker_sha256','kernel_release','boot_sha256','original_a_sha256'}
     logm='logm_control' in image
     pfx='prefix_control' in image
-    require(not(logm and pfx),'mutually exclusive loader diagnostics')
+    timed='timing_control' in image
+    require(not(logm and pfx) and (not timed or logm and not pfx),'mutually exclusive loader diagnostics')
+    if timed:
+        timing_mode(image['timing_control'])
+        keys.add('timing_control')
     if logm:keys.add('logm_control')
     if pfx:keys.add('prefix_control')
     require(set(image)==keys and image['schema']=='s22plus-loader-android-image-v1' and
@@ -235,7 +285,9 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
         image['kernel_release']==build['kernel_release'] and
         image['runtime_sources']==runtime_sources,
         'loader runtime and marker binding differs')
-    require(package['status']=='H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' and package['profile']==PROFILE and
+    package_status=('H0_LOADER_TIMING_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED' if timed else
+                    'H0_BOOT_V4_PACKAGED_NOT_DEVICE_ADMITTED')
+    require(package['status']==package_status and package['profile']==PROFILE and
         package['activation'] is False and package['device_actions']==0 and
         package['outer_ramdisk_inherited_from_abl'] is True and
         package['outer_ramdisk_retained_and_not_used_by_loader'] is False and
@@ -245,22 +297,30 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
         package['copies'][0]['boot']['sha256']==package['copies'][1]['boot']['sha256']==image['boot_sha256'] and
         package['copies'][0]['ap']['sha256']==package['copies'][1]['ap']['sha256'] and
         image['boot_sha256']!=image['original_a_sha256'],'loader package join differs')
+    loader_status=('PASS_H0_LOADER_TIMING_PAIR_ARM' if timed else 'PASS_H0_ACTUAL_ARM64_LOADER_ANDROID')
+    entry_status=('PASS_H0_QEMU_ACTUAL_EL_LOADER_TIMING' if timed else 'PASS_H0_QEMU_ACTUAL_EL_LOADER_ANDROID')
     for result,receipt,status,field in (
-        (tests,q['loader_tests'],'PASS_H0_ACTUAL_ARM64_LOADER_ANDROID','qualification_sha256'),
-        (entry,q['entry_tests'],'PASS_H0_QEMU_ACTUAL_EL_LOADER_ANDROID','entry_vm_sha256')):
+        (tests,q['loader_tests'],loader_status,'qualification_sha256'),
+        (entry,q['entry_tests'],entry_status,'entry_vm_sha256')):
         require(result['status']==status and result['device_actions']==0 and
             result['loader_sha256']==build['loader']['sha256'] and package[field]==receipt['sha256'],
             'actual-loader qualification join differs')
-    require(tests['elf_sha256']==build['elf']['sha256'] and tests['retained_fdt']==entry['retained_fdt']==build['retained_fdt'] and
-        tests['physical_entry_proved'] is False and entry['physical_entry_proved'] is False,
+    require(entry['retained_fdt']==build['retained_fdt'] and entry['physical_entry_proved'] is False,
         'emulated entry provenance differs')
-    require(('logm_control' in build)==logm,'LOGM instrumentation receipt missing or spurious')
+    if timed:
+        _timing_evidence(image,build,tests,entry,package,q,artifact_bytes=artifact_bytes)
+    else:
+        require(tests['elf_sha256']==build['elf']['sha256'] and
+            tests['retained_fdt']==build['retained_fdt'] and tests['physical_entry_proved'] is False,
+            'emulated loader provenance differs')
+    require(('timing_control' in build)==timed and ('logm_control' in build)==logm,
+        'LOGM or timing instrumentation receipt missing or spurious')
     require(('prefix_control' in build)==pfx,'prefix instrumentation receipt missing or spurious')
     if logm:
         require(image['logm_control']==build['logm_control'],'LOGM build/image join differs')
         config=logm_binding(image['logm_control'],build['marker'])
         logm_declarations(q['generated_declarations'],build)
-        require(tests.get('logm_control',{}).get('status')=='PASS_H0_ACTUAL_LOADER_LOGM_CONTROL' and
+        if not timed:require(tests.get('logm_control',{}).get('status')=='PASS_H0_ACTUAL_LOADER_LOGM_CONTROL' and
             tests['logm_control']['configuration']==config and
             entry.get('logm_control',{}).get('status')=='PASS_H0_ACTUAL_EL_LOADER_LOGM_CONTROL' and
             entry['logm_control']['configuration']==config,'LOGM actual-code/EL qualification missing')
@@ -304,6 +364,47 @@ def image_binding(image,*,artifact_bytes=False,require_review=True):
     return build
 
 
+def _timing_evidence(image,build,tests,entry,package,q,*,artifact_bytes):
+    from mainline.s22plus_loader_android_h0 import timing
+    descriptor=image['timing_control']
+    armed=timing_mode(descriptor)
+    require(descriptor==build['timing_control']==tests['timing_control']==entry['timing_control']==package['timing_control']
+        and tests['actual_entry']==q['entry_tests'],'timing build, ELF and observer receipt differ')
+    pair=read(retained(tests['pair']))
+    require(pair['schema']=='s22plus-timing-pair-h0-v1' and pair['device_actions']==0 and
+        pair['vendor_kernel_sha256']==build['kernel']['sha256'] and pair['retained_fdt']==build['retained_fdt'] and
+        pair['physical_counter_access_proved'] is False,'timing comparator provenance differs')
+    require([(r['name'],r['terminal'],r['write_bytes']) for r in tests['actual_arm64_guard']]==[
+        ('live-tree-valid','guard',0),('malformed-fdt-magic','reject',0),('preexisting-timing-property','reject',0)],
+        'timing guard qualification differs')
+    cases=entry['cases']
+    require([(r['actual_entry_el'],r['terminal']) for r in cases]==[(1,'entry'),(2,'entry'),(3,'reject')],
+        'timing entry/negative qualification differs')
+    if not artifact_bytes:
+        return
+    from mainline.s22plus_canary_h0.prepare import nodes
+    for row in cases[:2]:
+        tree=nodes(retained(row['timing_report']))
+        require(timing.project(tree['/chosen'][TIMING_PROPERTY],build['marker'],armed)==row['timing'],
+            'actual timing report differs')
+        result=timing_projection(tree['/chosen'][TIMING_PROPERTY],tree['/chosen'][LOGM_PROPERTY],
+            build['logm_control']['configuration'],descriptor)
+        require(result['status']=='TIMING_OBSERVED' and result['writer']==row['logm_writer'],
+            'actual QEMU LOGM mode differs')
+    elf=retained(build['elf'])
+    from elftools.elf.elffile import ELFFile
+    with elf.open('rb') as stream:
+        table=ELFFile(stream).get_section_by_name('.symtab')
+        blob=retained(build['loader']).read_bytes()
+        origin=build['runtime_symbols']['_head']
+        for name,expected in (('g0q_timing_seed',timing.seed(build['marker'])),
+                              ('g0q_timing_logm',struct.pack('<I',int(armed)))):
+            symbol,=table.get_symbol_by_name(name)
+            offset=symbol['st_value']-origin
+            require(symbol['st_size']==len(expected) and blob[offset:offset+len(expected)]==expected,
+                'actual timing seed or LOGM enable flag differs')
+
+
 def qualify(package_dir,loader_dir,loader_tests,entry_tests,output):
     package_dir,loader_dir,loader_tests,entry_tests,output=[Path(p).resolve() for p in
         (package_dir,loader_dir,loader_tests,entry_tests,output)]
@@ -319,6 +420,8 @@ def qualify(package_dir,loader_dir,loader_tests,entry_tests,output):
         original_a_sha256=build['original_a']['sha256'])
     if 'logm_control' in build:
         image['logm_control']=build['logm_control']
+    if 'timing_control' in build:
+        image['timing_control']=build['timing_control']
     if 'prefix_control' in build:
         image['prefix_control']=build['prefix_control']
         image['runtime_sources']['prefix']=build['prefix_control']['image']

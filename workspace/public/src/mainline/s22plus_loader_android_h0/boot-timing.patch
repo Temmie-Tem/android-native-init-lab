@@ -1,0 +1,145 @@
+--- a/arch/aarch64/Makefile
++++ b/arch/aarch64/Makefile
+@@ -3,7 +3,7 @@
+ # Copyright (c) 2025 Ivaylo Ivanov <ivo.ivanov.ivanov1@gmail.com>
+ 
+ obj-$(CONFIG_POSITION_INDEPENDENT) += aarch64/reloc.o
+-obj-y += aarch64/start.o aarch64/load-kernel.o aarch64/memcpy.o
++obj-y += aarch64/start.o aarch64/load-kernel.o aarch64/memcpy.o aarch64/boot-timing.o
+ 
+ # This leaf is called before any stack exists. All other C keeps the normal ABI.
+ obj-y += aarch64/guard.o aarch64/logm-control.o aarch64/prefix-control.o aarch64/prefix-entry.o
+--- a/arch/aarch64/reloc.S
++++ b/arch/aarch64/reloc.S
+@@ -64,6 +64,11 @@
+ 	bl loader_guard
+ 	cbz x0, _reloc_rejected
+ ENTRY_ALIAS(_guard_passed)
++#ifdef G0Q_BOOT_TIMING
++	/* x27 is preserved by the relocation/start stubs until main. */
++	isb
++	mrs x27, cntvct_el0
++#endif
+ 	adr x8, _head
+ 	adr x4, _stub_end
+ 	ldr x5, .Ldestination
+--- a/arch/aarch64/start.S
++++ b/arch/aarch64/start.S
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2022, Ivaylo Ivanov <ivo.ivanov.ivanov1@gmail.com>
+  */
+ #include "asmdefs.h"
++#include "g0q-android-marker.h"
+ 
+ #ifdef CONFIG_LINUX_KRNL_HEADER_IMG
+ #include "linux-kernel-image-header.h"
+@@ -53,6 +54,9 @@
+ 	mov     x2, xzr
+ #endif
+ 
++#ifdef G0Q_BOOT_TIMING
++	mov x3, x27
++#endif
+ 	bl main
+ END(_start)
+ 
+--- a/main/main.c
++++ b/main/main.c
+@@ -9,6 +9,10 @@
+ #include <main/boot.h>
+ #include <main/main.h>
+ #include <lib/debug.h>
++#include "../arch/aarch64/g0q-android-marker.h"
++#ifdef G0Q_BOOT_TIMING
++#include "../arch/aarch64/boot-timing.h"
++#endif
+ 
+ extern struct board_data board_ops;
+ 
+@@ -25,8 +29,14 @@
+ 	printk(KERN_INFO, "welcome to uniLoader %s on %s\n", VER_TAG, board_ops.name);
+ }
+ 
++#ifdef G0Q_BOOT_TIMING
++void main(void* dt, void* kernel, void* ramdisk, uint64_t guard_ticks)
++{
++	g0q_guard_ticks = guard_ticks;
++#else
+ void main(void* dt, void* kernel, void* ramdisk)
+ {
++#endif
+ 	early_console_init();
+ 	INITCALL(board_ops.ops.early_init);
+ 
+--- a/drivers/ramdisk-handler.c
++++ b/drivers/ramdisk-handler.c
+@@ -3,6 +3,10 @@
+ #include <drivers/ramdisk-handler.h>
+ #include <lib/libfdt/libfdt.h>
+ #include "../arch/aarch64/g0q-android-marker.h"
++
++#ifdef G0Q_BOOT_TIMING
++#include "../arch/aarch64/boot-timing.h"
++#endif
+ 
+ #ifdef G0Q_LOGM_CONTROL
+ extern const unsigned char g0q_logm_report_seed[128];
+@@ -25,6 +29,10 @@
+     if (fdt_getprop(fdt, chosen, "codex,uniloader-prefix-v1", &length) ||
+         length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
+ #endif
++#ifdef G0Q_BOOT_TIMING
++    if (fdt_getprop(fdt, chosen, G0Q_TIMING_PROPERTY, &length) ||
++        length != -FDT_ERR_NOTFOUND) return -FDT_ERR_EXISTS;
++#endif
+     int ret = fdt_open_into(fdt, buf, bufsize);
+     if (ret) return ret;
+     chosen = fdt_path_offset(buf, "/chosen");
+@@ -40,5 +48,9 @@
+     ret = fdt_setprop(buf, chosen, "codex,uniloader-prefix-v1", g0q_prefix_report_seed, 256);
+     if (ret) return ret;
+ #endif
++#ifdef G0Q_BOOT_TIMING
++    ret = fdt_setprop(buf, chosen, G0Q_TIMING_PROPERTY, g0q_timing_seed, G0Q_TIMING_SIZE);
++    if (ret) return ret;
++#endif
+     return fdt_pack(buf);
+ }
+--- a/arch/aarch64/load-kernel.c
++++ b/arch/aarch64/load-kernel.c
+@@ -7,6 +7,9 @@
+ #include <main/boot.h>
+ #include <string.h>
+ #include "g0q-android-marker.h"
++#ifdef G0Q_BOOT_TIMING
++#include "boot-timing.h"
++#endif
+ #ifdef G0Q_LOGM_CONTROL
+ void g0q_logm_control(void *fdt);
+ #endif
+@@ -16,6 +19,10 @@
+ 
+ void arch_load_kernel(void* kernel, void* dt, void* ramdisk)
+ {
++#ifdef G0Q_BOOT_TIMING
++	uint64_t frequency = g0q_timing_frequency();
++	uint64_t prepare_done = g0q_timing_ticks();
++#endif
+ #ifndef G0Q_PREFIX_CONTROL
+ 	memcpy((void*)CONFIG_PAYLOAD_ENTRY, kernel, (unsigned long) &kernel_size);
+ #endif
+@@ -38,7 +45,13 @@
+ 	g0q_prefix_control(dt);
+ 	memcpy((void*)CONFIG_PAYLOAD_ENTRY, kernel, (unsigned long) &kernel_size);
+ #endif
+-#ifdef G0Q_LOGM_CONTROL
++#ifdef G0Q_BOOT_TIMING
++	uint64_t logm_begin = g0q_timing_ticks();
++	if (g0q_timing_logm && frequency && frequency <= 0xffffffffULL)
++		g0q_logm_control(dt);
++	uint64_t logm_end = g0q_timing_ticks();
++	g0q_timing_publish(dt, frequency, prepare_done, logm_begin, logm_end);
++#elif defined(G0Q_LOGM_CONTROL)
+ 	g0q_logm_control(dt);
+ #endif
+ 	load_kernel_and_jump(dt, 0, 0, 0, (void*)CONFIG_PAYLOAD_ENTRY);

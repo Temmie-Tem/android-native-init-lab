@@ -23,6 +23,12 @@ def qualify(loader,gdb,output):
     output.mkdir(mode=0o700,parents=True)
     pfx=record.get('prefix_control');logm=record.get('logm_control')
     diagnostic=pfx or logm
+    timed=record.get('timing_control')
+    if timed:
+        import timing
+        require(logm and not pfx and type(timed['logm_enabled']) is bool and
+                timed['report_property']==timing.PROPERTY,'invalid timer VM scope')
+    armed=not timed or timed['logm_enabled']
     if diagnostic:
         config=profile.prefix_binding(pfx,record['marker']) if pfx else profile.logm_binding(logm,record['marker'])
         # Same sparse high-RAM fixture used by the existing mainline marker VM.
@@ -71,7 +77,7 @@ else:
     assert 40<=length<={record['fdt_capacity']}, 'final FDT length exceeds buffer'
     final_fdt=bytes(gdb.selected_inferior().read_memory(dtaddr,length))
     open({str(work/'final.dtb')!r},'xb').write(final_fdt)
-    frames={list(config['retained_marker']['frames'].values()) if pfx else [config['frame_hex']]!r}
+    frames={(list(config['retained_marker']['frames'].values()) if pfx else [config['frame_hex']]) if armed else []!r}
     expected_ring=bytearray(seed)
     for i,frame in enumerate(frames):expected_ring[17+i*128:145+i*128]=bytes.fromhex(frame)
     assert ring==expected_ring, 'actual EL writer changed header or escaped unaligned 128-byte slot'
@@ -147,6 +153,10 @@ quit
                     tree=nodes(work/'final.dtb');report=tree['/chosen'].pop(prefix.PROPERTY if pfx else profile.LOGM_PROPERTY)
                     require(tree['/chosen'].pop(record['marker_property'])==record['marker'].encode(),
                             'actual EL immutable loader marker differs')
+                    if timed:
+                        timing_bytes=tree['/chosen'].pop(timing.PROPERTY)
+                        row['timing']=timing.project(timing_bytes,record['marker'],armed)
+                        row['timing_report']=pin(work/'final.dtb')
                     require(tree==nodes(fdt) and memreserve(work/'final.dtb')==memreserve(fdt) and
                             (work/'final.dtb').read_bytes()[20:32]==fdt.read_bytes()[20:32],
                             'actual EL handoff changed existing FDT semantics')
@@ -155,6 +165,9 @@ quit
                         require(observed['status']=='RETURNED' and observed['current_el']==el*4 and
                             all(r['postcall_mismatch_count']==0 for r in observed['observations']), 'actual EL prefix report differs')
                         row['prefix_return']=observed
+                    elif timed and not armed:
+                        require(report==bytes.fromhex(config['report_seed_hex']),'disabled LOGM report changed')
+                        row['logm_writer']=dict(status='DISABLED')
                     else:
                         observed=profile.logm_report(report,config)
                         require(observed['status']=='READBACK_MATCH' and observed['current_el']==el*4 and
@@ -171,9 +184,12 @@ quit
     if pfx:
         result['prefix_control']=dict(status='PASS_H0_ACTUAL_EL_LOADER_PREFIX_CONTROL',configuration=config,
             actual_dual_copy_and_prefix_return=True,final_fdt_and_header_preserved=True,actual_entry_els=[1,2],el3_rejected=True)
-    if logm:
+    if logm and not timed:
         result['logm_control']=dict(status='PASS_H0_ACTUAL_EL_LOADER_LOGM_CONTROL',configuration=config,
             final_fdt_and_header_preserved=True,unaligned_payload_slot=1,actual_entry_els=[1,2],el3_rejected=True)
+    if timed:
+        result['status']='PASS_H0_QEMU_ACTUAL_EL_LOADER_TIMING'
+        result['timing_control']=timed
     (output/'result.json').write_text(json.dumps(result,indent=2)+'\n')
 
 
