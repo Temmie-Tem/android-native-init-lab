@@ -3131,6 +3131,79 @@ verdict, which still requires same-boot candidate Magisk and FDT proof.
 Original Magisk restore and final health remain mandatory after candidate
 intent under the inherited one-shot recovery rules.
 
+## S20+ PMSG physical Download retention calibration F1
+
+Status: **DRAFT - H0 ONLY - COMMON CALIBRATION DELEGATION ABSENT**
+
+The closed UniLoader stage run's physical Download, exact original AP and
+rooted return define the route for a proposed attended control experiment.
+The common `S20PLUS_PMSG_PHYSICAL_DOWNLOAD_RETENTION_F1_V1` delegation,
+source-bound review and activation are prerequisites to connected use.
+This draft conveys no device authority. The operation would send solely the
+resident Magisk restoration AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+The phone must already run that known resident system. There is no
+candidate image or earlier transfer. This section admits only the fixed
+stock-kernel PMSG character-device writer as the calibration stimulus.
+It does not change the PMSG warm-reboot delegation, other device
+boundaries, consumed candidate records, or active owners.
+
+The exact owner is
+`workspace/public/src/scripts/revalidation/s20plus_g986n_pmsg_download_calibration_f1.py`.
+It requires its own independent source and policy review and reviewed
+activation. Preparation, requested in the current foreground task, uses
+the exact active readiness metadata and a fixed no-byte descriptor-open
+probe on the same rooted source boot. It records tested writable
+descriptor identity and the exact AP, physical recovery, closure, private
+nonce and finite expiry. Preparation permits no PMSG bytes, mode change,
+reboot or payload transfer. Preparation creates an exact 900-second token
+and holds the shared guard while awaiting the actual operator approval.
+
+The returned token plus physical attendance permits one fixed PMSG
+marker, exact physical Download return and one original AP transfer.
+The owner binds the current exact serial, topology, rooted stock Android
+health and boot identity, validates the empty Download baseline, and
+publishes durable approval and marker intent before the writer. Only
+the fixed consenting boot's admitted `/dev/pmsg0` character API receives
+the 144-byte generated record. Opening the checked character descriptor
+in prepare writes zero bytes. The approved writer must return the exact
+marker digest following successful delivery. This attests acceptance by
+the checked kernel PMSG API. It grants no live RAM inspection, block
+access, generic root command, configuration write or log export.
+
+Only a rederived accepted marker can arm the separate, 900-second
+physical confirmation. The operator returns the exact readiness
+confirmation and waits for the owner's durable Download intent before
+using the same physical buttons and USB topology as the closed stage run.
+The owner proves arrival against the empty baseline and revalidates the
+sole exact Download endpoint, original AP, guard and source closure before
+the existing caged Odin restore. There is one transfer intent and one
+original AP dispatch. Uncertain write, confirmation or transfer never
+replays. A reporting cut before physical confirmation can rederive only
+the arm with its original deadline. A cut after confirmation may consume
+one bounded current endpoint reobservation before the sole still-unused
+restore. Timely durable arrival keeps that exact, still-current endpoint
+eligible for original recovery after the arrival window expires. It does
+not renew observation or allow a new endpoint. A proved observation miss
+and any restore intent forbid another transfer attempt. Before any marker intent the owner may abort and release
+its guard without a device effect.
+
+After proved original AP completion, the owner pins the first exact
+Android boot ID it publicly observes, with verified serial and topology.
+Android boot completion and full Magisk health must join that boot.
+One 30-second fixed read of
+`/sys/fs/pstore/pmsg-ramoops-0` compares the exact full marker line in no
+more than 262145 bytes locally. Only classification, match count, size
+and capture digests are exported. A positive result needs the accepted
+source write, exact original transfer, unique marker and bracketed
+same-boot rooted health. A reporting gap before the first arrival bars
+a retention claim. The first host-observed return may follow an
+unobserved physical reboot. Missing data cannot locate a point of loss
+within the return path. A failed or cut scan never reissues the read.
+Finalization after an original transfer is read-only. Physical
+retention is a run result. It is outside preparation, probe, and H0
+qualification. Raw device evidence remains private.
+
 ## S20+ P1 PID1 exec-handoff witness F1 candidate
 
 Status: **CONSUMED - NO_PROOF - RESIDENT ROLLBACK AND FINAL HEALTH COMPLETE - NOT ACTIVE**
