@@ -10,7 +10,7 @@ returned `PASS_GO` for the exact D0 onboarding closure and the payload-free
 Download-return D1 helper; `AGENTS.md` contains one exact S20+ registry row.
 This file still grants no standing device authority.
 The [onboarding report](docs/reports/S20PLUS_G986N_ONBOARDING_D0_H0_2026-08-12.md) retains the identity evidence.
-The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22.md) builds a USB-first RAM witness. The [UniLoader Android control](docs/reports/S20PLUS_G986N_UNILOADER_ANDROID_H0_2026-11-22.md) is the first proposed physical handoff test and remains at H0.
+The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22.md) builds a USB-first RAM witness. The [UniLoader Android physical preparation](docs/reports/S20PLUS_G986N_UNILOADER_PHYSICAL_PREPARATION_H0_2026-11-22.md) has verified H0 artifacts and an observation prototype. A retained-T2 source-pin mismatch blocks live preparation.
 
 ## Current State
 
