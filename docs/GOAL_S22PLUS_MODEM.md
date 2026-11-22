@@ -485,6 +485,16 @@ ML053 기반의 기존 커널 Image와 Debian `qmicli`를 사용했다. VM에만
 
 VM의 마지막 전송 경로를 식별한 결과다. S22+에서 이 관측기를 실행하거나 FYG1을 기동하지 않았다. 정상·교환 부팅의 원시 직렬 로그, 실제 소켓 반환값, 모듈·입력 해시와 대조 결과는 `workspace/private/analysis/s22plus-dms-ingress.wyIRXM8h/result.json`에 있다.
 
+### MPSS 기동 직후 CoreSight가 기록한 서비스 발견
+
+두 FYG8 커널 로그에서 `modem_etm0`와 `modem2_etm0`가 각각 숫자 2와 11을 붙여 `Connection established`를 기록했다. MPSS 기동 완료 표식 이후 경과 시간은 09:57 보고서의 이전 부팅에서 각각 106.831 ms·107.218 ms, 14:20 보고서의 R4W1-A 부팅에서 100.883 ms·101.148 ms였다. 모두 같은 부팅의 커널 시계로 계산했다.
+
+배포 `coresight-remote-etm.ko`는 두 클라이언트 모두 **CoreSight 서비스 51(0x33), 버전 1**을 조회한다. 인스턴스는 각 장치의 `qcom,inst-id`에서 가져오며 FYG8 vendor_boot의 기본 DT 네 개 모두 두 장치에 2와 11을 지정했다. 서버 발견 콜백은 통지받은 노드·포트를 저장하고 연결 플래그를 켠 뒤, 자신에게 설정된 인스턴스 번호를 로그에 출력한다. 이 콜백이 호출하는 외부 함수는 로그 출력뿐이다. 따라서 위 두 행이 직접 보여주는 것은 두 CoreSight 클라이언트의 서비스 발견이다. 해당 행에는 DMS·NAS 거래나 모뎀 응답 본문이 없다. [공개 Qualcomm 드라이버의 서버 발견 콜백](https://android.googlesource.com/kernel/msm/%2B/04749e7fec2a8a5784a984d09f03fd0f2715fd1b/drivers/hwtracing/coresight/coresight-remote-etm.c)
+
+ML053 기반 ARM64 VM에서는 FYG8 소스의 서버 발견·삭제 콜백 본문을 그대로 컴파일해 두 시험용 클라이언트에 연결했다. 기존 메인라인 QRTR·QMI 모듈을 사용했고 모뎀·펌웨어 없이 게스트 안에서만 광고했다. 서비스 51·버전 1에서 인스턴스 2와 11은 각각 해당 발견 로그 한 건을 남겼다. 서비스 2·버전 1·인스턴스 0, 서비스 51·버전 1·인스턴스 12, 서비스 51·버전 2·인스턴스 11을 광고한 세 대조에서는 새 발견 로그가 없었다. 각 광고 소켓을 650 ms 관측한 동안 읽을 수 있는 데이터는 0건이었다.
+
+FYG8 순정 커널과 배포 모듈을 그대로 넣은 별도 VM은 55초 안에 시험용 init에 도달하지 못했다. 첫 ML053 VM은 사용자 공간 시험을 마쳤지만 직렬 출력에서 콜백을 확인할 수 없어, 다음 부팅에서 게스트 커널 로그의 해당 행을 직접 셌다. 부팅별 원본 로그와 입력 해시, 배포 모듈·DT 대조 및 시험 결과는 `workspace/private/analysis/s22plus-boot-service-lookup.mlvW9elx/result.json`에서 추적할 수 있다.
+
 ### 순정 QRTR 이름 서비스에서 DMS 광고 조회
 
 앞선 두 FYG8 Android 보고서의 `dumpstate.txt`와 `dumpstate_board.txt`에서는 서비스 2의 QRTR 광고 행을 찾지 못했다. FYG8 vendor 이미지에는 서비스 번호를 지정할 수 있는 `/vendor/bin/qrtr-lookup`이 들어 있다. 이 도구는 로컬 QRTR 제어 포트로 `NEW_LOOKUP`을 보내고, 이름 서비스에 등록된 광고에서 버전·인스턴스·노드·포트를 출력한다. [상위 구현의 조회 처리](https://github.com/linux-msm/qrtr/blob/master/src/lookup.c)
