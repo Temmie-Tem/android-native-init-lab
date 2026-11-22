@@ -226,8 +226,8 @@ Six tests run with a fake runner. They cover:
 - no window;
 - calling only the reviewed tool.
 
-Before use it needs the operator to accept the click as the operator
-resolution, plus a profile review.
+The operator accepted the click as their resolution on 2026-11-22. A review
+of the helper is still needed before use.
 
 ## Board package (H0)
 

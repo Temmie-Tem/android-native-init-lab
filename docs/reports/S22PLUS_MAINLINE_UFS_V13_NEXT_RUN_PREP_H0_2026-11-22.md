@@ -44,11 +44,13 @@ blocker below, which changes the same files again.
 2. **Review refresh.** The same branch updates the active reviews and gateway
    pins. The approved-terminal backend reviews v53 and v54 pin the changed
    session files.
-3. **Operator decision on the click.** The cue dialog helper (below) records
-   the button the operator clicks as the cue resolution, through the reviewed
-   `resolve` CLI. The operator has to accept that click as their actual
-   resolution statement. Otherwise the run falls back to the prepared typed
-   command (`! …resolve…`) used for ML052 and ML053.
+3. **Operator decision on the click: accepted (2026-11-22).** The operator
+   accepted that clicking **다시 꽂았음** or **취소** in the cue dialog is their
+   actual cue resolution. The helper records it through the reviewed `resolve`
+   CLI, and the statement names the button and the time. The prepared typed
+   command (`! …resolve…`) remains the fallback if the dialog cannot be shown.
+   The helper itself still needs review before the run, either inside the
+   shared cue review or separately.
 4. **Fresh task.** That means a new task, D0, pre-approval audit and the exact
    approval line.
 
@@ -81,7 +83,7 @@ calls to the reviewed tool only.
 ## Order of work
 
 1. Codex lands and adopts `codex/s22-mainline-ordinary-cue-h0`.
-2. The operator decides on the click (blocker 3).
+2. Review the cue dialog helper (the operator accepted the click on 2026-11-22).
 3. Create the new task for the ML053 candidate, or a fresh key-only build,
    then pre-approval audit and D0.
 4. Hold the attended run with the card above.
