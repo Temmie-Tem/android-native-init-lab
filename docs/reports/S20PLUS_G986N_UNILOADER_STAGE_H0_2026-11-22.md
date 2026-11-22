@@ -151,3 +151,32 @@ November 22 and expires at 23:18:12 KST. Prepared receipt SHA-256 is
 At this checkpoint the stage owner held the S20+ guard and awaited the
 operator's approval. Candidate and rollback transfers, pstore record
 reads, and commands to S22+ or A90 were zero.
+
+## Attended stage result
+
+| KST on November 22 | Observed transition |
+| --- | --- |
+| 23:04:00 | Odin completed the single stage candidate boot transfer. |
+| 23:07:02 | The bounded candidate Android observer closed `NO_PROOF` with no qualified rooted Android or candidate FDT capture. |
+| 23:08:54 | The owner proved physical Download arrival on the prepared USB topology after operator confirmation. |
+| 23:09:01 | Odin completed the single original Magisk boot transfer. |
+| 23:09:50 | The first qualified Android return passed UID 0, Magisk 30.7, SELinux Enforcing, stock PID 1 and Android boot completion. |
+| 23:09:52 | The same boot passed FDT marker absence and returned a bounded pstore result. The terminal closed `NO_PROOF_UNILOADER_ORIGINAL_ROOT_RETURNED` and the S20+ guard released. |
+
+The pstore command returned zero with 127 stdout bytes and empty stderr.
+Its private raw result rederives `MISSING` for both `pmsg-ramoops-0` and
+`console-ramoops-0`. The restored system's fixed pstore mount and readable
+directory checks passed, with neither previous-boot record present at the
+observation. The stage record, the final FDT read and its root-health
+bracket bind to the same fresh return boot. Candidate execution before
+the stage guard and loss of evidence during return remain unresolved.
+
+The original transfer result SHA-256 is
+`cb7c8d3ece4bbd7f1d68f5564da1ff7be12071093ac091ce114402f449ba9410`.
+The pstore evidence SHA-256 is
+`782cafa0dbe0a19058e0408fd05c1ff07a6449ed2ac90659d81a412dbcacddee`.
+The terminal SHA-256 is
+`6f9ece4fd2f0de8f8f64103a3a7c2e5a2e81a665e1273af6112c15a05f0fa47f`.
+The exact candidate claim remains consumed. Candidate transfers,
+rollback transfers and pstore read attempts were one each. Other-target
+commands and recovery-partition operations were zero.
