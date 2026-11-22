@@ -32,9 +32,13 @@ helper noticed the journal:
    dialog is killed at deadline - 8 s (polling wakes exactly at the cutoff;
    every exit path, including an exception, kills and reaps it) and a button
    observed later is discarded. A dialog that exits on its own while being
-   withdrawn keeps its answer. An instruct dialog withdrawn within 2 s of
-   launch counts as never shown. Zenity gets an allow-listed environment, so no `ZENITY_*` or
-   `DIALOG_*` exit-code override reaches it;
+   withdrawn keeps its answer, and a natural exit found by the first poll at
+   the cutoff is in time. An instruct dialog withdrawn within 2 s of launch
+   counts as never shown. The 60 s check is sampled after the other checks
+   with a 1 s launch margin. Zenity dies with the helper (PR_SET_PDEATHSIG),
+   and SIGTERM/SIGHUP/SIGINT unwind through the cleanup. Zenity gets an
+   allow-listed environment, so no `ZENITY_*` or `DIALOG_*` exit-code
+   override reaches it;
 7. a click is recorded only while the cue exists with no resolution or
    closure, and counts only when `resolve` exits 0 and returns the receipt of
    `mainline-attach-resolution.json`. The statement gives the time the helper
@@ -47,9 +51,11 @@ usage: s22plus_mainline_cue_dialog_v1.py --operation OP_DIR --captures DIR
        [--issue-delay 22] [--watch-ports 3-1.3,2-1.3] [--no-watch]
 """
 import argparse
+import ctypes
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import time
@@ -77,6 +83,7 @@ SOUND = '/usr/share/sounds/freedesktop/stereo/complete.oga'
 MARGIN_NS = 8_000_000_000
 MIN_REMAINING_NS = 60_000_000_000
 MIN_SEEN_NS = 2_000_000_000
+SPAWN_MARGIN_NS = 1_000_000_000  # an instruction needs > 60 s left after this much launch time
 POLL_S = 0.2
 NS = 1_000_000_000
 
@@ -122,15 +129,18 @@ def issue_display(operation, window_pin, code, stdout):
     return read(verify(result['cue'])).get('window') == window_pin
 
 
-def instruct_ok(operation, rows, deadline, now):
-    """A physical instruction may be shown: step current, nothing settled or fenced, > 60 s left."""
+def instruct_ok(operation, rows, deadline, clock):
+    """A physical instruction may be shown: step current, nothing settled or fenced,
+    and more than 60 s (+ launch margin) left, sampled *after* the other checks."""
     try:
         if current_window(operation, rows) is None:
             return False
     except ValueError:
         return False
     op = Path(operation)
-    return deadline - now > MIN_REMAINING_NS and not any((op / n).exists() for n in (RESOLUTION, CLOSED, FENCE))
+    if any((op / n).exists() for n in (RESOLUTION, CLOSED, FENCE)):
+        return False
+    return deadline - clock() > MIN_REMAINING_NS + SPAWN_MARGIN_NS
 
 
 def record_ok(operation):
@@ -165,6 +175,18 @@ def zenity_env(environ=None):
     return {k: v for k, v in environ.items() if k in ENV_ALLOW or k.startswith('LC_')}
 
 
+def _die_with_parent():
+    """Child pre-exec: zenity gets SIGKILL if the helper dies by any means (Linux prctl)."""
+    try:
+        ctypes.CDLL(None, use_errno=True).prctl(1, signal.SIGKILL, 0, 0, 0)  # PR_SET_PDEATHSIG
+    except (OSError, AttributeError):
+        pass
+
+
+def _terminate_cleanly(signum, frame):
+    raise SystemExit(128 + signum)  # unwinds through dialog_once's finally, which kills zenity
+
+
 def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
     """(choice, observed_ns, wall, alive_ns).
 
@@ -190,14 +212,15 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
             '--cancel-label', CLOSE_LABEL, '--extra-button', CANCEL_LABEL, '--width', '520',
             '--timeout', str(int(remaining))]
     try:
-        p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env())
+        p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env(),
+                  preexec_fn=_die_with_parent)
     except OSError:
         return ('expired', *stamp(), 0)
     started = clock()
-    forced = None
+    forced, alive_seen = None, started
     try:
         while p.poll() is None:
-            now = clock()
+            now = alive_seen = clock()
             if now >= cutoff_ns:
                 forced = 'expired'
             elif not keeping():
@@ -216,7 +239,11 @@ def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
     if forced and p.returncode < 0:
         return forced, observed, wall, alive
     out = (p.stdout.read() if p.stdout else '').strip()
-    if observed > cutoff_ns:
+    # A natural exit is found by the poll that wakes at (or just after) the
+    # cutoff at the latest; it was still alive at `alive_seen` < cutoff, so the
+    # button came before the cutoff (plus scheduler latency). Only a process
+    # already seen alive at/after the cutoff is late, and that one was killed.
+    if alive_seen >= cutoff_ns:
         return 'expired', observed, wall, alive
     if p.returncode == 0 and not out:
         return 'completed', observed, wall, alive
@@ -279,7 +306,7 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
     wait = opened + int(args.issue_delay * NS) - clock()
     if wait > 0:
         sleep(wait / NS)
-    if not instruct_ok(op, live_rows(), deadline, clock()):
+    if not instruct_ok(op, live_rows(), deadline, clock):
         log('CUE_NOT_ISSUABLE')  # step ended, fenced, settled, or 60 s or less left
         return 2
     cap = caps / 'cue-issue-raw'
@@ -305,7 +332,7 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
         if not record_ok(op):
             log('CUE_SETTLED_ELSEWHERE')  # resolved or closed by the owner: nothing to ask
             return 2
-        if mode == 'instruct' and not instruct_ok(op, live_rows(), deadline, clock()):
+        if mode == 'instruct' and not instruct_ok(op, live_rows(), deadline, clock):
             if not shown:
                 log('CUE_DISPLAY_SUPPRESSED')  # nothing was shown; the cue stays for the typed fallback
                 return 2
@@ -313,7 +340,7 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
             log('DIALOG_MODE report')
         if mode == 'instruct':
             text = instruct_text if not shown else AGAIN + instruct_text
-            keep = lambda: record_ok(op) and instruct_ok(op, live_rows(), deadline, clock())
+            keep = lambda: record_ok(op) and instruct_ok(op, live_rows(), deadline, clock)
         else:
             text, keep = REPORT, lambda: record_ok(op)
         choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep)
@@ -346,7 +373,10 @@ def main(argv=None):
     ap.add_argument('--watch-seconds', type=float, default=200.0)
     ap.add_argument('--cable', choices=('c-to-a', 'c-to-c', 'unknown'), default='unknown')
     ap.add_argument('--no-watch', action='store_true')
-    return run(ap.parse_args(argv))
+    args = ap.parse_args(argv)
+    for sig in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT):
+        signal.signal(sig, _terminate_cleanly)
+    return run(args)
 
 
 if __name__ == '__main__':

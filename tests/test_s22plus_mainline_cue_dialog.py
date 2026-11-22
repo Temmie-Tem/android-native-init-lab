@@ -40,7 +40,7 @@ class FakeDialog:
         self.timeout = int(argv[argv.index('--timeout') + 1])
         code, out, *rest = plan
         self.code, self.out = code, out
-        self.advance = rest[0] if rest else 5
+        self.advance = rest[0] if rest else 5  # seconds after launch, or ('abs', boottime_ns)
         self.effect = rest[1] if len(rest) > 1 else None
         self.effect_at = rest[2] if len(rest) > 2 else 0
         self.hang = rest[3] if len(rest) > 3 else False
@@ -54,7 +54,8 @@ class FakeDialog:
             self.effect(self.h)
         if self.returncode is not None:
             return self.returncode
-        if t >= self.advance * NS:
+        target = self.advance[1] - self.start if isinstance(self.advance, tuple) else self.advance * NS
+        if t >= target:
             self.returncode, self.stdout = self.code, io.StringIO(self.out)
         elif not self.hang and t >= self.timeout * NS:
             self.returncode = 5
@@ -76,18 +77,20 @@ class FakeDialog:
 class Harness:
     """Fake BOOTTIME clock and fake processes; records are real files."""
 
-    def __init__(self, op, *, start, issue=('ok',), dialogs=((0, ''),), resolve='ok'):
+    def __init__(self, op, *, start, issue=('ok',), dialogs=((0, ''),), resolve='ok', jitter=0, row_cost=0):
         self.op, self.t, self.calls, self.killed = op, start, [], []
         self.issue, self.dialogs, self.resolve = list(issue), list(dialogs), resolve
         self.dialog_timeouts, self.dialog_texts, self.dialog_envs = [], [], []
         self.resolution = None
         self.journal_broken = False
+        self.jitter, self.row_cost = jitter, row_cost  # wake-up latency; journal validation cost
+        self.spawn_kw = []
 
     def clock(self):
         return self.t
 
     def sleep(self, s):
-        self.t += int(s * NS)
+        self.t += int(s * NS) + self.jitter
 
     def spawn(self, argv, **kw):
         argv = list(map(str, argv))
@@ -95,6 +98,7 @@ class Harness:
         self.dialog_timeouts.append(int(argv[argv.index('--timeout') + 1]))
         self.dialog_texts.append(argv[argv.index('--text') + 1])
         self.dialog_envs.append(kw.get('env'))
+        self.spawn_kw.append(kw)
         return FakeDialog(self, argv, self.dialogs.pop(0))
 
     def runner(self, argv, **kw):
@@ -154,6 +158,7 @@ class CueDialogTests(unittest.TestCase):
         args = argparse.Namespace(operation=str(self.op), captures=str(self.op.parent / 'caps'), issue_delay=22.0,
                                   wait_limit=5.0, watch_ports='3-1.3', watch_seconds=1, cable='unknown', no_watch=True)
         def rows(op):
+            h.t += h.row_cost
             if h.journal_broken:
                 raise FileNotFoundError('journal staging file renamed during the read')
             return list(self.rows)
@@ -298,6 +303,40 @@ class CueDialogTests(unittest.TestCase):
         self.assertEqual(self.go(h), 2)  # no report about an instruction the operator may not have seen
         self.assertEqual(len(h.dialog_texts), 1)
         self.assertEqual(self.resolved_calls(h), [])
+
+    def test_an_answer_just_before_the_cutoff_survives_a_late_wakeup(self):
+        cancel = (1, '취소', ('abs', CUTOFF - int(0.06 * NS)), None, 0, True)
+        hung = (0, '', 999, None, 0, True)  # instruct, replaced by report at 61 s left
+        h = Harness(self.op, start=OPENED, dialogs=[hung, cancel], jitter=int(0.02 * NS))
+        self.assertEqual(self.go(h), 0)  # found by the poll that woke 20 ms after the cutoff
+        self.assertEqual(h.resolution[0], 'cancelled')
+        self.reset()
+        h = Harness(self.op, start=OPENED, dialogs=[hung, hung], jitter=int(0.02 * NS))
+        self.assertEqual(self.go(h), 4)  # alive at the cutoff: killed, nothing recorded
+        self.assertEqual(self.resolved_calls(h), [])
+
+    def test_the_sixty_second_check_is_sampled_after_validation(self):
+        h = Harness(self.op, start=DEADLINE - int(61.05 * NS), row_cost=int(0.1 * NS))
+        self.assertEqual(self.go(h), 2)  # 61.05 s before validation, 60.95 s after: suppressed
+        self.assertEqual(self.issued(h), [])
+
+    def test_zenity_dies_with_the_helper(self):
+        h = Harness(self.op, start=OPENED)
+        self.assertEqual(self.go(h), 0)
+        self.assertTrue(all(kw.get('preexec_fn') is cd._die_with_parent for kw in h.spawn_kw))
+        with self.assertRaises(SystemExit):
+            cd._terminate_cleanly(15, None)
+        seen = {}
+        import signal
+        old = {s: signal.getsignal(s) for s in (signal.SIGTERM, signal.SIGHUP, signal.SIGINT)}
+        try:
+            with mock.patch.object(cd, 'run', lambda a: seen.update(
+                    {s: signal.getsignal(s) for s in old}) or 0):
+                cd.main(['--operation', 'x', '--captures', 'y'])
+        finally:
+            for s, f in old.items():
+                signal.signal(s, f)
+        self.assertTrue(seen and all(f is cd._terminate_cleanly for f in seen.values()))
 
     def test_resolution_requires_its_receipt_and_foreign_window_is_refused(self):
         h = Harness(self.op, start=OPENED, resolve='wrong-receipt')
