@@ -1,7 +1,7 @@
 # Goal: S20+ G986N controlled onboarding
 
-Establish an exact, isolated, evidence-bounded profile for the newly acquired
-operator-owned Samsung Galaxy S20+ 5G before selecting any later experiment.
+Current research goal: establish a verified mainline handoff on the operator-owned SM-G986N/y2q. The [IYC2 placement and FDT investigation](docs/reports/S20PLUS_G986N_MAINLINE_HANDOFF_RESEARCH_2026-11-23.md) reproduced a pre-FDT alignment stop and qualified a separate aligned destination in QEMU.
+The next discriminator is a target-derived RAM, initrd and reservation map for first-fit validation against the actual kernel runtime extent.
 
 This file records current state only. It grants no device authority. The
 binding target contract is
@@ -10,7 +10,7 @@ returned `PASS_GO` for the exact D0 onboarding closure and the payload-free
 Download-return D1 helper; `AGENTS.md` contains one exact S20+ registry row.
 This file still grants no standing device authority.
 The [onboarding report](docs/reports/S20PLUS_G986N_ONBOARDING_D0_H0_2026-08-12.md) retains the identity evidence.
-The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22.md) builds a USB-first RAM witness. The [TWRP observation and AP audit](docs/reports/S20PLUS_G986N_TWRP_OBSERVE_SOURCE_VIEW_2026-11-22.md) checked both boot images against live capacity. The [corrected UniLoader run](docs/reports/S20PLUS_G986N_UNILOADER_ANDROID_F1_2026-11-22.md#corrected-ap-result) closed `NO_PROOF_UNILOADER_ORIGINAL_ROOT_RETURNED` at 22:51:32 KST on November 22. Candidate and original Magisk boot transfers completed once each. Candidate Android and the FDT marker remain unproved; fresh rooted Android and FDT marker absence were verified after physical rollback. The compatibility run released its guard and its candidate remains consumed. The [stage successor](docs/reports/S20PLUS_G986N_UNILOADER_STAGE_H0_2026-11-22.md#attended-first-return-owner) adds build-bound post-guard and vendor printk witnesses. Its [attended run](docs/reports/S20PLUS_G986N_UNILOADER_STAGE_H0_2026-11-22.md#attended-stage-result) closed at 23:09:52 KST on November 22 with one candidate transfer, one original Magisk transfer and fresh rooted Android. Both fixed pstore files were missing on the first observed return. The S20+ guard is released and the stage candidate is consumed. The [stock PMSG physical-return control](docs/reports/S20PLUS_G986N_PMSG_DOWNLOAD_CALIBRATION_H0_2026-11-22.md) is independently qualified in H0 and held for an exact common delegation. No connected calibration or approval exists.
+The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22.md) builds a USB-first RAM witness. The [TWRP observation and AP audit](docs/reports/S20PLUS_G986N_TWRP_OBSERVE_SOURCE_VIEW_2026-11-22.md) checked both boot images against live capacity. The [corrected UniLoader run](docs/reports/S20PLUS_G986N_UNILOADER_ANDROID_F1_2026-11-22.md#corrected-ap-result) closed `NO_PROOF_UNILOADER_ORIGINAL_ROOT_RETURNED` at 22:51:32 KST on November 22. Candidate and original Magisk boot transfers completed once each. Candidate Android and the FDT marker remain unproved; fresh rooted Android and FDT marker absence were verified after physical rollback. The compatibility run released its guard and its candidate remains consumed. The [stage successor](docs/reports/S20PLUS_G986N_UNILOADER_STAGE_H0_2026-11-22.md#attended-first-return-owner) adds build-bound post-guard and vendor printk witnesses. Its [attended run](docs/reports/S20PLUS_G986N_UNILOADER_STAGE_H0_2026-11-22.md#attended-stage-result) closed at 23:09:52 KST on November 22 with one candidate transfer, one original Magisk transfer and fresh rooted Android. Both fixed pstore files were missing on the first observed return. The S20+ guard is released and the stage candidate is consumed. The [stock PMSG physical-return control](docs/reports/S20PLUS_G986N_PMSG_DOWNLOAD_CALIBRATION_H0_2026-11-22.md) describes the original preparation. The separate ADB Download comparison closed with zero marker matches. The later PROCA compatibility run also closed with original Magisk healthy and candidate Android unproved.
 
 ## Current State
 
@@ -227,7 +227,7 @@ The [y2q mainline H0 port](docs/reports/S20PLUS_G986N_MAINLINE_Y2Q_H0_2026-11-22
 - Policy proportionality and future blockers are audited in
   `docs/reports/S20PLUS_G986N_POLICY_FRICTION_AUDIT_2026-08-14.md`.
 
-## Current Bounded Unit
+## Completed D0 onboarding unit
 
 The S20+-only D0 onboarding inventory completed and proved that it:
 
@@ -247,7 +247,7 @@ CSC/OMC properties and preserved their KTC/KOO role distinction. The
 operator-provided photograph records Download Mode state without creating a
 host-connected process.
 
-## Next Bounded Unit
+## August 2026 bootstrap selection
 
 On 2026-08-14 the operator explicitly accepted the possible irreversible Knox
 warranty/security-state change from the first custom boot. That decision is
