@@ -14,9 +14,9 @@ helper noticed the journal:
 3. at window open + 22 s, call `issue`; display only when the call exits 0,
    its stdout object says `CUE_RECORDED_DISPLAY_NOW` with an instruction, and
    its cue receipt equals the operation's `mainline-attach-cue.json`, which in
-   turn binds this window. A refusal (the call returned non-zero) is retried
-   only while no cue exists and more than 60 s of the window remain. A call
-   whose outcome is uncertain (timed out or could not start) is never retried;
+   turn binds this window. `issue` is called **once**: the reviewed tool says
+   a refusal is not proof that no cue was published and grants no retry, so
+   any other outcome ends the helper and the typed fallback applies;
 4. **instruct** mode shows the reviewed instruction verbatim (one replug, do
    not repeat). It is allowed only while the step is current, no resolution,
    closure or recovery fence exists, and more than 60 s of the window remain
@@ -29,8 +29,11 @@ helper noticed the journal:
    fence because the reviewed resolver accepts evidence then;
 6. buttons: **다시 꽂았음** -> `resolve completed`; **취소** -> `resolve
    cancelled`; **닫기**, Esc, window close and timeout record nothing. The
-   dialog is killed at deadline - 8 s and a button observed later is
-   discarded. Zenity gets an allow-listed environment, so no `ZENITY_*` or
+   dialog is killed at deadline - 8 s (polling wakes exactly at the cutoff;
+   every exit path, including an exception, kills and reaps it) and a button
+   observed later is discarded. A dialog that exits on its own while being
+   withdrawn keeps its answer. An instruct dialog withdrawn within 2 s of
+   launch counts as never shown. Zenity gets an allow-listed environment, so no `ZENITY_*` or
    `DIALOG_*` exit-code override reaches it;
 7. a click is recorded only while the cue exists with no resolution or
    closure, and counts only when `resolve` exits 0 and returns the receipt of
@@ -73,6 +76,8 @@ OK_LABEL, CANCEL_LABEL, CLOSE_LABEL = '다시 꽂았음', '취소', '닫기'
 SOUND = '/usr/share/sounds/freedesktop/stereo/complete.oga'
 MARGIN_NS = 8_000_000_000
 MIN_REMAINING_NS = 60_000_000_000
+MIN_SEEN_NS = 2_000_000_000
+POLL_S = 0.2
 NS = 1_000_000_000
 
 
@@ -161,42 +166,65 @@ def zenity_env(environ=None):
 
 
 def dialog_once(text, cutoff_ns, spawn, clock, sleep, keep, zenity='zenity'):
-    """(choice, observed_ns, wall). choice: completed / cancelled / dismissed / expired / withdrawn.
+    """(choice, observed_ns, wall, alive_ns).
 
-    The dialog is killed at `cutoff_ns`, or as soon as `keep()` turns false
-    ('withdrawn'). A button observed after `cutoff_ns` is 'expired'."""
+    choice: completed / cancelled / dismissed / expired / withdrawn. The dialog
+    is killed at `cutoff_ns` or as soon as `keep()` turns false or raises
+    ('withdrawn'); a button observed after `cutoff_ns` is 'expired'. A dialog
+    that exited on its own just before the kill keeps its own answer."""
+    def stamp():
+        return clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
+
+    def keeping():
+        try:
+            return bool(keep())
+        except (OSError, ValueError, KeyError, TypeError):
+            return False
+
     remaining = (cutoff_ns - clock()) / NS
     if remaining < 1:
-        return 'expired', clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
+        return ('expired', *stamp(), 0)
+    if not keeping():
+        return ('withdrawn', *stamp(), 0)
     argv = [zenity, '--question', '--title', TITLE, '--text', text, '--ok-label', OK_LABEL,
             '--cancel-label', CLOSE_LABEL, '--extra-button', CANCEL_LABEL, '--width', '520',
             '--timeout', str(int(remaining))]
     try:
         p = spawn(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, env=zenity_env())
     except OSError:
-        return 'expired', clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
-    outcome = None
-    while p.poll() is None:
-        if clock() >= cutoff_ns:
-            outcome = 'expired'
-        elif not keep():
-            outcome = 'withdrawn'
-        if outcome:
+        return ('expired', *stamp(), 0)
+    started = clock()
+    forced = None
+    try:
+        while p.poll() is None:
+            now = clock()
+            if now >= cutoff_ns:
+                forced = 'expired'
+            elif not keeping():
+                forced = 'withdrawn'
+            if forced:
+                p.kill()  # no-op if it already exited; its own status is kept
+                p.wait()
+                break
+            sleep(min(POLL_S, (cutoff_ns - now) / NS))
+    finally:
+        if p.poll() is None:
             p.kill()
             p.wait()
-            return outcome, clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
-        sleep(0.2)
-    observed, wall = clock(), time.strftime('%Y-%m-%d %H:%M:%S %z')
+    observed, wall = stamp()
+    alive = observed - started
+    if forced and p.returncode < 0:
+        return forced, observed, wall, alive
     out = (p.stdout.read() if p.stdout else '').strip()
     if observed > cutoff_ns:
-        return 'expired', observed, wall
+        return 'expired', observed, wall, alive
     if p.returncode == 0 and not out:
-        return 'completed', observed, wall
+        return 'completed', observed, wall, alive
     if p.returncode == 1 and out == CANCEL_LABEL:
-        return 'cancelled', observed, wall
+        return 'cancelled', observed, wall, alive
     if p.returncode == 1 and not out:
-        return 'dismissed', observed, wall
-    return 'expired', observed, wall  # 5 = zenity timeout; anything else is not a choice
+        return 'dismissed', observed, wall, alive
+    return 'expired', observed, wall, alive  # 5 = zenity timeout; anything else is not a choice
 
 
 def statement(choice, window, observed_ns, wall, mode):
@@ -221,12 +249,24 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
         except ValueError as e:
             log('FOREIGN_WINDOW', e)
             return 3
+        except OSError:
+            found = None  # journal staging rename raced the read; look again
         if found is None:
             if wait_clock() > give_up:
                 log('NO_WINDOW')
                 return 3
             sleep(0.5)
     window_pin, window = found
+
+    def live_rows():
+        """Journal rows, or None if the journal cannot be read (a staging rename races the read)."""
+        for _ in range(3):
+            try:
+                return rows(op)
+            except (OSError, ValueError):
+                sleep(0.05)
+        return None
+
     opened, deadline = window['opened_ns'], window['deadline_ns']
     log('WINDOW_OPEN', f'now W+{(clock() - opened) / NS:.1f} s')
     if not args.no_watch and runner is subprocess.run:
@@ -239,28 +279,20 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
     wait = opened + int(args.issue_delay * NS) - clock()
     if wait > 0:
         sleep(wait / NS)
-    attempt = 0
-    while True:
-        if not instruct_ok(op, rows(op), deadline, clock()):
-            log('CUE_NOT_ISSUABLE')  # step ended, fenced, settled, or 60 s or less left
-            return 2
-        attempt += 1
-        cap = caps / ('cue-issue-raw' if attempt == 1 else f'cue-issue-raw-{attempt}')
-        cap.mkdir(mode=0o700, exist_ok=True)
-        sent = clock()
-        code, out, err = call([sys.executable, str(CUE_TOOL), 'issue', str(op), '--capture-directory', str(cap)], runner)
-        log(f'issue attempt {attempt} sent W+{(sent - opened) / NS:.1f}s returned W+{(clock() - opened) / NS:.1f}s '
-            f'exit {code}', (out or err)[:300].replace('\n', ' '))
-        if issue_display(op, window_pin, code, out):
-            instruction = json.loads(out)['result']['instruction']
-            break
-        if code is None:
-            log('ISSUE_OUTCOME_UNCERTAIN', cap)  # never replay while execution is uncertain
-            return 2
-        if (op / 'mainline-attach-cue.json').exists():
-            log('CUE_EXISTS_NOT_DISPLAYED')  # never re-issue or infer a physical action
-            return 2
-        sleep(3)
+    if not instruct_ok(op, live_rows(), deadline, clock()):
+        log('CUE_NOT_ISSUABLE')  # step ended, fenced, settled, or 60 s or less left
+        return 2
+    cap = caps / 'cue-issue-raw'
+    cap.mkdir(mode=0o700, exist_ok=True)
+    sent = clock()
+    code, out, err = call([sys.executable, str(CUE_TOOL), 'issue', str(op), '--capture-directory', str(cap)], runner)
+    log(f'issue sent W+{(sent - opened) / NS:.1f}s returned W+{(clock() - opened) / NS:.1f}s exit {code}',
+        (out or err)[:300].replace('\n', ' '))
+    if not issue_display(op, window_pin, code, out):
+        # one call only: a refusal is not proof that no cue exists, and nothing is replayed
+        log('CUE_NOT_DISPLAYED', 'cue file present' if (op / 'mainline-attach-cue.json').exists() else 'no cue file seen')
+        return 2
+    instruction = json.loads(out)['result']['instruction']
     if notify:
         try:
             runner(['paplay', SOUND], capture_output=True, timeout=2)
@@ -273,7 +305,7 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
         if not record_ok(op):
             log('CUE_SETTLED_ELSEWHERE')  # resolved or closed by the owner: nothing to ask
             return 2
-        if mode == 'instruct' and not instruct_ok(op, rows(op), deadline, clock()):
+        if mode == 'instruct' and not instruct_ok(op, live_rows(), deadline, clock()):
             if not shown:
                 log('CUE_DISPLAY_SUPPRESSED')  # nothing was shown; the cue stays for the typed fallback
                 return 2
@@ -281,12 +313,13 @@ def run(args, *, rows=journal_rows, runner=subprocess.run, spawn=subprocess.Pope
             log('DIALOG_MODE report')
         if mode == 'instruct':
             text = instruct_text if not shown else AGAIN + instruct_text
-            keep = lambda: record_ok(op) and instruct_ok(op, rows(op), deadline, clock())
+            keep = lambda: record_ok(op) and instruct_ok(op, live_rows(), deadline, clock())
         else:
             text, keep = REPORT, lambda: record_ok(op)
-        choice, observed, wall = dialog_once(text, cutoff, spawn, clock, sleep, keep)
-        shown += 1
-        log('DIALOG', mode, choice, f'observed W+{(observed - opened) / NS:.1f}s')
+        choice, observed, wall, alive = dialog_once(text, cutoff, spawn, clock, sleep, keep)
+        if choice != 'withdrawn' or alive >= MIN_SEEN_NS:
+            shown += 1  # a dialog killed within 2 s of launch is treated as never seen
+        log('DIALOG', mode, choice, f'observed W+{(observed - opened) / NS:.1f}s alive {alive / NS:.1f}s')
         if choice in ('completed', 'cancelled'):
             break
         if choice == 'expired':

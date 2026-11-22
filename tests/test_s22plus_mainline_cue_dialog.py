@@ -30,8 +30,10 @@ class FakeProc:
 class FakeDialog:
     """A zenity process on the fake BOOTTIME clock.
 
-    plan: (code, out[, advance_s[, effect, effect_at_s[, hang]]]). It closes
-    itself at --timeout (exit 5) unless `hang`."""
+    plan: (code, out[, advance_s[, effect, effect_at_s[, hang[, exits_at_kill]]]]).
+    It closes itself at --timeout (exit 5) unless `hang`. `exits_at_kill`
+    models the button press landing between poll() and kill(): the process
+    has already exited with its own answer, so kill() changes nothing."""
 
     def __init__(self, h, argv, plan):
         self.h, self.start, self.returncode, self.killed, self.fired = h, h.t, None, False, False
@@ -42,6 +44,7 @@ class FakeDialog:
         self.effect = rest[1] if len(rest) > 1 else None
         self.effect_at = rest[2] if len(rest) > 2 else 0
         self.hang = rest[3] if len(rest) > 3 else False
+        self.exits_at_kill = rest[4] if len(rest) > 4 else False
         self.stdout = io.StringIO('')
 
     def poll(self):
@@ -58,8 +61,13 @@ class FakeDialog:
         return self.returncode
 
     def kill(self):
-        self.killed, self.returncode = True, -9
         self.h.killed.append(self.h.t)
+        if self.returncode is not None:
+            return
+        if self.exits_at_kill:
+            self.returncode, self.stdout = self.code, io.StringIO(self.out)
+        else:
+            self.killed, self.returncode = True, -9
 
     def wait(self):
         return self.returncode
@@ -73,6 +81,7 @@ class Harness:
         self.issue, self.dialogs, self.resolve = list(issue), list(dialogs), resolve
         self.dialog_timeouts, self.dialog_texts, self.dialog_envs = [], [], []
         self.resolution = None
+        self.journal_broken = False
 
     def clock(self):
         return self.t
@@ -100,6 +109,8 @@ class Harness:
             if mode == 'timeout':
                 self.t += 45 * NS
                 raise subprocess.TimeoutExpired(argv, 45)
+            if mode == 'signalled':
+                return FakeProc(-9)
             if mode == 'non-object':
                 return FakeProc(0, json.dumps({'raw_capture': {}, 'result': ['CUE_RECORDED_DISPLAY_NOW']}))
             if mode == 'refused-with-text':
@@ -142,7 +153,11 @@ class CueDialogTests(unittest.TestCase):
     def go(self, h):
         args = argparse.Namespace(operation=str(self.op), captures=str(self.op.parent / 'caps'), issue_delay=22.0,
                                   wait_limit=5.0, watch_ports='3-1.3', watch_seconds=1, cable='unknown', no_watch=True)
-        return cd.run(args, rows=lambda op: list(self.rows), runner=h.runner, spawn=h.spawn, sleep=h.sleep,
+        def rows(op):
+            if h.journal_broken:
+                raise FileNotFoundError('journal staging file renamed during the read')
+            return list(self.rows)
+        return cd.run(args, rows=rows, runner=h.runner, spawn=h.spawn, sleep=h.sleep,
                       clock=h.clock, wait_clock=lambda: h.t / NS)
 
     def issued(self, h):
@@ -179,16 +194,16 @@ class CueDialogTests(unittest.TestCase):
         self.assertFalse((self.op / 'mainline-attach-resolution.json').exists())
 
     def test_nothing_is_visible_or_accepted_after_the_cutoff(self):
-        h = Harness(self.op, start=OPENED, dialogs=[(1, '')] * 60)
+        h = Harness(self.op, start=OPENED + int(0.37 * NS), dialogs=[(1, '')] * 60)  # unaligned with the poll
         self.assertEqual(self.go(h), 4)
-        self.assertLessEqual(h.t, CUTOFF + TICK)
+        self.assertLessEqual(h.t, CUTOFF)
         self.reset()
         hung = (0, '', 999, None, 0, True)  # zenity ignores its own timer
         h = Harness(self.op, start=OPENED, dialogs=[hung, hung])
         self.assertEqual(self.go(h), 4)
         self.assertEqual(len(h.killed), 2)  # withdrawn at 60 s left, then killed at the cutoff
         self.assertLessEqual(h.killed[0], DEADLINE - 60 * NS + TICK)
-        self.assertLessEqual(h.killed[1], CUTOFF + TICK)
+        self.assertLessEqual(h.killed[1], CUTOFF)  # polling wakes exactly at the cutoff
         self.assertEqual(self.resolved_calls(h), [])
 
     def test_zenity_gets_an_allow_listed_environment(self):
@@ -248,24 +263,41 @@ class CueDialogTests(unittest.TestCase):
         self.assertTrue(again.startswith(cd.AGAIN) and not first.startswith(cd.AGAIN))
         self.assertIn('reviewed cue instruction', h.resolution[1])
 
-    def test_failure_text_and_wrong_receipt_never_display(self):
-        h = Harness(self.op, start=OPENED, issue=['refused-with-text', 'ok'])
-        self.assertEqual(self.go(h), 0)
-        self.assertEqual([c[-1].rsplit('/', 1)[1] for c in self.issued(h)], ['cue-issue-raw', 'cue-issue-raw-2'])
-        self.reset()
+    def test_issue_is_called_once_and_never_replayed(self):
+        for mode in ('refused-with-text', 'non-object', 'timeout', 'signalled'):
+            h = Harness(self.op, start=OPENED, issue=[mode, 'ok'])
+            self.assertEqual(self.go(h), 2, mode)
+            self.assertEqual(len(self.issued(h)), 1, mode)
+            self.assertFalse(any(c[0] == 'zenity' for c in h.calls), mode)
+            self.reset()
+
+    def test_wrong_receipt_never_displays(self):
         h = Harness(self.op, start=OPENED, issue=['wrong-receipt'])
         self.assertEqual(self.go(h), 2)  # a cue exists but is not this receipt: no dialog, no retry
         self.assertFalse(any(c[0] == 'zenity' for c in h.calls))
         self.assertEqual(len(self.issued(h)), 1)
 
-    def test_malformed_result_is_a_refusal_but_uncertain_issue_is_never_replayed(self):
-        h = Harness(self.op, start=OPENED, issue=['non-object', 'ok'])
+    def test_journal_read_error_withdraws_and_reaps_the_instruction(self):
+        broken = lambda h: setattr(h, 'journal_broken', True)
+        h = Harness(self.op, start=OPENED, dialogs=[(0, '', 30, broken, 3), (0, '')])
+        self.assertEqual(self.go(h), 0)  # no traceback; the instruction is withdrawn, the report still records
+        self.assertEqual(len(h.killed), 1)
+        self.assertEqual(h.dialog_texts[1], cd.REPORT)
+
+    def test_an_answer_that_lands_during_withdrawal_is_kept(self):
+        fence = lambda h: publish(self.op / 'mainline-attach-recovery.json', {'operation': 'fenced'})
+        h = Harness(self.op, start=OPENED, dialogs=[(0, '', 30, fence, 3, False, True)])
         self.assertEqual(self.go(h), 0)
-        self.reset()
-        h = Harness(self.op, start=OPENED, issue=['timeout', 'ok'])
-        self.assertEqual(self.go(h), 2)
-        self.assertEqual(len(self.issued(h)), 1)
-        self.assertFalse(any(c[0] == 'zenity' for c in h.calls))
+        self.assertEqual(h.resolution[0], 'completed')
+        self.assertEqual(len(h.dialog_texts), 1)
+        self.assertIn('reviewed cue instruction', h.resolution[1])
+
+    def test_an_instruction_withdrawn_within_two_seconds_counts_as_unseen(self):
+        fence = lambda h: publish(self.op / 'mainline-attach-recovery.json', {'operation': 'fenced'})
+        h = Harness(self.op, start=OPENED, dialogs=[(0, '', 30, fence, 1)])
+        self.assertEqual(self.go(h), 2)  # no report about an instruction the operator may not have seen
+        self.assertEqual(len(h.dialog_texts), 1)
+        self.assertEqual(self.resolved_calls(h), [])
 
     def test_resolution_requires_its_receipt_and_foreign_window_is_refused(self):
         h = Harness(self.op, start=OPENED, resolve='wrong-receipt')
