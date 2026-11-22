@@ -454,6 +454,8 @@ R4W1-A 부팅에서 DMS가 `ONLINE`을 통지한 시각을 기준으로, 같은 
 
 셀 위치 조회 수신 11건 모두 수신 행에 `err(0)`이 있었다. 같은 RILD 스레드에서 바로 뒤의 디코딩 결과까지 대조하자 처음 8건은 `Result(1), Error(13)`, 마지막 3건은 `Result(0), Error(0)`이었다. FYG8 배포 RIL의 `FillLteIntraCellInfo`에는 조건에 따라 서빙 셀 측정값을 출력하는 경로가 있다. 표의 시각은 해당 로그 행이 기록된 때다.
 
+같은 무선 로그에서 첫 망 등록 응답 전에 PHONE0의 `GET_SIM_STATUS` 응답이 `CARDSTATE_ABSENT, num_apps=0`을 기록했다. 등록 관측 중에도 SIM 상태는 `ABSENT`였다. 이 구간은 단말이 유심을 인식하지 않은 조건에서 얻은 결과이며, 활성 유심을 사용한 가입자 망 등록·통화·데이터 성능을 판정할 수 없다.
+
 등록 응답 12건 모두 무선 접속 기술(RAT)을 `UNKNOWN`으로 반환했다. Android 서비스 상태 갱신 로그 4건에서도 음성과 데이터는 모두 `OUT_OF_SERVICE`였다. 이 구간에서 확인한 것은 RILD가 LTE 서빙 셀을 식별해 측정값을 보고했다는 점이다. 단말의 캠핑 완료, 망 등록 성공, 실제 긴급통화 연결이나 RF 송신은 이 자료로 확인할 수 없다. [Android Radio HAL 등록 상태 정의](https://android.googlesource.com/platform/hardware/interfaces/%2B/3e9d442/radio/1.0/types.hal)
 
 원본 ZIP·무선 로그·배포 라이브러리의 해시와 행별 대조 결과는 `workspace/private/analysis/s22plus-nas-registration.m0KowmgL/result.json`에 보관했다.
