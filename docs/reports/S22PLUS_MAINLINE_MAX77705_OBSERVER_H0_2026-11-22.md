@@ -396,13 +396,13 @@ rather than retrying blindly.
     recovery code (the policy draft lists them). Merging the draft would
     invalidate eight review records that pin the shared files;
   - independent review and target adoption of that draft.
-- **Replug dependency is now in question.** The adopted SCM run
-  (2026-11-22, same Image and base DT, no SE5) authenticated without any cue,
-  about 98 s after the Download device left the host. If no unrecorded replug
-  happened, the dependency this observer was built to explain may be
-  conditional, for example on window length or on the UFS-enabled DT, rather
-  than universal. That should be checked against the earlier untouched-cable
-  runs before spending a device run on this observer.
+- **SCM run and the replug.** The adopted SCM run (2026-11-22) authenticated
+  about 98 s after the Download device left the host. The operator confirmed
+  that they replugged the phone end during that window. The cue tool refuses
+  the ordinary route, so no cue, resolution or closure records that action.
+  The run therefore supports the replug dependency rather than weakening it.
+  It also shows the ordinary-route cue gap in practice: a physical action in
+  the window went unrecorded.
   - D0, current Download recovery and approval.
 - **Board behaviour is unknown:** FIFO versus GSI mode on SE5, whether XBL
   left the pins muxed, and whether `0x25` answers under mainline. The table
