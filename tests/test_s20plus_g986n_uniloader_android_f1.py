@@ -53,6 +53,35 @@ class UniLoaderOwnerTests(unittest.TestCase):
         self.assertNotEqual(owner.common_authority(before),
                             owner.common_authority(before.replace(b" target ", b" other ")))
 
+    def test_retained_recovery_requires_current_serial_and_topology_not_old_boot(self):
+        proof = {**PREFLIGHT, "target": owner.TARGET, "source": "closed_P2_physical_download"}
+        current = {**HEALTH, "target": owner.TARGET}
+        with patch.object(owner, "marker", MARKER, create=True):
+            owner.check_recovery_identity(current, proof)
+            for key in MARKER.IDENTITY[:2]:
+                with self.assertRaisesRegex(owner.Stop, "does not match"):
+                    owner.check_recovery_identity({**current, key: "0" * 64}, proof)
+
+    def test_prepare_validates_fresh_download_topology_without_changing_recovery_wait(self):
+        other = {"endpoint": {"topology_sha256": "4" * 64}}
+        normal = {"endpoint": {"topology_sha256": HEALTH["topology_sha256"]}}
+        engine = Mock(DOWNLOAD_ARRIVAL_SECONDS=25)
+        engine.read_json.return_value = HEALTH
+        runtime = Mock()
+        runtime._require_live_transaction.return_value = {"entrypoint": "prepare", "run_dir": "/run"}
+        with (patch.object(owner, "engine", engine, create=True),
+              patch.object(owner, "runtime", runtime, create=True),
+              patch.object(owner, "original_wait", create=True) as wait):
+            wait.return_value = normal
+            self.assertEqual(owner.wait_bound_download({}), normal)
+            wait.assert_called_once_with({}, 25)
+            wait.return_value = other
+            with self.assertRaisesRegex(owner.Stop, "topology"):
+                owner.wait_bound_download({})
+            runtime._require_live_transaction.return_value = {"entrypoint": "resume_run", "run_dir": "/run"}
+            self.assertEqual(owner.wait_bound_download({}, timeout=11), other)
+            wait.assert_called_with({}, 11)
+
     def test_namespace_accepts_inherited_compact_guard_and_intent(self):
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

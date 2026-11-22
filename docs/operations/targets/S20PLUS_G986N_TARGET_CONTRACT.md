@@ -3040,13 +3040,17 @@ P0/P1/P2 run, approval, activation, or consumed effect carries over.
 
 This is an Android compatibility test. Full rooted Android is required
 before and after the attempt. The connected preparation request requires
-current attendance and physical Download demonstration via the already
-reviewed payload-free exit lane. The owner joins its healthy Android return
-to the current exact serial, topology and boot, revalidates both APs and the
-global claim registry, and proves the fixed FDT marker is absent. It then
+current attendance and demonstrated physical Download recovery. This
+owner binds the immutable closed P2 physical-entry and original Magisk
+rollback evidence to the current exact serial and same USB topology.
+The owner revalidates the retained raw transfer, both APs, fresh rooted
+Android health and the global claim registry. It proves the fixed FDT
+marker is absent on that Android boot, then
 owns one journaled Download entry and an exact prepared token valid for
-900 seconds. A fresh operator response granting that token and attendance
-are required before the candidate transfer.
+900 seconds only after current qualified Download arrival at the same
+topology. Historical evidence supplies physical recovery proof only.
+A fresh operator response granting that token and attendance are
+required before the candidate transfer.
 
 The inherited target lease, shared guard, process cage, content claim and
 one-shot transfer/control journals remain mandatory. The fixed

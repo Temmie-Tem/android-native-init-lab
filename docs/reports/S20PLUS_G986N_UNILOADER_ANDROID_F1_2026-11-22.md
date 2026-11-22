@@ -1,8 +1,8 @@
 # S20+ UniLoader Android F1 owner
 
 The exact `SM-G986N / y2q / G986NKSS8IYC2` attended capability is
-independently reviewed and active. Its first run still needs a proved
-current physical Download path and a fresh prepared approval.
+independently reviewed and active. Its successor activation reuses the
+retained same-device physical Download recovery described below.
 [Binding target section](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-uniloader-android-compatibility-attended-f1)
 
 The [owner](../../workspace/public/src/scripts/revalidation/s20plus_g986n_uniloader_android_f1.py)
@@ -14,7 +14,7 @@ TWRP observation and original candidate/rollback AP identities are in the
 [preparation report](S20PLUS_G986N_TWRP_OBSERVE_SOURCE_VIEW_2026-11-22.md).
 
 The attended trial starts from a fresh, healthy original Magisk Android
-boot joined to the physical Download drill. The owner checks FDT marker
+boot joined to the demonstrated physical Download path. The owner checks FDT marker
 absence there, then prepares one journaled Download entry. The candidate
 proof requires its completed boot transfer, a fresh exact Magisk boot and
 matching marker bytes on that boot. Root, serial, topology and boot identity
@@ -45,7 +45,7 @@ The installed owner and record passed `--validate-active` with zero device
 commands. The mode-0400 activation record is in
 `workspace/private/runs/s20plus-g986n-uniloader-android-f1/`.
 
-## Current physical preparation
+## First physical preparation attempt
 
 The operator reported physical Download entry and disconnected USB while
 holding that state. The existing attended D1 exit lane recorded an empty
@@ -56,6 +56,38 @@ guard. The reason distinguishes neither absence from ambiguity nor their
 underlying cause. The initial read proves neither a current usable Download
 endpoint nor a return to the original Magisk boot.
 
-The prepared F1 approval has not been issued. Candidate and rollback
-transfers, FDT proof on hardware and post-rollback root verification remain
-pending. No command was addressed to S22+ or A90.
+This first attempt issued no prepared F1 approval or candidate transfer.
+No command was addressed to S22+ or A90.
+
+## Reuse of demonstrated physical recovery
+
+The successor revalidates the [closed P2 physical recovery](S20PLUS_G986N_P2_RAM_SNAPSHOT_H0_2026-09-23.md#recovery-and-final-state)
+from its exact retained close record. Its empty and single-endpoint Odin
+listings, the matching physical Download session and original fingerprinted
+Magisk AP, the successful raw rollback capture, verified process quiescence,
+and the healthy TWRP terminal were checked from their retained bytes. The
+current S20+ uses the same exact serial and USB topology. The owner's own
+rooted Android, same-boot FDT marker absence and Download arrival checks
+remain required for a new approval.
+
+The independent successor review returned `PASS_GO` with zero open findings.
+The host validation and 37 focused tests passed. The reviewed active owner
+SHA-256 is
+`debc851f0af6036e2c6133132d41a00250e473317ca7f161a1d0a2e991e596bf`.
+The new mode-0400 activation record SHA-256 is
+`9e02a70c06b5b571c9cc5c52844f3bbd0fdaab87a921addb1c8aab71a0f05d8e`.
+The earlier activation and P2 journal remain preserved.
+
+## Prepared attended session
+
+The owner verified the exact current Magisk Android boot with root UID 0
+and Magisk 30.7. The fixed FDT marker was absent on that boot. One ADB
+Download control completed and the fresh single endpoint matched the
+retained physical recovery topology. Preparation completed at 22:35:13
+KST on November 22. The prepared record SHA-256 is
+`9af1931bae2641b78ec28d679dcc25790c396d1bd7f61cba70c4a5ce4e64f68a`.
+
+The owner holds the S20+ action guard for this session. The prepared
+approval expires at 22:50:13 KST. Candidate and rollback intents and
+transfers remain zero. Current candidate boot and original Magisk return
+verification remain pending that bound attended approval.

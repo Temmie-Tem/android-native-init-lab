@@ -27,8 +27,10 @@ RUN_ROOT = RUNS / "s20plus-g986n-uniloader-android-f1"
 REGISTRY_ROOT = PRIVATE / "consumed-candidate-registry-v1"
 GUARD = source_view.RUN_ROOT / "active-action.json"
 CAGE_ROOT = Path("/sys/fs/cgroup")
-ACTIVATION = RUN_ROOT / "activation.json"
-DRILL_BINDING = RUN_ROOT / "physical-download-drill.json"
+ACTIVATION = RUN_ROOT / "activation-v2.json"
+P2_RUN = RUNS / "s20plus-g986n-p2-ram-snapshot-f1/run-1790103602144341728"
+P2_CLOSE = PRIVATE / "outputs/s20plus_g986n/p2_live_close_2026-09-23/close.json"
+P2_CLOSE_SHA = "073d52b8eb3bcd7597ccfb905523a1c5362d1d9f6a1b694217a208c1284a4b6d"
 TWRP_BASELINE = source_view.RUN_ROOT / "twrp-baseline-1795353624525085969/baseline.json"
 TWRP_BASELINE_SHA = "6755cdf623b398334ac3c9218df3192b61beeb742a442d7d5e9ca234c714f4fd"
 SCRIPTS = SCRIPT.parent
@@ -142,6 +144,7 @@ def review_identity():
         "tests": receipt(TEST_SOURCE),
         "physical_exit_source": receipt(EXIT_SOURCE),
         "twrp_identity_baseline": TWRP_BASELINE_SHA,
+        "retained_physical_download_proof": P2_CLOSE_SHA,
         "pair_sha256": PAIR_SHA, "scope": effect_profile(), "authority": {
             "section": source_view.file_receipt(section.encode()),
             "common": common_authority(common_bytes),
@@ -179,56 +182,132 @@ def read_pair():
     return value
 
 
-def physical_drill():
-    sealed = strict_private(DRILL_BINDING)
-    require(set(sealed) == {"run", "result_node", "nodes"} and sealed["result_node"] in (
-            "result.json", "final-result.json"), "invalid drill binding")
-    run = RUNS / "s20plus-g986n-download-exit" / sealed["run"]
-    require(re.fullmatch(r"run-[0-9]{19}", sealed["run"]) is not None
-            and run == exit_d1.validate_run_dir(run), "indirect or foreign drill")
-    expected_nodes = {"baseline.json", "arm-intent.json", "exit-intent.json",
-                      "exit.stdout", "exit.stderr", "result.json", sealed["result_node"]}
-    exit_d1.scan_exact_nodes(run, expected_nodes)
-    base = exit_d1.read_json(run / "baseline.json", "physical drill baseline")
-    arm = exit_d1.read_json(run / "arm-intent.json", "physical drill arm")
-    intent = exit_d1.read_json(run / "exit-intent.json", "physical drill intent")
-    result = exit_d1.read_json(run / sealed["result_node"], "physical drill result")
-    endpoint = exit_d1.validate_endpoint(intent["endpoint"])
-    health = result["android"]
-    baseline = source_view.read_file(TWRP_BASELINE, mode=0o400)
-    require(source_view.file_receipt(baseline)["sha256"] == TWRP_BASELINE_SHA,
+def retained_physical_recovery():
+    close_data = source_view.read_file(P2_CLOSE, mode=0o400)
+    close_pin = source_view.file_receipt(close_data)
+    require(close_pin["sha256"] == P2_CLOSE_SHA, "retained physical close differs")
+    close = json.loads(close_data)
+    require(close["schema"] == "s20plus_g986n_p2_live_close_v1"
+            and close["run"] == str(P2_RUN.relative_to(ROOT)) and close["guard_absent"] is True
+            and close["physical_download_and_twrp_return_completed"] is True,
+            "retained physical run was not closed")
+
+    def historical(name):
+        path = P2_RUN / name
+        raw = source_view.read_file(path, mode=0o400)
+        expected = close["run_files"][name]
+        require(expected == {"mode": "0o400", "path": str(path.relative_to(ROOT)), **source_view.file_receipt(raw)},
+                "retained physical journal input differs")
+        return json.loads(raw)
+
+    def historical_capture(label, maximum):
+        path = P2_RUN / (label + ".capture.json")
+        historical(path.name)
+        handle = engine.raw_capture.load_handle(path)
+        stdout = engine.raw_capture.read_stdout(handle, maximum=maximum)
+        stderr = engine.raw_capture.read_stderr(handle, maximum=maximum)
+        for name, data in ((handle.stdout_path.name, stdout), (handle.stderr_path.name, stderr)):
+            expected = close["run_files"][name]
+            require(expected == {"mode": "0o400", "path": str((P2_RUN / name).relative_to(ROOT)),
+                                 **source_view.file_receipt(data)}, "retained capture stream differs")
+        return handle, stdout, stderr
+
+    prepared = historical("prepared.json")
+    baseline = historical("physical-rollback-baseline.json")
+    arm = historical("physical-rollback-intent.json")
+    confirmation = historical("physical-confirmation-intent.json")
+    observation = historical("physical-observation-intent.json")
+    arrival = historical("physical-rollback-arrival.json")
+    intent = historical("rollback-intent.json")
+    result = historical("rollback-result.json")
+    cage = historical("rollback-cage-quiescent.json")
+    final = historical("final-health.json")
+    terminal = historical("terminal.json")
+    binding = prepared["binding"]
+    key = engine.digest(binding)
+    require(all(record["binding_sha256"] == key for record in
+                (prepared, arm, confirmation, observation, arrival, intent, result, final, terminal))
+            and baseline["endpoint_count"] == 0 and arm["baseline"] == baseline
+            and arm["baseline_sha256"] == observation["baseline_sha256"] == arrival["baseline_sha256"]
+            == engine.digest(baseline)
+            and confirmation["arm_sha256"] == engine.digest(arm)
+            and confirmation["no_replay"] is True and observation["no_replay"] is True
+            and arm["branch"] == "attended-entry-required" and arrival["branch"] == "attended-entry"
+            and intent["no_replay"] is True and intent["attempt"] == 1
+            and result["replay_permitted"] is False and result["host_process_quiescence_proved"] is True
+            and cage["empty_and_removed"] is True and cage["cage_binding_sha256"]
+            == engine.digest(intent["process_cage"]),
+            "retained physical entry/rollback effect chain differs")
+
+    arrival_endpoint = exit_d1.validate_endpoint(arrival["endpoint"])
+    transfer_endpoint = exit_d1.validate_endpoint(intent["endpoint"])
+    for label, expected_listing, listing_sha in (
+            ("p0-odin-listing-0091", [], baseline["listing_sha256"]),
+            ("p0-odin-listing-0099", [arrival_endpoint["device"]], arrival["arrival_listing_sha256"])):
+        handle, stdout, stderr = historical_capture(label, engine.MAX_ADB_BYTES)
+        prefix = engine.ODIN_CAGE_ENTRY_MARKER
+        listing = stdout[len(prefix):]
+        require(engine.raw_dispatch_proved(handle, stderr) and stdout.startswith(prefix)
+                and hashlib.sha256(listing).hexdigest() == listing_sha
+                and engine.parse_download_listing(listing.decode("utf-8", "strict")) == expected_listing,
+                "retained raw physical Download listing differs")
+    twrp = source_view.read_file(TWRP_BASELINE, mode=0o400)
+    require(source_view.file_receipt(twrp)["sha256"] == TWRP_BASELINE_SHA,
             "retained TWRP baseline bytes differ")
-    retained = json.loads(baseline)["recovery_health"]["recovery"]
-    require(base["endpoint_count"] == 0 and arm["binding"]["baseline_sha256"] == exit_d1.canonical(base)
-            and arm["binding_sha256"] == exit_d1.canonical(arm["binding"])
-            and intent["binding_sha256"] == result["binding_sha256"] == arm["binding_sha256"]
-            and intent["command_shape"] == ["odin4", "--reboot", "-d", "USBFS"]
-            and intent["no_payload"] is True and intent["no_replay"] is True
-            and result["effect_command_count"] == 1 and result["returncode"] == 0
-            and result["post_state"] == "absent"
-            and result["verdict"] == "PASS_S20PLUS_G986N_DOWNLOAD_EXIT_NORMAL_HEALTHY"
-            and {key: health[key] for key in TARGET} == TARGET
-            and health["serial_sha256"] == retained["serial_sha256"]
-            and health["boot_id_sha256"] != retained["current_boot_id_sha256"]
-            and health["topology_sha256"] == endpoint["topology_sha256"],
-            "Download drill lacks proved payload-free return")
-    nodes = {name: receipt(run / name) for name in expected_nodes - {"exit.stdout", "exit.stderr"}}
-    for stream in ("stdout", "stderr"):
-        name = "exit." + stream
-        path = run / name
-        require(path.stat().st_size <= exit_d1.MAX_OUTPUT, "drill raw output exceeds its bound")
-        data = exit_d1.read_bytes_exact(path, "physical drill " + stream,
-                                        result[stream + "_sha256"])
-        nodes[name] = source_view.file_receipt(data)
-    require(sealed["nodes"] == nodes, "drill journal bytes differ")
-    return {"binding": receipt(DRILL_BINDING), "journal": sealed, "android": health}
+    known = json.loads(twrp)["recovery_health"]["recovery"]
+    before, after = binding["preflight"], final["health"]
+    require(engine.same_download_session(arrival_endpoint, transfer_endpoint)
+            and before["target"] == after["target"] == binding["target"] == TARGET
+            and before["serial_sha256"] == after["serial_sha256"] == known["serial_sha256"]
+            and before["topology_sha256"] == after["topology_sha256"] == arrival_endpoint["topology_sha256"]
+            and before["boot_id_sha256"] != after["boot_id_sha256"]
+            and final["rollback_outcome_proved"] is True and final["rollback_transfer_completed"] is True
+            and final["twrp_recovery_healthy"] is True and terminal == close["terminal"]
+            and terminal["rollback_transfer_completed"] is True and terminal["rollback_attempts"] == 1
+            and terminal["rollback_replay_permitted"] is False
+            and terminal["verdict"] == "NO_PROOF_NATIVE_PID1_RETURNED_TWRP_HEALTHY",
+            "retained physical target or terminal differs")
+
+    prior_rollback = binding["closure"]["rollback"]
+    expected_ap = pair["rollback"]["ap"]
+    transport = result["receipt"]
+    require(prior_rollback["ap"] == transport["ap"] == expected_ap
+            and intent["ap_sha256"] == expected_ap["sha256"]
+            and transport["endpoint_path_sha256"] == transfer_endpoint["endpoint_sha256"]
+            and transport["endpoint_pre_identity"] == transfer_endpoint["endpoint_identity"]
+            and transport["command_shape"] == ["odin4", "-a", "AP.tar.md5", "-d", "USBFS"]
+            and prior_rollback["decoded_boot"] == {
+                **pair["rollback"]["decoded_boot"], "binding": "exact-member-plus-reviewed-manifest"},
+            "retained physical recovery used a different rollback")
+    capture_path = P2_RUN / "rollback-transfer.capture.json"
+    require(transport["raw_capture_receipt"] == {"path": str(capture_path), **receipt(capture_path)},
+            "retained physical rollback capture differs")
+    handle, stdout, stderr = historical_capture("rollback-transfer", engine.MAX_RAW_BYTES)
+    for stream, data in (("stdout", stdout), ("stderr", stderr)):
+        require(result[stream + "_sha256"] == hashlib.sha256(data).hexdigest(),
+                "retained rollback stream differs")
+    require(result["classification"] == engine.classify_odin_capture(handle, stdout, stderr)
+            == "odin_transfer_completed", "retained physical rollback transfer is unproved")
+    return {"source": "closed_P2_physical_download", "close": close_pin, "terminal": receipt(P2_RUN / "terminal.json"),
+            "original_ap_sha256": expected_ap["sha256"], "target": TARGET,
+            "serial_sha256": after["serial_sha256"], "topology_sha256": after["topology_sha256"]}
 
 
-def check_drill_start(health, drill):
-    expected = drill["android"]
-    require(all(health[key] == expected[key] for key in marker.IDENTITY),
-            "original Magisk preflight differs from the physical drill return")
+def check_recovery_identity(health, recovery):
+    require(health["target"] == recovery["target"]
+            and all(health[key] == recovery[key] for key in marker.IDENTITY[:2]),
+            "current rooted Android does not match the proved physical recovery path")
 
+
+def wait_bound_download(baseline, timeout=None):
+    arrival = original_wait(baseline, engine.DOWNLOAD_ARRIVAL_SECONDS if timeout is None else timeout)
+    lease = runtime._require_live_transaction()
+    if arrival is not None and lease["entrypoint"] == "prepare":
+        run = Path(lease["run_dir"])
+        preflight = engine.read_json(run / "preflight.json", "current Android preflight")
+        require(arrival["endpoint"]["topology_sha256"] == preflight["topology_sha256"],
+                "current Download arrival differs from the proved physical recovery topology")
+    return arrival
 
 def validate_manifest():
     read_pair()
@@ -248,7 +327,7 @@ def validate_host_closure(*, include_candidate=True, include_rollback=True):
                         "registry": runtime._registry_authority()}
     if ACTIVE:
         require_active()
-        value["uniloader"]["physical_drill"] = physical_drill()
+        value["uniloader"]["physical_recovery"] = retained_physical_recovery()
     return value
 
 
@@ -319,7 +398,7 @@ def marker_result(run, phase, before, after, prepared):
     validate_root(run, before, before_root)
     validate_root(run, after, after_root)
     if phase == "preflight":
-        check_drill_start(before, physical_drill())
+        check_recovery_identity(before, retained_physical_recovery())
         start = {key: before[key] for key in marker.IDENTITY[:2]}
         prior = ()
     else:
@@ -399,7 +478,7 @@ def resident_health(run, name, expected_serial=None):
         require_new_effect_owner_clear()
     health, serial = original_health(run, name, expected_serial)
     if name == "preflight-root":
-        check_drill_start(health, physical_drill())
+        check_recovery_identity(health, retained_physical_recovery())
         result = acquire_marker(run, "preflight", health, serial, None)
         require(result["marker_status"] == "ABSENT", "original FDT baseline is unproved")
     return health, serial
@@ -546,9 +625,10 @@ def terminal_verdict(classification, claim, rollback):
 
 
 def _configure_runtime(module):
-    global runtime, engine, original_health, original_publish, inherited_namespace
+    global runtime, engine, original_health, original_publish, original_wait, inherited_namespace
     runtime, engine, inherited_namespace = module, module.engine, module.validate_namespace
     original_health, original_publish = engine.resident_health_once, engine.publish_terminal_from_final
+    original_wait = engine.wait_download
     candidate = pair["candidate"]
     values = {"VERSION": PROFILE, "RUN_ROOT": RUN_ROOT, "CLAIM_ROOT": RUN_ROOT / "consumed-candidates",
               "OUTPUT_ROOT": PAIR.parent, "MANIFEST": PAIR, "MANIFEST_SIZE": 1818,
@@ -579,6 +659,7 @@ def _configure_runtime(module):
     module.derive_terminal_verdict = terminal_verdict
     module._BOUND_REGISTRY_APIS["require_no_f1_owner"] = module.registry.require_no_f1_owner
     engine.resident_health_once = resident_health
+    engine.wait_download = wait_bound_download
     engine.publish_terminal_from_final = checked_terminal
 
 
@@ -696,7 +777,9 @@ def main(argv=None):
     module = enter_runtime()  # Retained bytes mandatory even on direct inner invocation.
     if args.validate_host:
         closure = validate_host_closure()
+        recovery = retained_physical_recovery()
         print(json.dumps({"status": "PASS_UNILOADER_F1_HOST", "closure_sha256": engine.digest(closure),
+                          "physical_recovery_source": recovery["source"],
                           "device_commands": 0, "f1_approval": False}, sort_keys=True))
         return 0
     require_active()
