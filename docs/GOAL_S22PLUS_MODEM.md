@@ -8,6 +8,8 @@
 
 **2026-11-22 실기 결과.** MPSS를 끈 채로 S22+를 메인라인에 한 번 부팅했다. 동일 부팅의 인증된 USB 응답에서 지정된 SCM 장치의 드라이버 연결(`bound`)을 확인했다. 후보와 원래 Android는 각각 한 번 전송했고 최종 건강 상태는 `ANDROID_CLOSED_HEALTHY`다. 이 후보와 승인은 소모됐다. 다음 실기 설계의 질문은 고정 RMTFS 메모리에 대한 VMID 15 권한 요청의 실제 반환값이다. IRQ 등록 여부는 별도 미확인 항목이다. [실기 관측과 복구 근거](reports/S22PLUS_MAINLINE_SCM_USB_RUN_2026-11-22.md)
 
+**VMID 15 후속 실험은 복구 근거 대기 중이다.** 2.5 MiB 메인라인 예약 영역은 순정에서 실측한 모뎀 UIO 범위와 겹치지 않는다. 선택한 RMTFS 드라이버는 HLOS 단독 권한으로 되돌리는 호출의 결과를 버린다. 원래 Android AP와 이전 복구 기록은 재검증했다. 실기 진행에는 권한 반환 실패나 강제 리셋 뒤에도 같은 영역의 VMID 15 권한을 회수할 수 있다는 근거가 필요하다. 이번 권한 요청은 미실행이다. [호스트 분기 시험과 복구 검토](reports/S22PLUS_RMTFS_VMID15_RECOVERY_H0_2026-11-22.md)
+
 MODEMST1·MODEMST2·FSG의 별도 순정 1회 관측도 끝났다. 그 실측 결과는 `workspace/private/runs/s22plus-nv-summary-DT4HWb8w/summary.md`에 있다.
 
 ### 첫 H0 입력과 판독 결과
