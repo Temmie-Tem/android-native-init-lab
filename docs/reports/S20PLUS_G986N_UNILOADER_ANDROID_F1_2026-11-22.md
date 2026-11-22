@@ -129,3 +129,16 @@ The separate activation record SHA-256 is
 `f5c4dd1fdcfc510a388b003dd278f9d4733459e7d5365609208dab980eba5cee`.
 Activation and artifact validation sent no device commands. The first
 run's original AP, source activation, and journal remain preserved.
+
+## Corrected AP preparation
+
+The original Magisk Android preflight passed on the exact current S20+.
+It proved UID 0, Magisk 30.7 and absence of the fixed FDT marker on
+that boot. The owner revalidated the successor activation and both APs,
+issued one journaled ADB Download request and qualified the new endpoint
+on the demonstrated recovery topology at 22:40:38 KST on November 22.
+The new prepared record SHA-256 is
+`cf8a28aa76e192e49fcf98a1f36107470fec31242bac0757c2f8dc5b0aa50b36`.
+The session holds the shared action guard and awaits its own attended
+approval, valid through 22:55:38 KST. Approval consumption, candidate
+transfer and rollback transfer are all absent from the new journal.
