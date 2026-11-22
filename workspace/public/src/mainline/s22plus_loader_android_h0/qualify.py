@@ -283,7 +283,7 @@ def run_case(blob,record,syms,source,fdt,*,expected,full=False,fdt_address=INPUT
     del u;gc.collect();return row,cloned
 
 
-def logm_cases(blob,record,syms,cloned,output):
+def logm_cases(blob,record,syms,cloned,output,*,shard=0,shards=1):
     """Actual linked C/ABI/volatile-access behavior; no emulated physical claim."""
     from unicorn import arm64_const as regs
     config=profile.logm_binding(record['logm_control'],record['marker'])
@@ -326,7 +326,8 @@ def logm_cases(blob,record,syms,cloned,output):
     for name,props in [('duplicate-log-node',{'compatible':b'samsung,kernel_log_buf\0'}),
                        ('duplicate-reference',{'phandle':struct.pack('>I',0x5ad)})]:
         inputs.append((name,400,0x4d474f4c,None,None,4,0,add_root_alias(bytes(fresh),'unexpected',props)))
-    for name,idx,magic,drift,corrupt,el,state,fdt in inputs:
+    require(0<=shard<shards<=len(inputs),'invalid LOGM corpus shard')
+    for name,idx,magic,drift,corrupt,el,state,fdt in inputs[shard::shards]:
         u,_=machine(blob,record,syms,s['_head'],fdt,fdt_address=fdt_address)
         original=log_seed(idx,magic);u.mem_write(LOG_BASE,original)
         rp=properties(fdt)[('/chosen',profile.LOGM_PROPERTY)][0]+fdt_address

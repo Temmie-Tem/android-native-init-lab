@@ -142,10 +142,12 @@ FDT preparation, before and after the LOGM call or skip, and before report
 finalization. The frequency register is read before any LOGM access.
 A frequency outside the nonzero 32-bit report range skips LOGM and leaves
 the timer report unfinalized. The arm does not change exception vectors,
-mappings or timer controls. The physical timer accessibility check belongs
-to the attended candidate experiment; the unchanged physical Download
-and original-A recovery contract covers a failed boot. Emulator timing
-is qualification evidence for the code and wire format.
+mappings or timer controls. Real-board reads of `CNTVCT_EL0` and `CNTFRQ_EL0` remain to be
+observed. The operator runs the off arm first. Physical Download and
+original-A recovery cover a failed boot. A boot failure yields no timing
+sample and cannot attribute the failure to a counter trap. Emulator timing
+qualifies the code and wire format. The existing linked LOGM guard and
+interruption corpus must pass against the exact on-arm executable.
 
 Between the same two complete candidate Android brackets, this variant
 has two fixed bounded reads of 128 bytes each. It reads the LOGM report
@@ -154,9 +156,10 @@ shell-v2, close-before-interpretation, time and USB binding as the original
 LOGM reads. This variant has no snapshot or post-closure read. Malformed or
 changed evidence is handled by the existing owner, and a matching unfinalized
 timing seed or ordinary negative writer outcome cannot be used as a valid
-performance sample. The host records elapsed time from original N launch to
-the first passed candidate ready check. Do not subtract timestamps from
-different clocks. A pair's report uses both condition labels and both
+performance sample. A committed report with out-of-order ticks is malformed.
+The host measures from original N launch to the start of the first identity
+and health bracket after the Android readiness check, using host BOOTTIME
+at both endpoints. Do not subtract timestamps from different clocks. A pair's report uses both condition labels and both
 independent original-A closures. The ordinary 1,800-second grant, 240-second
 observation window, final candidate proof, one-shot restore and no-replay
 conditions remain the same.

@@ -12,7 +12,7 @@ import s22plus_loader_android_access_v1 as access
 import s22plus_loader_android_profile_v1 as profile
 import s22plus_native_records_v3 as records
 import device_action_raw_capture_v1 as raw
-from mainline.s22plus_loader_android_h0 import timing
+timing = profile.timing_codec()
 
 
 class TimingTests(harness.ProofTests):
@@ -73,7 +73,7 @@ class TimingTests(harness.ProofTests):
                 first = records.read(records.verify(measurement['before']))
                 attempt = records.read(records.verify(first['attempt']))
                 launch = records.read(records.verify(self.launch))
-                self.assertEqual(measurement['host_transfer_launch_to_android_ready_ns'],
+                self.assertEqual(measurement['host_transfer_launch_to_android_proof_start_ns'],
                                  attempt['started_ns'] - launch['boottime_ns'])
                 with mock.patch.object(access.raw, 'acquire_command', side_effect=AssertionError('new IO')):
                     self.assertEqual(access.rederive(self.adapter, self.request), value)
@@ -82,8 +82,12 @@ class TimingTests(harness.ProofTests):
                     access.return_proof(self.adapter, self.request, result)
 
     def test_timing_valid_negative_diagnostics_allow_healthy_return(self):
-        self.timer = timing.seed(self.config['marker'])
-        self.assertEqual(self.observe()['timing_control']['status'], 'TIMING_UNAVAILABLE')
+        for enabled in (False, True):
+            with self.subTest(enabled=enabled):
+                self.setUp()
+                self.set_arm(enabled)
+                self.timer = timing.seed(self.config['marker'])
+                self.assertEqual(self.observe()['timing_control']['status'], 'TIMING_UNAVAILABLE')
         self.setUp()
         self.set_arm(True, status='SKIP_MAGIC')
         value = self.observe()

@@ -97,7 +97,8 @@ def source_paths(root,selected=profile,*,image=None):
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_profile_v1.py',
             'workspace/public/src/scripts/revalidation/s22plus_loader_android_access_v1.py',
             'workspace/public/src/scripts/revalidation/s22plus_loader_prefix_v1.py',
-            'workspace/public/src/scripts/revalidation/s22plus_loader_android_session_v1.py']
+            'workspace/public/src/scripts/revalidation/s22plus_loader_android_session_v1.py',
+            'workspace/public/src/scripts/revalidation/s22plus_fyg8_retained_snapshot_model.py']
         paths += ['workspace/public/src/mainline/s22plus_loader_android_h0/'+name for name in
                   ('build.py','guard.c','logm-control.c','logm-layout.h','prefix-control.c','prefix-entry.S',
                    'prefix_image.py','prefix_qualify.py','uniloader-android.patch','qualify.py','entry_vm.py',
@@ -127,6 +128,7 @@ def source_pins(root,selected=profile,*,image=None):
 def loader_build_only(path):
     return (path.startswith('workspace/public/src/mainline/s22plus_loader_android_h0/')
         and path!='workspace/public/src/mainline/s22plus_loader_android_h0/timing.py' or
+        path=='workspace/public/src/scripts/revalidation/s22plus_fyg8_retained_snapshot_model.py' or
         path in {'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
             ('build_loader.py','build_kernel.py','prepare_marked.py','retained-marker.S',
              'package_loader.py','qualify_loader.py','uniloader-g0q-entry.patch','sources.json')})

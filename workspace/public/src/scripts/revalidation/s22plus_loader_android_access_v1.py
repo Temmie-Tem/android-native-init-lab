@@ -163,7 +163,7 @@ def rederive_logm(adapter,request,first_receipt,window):
         result=profile.timing_projection(data['timing'],data['report'],
             image['logm_control']['configuration'],image['timing_control'])
         first_attempt=read(verify(first_complete['attempt']))
-        result['host_transfer_launch_to_android_ready_ns']=first_attempt['started_ns']-window['opened_ns']
+        result['host_transfer_launch_to_android_proof_start_ns']=first_attempt['started_ns']-window['opened_ns']
     else:result=profile.logm_projection(data['report'],data['last-kmsg'],request['N']['logm_control']['configuration'])
     result.update(capture=pin(folder/'complete.json'),before=first_receipt,after=complete['after'],
                   same_candidate_android_boot=True)

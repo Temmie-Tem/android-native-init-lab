@@ -1,13 +1,17 @@
 """Verify the actual FYG8 timing pair before the isolated H0 packager."""
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 import hashlib
 import json
 from pathlib import Path
 import struct
 
+import build as builder
 from build import pin, require
 import qualify as arm64
+import s22plus_loader_android_profile_v1 as profile
 from s22plus_loader_android_profile_v1 import LOGM_PROPERTY, logm_report
+import s22plus_fyg8_retained_snapshot_model as snapshot_model
 import timing
 
 
@@ -28,7 +32,7 @@ def project_arm(properties, build):
     return dict(report, writer=writer)
 
 
-def check_arm(folder, mode):
+def check_arm(folder, mode, writer_cases):
     build_path = folder/f'build-{mode}/result.json'
     vm_path = folder/f'vm-{mode}/result.json'
     build, vm = (json.loads(p.read_text()) for p in (build_path, vm_path))
@@ -41,6 +45,9 @@ def check_arm(folder, mode):
         require(pin(build[key]['path'])==build[key], 'build bytes changed: '+key)
     blob = Path(build['loader']['path']).read_bytes()
     syms = arm64.symbols(build['elf']['path'])
+    guard_offset = syms['_guard_passed'][0] - syms['_head'][0]
+    require(blob[guard_offset:guard_offset+8] == struct.pack('<II',0xd5033fdf,0xd53be05b),
+            'linked guard does not sample CNTVCT_EL0 into x27')
     fdt = Path(build['retained_fdt']['path']).read_bytes()
     tested = []
     for label,data,outcome in (
@@ -62,6 +69,9 @@ def check_arm(folder, mode):
         data = full['/chosen'][timing.PROPERTY]
         projected = project_arm(full['/chosen'],build)
         require(projected['stages']==row['timing']['stages'],'retained timing report differs')
+        require(0 < projected['stages']['guard_passed'] <= 240*projected['counter_hz'] and
+                projected['intervals_ns']['guard_to_report_commit_sample'] < 240_000_000_000,
+                'emulated guard or handoff tick falls outside the QEMU window')
         negatives = (
             data[:-1],
             data[:15]+b'\0'+data[16:],
@@ -78,6 +88,10 @@ def check_arm(folder, mode):
                 raise ValueError('malformed timing evidence accepted')
 
     conf = build['logm_control']['configuration']
+    if armed:
+        result = json.loads(writer_cases.read_text())
+        require(result['status']=='PASS_H0_ACTUAL_LOADER_LOGM_CONTROL' and result['configuration']==conf,
+                'actual linked LOGM guard qualification differs')
     data_spans = {
         'g0q_logm_frame': bytes.fromhex(conf['frame_hex']),
         'g0q_logm_report_seed': bytes.fromhex(conf['report_seed_hex']),
@@ -99,9 +113,50 @@ def check_arm(folder, mode):
     return build,vm,masked,spans,tested
 
 
-def verify_pair(folder):
+def writer_shard(folder,shard,shards):
+    build=json.loads((folder/'build-on/result.json').read_text())
+    entry=json.loads((folder/'vm-on/result.json').read_text())
+    for key in ('loader','elf'):
+        require(pin(build[key]['path'])==build[key], 'writer input differs')
+    evidence=entry['cases'][0]['timing_report']
+    require(pin(evidence['path'])==evidence,'writer fixture differs')
+    blob=Path(build['loader']['path']).read_bytes()
+    cloned=Path(evidence['path']).read_bytes()
+    out=folder/f'writer-shard-{shard:02}'
+    out.mkdir(mode=0o700)
+    arm64.logm_cases(blob,build,arm64.symbols(build['elf']['path']),cloned,out,shard=shard,shards=shards)
+    return pin(out/'logm-cases.json')
+
+
+def qualify_linked_writer(folder,shards):
+    require(1<=shards<=8,'writer corpus supports one to eight workers')
+    with ProcessPoolExecutor(max_workers=shards) as executor:
+        receipts=list(executor.map(writer_shard,[folder]*shards,range(shards),[shards]*shards))
+    results=[json.loads(Path(row['path']).read_text()) for row in receipts]
+    common={key:value for key,value in results[0].items() if key!='cases'}
+    require(all({key:value for key,value in result.items() if key!='cases'}==common for result in results),
+            'writer shards disagree about linked evidence')
+    cases=[case for result in results for case in result['cases']]
+    require(len(cases)==len({case['name'] for case in cases}),'writer shards are not disjoint')
+    merged=folder/'linked-writer-results.json'
+    merged.write_text(json.dumps(dict(common,cases=cases),indent=2)+'\n')
+    build=json.loads((folder/'build-on/result.json').read_text())
+    receipt=folder/'linked-writer.json'
+    receipt.write_text(json.dumps(dict(schema='s22plus-linked-timing-logm-cases-v1',
+        elf=build['elf'],loader=build['loader'],results=pin(merged),shards=receipts),indent=2)+'\n')
+    return receipt
+
+
+def verify_pair(folder, writer_cases):
     folder = Path(folder).resolve()
-    results = {mode:check_arm(folder,mode) for mode in ('off','on')}
+    # The caller can run the existing linked-writer corpus before pair packaging.
+    # Bind its executable and configuration to the candidate below.
+    writer_cases = Path(writer_cases).resolve()
+    writer = json.loads(writer_cases.read_text())
+    require(pin(writer['results']['path'])==writer['results'],'writer corpus bytes differ')
+    results = {mode:check_arm(folder,mode,Path(writer['results']['path'])) for mode in ('off','on')}
+    require(writer['loader']==results['on'][0]['loader'] and writer['elf']==results['on'][0]['elf'],
+            'writer qualification belongs to another executable')
     off, on = results['off'], results['on']
     require(off[2]==on[2] and off[3]==on[3], 'executable bytes or data placement differs')
     for key in ('configuration','extents','runtime_symbols','retained_fdt','original_a'):
@@ -111,6 +166,8 @@ def verify_pair(folder):
     pair = dict(schema='s22plus-timing-pair-h0-v1',masked_loader_sha256=hashlib.sha256(off[2]).hexdigest(),
                 data_only_spans=off[3],vendor_kernel_sha256=off[0]['kernel']['sha256'],
                 retained_fdt=off[0]['retained_fdt'],source=pin(__file__),device_actions=0,
+                arms={mode:dict(loader=build['loader'],elf=build['elf'],marker=build['marker'])
+                      for mode,(build,_,_,_,_) in results.items()},
                 physical_counter_access_proved=False)
     (folder/'pair.json').write_text(json.dumps(pair,indent=2)+'\n')
     for mode,(build,_,_,_,tested) in results.items():
@@ -119,7 +176,11 @@ def verify_pair(folder):
         result=dict(status='PASS_H0_LOADER_TIMING_PAIR_ARM',loader_sha256=build['loader']['sha256'],
                     timing_control=build['timing_control'],pair=pin(folder/'pair.json'),
                     actual_arm64_guard=tested,actual_entry=pin(folder/f'vm-{mode}/result.json'),
-                    source=pin(__file__),report_rejection_cases_per_el=5,device_actions=0)
+                    source=pin(__file__),source_pins=[pin(p) for p in (
+                        arm64.__file__,arm64.shared.__file__,builder.__file__,timing.__file__,
+                        profile.__file__,snapshot_model.__file__,builder.COMMON/'prepare.py')],
+                    logm_configuration=build['logm_control']['configuration'],
+                    linked_writer=pin(writer_cases),report_rejection_cases_per_el=5,device_actions=0)
         (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
     print('PASS_H0_LOADER_TIMING_PAIR_ARM off/on with identical normalized ARM64 code')
 
@@ -127,4 +188,7 @@ def verify_pair(folder):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('folder',type=Path)
-    verify_pair(parser.parse_args().folder)
+    parser.add_argument('--workers',type=int,default=1)
+    args=parser.parse_args()
+    folder=args.folder.resolve()
+    verify_pair(folder,qualify_linked_writer(folder,args.workers))
