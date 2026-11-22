@@ -75,6 +75,17 @@ def _consistent(out):
         raise ValueError('MAX77705 record lacks exactly one leading begin event')
     if any(b['t_ms'] < a['t_ms'] for a, b in zip(events, events[1:])) or events[-1]['t_ms'] > out['elapsed_ms']:
         raise ValueError('MAX77705 event times are out of order')
+    # Kind/status pairs the producer can emit (max77705-usb-observe.h mx_begin/mx_tick):
+    # begin always attempts the first command; a status event is a skipped read;
+    # on-event and periodic events attempt a command or hit the limit.
+    for e in events:
+        st, kind = e['ctrl1_status'], e['kind']
+        if (kind == 'begin' and st not in COMMANDED or
+                kind == 'status' and st != 'skipped' or
+                kind in ('on-event', 'periodic') and st == 'skipped'):
+            raise ValueError('MAX77705 event kind and read status disagree')
+    if any(e['ctrl1_status'] == 'limit' for e in events) and out['commands'] != COMMAND_LIMIT:
+        raise ValueError('MAX77705 limit status before the command limit')
     if sum(e['ctrl1_status'] in COMMANDED for e in events) > out['commands']:
         raise ValueError('MAX77705 commanded events exceed the command count')
     if out['events_total'] <= EVENTS and sum(e['ctrl1_status'] in COMMANDED for e in events) != out['commands']:

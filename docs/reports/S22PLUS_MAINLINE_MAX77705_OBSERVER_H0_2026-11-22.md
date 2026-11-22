@@ -147,7 +147,10 @@ Before any verdict, the decoder rejects records the observer cannot produce:
 - events or commands without an identified adapter;
 - anything other than exactly one leading `begin` event;
 - event times out of order or past the elapsed time;
-- more commanded events than commands.
+- more commanded events than commands;
+- an event kind paired with a read status the producer never emits, for
+  example a `begin` without an attempted command, or a `limit` status before
+  32 commands.
 
 The HMAC proves the record's origin, not its sanity, so the decoder checks
 both.
@@ -239,14 +242,14 @@ The scripts were copied into a new private directory, not run in place.
 
 | Item | Value |
 |---|---|
-| AP | `a3fd5a78a0c35662d0c1e3bf3a01a2ba8d3e488584286d7012dfcbf38e53a92e`, 25,497,641 B; two independent packagings are byte-identical |
-| boot v4 (96 MiB) | `1dd9736f…06d6`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
-| uniLoader | `d6714269…1f12`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
+| AP | `c3ce382a9f3cb27b32fd5d1eaa7a43fe2983c2f99ea7fd2a37a0c18579ab2ef9`, 25,497,641 B; two independent packagings are byte-identical |
+| boot v4 (96 MiB) | `3b4f3039…2d86`; outer envelope, ramdisk, signature and AVB trailer retained from the original A |
+| uniLoader | `6d89f7bd…0349`, 45,728,128 B; placement guard passed, no fixed-reservation overlap |
 | Image / DT inside the loader | `d7df52a1…f609` / `51b58a40…8235` (Stage 1b) |
-| Board observer | `4448c2d9…15f0`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
-| RAM archive | `8281864a…716d`; versus ML022, only the observer member differs |
-| Loader-handed DT | 500,000 B, `a08664d2…cba9` (the verifier's expected FDT) |
-| Board decoder | `112526af…f93a`; the record decoder is embedded (see below) |
+| Board observer | `6711b117…24b2`, 664,152 B. Built with `-std=c11 -Os -Wall -Wextra -Werror`. UDC `a600000.usb`; MACs and serial derived from the candidate identity |
+| RAM archive | `4c39d880…c71b`; versus ML022, only the observer member differs |
+| Loader-handed DT | 500,000 B, `67930f68…2ceb` (the verifier's expected FDT) |
+| Board decoder | `c1974798…48cd`; the record decoder is embedded (see below) |
 | Original A | `2e541703…967e`, equal to the target's final-health boot |
 
 **Loader checks.**
@@ -310,9 +313,13 @@ also showed that any first CONTROL1 value other than `0x09` counted as
 was rebuilt again. Every check above passed, plus one more rejection (a
 command count of 255).
 
-Artifacts: private `s22plus-max77705-board-artifact.DL9qsjR8/`. The manifest
-is `final-h47n110g/qualified-artifact.json` (`d1d65b54…6cac`). AP `680ad421…`
-and AP `f3f5cec7…` are superseded.
+A second review round found that a `begin` event marked `skipped` still
+passed. The kind/status checks were added and the package was rebuilt a third
+time; all checks passed again.
+
+Artifacts: private `s22plus-max77705-board-artifact.64Mdgw1G/`. The manifest
+is `final-w_6mo8ll/qualified-artifact.json` (`eeebf904…4569`). APs
+`680ad421…`, `f3f5cec7…` and `a3fd5a78…` are superseded.
 
 ## SE5 sharing review
 

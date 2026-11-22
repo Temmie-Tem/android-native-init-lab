@@ -142,7 +142,7 @@ class StagingTests(unittest.TestCase):
         total, slots = 60, [None] * rec.EVENTS
         for n in range(1, total + 1):
             slot = n - 1 if n <= rec.EVENTS else rec.EVENTS // 2 + (n - 1 - rec.EVENTS // 2) % (rec.EVENTS // 2)
-            slots[slot] = (n * 100, 0 if n == 1 else 1, 0, 0, 4)
+            slots[slot] = (n * 100, 0, 0, 0x3f, 0) if n == 1 else (n * 100, 1, 0, 0, 4)
         d = rec.decode(record(events=slots, total=total))
         self.assertEqual(len(d['events']), 48)
         times = [e['t_ms'] for e in d['events']]
@@ -156,6 +156,8 @@ class StagingTests(unittest.TestCase):
             'out of order': record(events=[(9000, 0, 0, 0x3f, 0), (5, 3, 0x22, 0x3f, 0)]),
             'leading begin': record(events=[(5, 2, 0, 0x3f, 0)]),
             'events without an identified adapter': record(adapter=1, events=ok),
+            'kind and read status disagree': record(events=[(5, 0, 0, 0, 4), (9000, 3, 0x22, 0x09, 0)]),
+            'limit status before the command limit': record(events=[(5, 0, 0, 0x3f, 0), (9000, 2, 0, 0, 5)]),
         }
         big = bytearray(cases['command count exceeds'])
         big[32] = 255
