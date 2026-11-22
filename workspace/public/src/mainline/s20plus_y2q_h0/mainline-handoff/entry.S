@@ -30,9 +30,13 @@ y2q_stage:
     tbnz x8,#2,reject_cpu
     tbnz x8,#25,reject_cpu
     mrs x8, daif
-    and x8,x8,#0x3c0
-    cmp x8,#0x3c0
+    and x8,x8,#0x1c0
+    cmp x8,#0x1c0
     b.ne reject_cpu
+    /* The IYC2 cleanup masks asynchronous aborts and IRQ/FIQ, but inherits
+     * PSTATE.D. Complete the Linux entry mask before accessing the FDT. */
+    msr daifset, #8
+    isb
     ldr x8,=SRC_MIN
     subs x8,x29,x8
     b.lo reject_source

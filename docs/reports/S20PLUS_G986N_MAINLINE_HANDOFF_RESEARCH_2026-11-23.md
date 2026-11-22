@@ -124,3 +124,25 @@ Opus 5.5와 세 번째로 대조해 런타임 EFI 조회 성공 여부, 펌웨�
 Opus 5.5와 펌웨어의 DT 선택, MMU 이전 정렬 접근, 캐시 상태와 단계 관측을 대조했다. 이번에는 모델에서 관측한 커널의 FDT 처리와 풀 할당까지 증거가 있다. 실기 펌웨어의 후보 선택과 초도 진입, 실기 Linux 및 PID 1 도달은 미확인이다. 이번 구현·재현 과정에서 기기에 보낸 명령은 0건이다.
 
 이번 H0 독립 검토에서 풀 속성 중복 거부를 수정하고 최종 Image의 해당 거부 지점을 재검증했다. 최종 Image SHA-256은 `6a56253f53ad8fde25dda124269c7c1148874c47dd4e357d83f6d5583e1cff34`다. 빌드 입력, 실패한 이전 ELF의 예외 기록, 최종 91개 사례의 GDB 출력과 별도 할당 추적은 `workspace/private/analysis/s20plus-y2q-mainline-compose-20261123/qualified.json`에 연결했다. 이 증거 목록의 SHA-256은 `43b88dc31a008ca598b3ba24f79d0f941ccc380928752dbed4b23a6fca348d64`다.
+
+## Samsung 로그 링의 위치와 원복 시 읽는 내용
+
+IYC2 정상 LinuxLoader 모듈에서 Samsung의 `sec_log` 부팅 인수를 만드는 ARM64 명령과 실제 포맷 함수를 실행했다. 출력한 크기는 2 MiB였다. 이 링은 XBL의 15 MiB `SEC LOG` 선언과 1 MiB만 겹친다. 순정 보드 트리 6종 모두에서 링 전체가 Samsung 디버그 예약 안에 들어간다. 성공한 EFI 영역 조회를 전제로 새 메인라인 Image·기존 PROCA Image·원복용 Magisk Image의 적재 위치를 각각 64개씩 대조했다. 세 경우 모두 파일 복사, 선언한 커널 런타임, 상단 FDT·ramdisk 공간과 2 MiB 로그 링 사이의 중첩은 0건이었다. 앞서 관측한 48개 첫 명령 위치와 넓은 XBL 선언 사이의 중첩은 그대로다.
+
+복구된 실기에서 독립 검토를 마친 D0 프로필이 두 소스를 읽었다. 커널의 `/proc/cmdline`과 FDT의 `/chosen/bootargs` 양쪽에서 크기와 시작 주소가 펌웨어의 두 숫자와 일치했다. 기기·포트·부팅 ID 해시는 직전 PROCA 원복의 최종 건강 기록과 일치했다. 루트 명령은 분류값 12바이트를 반환했고 stderr는 비어 있었다. 이 관측에서는 로그 본문을 읽지 않았다. D0 커밋은 `3afb81c443`이다. [관측 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-foreground-samsung-log-argument-d0) · [chosen 노드 규약](https://devicetree-specification.readthedocs.io/en/stable/devicenodes.html#chosen-node)
+
+Samsung 배포 소스의 헤더와 초기화·기록·직전 로그 복사 함수 네 개를 원본 아카이브와 대조한 뒤 ARM64에서 실행했다. RAM과 I/O 복사는 호스트 메모리로 모델링했다. 정상 표식과 링 끝을 가로지른 표식은 모두 다음 스냅샷에서 복원됐다. 원래 헤더의 magic이 바뀐 경우, 한 바퀴가 넘도록 새 기록이 쌓인 경우, 기록기 시작 전인 경우, RAM 초기화, 표식 미기록 대조에서는 표식이 없었다. 각 스냅샷 생성 뒤 새로 쓴 표식도 이미 복사된 스냅샷에는 없었다. 실제 Download·펌웨어 초기화·원복 경로에서 링 헤더와 데이터가 보존되는지는 이 모델로 측정할 수 없다.
+
+Opus 5.5와 대조한 결과, 다음 실기의 양성 증거는 해당 실행에서만 생성 가능한 표식이어야 한다. 이전 원본 Android의 정상 로그가 보존된 것만으로도 복구 후 파일은 채워질 수 있다. 기존 PROCA 후보의 삼성 커널은 원본과 같고, 로더는 chosen 속성을 추가하나 그 값을 커널 로그에 출력하지 않는다. 과거 정상 배너로 해당 후보의 실행 여부를 가릴 수 없는 이유다. [순정 PMSG 복귀 대조](S20PLUS_G986N_PMSG_DOWNLOAD_CALIBRATION_H0_2026-11-22.md)
+
+## 펌웨어 정리 코드의 예외 마스크와 Android 컨테이너 대조
+
+실제 LinuxLoader의 부팅 서비스 종료 성공 경로는 CPU 정리 함수를 호출한 뒤 별도 함수와 최종 분기 경로를 거친다. ARM64 QEMU에서 정확한 정리 함수를 EL1·EL2에서 실행했다. 각 경우 시험용 항등 매핑과 켜진 MMU·데이터 캐시·명령 캐시로 시작했다. 복귀 때 세 기능은 꺼졌고 SError·IRQ·FIQ가 마스크됐다. 디버그 예외 마스크 `PSTATE.D`는 처음 값을 유지했다. QEMU 시험편은 여기서 곧바로 로더로 분기한다. 정리 뒤에 실행되는 펌웨어 경로와 실기 인계 순간의 D 값은 미측정이다.
+
+D가 0이면 기존 로더가 FDT 접근 전에 멈추는 현상을 두 EL에서 재현했다. 수정한 로더는 기존 SError·IRQ·FIQ 마스크를 확인한 뒤 D를 직접 세운다. 같은 펌웨어 대조 4건 모두 FDT 검사 진입점에서 네 마스크가 설정돼 있었다. 별도 VM 95건에서 새 raw Image는 74건의 전체 커널 복사·인수·FDT·트리 전개를 검증했고, 나머지 21건은 정해진 거부 지점에서 멈췄다. SError·IRQ·FIQ를 각각 풀어 둔 입력은 여전히 거부됐다. 과거 실기에서 같은 비트 때문에 정지했는지는 특정할 수 없다. [Linux ARM64 진입 규약](https://docs.kernel.org/6.18/arch/arm64/booting.html)
+
+새 raw Image와 이전부터 사용한 299,446바이트 initramfs를 실제 Android v2 boot 형식과 단일 `boot.img.lz4` 멤버의 `AP.tar.md5`에 넣었다. 기기용 보드 선택에 쓰는 순정 DTB는 그대로였다. AP를 다시 열어 풀었을 때 커널·initramfs·DTB 전체와 64 MiB 부트 크기가 일치했다. 원복 AP도 독립적으로 풀어 정확한 Magisk 원본과 대조했다. Android AVB 도구는 순정 배포본을 검증했고, 정상 부팅한 원본 Magisk와 새 운반 대조 이미지 둘 다 기존 서명 메타데이터의 boot 해시와 불일치한다고 보고했다. 새 이미지의 펌웨어 수용과 실기 부팅은 미검증이다. 이 AP에는 후보 전용 Samsung 로그 기록기가 없고, 실기 전송은 0건이다.
+
+비공개 재현 자료는 `workspace/private/analysis/s20plus-y2q-seclog-20261123/close.json`에 연결했다. 증거 목록 SHA-256은 `18665b78cbd55a65d129cc5653bff74b27d85222a44e6603b12dc7c7645407b5`다. 수정한 raw Image SHA-256은 `cfe380dd198b4e665b02d5e264a162617653345e1c474841ab1492f4223f01cf`다.
+
+독립 검토는 로그 인수 판독기와 CPU 진입 변경 각각 지적 0건으로 종료했다. CPU 검토는 기존·수정본의 정리 함수 실행 8건과 수정본 95건의 GDB 실행 파일·로그를 대조했다. D0의 실기 결과는 양쪽 인수의 일치까지이며, 다음 연구 단위는 후보 안에서만 만들어지는 단계 표식과 첫 원복에서 그 표식을 읽는 경로다.
