@@ -55,7 +55,25 @@ witness; the V6+ automatic result-bound Download and original-A recovery.
 **Not proven:** Linux UFS link, installed Debian, full SysV shutdown, a
 general shell, stall recovery, residency or endurance.
 
-### Selected unit: UFS module aligned with upstream tolerance (H0)
+### Selected unit: observe the first mainline USB connection
+
+On 2026-11-25 the operator prioritized USB. The next attended experiment
+compares the host port's connection history with the MAX77705 USB switch
+record from boot through the authenticated response. It asks whether the
+switch was already routed to USB before the phone-end replug and how its
+state changed afterwards. A switch reading describes that boot only.
+
+The [MAX77705 observation](docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md)
+and its v59 review set were adopted on main in `70a5449b49`. The host checked
+all three real cue-dialog button outcomes in an isolated UI test. The exact
+board candidate and original Android return were bound to a fresh one-run
+task. The foreground D0 confirmed rooted original Android and its four
+partition digests. At preparation close the grant was unopened and the
+candidate had not been transferred. The attended run still needs the
+operator's exact returned approval, physical presence and usable Download
+recovery. [USB observation plan](docs/reports/S22PLUS_MAINLINE_REPLUG_DEPENDENCY_ROOT_CAUSE_H0_2026-11-22.md)
+
+### UFS module aligned with upstream tolerance (queued)
 
 ML036–ML047 each stopped at one module guard. Every refusal with an upstream
 counterpart was a condition that upstream `ufshcd`/`ufs-qcom` accepts without
