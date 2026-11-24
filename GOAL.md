@@ -57,21 +57,16 @@ general shell, stall recovery, residency or endurance.
 
 ### Selected unit: observe the first mainline USB connection
 
-On 2026-11-25 the operator prioritized USB. The next attended experiment
-compares the host port's connection history with the MAX77705 USB switch
-record from boot through the authenticated response. It asks whether the
-switch was already routed to USB before the phone-end replug and how its
-state changed afterwards. A switch reading describes that boot only.
-
-The [MAX77705 observation](docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md)
-and its v59 review set were adopted on main in `70a5449b49`. The host checked
-all three real cue-dialog button outcomes in an isolated UI test. The exact
-board candidate and original Android return were bound to a fresh one-run
-task. The foreground D0 confirmed rooted original Android and its four
-partition digests. At preparation close the grant was unopened and the
-candidate had not been transferred. The attended run still needs the
-operator's exact returned approval, physical presence and usable Download
-recovery. [USB observation plan](docs/reports/S22PLUS_MAINLINE_REPLUG_DEPENDENCY_ROOT_CAUSE_H0_2026-11-22.md)
+On 2026-11-25 the first attended MAX77705 observation closed
+`OBSERVED_MAX77705_USB_SWITCH` / `ANDROID_CLOSED_HEALTHY` under the v59
+review set adopted in `70a5449b49`. The switch initially read open
+(`0x3f`). Later reads returned `0x00`, and the host enumerated the USB2
+gadget and received an authenticated response. No sample returned
+`COM_USB` (`0x09`). The USB routing at enumeration and the cause of the
+replug dependency remain open. Candidate and original Android each
+transferred once. The original owner finished with a health-only read after
+an ADB interruption. The candidate and approval are consumed.
+[Physical observation and recovery](docs/reports/S22PLUS_MAINLINE_MAX77705_USB_RUN_2026-11-25.md)
 
 ### UFS module aligned with upstream tolerance (queued)
 
