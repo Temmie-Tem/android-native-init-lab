@@ -1,7 +1,7 @@
 # Goal: S20+ G986N controlled onboarding
 
 Current research goal: establish a physically verified mainline handoff on the SM-G986N/y2q. The [handoff investigation](docs/reports/S20PLUS_G986N_MAINLINE_HANDOFF_RESEARCH_2026-11-23.md) traces the IYC2 firmware’s final ARM64 call through the y2q Linux 6.18 FDT and populated-root markers in QEMU with modeled firmware inputs.
-The exact Linux stage AP (6ba1cf82) and original Magisk rollback (1b33d098) have a reviewed and activated attended owner. Its host qualification and post-activation checks passed. Current attendance is needed for connected preparation, then the separate 900-second grant for candidate transfer. Physical Linux entry, first-return retained stages and PID 1 remain unproved.
+The first attended Linux stage trial closed on 2026-11-25 at 07:39 KST. The one candidate transfer (6ba1cf82) and one original Magisk transfer (1b33d098) completed. The first restored Android boot passed Magisk root health. Complete baseline and return Samsung log snapshots each contained zero candidate frames. The guard was released and the candidate remains consumed. Physical Linux entry and PID 1 remain unproved. The next discriminator is a distinct stock-origin marker through the same physical Download and rollback path.
 
 This file records current state only. It grants no device authority. The
 binding target contract is
