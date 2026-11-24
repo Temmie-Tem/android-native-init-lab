@@ -172,8 +172,10 @@ def review_sources(root):
         if p != root/mainline.SCM_MODULE and not marker_only(str(p.relative_to(root)))}
     mx_sources={p for p in source_paths(root,image={'schema':mainline.MX_SCHEMA},ordinary_cue=True)
         if p != root/mainline.MX_MODULE and not marker_only(str(p.relative_to(root)))}
+    mxr_sources={p for p in source_paths(root,image={'schema':mainline.MXR_SCHEMA},ordinary_cue=True)
+        if p != root/mainline.MXR_MODULE and not marker_only(str(p.relative_to(root)))}
     runtime_sources={root/'workspace/public/src'/path for path in BACKEND_RUNTIME_IMPORTS}
-    return sorted(set(paths)|mainline_sources|loader_sources|scm_sources|mx_sources|runtime_sources)
+    return sorted(set(paths)|mainline_sources|loader_sources|scm_sources|mx_sources|mxr_sources|runtime_sources)
 
 
 def verify_bridge(root, expected=None):

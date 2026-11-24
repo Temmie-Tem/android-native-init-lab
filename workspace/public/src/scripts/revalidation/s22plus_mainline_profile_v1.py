@@ -53,7 +53,7 @@ def unchanged(receipt,maximum=128*1024*1024):
 SCM_POLICY = 'docs/operations/S22PLUS_MAINLINE_SCM_USB_V1.md'
 SCM_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_usb_v1_review.json'
 SCM_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_V1'
-SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v4_review.json'
+SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v5_review.json'
 SCM_CUE_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_WITH_ORDINARY_CUE_V1'
 SCM_CUE_ADOPTION = b'Ordinary cue status: **REVIEW_GATED_CAPABILITY**'
 SCM_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_scm_v1.py'
@@ -67,7 +67,7 @@ def scm_board(image):
 
 
 MX_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md'
-MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v2_review.json'
+MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v3_review.json'
 MX_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_USB_V1'
 MX_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_v1.py'
 MX_SCHEMA = 's22plus-mainline-max77705-image-v1'
@@ -79,11 +79,25 @@ def max77705_board(image):
     return image.get('schema') == MX_SCHEMA
 
 
+# Stage 2: the same observation plus one gated CONTROL1_W(COM_USB).
+MXR_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md'
+MXR_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_v1_review.json'
+MXR_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_ROUTE_V1'
+MXR_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_route_v1.py'
+MXR_SCHEMA = 's22plus-mainline-max77705-route-image-v1'
+MXR_STATUS = 'AUTHENTICATED_MAX77705_ROUTE_TRANSCRIPT'
+MXR_WIRE_SCHEMA = 's22plus-fyg8-debian-max77705-route-v1'
+
+
+def max77705_route_board(image):
+    return image.get('schema') == MXR_SCHEMA
+
+
 def ordinary_cue(adapter, request):
     """Only a task bound to its board's dedicated reviewed cue scope can issue cues.
 
-    SCM has a no-cue and a cue scope; the MAX77705 observation needs the
-    replug, so it exists only with its cue scope."""
+    SCM has a no-cue and a cue scope; the MAX77705 observations need the
+    replug (Stage 2 as its fallback), so they exist only with their cue scopes."""
     image = request['N']
     if 'udc_observation' in image or image.get('ufs_link'):
         return False
@@ -91,6 +105,8 @@ def ordinary_cue(adapter, request):
         review = SCM_CUE_REVIEW
     elif max77705_board(image):
         review = MX_REVIEW
+    elif max77705_route_board(image):
+        review = MXR_REVIEW
     else:
         return False
     return adapter.configuration(request)['review']['path'] == str(adapter.root / review)
@@ -103,6 +119,9 @@ def observation_wire(manifest):
     if manifest.get('debian_ram', {}).get('schema') == MX_WIRE_SCHEMA:
         from s22plus_mainline_max77705_v1 import wire as mx_wire
         return mx_wire(manifest)
+    if manifest.get('debian_ram', {}).get('schema') == MXR_WIRE_SCHEMA:
+        from s22plus_mainline_max77705_route_v1 import wire as mxr_wire
+        return mxr_wire(manifest)
     return codec
 
 
@@ -113,6 +132,9 @@ def image_binding(image,*,artifact_bytes=False):
     if max77705_board(image):
         from s22plus_mainline_max77705_v1 import image_binding as bind_max77705
         return bind_max77705(image, artifact_bytes=artifact_bytes)
+    if max77705_route_board(image):
+        from s22plus_mainline_max77705_route_v1 import image_binding as bind_route
+        return bind_route(image, artifact_bytes=artifact_bytes)
     if 'ufs_link' in image:
         try:
             from s22plus_mainline_ufs_image_v1 import binding

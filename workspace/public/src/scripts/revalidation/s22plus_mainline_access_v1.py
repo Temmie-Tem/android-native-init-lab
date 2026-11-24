@@ -373,9 +373,9 @@ def rederive(adapter,request):
             return value
         except (ImportError, SyntaxError) as error:
             raise ValueError('SCM observation code unavailable') from error
-    if profile.max77705_board(request['N']):
+    if profile.max77705_board(request['N']) or profile.max77705_route_board(request['N']):
         # As for SCM: verify the review closure before importing candidate code.
-        # This observation exists only with its cue scope.
+        # These observations exist only with their cue scopes.
         try:
             from s22plus_mainline_task_v1 import capability
             require(profile.ordinary_cue(adapter, request), 'MAX77705 observation requires its cue scope')

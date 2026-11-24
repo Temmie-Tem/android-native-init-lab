@@ -22,6 +22,8 @@ def validate_result(adapter,step,value,request):
         expected=profile.SCM_STATUS
     if profile.max77705_board(request['N']):
         expected=profile.MX_STATUS
+    if profile.max77705_route_board(request['N']):
+        expected=profile.MXR_STATUS
     selected=download.selected(request)
     require(step.action==(download.ACTION if selected else 'mainline-evidence') and
             value==(download.rederive(adapter,request) if selected else access.rederive(adapter,request)) and
@@ -79,6 +81,20 @@ def terminal(adapter,request,*,recovered):
             from s22plus_mainline_max77705_v1 import outcome
             result.update(outcome(value['proof']), mainline_pid1=True, authenticated_usb=True,
                           observation=value, attach_closure=value['attach'], physical_return_requested=not recovered)
+        except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
+            result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
+        return result
+    if profile.max77705_route_board(request.get('N', {})):
+        result['max77705_route_verdict']=None
+        # As above. A pass also needs the host side: the closure shows whether
+        # the fallback replug cue was issued before the sealed response.
+        try:
+            value=access.rederive(adapter,request)
+            closure=read(verify(value['attach']))
+            from s22plus_mainline_max77705_route_v1 import outcome
+            result.update(outcome(value['proof'], cue_issued=closure['cue'] is not None), mainline_pid1=True,
+                          authenticated_usb=True, observation=value, attach_closure=value['attach'],
+                          physical_return_requested=not recovered)
         except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
             result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
         return result

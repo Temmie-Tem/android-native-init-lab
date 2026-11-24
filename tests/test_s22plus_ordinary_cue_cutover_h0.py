@@ -292,6 +292,9 @@ class CutoverTests(unittest.TestCase):
         paths = [self.gateway, self.loader, Path(mainline.profile.SCM_CUE_REVIEW)]
         if self.mx:
             paths.append(Path(self.mx))
+        self.mxr = getattr(mainline.profile, 'MXR_REVIEW', None)
+        if self.mxr:
+            paths.append(Path(self.mxr))
         for path in paths:
             review = json.loads((ROOT/path).read_bytes())
             for row in review['sources'] + review.get('worker_sources', []):
@@ -366,6 +369,8 @@ class CutoverTests(unittest.TestCase):
         ]
         if self.mx:
             cases.append(({'pending_path': Path(self.mx)}, 'mainline independent review is not PASS_GO'))
+        if self.mxr:
+            cases.append(({'pending_path': Path(self.mxr)}, 'mainline independent review is not PASS_GO'))
         for options, expected in cases:
             with self.subTest(options=options):
                 tree = self.proposed_tree(**options)

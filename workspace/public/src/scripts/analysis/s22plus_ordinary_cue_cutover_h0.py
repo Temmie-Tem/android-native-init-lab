@@ -94,6 +94,14 @@ if mx_review is not None or mx_policy.exists() or any((snapshot/bindings).glob('
                      'proposed MAX77705 review selection differs')
     routes.append(('MAX77705', mx_review, {'image': {'schema': task.profile.MX_SCHEMA},
                                          'ordinary_cue': True}))
+mxr_review = getattr(task.profile, 'MXR_REVIEW', None)
+mxr_policy = snapshot/'docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md'
+mxr_review_name = r's22plus_mainline_max77705_route_v[1-9][0-9]*_review[.]json'
+if mxr_review is not None or mxr_policy.exists() or any((snapshot/bindings).glob('s22plus_mainline_max77705_route_v*_review.json')):
+    terminal.require(type(mxr_review) is str and re.fullmatch(mxr_review_name, Path(mxr_review).name),
+                     'proposed MAX77705 route review selection differs')
+    routes.append(('MAX77705 route', mxr_review, {'image': {'schema': task.profile.MXR_SCHEMA},
+                                                 'ordinary_cue': True}))
 
 gateway_path = gateway_file.relative_to(snapshot)
 reviews = {gateway_path}

@@ -350,6 +350,21 @@ source review, current identity, usable recovery and final Android health
 apply. It grants no `CONTROL1_W`, Linux storage, reset, automatic-recovery or
 replay capability.
 
+The [one attended MAX77705 USB route intervention](../S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md)
+adopts the exact qualified route board image specified there. Its kernel
+Image and loader-handed DT are those of the MAX77705 observation above, so
+the same SCM, SE5 and disabled-subsystem scope applies. Its observer has the
+read-only bus effects of that observation plus at most one gated
+`CONTROL1_W(COM_USB)` (`0x09`, Samsung's bulk opcode write `[0x21, 0x06,
+0x09]` with the `0x41` strobe) after the gadget is bound, never retried. It
+uses the existing fixed foreground preapproval D0, one finite attended
+mainline RAM operation with the ordinary attach cue as the fallback and its
+operator-resolution interlock, one authenticated USB observation and physical
+Download for the original-A return. Exact board qualification, source review,
+current identity, usable recovery and final Android health apply. It grants
+no other `CONTROL1_W` value, no second write, no PMIC, charger, PD or FSA4480
+write, and no Linux storage, reset, automatic-recovery or replay capability.
+
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive
 public-key session executing a fixed UID/GID 1000 command. Its complete signed

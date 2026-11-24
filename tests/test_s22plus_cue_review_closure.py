@@ -30,6 +30,10 @@ BOARD_ROUTES = [(SCM, SCM_IMAGE, 'scm_board', 's22plus_mainline_scm_v1')]
 if MX is not None:
     BOARD_ROUTES.append((Path(MX), {'schema': task.profile.MX_SCHEMA},
                          'max77705_board', 's22plus_mainline_max77705_v1'))
+MXR = getattr(task.profile, 'MXR_REVIEW', None)
+if MXR is not None:
+    BOARD_ROUTES.append((Path(MXR), {'schema': task.profile.MXR_SCHEMA},
+                         'max77705_route_board', 's22plus_mainline_max77705_route_v1'))
 
 # These entry points are independent of the runtime declarations being tested.
 # Shared multi-profile dispatchers have lazy branches for other operations.
@@ -102,7 +106,8 @@ def import_nodes(tree, *, lazy, boards):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             yield node
         elif isinstance(node, ast.If) and isinstance(node.test, ast.Call) and (
-                ast.unparse(node.test.func) in ('profile.scm_board', 'profile.max77705_board')):
+                ast.unparse(node.test.func) in ('profile.scm_board', 'profile.max77705_board',
+                                                'profile.max77705_route_board')):
             # Candidate branches belong to their task route. Eager and
             # unconditional imports still count for the gateway.
             selected = node.test.func.attr in boards

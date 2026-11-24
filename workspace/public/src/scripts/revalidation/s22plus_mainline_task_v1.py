@@ -108,7 +108,7 @@ IMAGE_V2 = 's22plus-mainline-ufs-image-v2'
 CAPABILITY_SCHEMA = 's22plus-mainline-ufs-capability-v2'
 CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_KEY_ONLY_V2'
 CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md'
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v3_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v4_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -193,6 +193,10 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False):
         require(ordinary_cue, 'MAX77705 observation exists only with its cue scope')
         paths = [path for path in paths if path not in V2_RETIRED]
         paths += [profile.MX_POLICY, profile.MX_MODULE]
+    if image is not None and profile.max77705_route_board(image):
+        require(ordinary_cue, 'MAX77705 route observation exists only with its cue scope')
+        paths = [path for path in paths if path not in V2_RETIRED]
+        paths += [profile.MXR_POLICY, profile.MXR_MODULE]
     if image is not None and 'udc_observation' in image:
         require(selected is profile, 'UDC observation requires the mainline RAM profile')
         declaration = profile.UDC_TIMER_DECLARATION if profile.timed_udc(image) else profile.UDC_DECLARATION
@@ -274,6 +278,9 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
     elif image is not None and profile.max77705_board(image):
         require(ordinary_cue, 'MAX77705 observation exists only with its cue scope')
         review, scope = profile.MX_REVIEW, profile.MX_SCOPE
+    elif image is not None and profile.max77705_route_board(image):
+        require(ordinary_cue, 'MAX77705 route observation exists only with its cue scope')
+        review, scope = profile.MXR_REVIEW, profile.MXR_SCOPE
     else:
         require(not ordinary_cue, 'ordinary cue review applies only to the SCM and MAX77705 profiles')
     path = root / review
@@ -291,7 +298,7 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
         source = row['path']
         # Loader access imports the Android storage helper even during recovery.
         optional_marker = marker_only(source) and (selected is profile or source != ANDROID_STORAGE_SOURCE)
-        if recovery and (optional_marker or source in (profile.SCM_MODULE, profile.MX_MODULE) or selected is not profile and loader_build_only(source) or
+        if recovery and (optional_marker or source in (profile.SCM_MODULE, profile.MX_MODULE, profile.MXR_MODULE) or selected is not profile and loader_build_only(source) or
                          udc and source in (profile.UDC_DECLARATION, profile.UDC_TIMER_DECLARATION,
                              'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py')):continue
         tasks.unchanged(dict(row,path=str(root/source)))
@@ -325,7 +332,8 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
         re.fullmatch('[A-Za-z0-9._:-]{1,128}',task['target']['serial']) and
         task['target']['topology']==target.lane.SOURCE_TOPOLOGY,'mainline target binding differs')
     target.lane.validate_binding(task['lane'],source_topology=target.lane.SOURCE_TOPOLOGY)
-    ordinary_cue = task['review'].get('path') in (str(root / profile.SCM_CUE_REVIEW), str(root / profile.MX_REVIEW))
+    ordinary_cue = task['review'].get('path') in (str(root / profile.SCM_CUE_REVIEW), str(root / profile.MX_REVIEW),
+                                                  str(root / profile.MXR_REVIEW))
     require(task['review']==capability(root,recovery=recovery,selected=selected,image=task['N'],
         ordinary_cue=ordinary_cue),'mainline capability changed')
     require(task['runtime_scope']==task['N']['runtime_sources'],'mainline runtime scope differs')
@@ -366,6 +374,10 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
             require(Path(profile.MX_POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
                     b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/profile.MX_POLICY),
                     'MAX77705 observation lacks target adoption')
+        if not recovery and profile.max77705_route_board(task['N']):
+            require(Path(profile.MXR_POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
+                    b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/profile.MXR_POLICY),
+                    'MAX77705 route observation lacks target adoption')
         if not recovery and selected is profile and task['N'].get('ufs_link') is True:
             from s22plus_mainline_ufs_image_v1 import policy_for
             policy=policy_for(task['N'])
@@ -493,7 +505,7 @@ def prepare(root,output,image,retained_task):
     selected={k:previous[k] for k in ('target','lane','host_installation','recovery_evidence')}
     ident=str(uuid.uuid4())
     ordinary_cue = (profile.scm_board(image) and profile.SCM_CUE_ADOPTION in read_bytes(root/profile.SCM_POLICY)
-                    or profile.max77705_board(image))
+                    or profile.max77705_board(image) or profile.max77705_route_board(image))
     task=dict(selected,schema=selected_profile_value.TASK_SCHEMA,N=image,E=None,A=tasks.android_artifact(root),
         adb=pin(Path('/usr/bin/adb').resolve(strict=True),maximum=32*1024*1024),
         odin=read(root/tasks.PROFILE)['transport']['odin'],review=capability(root,selected=selected_profile_value,image=image,ordinary_cue=ordinary_cue),
