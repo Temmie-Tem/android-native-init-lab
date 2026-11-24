@@ -218,3 +218,27 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 원복과 후보를 각각 한 번 전송했다. 기기 명령 없이 전송 원본과 두 판독 출력을 다시 해석하고 실기 증거와 대조했다. 두 판독의 종료 코드는 0이었고 표준 오류는 비어 있었다. 후보는 소모 상태로 남고 공용 S20+ 잠금은 해제됐다. 검증 목록은 `workspace/private/outputs/s20plus-y2q-mainline-stage-f1-20261123/first-physical-20261125/close.json`이며 SHA-256은 `d329d7045dcba002b2054c2301585175b31d4ae40d05fb5d634bd416b8741bdb`다.
 
 이번 복귀에서는 proc 파일 누락·잘린 판독·길이 0인 스냅샷을 배제했다. 온전한 두 표식이 관측되지 않은 이유는 여전히 열려 있다. 후보가 해당 지점에 도달했는지, 도달하고도 기록 조건을 만족하지 못했는지, 남긴 표식이 복귀 중 덮였는지는 이번 결과로 가를 수 없다. Opus 5.5와 검토한 다음 대조는 원본 Magisk에서 별도 표식이 현재 부팅의 커널 로그에 나타나는 것을 확인하고, 동일한 물리 Download·원복을 거친 첫 부팅에서 그 표식을 찾는 실험이다. 현재 printk에서 보인다는 사실만으로 Samsung RAM 링에 기록됐다고 판단할 수는 없다. 이 추가 대조는 수행하지 않았다.
+
+## 11월 25일 USB 이력과 S22+·외부 포팅 대조
+
+호스트 커널 저널의 포트 식별값을 첫 실기 실행의 원본 Android 및 물리 Download 기록과 대조했다. 07:33:35.732 KST에 후보 전송 직후 기존 Download 장치가 분리됐고 07:37:43.752에 같은 포트에 물리 Download 장치가 다시 등록됐다. 그 사이 248.020초 동안 어느 포트에서도 새 USB 장치 식별 완료 메시지가 없었다. 실제 후보 initramfs의 CDC ACM VID/PID, 제품 문자열, 빌드별 문자열도 모든 포트에서 조회했다. 이 저널에는 양쪽 Download와 이후 원복 Android의 등록 기록이 있다. 커널이 실행됐지만 USB 컨트롤러가 준비되지 않은 경우에도 같은 결과가 나온다. 부팅 시도 횟수는 알 수 없다.
+
+### Linux가 돌아도 S20+ 표식이 0개인 대조
+
+소모된 후보와 해시가 같은 Image를 같은 EL1·적재 위치·보드로 QEMU에서 실행했다. `unflatten_device_tree()` 복귀와 전개된 y2q 루트를 디버거에서 확인하고, 각 단계에서 링 전체를 비교했다. 각 입력의 실제 bootargs 바이트도 기존 순정 Android용 D0 판독식에 통과시켰다.
+
+| 바꾼 입력 | 기존 D0의 로그 주소·크기 판정 | Linux의 y2q 루트 전개 | 완성된 FDT·루트 표식 |
+| --- | --- | --- | --- |
+| 정상 펌웨어 포맷과 충분한 쓰기 인덱스 | 일치 | 확인 | 각각 1개 |
+| 로그 크기 문자열만 같은 값의 `2M`으로 변경 | 일치 | 확인 | 각각 0개 |
+| 정상 포맷에서 초기 링 인덱스만 255로 변경 | 일치 | 확인 | 각각 0개 |
+
+첫째와 둘째는 수치로 같은 크기·주소에서 실제 후보의 기록 허용 조건이 갈라진 경우다. 셋째는 커널 기록기가 필요로 하는 최소 256바이트에 미달했다. 보관한 정상 IYC2 펌웨어 포맷터가 출력한 철자는 첫째와 일치했다. 둘째나 셋째가 실기에서 발생했는지는 알 수 없다. 원복 Android의 스냅샷 크기는 후보가 읽었던 헤더 값도 알려 주지 않는다. Opus 5.5와 두 관측 시점을 구분해 검토했다. [기록 허용 조건](../../workspace/public/src/mainline/s20plus_y2q_h0/mainline-handoff/stage-geometry.h) · [커널 기록기](../../workspace/public/src/mainline/s20plus_y2q_h0/mainline-handoff/stage-kernel.h)
+
+### 비교 기기에서 가져올 수 있는 측정
+
+- S22+ FYG8의 ML003은 물리 Download 원복 뒤 uniLoader의 최종 분기 직전 표식 6개와 Linux `primary_entry` 표식 6개를 회수했다. USB 관측 116건은 모두 음성이었다. ML004에서는 MMU 전과 초기 C, ML005에서는 FDT 처리 후와 페이징 후까지 표식 위치를 이동했다. ML003 표식 수로 부팅 횟수를 셀 수는 없다. S20+ 첫 후보는 두 표식을 모두 Linux 내부에 뒀다. 로더 인계와 커널 첫 진입을 따로 관측하는 ML003의 방법이 이 차이를 해소한다. 적용하려면 S20+의 메모리·매핑 조건과 별도 후보 자격이 필요하다. [ML003](S22PLUS_MAINLINE_ML003_RUN_2026-10-30.md) · [ML004](S22PLUS_MAINLINE_ML004_RUN_2026-10-30.md) · [ML005](S22PLUS_MAINLINE_ML005_RUN_2026-10-30.md)
+- S22+ LOGM 실험은 로더에서 쓴 128바이트를 즉시 읽어 일치시킨 뒤 이어서 기동한 벤더 Android에서 프레임 1개를 회수했다. P424에서는 현재 커널 링 판독과 물리 복구 이후의 PRE 표식을 연결했다. S20+에는 원본 Magisk에서 별도 표식이 실제로 생산되는지 확인하고 같은 물리 Download·원복 후 첫 스냅샷에서 회수하는 대조가 남는다. 현재 printk에서의 생산 확인, Samsung RAM 링에 기록됐는지, 복구 후 보존됐는지는 서로 다른 관측이다. 기존 S20+ PMSG 대조는 다른 저장 경로를 사용했다. [S22+ LOGM](S22PLUS_UNILOADER_LOGM_RUN_2026-11-22.md) · [P424](S22PLUS_NATIVE_LOG_CALIBRATION_P424_RUN_2026-10-13.md) · [S20+ PMSG 대조](S20PLUS_G986N_PMSG_DOWNLOAD_CALIBRATION_H0_2026-11-22.md)
+- SM8250 Galaxy S20 `x1q`의 메인라인 패치 작성자는 SimpleFB·USB·ramoops 동작을 보고했다. S20+ DT도 Linux 6.18의 같은 공통 DTSI를 이미 사용한다. S20 FE `r8q`의 Mu-Silicium UEFI 부팅은 별도의 보드와 펌웨어 경로다. S20+의 화면 관측을 검토하기 위해 IYC2 순정 DTB/overlay 조합 6개의 기본 패널 phandle을 풀었다. 모두 `S6E3HAB_AMB677TY01_WQHD`를 선택하고 같은 35 MiB 화면 영역을 예약하며 720×1600, 1080×2400, 1440×3200 타이밍을 제공한다. 별도 SM-G986N XNU/UEFI 프로젝트도 같은 화면 시작 주소와 1440×3200을 기재했으나 자체 설정에는 확인 필요라고 표시했다. 우리 펌웨어가 그때 실제로 표시하던 버퍼·모드·stride는 미측정이다. 이를 검증하면 화면 표식을 RAM 로그와 독립적인 관측 수단으로 검토할 수 있다. [x1q 패치 원문](https://lists.openwall.net/linux-kernel/2025/09/05/1793) · [Linux 6.18 공통 DTSI](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/qcom/sm8250-samsung-common.dtsi) · [r8q 포팅 기록](https://github.com/sitsirK/r8q-arch) · [y2q 외부 기기 설정](https://github.com/leh0726/G986N-iOS/blob/946de0fed8e583606ca0470506c9e847f45e926f/common/devices/y2q.conf)
+
+다음 순서는 정상 Magisk 부팅에서 기록기와 동일한 입력 조건을 읽기 전용으로 판별하고, 별도 표식의 복구 경로 보존을 대조한 뒤, 새 후보에서 로더 분기 직전과 Linux `primary_entry`를 분리해 관측하는 것이다. 양성 대조가 실패하면 두 조기 표식을 같은 링에 추가하는 것만으로는 음성의 원인을 분리할 수 없다. 이번 추가 분석의 기기 명령은 0건이다. 호스트 저널의 식별 결과·순정 패널 대조·VM 결과는 `workspace/private/analysis/s20plus-y2q-physical-null-comparison-20261125/evidence.json`에 보관했다. SHA-256은 `e9ea43c377a3617d3e3b97f4d319e1382a05bb2120d7774a47621464e2a6b156`이다.
