@@ -82,13 +82,29 @@ the write.
 [Design and H0](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_H0_2026-11-25.md) ·
 [Policy](docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md)
 
-**Next:** a three-way design discussion proposed router v1 as a userspace
-helper started after the 555 s timer child is armed, with a polling kernel
-driver as v2. It also proposed one combined image and host runner for a
-cycle that recovers with no physical touch, and an attended evidence
-ladder. Activating Conditional Autonomous F1 remains the operator's
-decision.
-[Plan](docs/plans/S22PLUS_MAINLINE_USB_ROUTER_AND_HANDSOFF_CYCLE_2026-11-26.md)
+**Next: one no-touch cycle (route-timer).** A three-way design discussion
+planned the hands-off cycle. Its first unit composes the unchanged Stage 2
+route observer with the ML050 timer child:
+- PID1 arms one ordinary `RESTART2("download")` at guest BOOTTIME 555 s,
+  before the first bus access and before USB;
+- the original owner waits for a new Download within N launch plus
+  660 s, then performs one original-A transfer and Android health;
+- no attach cue exists.
+
+Router attach epochs (re-routing after an unplug) come next.
+
+Codex returned `ROUTE_TIMER_PASS_GO` in round 3. The operator approved the
+narrow common-contract delegation of the ML050 timed-return exception to
+this exact observer. The scope was adopted in `1e12f415a2` (v61 set). The
+board AP is `2e58bfc7`. In H0 the VM guest reset at 555.5 s.
+
+A fresh task is prepared, with task SHA-256 `e7b43ce8…b245`, and has no
+grant. A run needs current D0, the exact returned approval and the
+operator's presence. The operator is asked to touch nothing. Activating
+Conditional Autonomous F1 remains the operator's decision.
+[Plan](docs/plans/S22PLUS_MAINLINE_USB_ROUTER_AND_HANDSOFF_CYCLE_2026-11-26.md) ·
+[H0](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_H0_2026-11-26.md) ·
+[Policy](docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_V1.md)
 
 ### UFS module aligned with upstream tolerance (queued)
 
