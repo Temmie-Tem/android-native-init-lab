@@ -108,7 +108,7 @@ IMAGE_V2 = 's22plus-mainline-ufs-image-v2'
 CAPABILITY_SCHEMA = 's22plus-mainline-ufs-capability-v2'
 CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_KEY_ONLY_V2'
 CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md'
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v4_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v5_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -168,7 +168,8 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False):
         'workspace/public/src/mainline/s22plus_canary_h0/retained_probe_v10.py',
         'workspace/public/src/scripts/analysis/s22plus_native_artifact_v3_h0.py',
         'workspace/public/src/scripts/revalidation/device_action_f1_legacy_consumed_candidate_authority_v1.json']
-    if selected is not profile or ordinary_cue:
+    # The route-timer board has no cue but reviews the same imported closure.
+    if selected is not profile or ordinary_cue or (image is not None and profile.max77705_route_timer_board(image)):
         paths += ['workspace/public/src/scripts/revalidation/'+name+'.py' for name in REVIEW_SHARED_IMPORTS]
     if selected is not profile:
         paths += LOADER_BUILD_IMPORTS
@@ -197,6 +198,10 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False):
         require(ordinary_cue, 'MAX77705 route observation exists only with its cue scope')
         paths = [path for path in paths if path not in V2_RETIRED]
         paths += [profile.MXR_POLICY, profile.MXR_MODULE]
+    if image is not None and profile.max77705_route_timer_board(image):
+        require(not ordinary_cue, 'MAX77705 route-timer has no cue scope')
+        paths = [path for path in paths if path not in V2_RETIRED]
+        paths += [profile.MXT_POLICY, profile.MXT_MODULE, *profile.MXT_GUEST]
     if image is not None and 'udc_observation' in image:
         require(selected is profile, 'UDC observation requires the mainline RAM profile')
         declaration = profile.UDC_TIMER_DECLARATION if profile.timed_udc(image) else profile.UDC_DECLARATION
@@ -281,6 +286,9 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
     elif image is not None and profile.max77705_route_board(image):
         require(ordinary_cue, 'MAX77705 route observation exists only with its cue scope')
         review, scope = profile.MXR_REVIEW, profile.MXR_SCOPE
+    elif image is not None and profile.max77705_route_timer_board(image):
+        require(not ordinary_cue, 'MAX77705 route-timer has no cue scope')
+        review, scope = profile.MXT_REVIEW, profile.MXT_SCOPE
     else:
         require(not ordinary_cue, 'ordinary cue review applies only to the SCM and MAX77705 profiles')
     path = root / review
@@ -298,7 +306,7 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
         source = row['path']
         # Loader access imports the Android storage helper even during recovery.
         optional_marker = marker_only(source) and (selected is profile or source != ANDROID_STORAGE_SOURCE)
-        if recovery and (optional_marker or source in (profile.SCM_MODULE, profile.MX_MODULE, profile.MXR_MODULE) or selected is not profile and loader_build_only(source) or
+        if recovery and (optional_marker or source in (profile.SCM_MODULE, profile.MX_MODULE, profile.MXR_MODULE, profile.MXT_MODULE, *profile.MXT_GUEST) or selected is not profile and loader_build_only(source) or
                          udc and source in (profile.UDC_DECLARATION, profile.UDC_TIMER_DECLARATION,
                              'workspace/public/src/mainline/s22plus_udc_observation_h0/decode.py')):continue
         tasks.unchanged(dict(row,path=str(root/source)))
@@ -378,6 +386,11 @@ def validate_task(root,task,*,live=False,recovery=False,require_android=True):
             require(Path(profile.MXR_POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
                     b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/profile.MXR_POLICY),
                     'MAX77705 route observation lacks target adoption')
+        if not recovery and profile.max77705_route_timer_board(task['N']):
+            require(Path(profile.MXT_POLICY).name.encode() in read_bytes(root/tasks.TARGET_CONTRACT) and
+                    Path(profile.MXT_POLICY).name.encode() in details and
+                    b'Status: **REVIEW_GATED_CAPABILITY**' in read_bytes(root/profile.MXT_POLICY),
+                    'MAX77705 route-timer lacks common/target adoption')
         if not recovery and selected is profile and task['N'].get('ufs_link') is True:
             from s22plus_mainline_ufs_image_v1 import policy_for
             policy=policy_for(task['N'])

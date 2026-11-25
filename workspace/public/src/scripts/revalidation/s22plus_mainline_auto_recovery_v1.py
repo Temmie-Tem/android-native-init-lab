@@ -39,7 +39,7 @@ def selected(request):
     image=request.get('N',{})
     if request.get('operation') != 'mainline-ram':
         return False
-    if profile.timed_udc(image):
+    if profile.timed_return(image):
         return True
     if image.get('schema')!='s22plus-mainline-ufs-image-v2':
         return False
@@ -49,16 +49,18 @@ def selected(request):
     return _automatic(cap['fixed']['report_version'])
 
 
-def window(adapter,request):
+def window(adapter,request,*,epoch=None):
+    """The live owner checks the current host boot; a historical projection
+    (epoch given) checks the epoch the window recorded against the grant."""
     require(selected(request),'automatic recovery is not selected')
     operation=pin(adapter.directory/'operation.json')
     grant=read(verify(request['grant']))
-    require(grant['host_boot']==host_boot(),'automatic recovery host epoch changed')
+    require(grant['host_boot']==(host_boot() if epoch is None else epoch),'automatic recovery host epoch changed')
     rows=Journal(adapter.directory/'journal').rows()
     launches=[r for r in rows if r['event']=='effect-intent' and r['data']['action']=='transfer'
               and r['data']['role']=='N']
     require(len(launches)<=1,'automatic recovery has multiple native intents')
-    require(launches or not profile.timed_udc(request.get('N', {})), 'timed UDC return requires the original N launch')
+    require(launches or not profile.timed_return(request.get('N', {})), 'timed return requires the original N launch')
     if launches:
         row=launches[0];receipt=row['data']['detail']['launch'];path=verify(receipt);launch=read(path)
         require(row['data']['step']==launch['step']=='install-native-first' and launch['role']=='N' and
@@ -85,9 +87,11 @@ def window(adapter,request):
                 opened_ns=opened,deadline_ns=end)
 
 
-def deadline(adapter,request,receipt):
-    require(read(verify(receipt))==window(adapter,request),'automatic recovery window was renewed or changed')
-    return read(verify(receipt))['deadline_ns']
+def deadline(adapter,request,receipt,*,historical=False):
+    recorded=read(verify(receipt))
+    epoch=recorded['host_boot'] if historical else None
+    require(recorded==window(adapter,request,epoch=epoch),'automatic recovery window was renewed or changed')
+    return recorded['deadline_ns']
 
 
 def ticket_generation(ticket):
@@ -176,7 +180,7 @@ def attempt(session):
     if android:
         # _recover_android rederives the intended A. It cannot dispatch again.
         return session._recover_android(attended=True)
-    if profile.timed_udc(request.get('N', {})) and not any(
+    if profile.timed_return(request.get('N', {})) and not any(
             row['event']=='effect-intent' and row['data']['action']=='transfer' and row['data']['role']=='N'
             for row in session.rows()):
         return None

@@ -53,7 +53,7 @@ def unchanged(receipt,maximum=128*1024*1024):
 SCM_POLICY = 'docs/operations/S22PLUS_MAINLINE_SCM_USB_V1.md'
 SCM_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_usb_v1_review.json'
 SCM_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_V1'
-SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v5_review.json'
+SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v6_review.json'
 SCM_CUE_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_WITH_ORDINARY_CUE_V1'
 SCM_CUE_ADOPTION = b'Ordinary cue status: **REVIEW_GATED_CAPABILITY**'
 SCM_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_scm_v1.py'
@@ -67,7 +67,7 @@ def scm_board(image):
 
 
 MX_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md'
-MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v3_review.json'
+MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v4_review.json'
 MX_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_USB_V1'
 MX_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_v1.py'
 MX_SCHEMA = 's22plus-mainline-max77705-image-v1'
@@ -81,7 +81,7 @@ def max77705_board(image):
 
 # Stage 2: the same observation plus one gated CONTROL1_W(COM_USB).
 MXR_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md'
-MXR_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_v1_review.json'
+MXR_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_v2_review.json'
 MXR_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_ROUTE_V1'
 MXR_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_route_v1.py'
 MXR_SCHEMA = 's22plus-mainline-max77705-route-image-v1'
@@ -91,6 +91,34 @@ MXR_WIRE_SCHEMA = 's22plus-fyg8-debian-max77705-route-v1'
 
 def max77705_route_board(image):
     return image.get('schema') == MXR_SCHEMA
+
+
+# Hands-off cycle unit: the same route observer with the ML050 timer child.
+# No cue exists for it; return is the child's single 555 s Download attempt.
+MXT_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_V1.md'
+MXT_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_timer_v1_review.json'
+MXT_SCOPE = 'S22PLUS_ONE_ATTENDED_NO_TOUCH_MAX77705_ROUTE_TIMER_V1'
+MXT_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_route_timer_v1.py'
+MXT_SCHEMA = 's22plus-mainline-max77705-route-timer-image-v1'
+MXT_STATUS = 'AUTHENTICATED_MAX77705_ROUTE_TIMER_TRANSCRIPT'
+MXT_WIRE_SCHEMA = 's22plus-fyg8-debian-max77705-route-timer-v1'
+# Guest composition the qualified board was built from: the reviewed closure
+# pins these bytes and the binding module requires the qualification to match.
+MXT_GUEST = tuple('workspace/public/src/mainline/' + path for path in (
+    's22plus_canary_h0/max77705_route_timer_h0.py', 's22plus_canary_h0/max77705_route_h0.py',
+    's22plus_canary_h0/max77705-usb-route.h', 's22plus_canary_h0/max77705_route_record.py',
+    's22plus_canary_h0/init.c', 's22plus_canary_h0/protocol.h', 's22plus_canary_h0/download-return.h',
+    's22plus_ufs_link_h0/recovery.h')) + ('workspace/public/src/native-init/s22plus_fyg8_max77705_result_parser.inc.c',)
+MXT_COMPILE_FLAGS = ('-DCANARY_DEBIAN_RAM', '-DG0Q_AUTOMATIC_RECOVERY')
+
+
+def max77705_route_timer_board(image):
+    return image.get('schema') == MXT_SCHEMA
+
+
+def timed_return(image):
+    """Boards whose only normal return is the armed child's Download attempt."""
+    return timed_udc(image) or max77705_route_timer_board(image)
 
 
 def ordinary_cue(adapter, request):
@@ -122,6 +150,9 @@ def observation_wire(manifest):
     if manifest.get('debian_ram', {}).get('schema') == MXR_WIRE_SCHEMA:
         from s22plus_mainline_max77705_route_v1 import wire as mxr_wire
         return mxr_wire(manifest)
+    if manifest.get('debian_ram', {}).get('schema') == MXT_WIRE_SCHEMA:
+        from s22plus_mainline_max77705_route_timer_v1 import wire as mxt_wire
+        return mxt_wire(manifest)
     return codec
 
 
@@ -135,6 +166,9 @@ def image_binding(image,*,artifact_bytes=False):
     if max77705_route_board(image):
         from s22plus_mainline_max77705_route_v1 import image_binding as bind_route
         return bind_route(image, artifact_bytes=artifact_bytes)
+    if max77705_route_timer_board(image):
+        from s22plus_mainline_max77705_route_timer_v1 import image_binding as bind_route_timer
+        return bind_route_timer(image, artifact_bytes=artifact_bytes)
     if 'ufs_link' in image:
         try:
             from s22plus_mainline_ufs_image_v1 import binding

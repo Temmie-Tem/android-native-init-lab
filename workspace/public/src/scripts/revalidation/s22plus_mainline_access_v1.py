@@ -392,6 +392,20 @@ def rederive(adapter,request):
         except (TypeError, AttributeError, RuntimeError) as error:
             # RuntimeError covers the DT audit's AuditError on a malformed FDT.
             raise ValueError('malformed MAX77705 observation record') from error
+    if profile.max77705_route_timer_board(request['N']):
+        # No cue scope exists for this board: verify its review closure before
+        # importing candidate code, then rederive with no attach closure.
+        try:
+            from s22plus_mainline_task_v1 import capability
+            require(not profile.ordinary_cue(adapter, request), 'MAX77705 route-timer has no cue scope')
+            capability(adapter.root, image=request['N'], ordinary_cue=False)
+            require(not (adapter.directory/'mainline-attach-cue.json').exists(),
+                    'an attach cue exists for a no-cue board')
+            return rederive_base(adapter, request)
+        except (ImportError, SyntaxError) as error:
+            raise ValueError('MAX77705 route-timer code unavailable') from error
+        except (TypeError, AttributeError, RuntimeError) as error:
+            raise ValueError('malformed MAX77705 route-timer record') from error
     value=rederive_base(adapter,request)
     manifest=profile.image_binding(request['N'])
     if not profile.codec.has_ssh(manifest):return value

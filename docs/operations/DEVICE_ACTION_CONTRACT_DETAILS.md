@@ -693,6 +693,18 @@ permission to perform host-only work.
    permits only raw reconstruction and health. Before N, the ordinary
    physical recovery rules apply. This admits neither unattended operation
    nor a claim of recovery from a hung kernel.
+   The separately selected [MAX77705 route-timer run](S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_V1.md)
+   permits the same one reviewed ordinary Download attempt and original-owner
+   return in the exact qualified boot-only RAM route-timer observer. That
+   observer's other device effects are exactly those of the adopted Stage 2
+   route observer: MAX77705 reads and at most one gated `CONTROL1_W(COM_USB)`.
+   The arming, the channel closure, the 555-to-570-second slot, the absence
+   of early commit, renewal, retry, alternate reset or PMIC access, the
+   N-launch-plus-660-second window, the single original A, the physical
+   fallback, the health-only continuation and the no-replay rules are those
+   of ML050. It has no attach cue and no authenticated reset command. Physical
+   attendance and the original one-operation grant remain. This admits
+   neither unattended operation nor a claim of recovery from a hung kernel.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

@@ -34,6 +34,13 @@ MXR = getattr(task.profile, 'MXR_REVIEW', None)
 if MXR is not None:
     BOARD_ROUTES.append((Path(MXR), {'schema': task.profile.MXR_SCHEMA},
                          'max77705_route_board', 's22plus_mainline_max77705_route_v1'))
+# Board reviews and whether their scope carries the ordinary cue.
+CUE = {route[0]: True for route in BOARD_ROUTES}
+MXT = getattr(task.profile, 'MXT_REVIEW', None)
+if MXT is not None:
+    BOARD_ROUTES.append((Path(MXT), {'schema': task.profile.MXT_SCHEMA},
+                         'max77705_route_timer_board', 's22plus_mainline_max77705_route_timer_v1'))
+    CUE[Path(MXT)] = False
 
 # These entry points are independent of the runtime declarations being tested.
 # Shared multi-profile dispatchers have lazy branches for other operations.
@@ -107,7 +114,8 @@ def import_nodes(tree, *, lazy, boards):
             yield node
         elif isinstance(node, ast.If) and isinstance(node.test, ast.Call) and (
                 ast.unparse(node.test.func) in ('profile.scm_board', 'profile.max77705_board',
-                                                'profile.max77705_route_board')):
+                                                'profile.max77705_route_board',
+                                                'profile.max77705_route_timer_board')):
             # Candidate branches belong to their task route. Eager and
             # unconditional imports still count for the gateway.
             selected = node.test.func.attr in boards
@@ -176,9 +184,9 @@ class CueReviewTests(unittest.TestCase):
         ]
         for record, image, board, module in BOARD_ROUTES:
             entries = BOARD_ENTRIES+(module,)
-            scopes.append((record, task.source_pins(ROOT, image=image, ordinary_cue=True),
+            scopes.append((record, task.source_pins(ROOT, image=image, ordinary_cue=CUE[record]),
                            COMMON_ENTRIES+entries, False,
-                           entries+('s22plus_mainline_attach_cue_v1',), (board,)))
+                           entries+(('s22plus_mainline_attach_cue_v1',) if CUE[record] else ()), (board,)))
         for record, expected, entries, timed, lazy_entries, boards in scopes:
             with self.subTest(record=record.name):
                 rows = self.records[record]['sources']
@@ -224,7 +232,7 @@ class CueReviewTests(unittest.TestCase):
             def task_reviews(recovery):
                 yield LOADER, {'selected': loader, 'recovery': recovery}
                 for record, image, _, _ in BOARD_ROUTES:
-                    yield record, {'image': image, 'ordinary_cue': True, 'recovery': recovery}
+                    yield record, {'image': image, 'ordinary_cue': CUE[record], 'recovery': recovery}
 
             self.write_fixture_reviews(root)
             with self.assertRaisesRegex(ValueError, 'not PASS_GO'):
@@ -272,13 +280,13 @@ Controller.continue_task = lambda self, directory, tool: dict(dispatched=tool, d
             for receipt, image, _, module in BOARD_ROUTES:
                 local = root/local_module(module).relative_to(ROOT)
                 with self.subTest(module=module):
-                    self.assertEqual(task.capability(root, image=image, ordinary_cue=True),
+                    self.assertEqual(task.capability(root, image=image, ordinary_cue=CUE[receipt]),
                                      terminal.pin(root/receipt))
                     local.unlink()
                     with self.assertRaises(FileNotFoundError) as missing:
-                        task.capability(root, image=image, ordinary_cue=True)
+                        task.capability(root, image=image, ordinary_cue=CUE[receipt])
                     self.assertEqual(Path(missing.exception.filename).name, local.name)
-                    self.assertEqual(task.capability(root, image=image, ordinary_cue=True, recovery=True),
+                    self.assertEqual(task.capability(root, image=image, ordinary_cue=CUE[receipt], recovery=True),
                                      terminal.pin(root/receipt))
 
             self.assertEqual(task.capability(root, selected=loader, recovery=True), terminal.pin(root/LOADER))

@@ -365,6 +365,34 @@ current identity, usable recovery and final Android health apply. It grants
 no other `CONTROL1_W` value, no second write, no PMIC, charger, PD or FSA4480
 write, and no Linux storage, reset, automatic-recovery or replay capability.
 
+The [one attended no-touch MAX77705 route run with timed return](../S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_V1.md)
+adopts the exact qualified route-timer board image specified there. Its
+kernel Image, loader-handed DT, observer bus effects and write gate are those
+of the route intervention above. It has its own wire identity, and it has
+no attach cue. Its PID1 arms the reviewed ML050 timer child before USB setup
+and closes its IPC. The child alone owns one ordinary `RESTART2("download")`
+at guest BOOTTIME 555 s, never at or after 570 s.
+
+The original owner returns through the ML050 timed path. It waits for an
+exact new Download generation within N launch plus 660 seconds, then
+performs one original-A transfer and rooted Android health. This applies
+after the evidence step completes and after it stops.
+
+The scope uses the existing fixed foreground preapproval D0 and one finite
+attended mainline RAM operation. The operator stays present, with physical
+Download available as the fallback, and is asked to perform no action.
+Exact board qualification, source review, current identity, usable recovery
+and final Android health apply.
+
+It grants none of the following:
+- a cue;
+- any other `CONTROL1_W` value, or a second write;
+- a PMIC, charger, PD or FSA4480 write;
+- a wire Download command or early commit;
+- a hardware or hypervisor watchdog;
+- Linux storage access;
+- unattended, retry or replay capability.
+
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive
 public-key session executing a fixed UID/GID 1000 command. Its complete signed

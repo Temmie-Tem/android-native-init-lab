@@ -617,6 +617,8 @@ class Adapter:
                 detail=dict(step=step.name,role=step.role,ap=artifact,member=request[step.role]['member'],
                     ticket=asdict(ticket),target=identity,revalidation=checked,boottime_ns=clock(),
                     arrival_deadline_ns=arrival_deadline)
+                # The automatic owner's A names its window; no other path does.
+                if recovery_window is not None:detail['recovery_window']=recovery_window
                 launch_receipt=publish(folder/'launch.json',detail)
                 before_launch(dict(launch=launch_receipt))
                 mark('dispatch-guard')

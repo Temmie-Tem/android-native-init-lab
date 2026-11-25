@@ -24,6 +24,8 @@ def validate_result(adapter,step,value,request):
         expected=profile.MX_STATUS
     if profile.max77705_route_board(request['N']):
         expected=profile.MXR_STATUS
+    if profile.max77705_route_timer_board(request['N']):
+        expected=profile.MXT_STATUS
     selected=download.selected(request)
     require(step.action==(download.ACTION if selected else 'mainline-evidence') and
             value==(download.rederive(adapter,request) if selected else access.rederive(adapter,request)) and
@@ -98,6 +100,18 @@ def terminal(adapter,request,*,recovered):
         except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
             result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
         return result
+    if profile.max77705_route_timer_board(request.get('N', {})):
+        result['max77705_route_verdict']=None
+        # A is already healthy here. A missing or rejected record leaves the
+        # observation unavailable; the timed-return facts are added either way.
+        try:
+            value=access.rederive(adapter,request)
+            from s22plus_mainline_max77705_route_timer_v1 import outcome
+            result.update(outcome(value['proof']), mainline_pid1=True, authenticated_usb=True,
+                          observation=value, physical_return_requested=False)
+        except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
+            result['evidence_error']=dict(type=type(error).__name__,message=str(error)[:256])
+        return link_fact(adapter,request,result)
     try:
         value=download.rederive(adapter,request) if download.selected(request) else access.rederive(adapter,request)
         status='PASS_DEBIAN_SYSVINIT_RAM_PID1' if 'debian_ram' in request['N'] else 'PASS_MAINLINE_RAM_USB'
@@ -146,9 +160,24 @@ def terminal(adapter,request,*,recovered):
     return link_fact(adapter,request,result)
 
 
+def automatic_a(adapter,observed):
+    """True only when the sole A launch is the automatic owner's: its launch
+    names the automatic window receipt, which no attended path records."""
+    if observed['status']!='EXACT_DOWNLOAD_OBSERVED':return False
+    window=read(verify(observed['window']))
+    rows=[r for r in Journal(adapter.directory/'journal').rows() if r['event']=='effect-intent' and
+          r['data']['action']=='transfer' and r['data']['role']=='A']
+    if len(rows)!=1:return False
+    launch=read(verify(rows[0]['data']['detail']['launch']))
+    return (launch['step']==rows[0]['data']['step']=='recover-android' and
+            launch.get('recovery_window')==observed['window'] and
+            launch['arrival_deadline_ns']==window['deadline_ns'] and
+            window['opened_ns']<launch['boottime_ns']<window['deadline_ns'])
+
+
 def link_fact(adapter,request,result):
     ufs = request.get('N',{}).get('ufs_link') is True
-    if not ufs and not profile.timed_udc(request.get('N', {})):
+    if not ufs and not profile.timed_return(request.get('N', {})):
         return result
     # Recovery is separate from link success. A missing/ambiguous experiment
     # result cannot erase an automatic arrival observation or upgrade it to
@@ -157,10 +186,14 @@ def link_fact(adapter,request,result):
     if path.exists():
         try:
             from s22plus_mainline_auto_recovery_v1 import deadline
-            observed=read(path);deadline(adapter,request,observed['window'])
+            # Historical: a later host boot must not erase a sealed observation.
+            observed=read(path);deadline(adapter,request,observed['window'],historical=True)
             result.update(automatic_recovery_attempted=True,automatic_recovery_observation=pin(path),
                 automatic_download_arrival_observed=observed['status']=='EXACT_DOWNLOAD_OBSERVED',
                 automatic_recovery_trigger_proved=False)
+            # (Route-timer only: sealed ML050 terminals keep their original fields.)
+            if profile.max77705_route_timer_board(request.get('N', {})):
+                result['automatic_original_a_dispatched']=automatic_a(adapter,observed)
         except (ValueError,OSError,KeyError,TypeError):pass
     if not ufs:return result
     try:
@@ -199,7 +232,7 @@ class Coordinator(PhysicalCoordinator):
         return True
 
     def await_return(self):
-        if not profile.timed_udc(self.session.request.get('N', {})):
+        if not profile.timed_return(self.session.request.get('N', {})):
             return super().await_return()
         from s22plus_mainline_auto_recovery_v1 import attempt
         result = attempt(self.session)
@@ -209,7 +242,7 @@ class Coordinator(PhysicalCoordinator):
     def stopped(self,error):
         pending=super().stopped(error)
         if pending.get('state')!='AWAITING_ATTENDED_RECOVERY':return pending
-        if profile.timed_udc(self.session.request.get('N', {})) and (self.session.directory/'io-mainline-auto-recovery').exists():
+        if profile.timed_return(self.session.request.get('N', {})) and (self.session.directory/'io-mainline-auto-recovery').exists():
             # A normal-observation return already spent its sole automatic
             # attempt. The stopped owner retains the existing physical/health route.
             return pending
@@ -232,7 +265,7 @@ class Coordinator(PhysicalCoordinator):
     def execute(self,*,attended):
         try:return super().execute(attended=attended)
         finally:
-            if (download.selected(self.session.request) or profile.timed_udc(self.session.request.get('N', {}))) and any(row['event']=='step-complete' and
+            if (download.selected(self.session.request) or profile.timed_return(self.session.request.get('N', {}))) and any(row['event']=='step-complete' and
                 row['data']['step'] in ('install-android','recover-android') for row in self.session.rows()):
                 access.cleanup(self.session.adapter,self.session.request)
 
