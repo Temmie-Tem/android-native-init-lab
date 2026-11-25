@@ -242,3 +242,9 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 - SM8250 Galaxy S20 `x1q`의 메인라인 패치 작성자는 SimpleFB·USB·ramoops 동작을 보고했다. S20+ DT도 Linux 6.18의 같은 공통 DTSI를 이미 사용한다. S20 FE `r8q`의 Mu-Silicium UEFI 부팅은 별도의 보드와 펌웨어 경로다. S20+의 화면 관측을 검토하기 위해 IYC2 순정 DTB/overlay 조합 6개의 기본 패널 phandle을 풀었다. 모두 `S6E3HAB_AMB677TY01_WQHD`를 선택하고 같은 35 MiB 화면 영역을 예약하며 720×1600, 1080×2400, 1440×3200 타이밍을 제공한다. 별도 SM-G986N XNU/UEFI 프로젝트도 같은 화면 시작 주소와 1440×3200을 기재했으나 자체 설정에는 확인 필요라고 표시했다. 우리 펌웨어가 그때 실제로 표시하던 버퍼·모드·stride는 미측정이다. 이를 검증하면 화면 표식을 RAM 로그와 독립적인 관측 수단으로 검토할 수 있다. [x1q 패치 원문](https://lists.openwall.net/linux-kernel/2025/09/05/1793) · [Linux 6.18 공통 DTSI](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/qcom/sm8250-samsung-common.dtsi) · [r8q 포팅 기록](https://github.com/sitsirK/r8q-arch) · [y2q 외부 기기 설정](https://github.com/leh0726/G986N-iOS/blob/946de0fed8e583606ca0470506c9e847f45e926f/common/devices/y2q.conf)
 
 다음 순서는 정상 Magisk 부팅에서 기록기와 동일한 입력 조건을 읽기 전용으로 판별하고, 별도 표식의 복구 경로 보존을 대조한 뒤, 새 후보에서 로더 분기 직전과 Linux `primary_entry`를 분리해 관측하는 것이다. 양성 대조가 실패하면 두 조기 표식을 같은 링에 추가하는 것만으로는 음성의 원인을 분리할 수 없다. 이번 추가 분석의 기기 명령은 0건이다. 호스트 저널의 식별 결과·순정 패널 대조·VM 결과는 `workspace/private/analysis/s20plus-y2q-physical-null-comparison-20261125/evidence.json`에 보관했다. SHA-256은 `e9ea43c377a3617d3e3b97f4d319e1382a05bb2120d7774a47621464e2a6b156`이다.
+
+### 11월 26일 물리 보존 대조와 후속 후보
+
+정상 Magisk의 현재 printk에서 표식 1건을 확인한 뒤, 물리 Download와 같은 USB 포트에서 원본 부트 전용 AP를 1회 전송했다. 처음 관측한 원복 부팅의 `/proc/last_kmsg` 2,097,136바이트에서 표식 1건이 회수됐다. 같은 부팅에서 판독 전후 Magisk 30.7, UID 0, SELinux Enforcing, PID 1 `/system/bin/init`이 확인됐다. 순정 메시지는 이 경로에서 살아남을 수 있다. 앞선 후보의 0건만으로 그 후보의 정지 명령을 특정할 수는 없다.
+
+격리 분기 `codex/s20-seclog-physical`의 커밋 `e6dcf2a313`에 실기 타임라인과 새 후보 소스를 보관했다. 새 부트 전용 AP(`5841af93`)는 로더의 최종 분기 직전과 Linux `primary_entry`를 따로 기록한다. 실제 빌드로 독립 QEMU 대조 9건을 통과했고 순정 스냅샷 모형과 ARM64 판독기로도 분기 직전 표식만 있는 경우와 둘 다 있는 경우를 구별했다. 이번 기기 전송은 원본 Magisk AP 1회이며 새 후보의 실기 진입은 미검증이다.
