@@ -252,3 +252,21 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 ### 두 조기 표식의 실기 실행기
 
 후보와 원본 Magisk를 한 번의 입회 승인에 묶는 [전용 실행기](../../workspace/public/src/scripts/revalidation/s20plus_g986n_early_pair_f1.py)를 준비했다. Android에서 준비할 때는 원본 부팅과 포트, 루팅, 후보 및 원복 AP를 확인한다. 승인을 받으면 같은 부팅에서 후보 표식 0건을 확인한 뒤 ADB로 Download에 진입한다. 후보 전송 후 180초 동안 기기에 명령을 보내지 않는다. 빈 Download 목록을 기록하면 물리 진입을 안내하고, 같은 포트의 도착을 확인하면 원본 AP를 복구한다. 첫 번째로 식별한 원복 부팅 ID, Magisk 건강, 동일 부팅의 이전 로그 판독을 결합해 두 관측점의 결과를 기록한다. 복구 프로세스가 중단돼 첫 복귀를 관측할 수 없으면 관측 공백을 남긴다. [대상 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-early-handoff-pair-under-one-attended-approval)
+
+### 11월 26일 두 조기 표식 실기 결과
+
+**처음 관측한 원복 부팅에서 로더 분기 직전 표식 0건, Linux primary_entry 표식 0건이었다.** 같은 부팅에서 원본 Magisk 30.7(30700), UID 0, SELinux Enforcing, PID 1 `/system/bin/init`을 확인했다.
+
+| 한국 시각 | 실기 기록 |
+| --- | --- |
+| 05:59:31 | 원본 Android의 이전 로그 2,097,136바이트에서 두 표식 모두 0건 |
+| 06:00:04 | 후보 부트 AP `5841af93` 1회 전송 완료 |
+| 06:03:04 | 후보에 명령을 보내지 않고 180초 관측 완료 |
+| 06:03:38 | 빈 목록 이후 같은 USB 포트에서 입회 물리 Download 진입 확인 |
+| 06:03:46 | 원본 Magisk 부트 AP `1b33d098` 1회 전송 완료 |
+| 06:04:26–35 | 원본으로 돌아온 첫 Android 부팅 ID 식별 후 같은 부팅에서 루팅 확인 |
+| 06:04:42 | 같은 부팅의 이전 로그 전체 판독과 종료 기록 작성, 실행 잠금 해제 |
+
+판독기의 원본 계수는 `y2q_early_v2=2097136,0,0,0`이다. 앞서 같은 물리 경로에서는 순정 printk 표식이 1건 보존됐으므로 Download 원복이 모든 기록을 지운다고 볼 수 없다. 이 후보의 두 표식은 기록 허용 조건과 Samsung 로그 영역을 공유한다. 두 값이 0이어도 후보가 실제 실행한 마지막 명령을 가릴 수 없다. 종결 판정은 `NO_PROOF_Y2Q_EARLY_PAIR_RESIDENT_HEALTH_OBSERVED`다.
+
+비공개 실행은 `s20plus-g986n-early-pair-f1/run-1795640333141198698`, 관측 및 원복 소유자 커밋은 `9cd33584d0`, 종료 기록 SHA-256은 `abea672783a967eda0fbc18a686eab7800d7efcce40d330ccd867527a72fbc8f`이다. 이 후보의 전송과 원복은 모두 소진됐다.
