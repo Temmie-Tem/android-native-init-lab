@@ -4616,3 +4616,54 @@ or non-continuous result yields no stage proof. Prior candidate, original
 Magisk and Download actions remain consumed. This section is not a grant
 for a different candidate, a second transfer, an unattended run, or use of
 the S22+ executor.
+
+## S20+ y2q early handoff pair under one attended approval
+
+This exact boot-only F1 successor uses s20plus_g986n_early_pair_f1.py on the
+operator-owned SM-G986N/y2q/G986NKSS8IYC2. The common F1 invariants and
+inherited UniLoader and mainline-stage transaction, content registry, cage,
+health, read limits, evidence and no-replay rules apply. Only this section's
+candidate, two observation sites and finite approval flow specialize them.
+Activation requires independent zero-finding review of the owner, both
+literal states, retained inputs, tested source closure and private activation.
+
+The sole candidate AP SHA-256 is
+5841af93a66fe64ed6ad5d7d744a32e24b61d72887978498d9a9f28564c22c43.
+The sole original Magisk AP SHA-256 is
+1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2.
+Only boot.img.lz4 may occur in each AP. The exact kernel and loader may
+publish two distinct 128-byte frames in existing Samsung RAM log slots
+after the reviewed target, CPU, reservation, FDT and header checks.
+Header stores are zero. The sites are uniLoader's final prebranch and Linux
+primary_entry before its first ordinary call. They grant no other early
+write, storage, control, peripheral access or transfer.
+
+Foreground preparation reads fresh fixed stock health under the shared
+target lease and binds the last positively calibrated stock boot, port,
+serial, reviewed inputs, candidate and rollback, one run, nonce and
+900-second deadline. One exact human approval with current attendance
+covers one initial ADB Download entry, one candidate attempt, the 180-second
+host-only observation, one same-port physical Download return, one original
+AP attempt and first-return comparison and root health. No candidate command
+is admitted. The source boot and zero-marker baseline must match before
+ADB control. The inherited post-Download binding joins the authorized run
+and the actual stable endpoint by machine validation within the original
+deadline. Its internal transfer and physical-arrival keys carry no
+independent human authority. A consumed candidate still owns original-only
+recovery when its new-candidate authority expires.
+
+The physical cue requires the original owner's empty Download inventory
+and durable arm. The operator uses the same forced hardware reset and
+Download keys as in the stock calibration. The machine waits for the exact
+single device and reidentifies the same endpoint before one original AP.
+No new physical action, rebind, second candidate or second rollback follows
+an uncertain or consumed effect. A preexisting Download endpoint at arm
+is a distinct recovery condition, outside this forced-entry experiment.
+An interruption may use the retained owner for original-only recovery or
+bounded no-replay pre-candidate return. A late finalizer may validate saved
+bytes or record a gap. Only an uninterrupted transfer/return observer may
+newly collect and attribute the first restored boot log. It pins the first
+publicly identified changed Android boot through final rooted health and
+the same-boot bounded scan. The fixed comparator reports prebranch and
+primary_entry separately, with ambiguous, missing or unproved reads supplying
+no stage proof. Old candidates, approvals and recovery remain consumed.

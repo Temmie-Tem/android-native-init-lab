@@ -248,3 +248,7 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 정상 Magisk의 현재 printk에서 표식 1건을 확인한 뒤, 물리 Download와 같은 USB 포트에서 원본 부트 전용 AP를 1회 전송했다. 처음 관측한 원복 부팅의 `/proc/last_kmsg` 2,097,136바이트에서 표식 1건이 회수됐다. 같은 부팅에서 판독 전후 Magisk 30.7, UID 0, SELinux Enforcing, PID 1 `/system/bin/init`이 확인됐다. 순정 메시지는 이 경로에서 살아남을 수 있다. 앞선 후보의 0건만으로 그 후보의 정지 명령을 특정할 수는 없다.
 
 격리 분기 `codex/s20-seclog-physical`의 커밋 `e6dcf2a313`에 실기 타임라인과 새 후보 소스를 보관했다. 새 부트 전용 AP(`5841af93`)는 로더의 최종 분기 직전과 Linux `primary_entry`를 따로 기록한다. 실제 빌드로 독립 QEMU 대조 9건을 통과했고 순정 스냅샷 모형과 ARM64 판독기로도 분기 직전 표식만 있는 경우와 둘 다 있는 경우를 구별했다. 이번 기기 전송은 원본 Magisk AP 1회이며 새 후보의 실기 진입은 미검증이다.
+
+### 두 조기 표식의 실기 실행기
+
+후보와 원본 Magisk를 한 번의 입회 승인에 묶는 [전용 실행기](../../workspace/public/src/scripts/revalidation/s20plus_g986n_early_pair_f1.py)를 준비했다. Android에서 준비할 때는 원본 부팅과 포트, 루팅, 후보 및 원복 AP를 확인한다. 승인을 받으면 같은 부팅에서 후보 표식 0건을 확인한 뒤 ADB로 Download에 진입한다. 후보 전송 후 180초 동안 기기에 명령을 보내지 않는다. 빈 Download 목록을 기록하면 물리 진입을 안내하고, 같은 포트의 도착을 확인하면 원본 AP를 복구한다. 첫 번째로 식별한 원복 부팅 ID, Magisk 건강, 동일 부팅의 이전 로그 판독을 결합해 두 관측점의 결과를 기록한다. 복구 프로세스가 중단돼 첫 복귀를 관측할 수 없으면 관측 공백을 남긴다. [대상 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-early-handoff-pair-under-one-attended-approval)
