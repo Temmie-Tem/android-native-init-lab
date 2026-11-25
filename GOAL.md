@@ -82,9 +82,13 @@ the write.
 [Design and H0](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_H0_2026-11-25.md) ·
 [Policy](docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md)
 
-**Next:** decide where the routing write belongs in the mainline image
-(a minimal MAX77705 MUIC/Type-C attach path rather than the observer), and
-whether a repeat boot is needed before relying on it.
+**Next:** a three-way design discussion proposed router v1 as a userspace
+helper started after the 555 s timer child is armed, with a polling kernel
+driver as v2. It also proposed one combined image and host runner for a
+cycle that recovers with no physical touch, and an attended evidence
+ladder. Activating Conditional Autonomous F1 remains the operator's
+decision.
+[Plan](docs/plans/S22PLUS_MAINLINE_USB_ROUTER_AND_HANDSOFF_CYCLE_2026-11-26.md)
 
 ### UFS module aligned with upstream tolerance (queued)
 
