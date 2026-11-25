@@ -55,7 +55,7 @@ witness; the V6+ automatic result-bound Download and original-A recovery.
 **Not proven:** Linux UFS link, installed Debian, full SysV shutdown, a
 general shell, stall recovery, residency or endurance.
 
-### Selected unit: observe the first mainline USB connection
+### Selected unit: observe the first mainline USB connection (closed)
 
 On 2026-11-25 the first attended MAX77705 observation closed
 `OBSERVED_MAX77705_USB_SWITCH` / `ANDROID_CLOSED_HEALTHY` under the v59
@@ -68,21 +68,23 @@ transferred once. The original owner finished with a health-only read after
 an ADB interruption. The candidate and approval are consumed.
 [Physical observation and recovery](docs/reports/S22PLUS_MAINLINE_MAX77705_USB_RUN_2026-11-25.md)
 
-**Next: one gated `COM_USB` write (Stage 2).** A three-way design
-discussion (Claude, Codex, Gemini Carbon) chose a single
-`CONTROL1_W(0x09)` after the gadget is bound and the UDC has read
-"not attached" for 3 s. That gives a same-boot control. The replug cue
-moves to W+45 s and serves only as the fallback that returns the record.
-
-The producer passed review in `837ca61e0e`. The scope, binding and target
-adoption were published in `807c012dd2` (v60 set, `ROUTE_PASS_GO`). The
-board AP is `edde39dd`. A fresh one-run task is prepared, with task SHA-256
-`287e8c24…0b77`, and has no grant.
-
-The run still needs current D0, the operator's exact returned approval,
-physical presence and usable Download recovery.
+**Stage 2 result: one `COM_USB` write removed the replug.** On 2026-11-26
+the attended one-write run closed `OBSERVED_MAX77705_USB_ROUTE` /
+`ANDROID_CLOSED_HEALTHY` with `ROUTE_CONFIGURED_WITHOUT_REPLUG` and no cue.
+The switch read `0x3f` and the UDC read "not attached" for 3 s. One
+`CONTROL1_W(0x09)` was followed by the host's bus reset 0.6 s later and
+configuration 0.8 s later. The write held (`0x09` at readback and at the
+request), with no cable change. Candidate and original Android each
+transferred once; the first final health passed. This is one boot; it
+shows sufficiency, not the mechanism or which kernel component should own
+the write.
+[Run](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_RUN_2026-11-26.md) ·
 [Design and H0](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_H0_2026-11-25.md) ·
 [Policy](docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md)
+
+**Next:** decide where the routing write belongs in the mainline image
+(a minimal MAX77705 MUIC/Type-C attach path rather than the observer), and
+whether a repeat boot is needed before relying on it.
 
 ### UFS module aligned with upstream tolerance (queued)
 
