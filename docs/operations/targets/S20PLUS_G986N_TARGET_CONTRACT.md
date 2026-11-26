@@ -5124,3 +5124,74 @@ never reissues the scan. This profile grants no device
 write, mode change, transfer or F1 claim. A positive can establish that
 a candidate-specific record survived; its age and the originating boot
 attempt remain unknown. A zero cannot exclude candidate execution.
+
+## S20+ y2q consolidated initcall and USB trial under one attended approval
+
+This one-run SM-G986N/y2q/G986NKSS8IYC2 profile uses
+`s20plus_g986n_consolidated_f1.py`, candidate boot-only AP
+`7629240202f5fbe24efaa2a781b054755a733528e6d27b21caf646ba77e6ebe6`,
+and original Magisk boot-only AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Bind the preceding basic-setup terminal, the healthy original return, its
+first-return observation gap and the separate same-boot read of four ordered
+DT and basic-setup call-site pairs with zero return records. All previous
+experiments and their grants remain consumed.
+
+Retain the list-compatible handoff and its firmware placement, stocks'
+outer Android DTB, Linux 6.18 configuration and RAM-only init. In the payload
+change the USB2 REFCLK mask/value order, only the nine qualified y2q
+device-mode PHY tuning fields, the fixed RAM init's UDC wait to 90 polls
+one second apart, and the fresh build identity for its existing generic ACM
+serial and banner. Admit the exact newly qualified regular initcall and
+milestone recorder. Continue normally into the original functional RAM
+userspace path. The stage recorder cannot reboot, intentionally stall the
+candidate, select a callback to skip, or access storage.
+
+Only the initial namespace's global PID 1 thread owns the resident recording
+state. Each kernel invocation admits one anchor at the previously observed
+basic-setup call site and at most one attempt for each of 316 fixed progress
+bits. The regular table has 153 resolved PREL32 entries. Bit pairs are the
+call site immediately before each dispatch and immediately after its return.
+The ten remaining eligible bits mark basic-setup entry, driver-model setup
+return, both sides of the two deferred-work flushes in deferred_probe_initcall,
+basic-setup return, initramfs wait return, the exact RAM /init exec attempt
+and its native EL0 getpid syscall entry. The last requires the bound regular
+/init inode path and size, same executable, exact new ELF PC/LR, native user
+mode, expected syscall and thread. It preserves the real syscall result.
+
+Use the previous recorder's validated live tree, permission flag, fixed
+no-map reservation, RAM and NOMAP checks for every page touched, regular
+ioremap/iounmap, unchanged LOGM header, bound cursor and 256-byte window.
+The anchor occupies bytes 0–79. Alternate 80-byte snapshots at +80 and +160
+after verified publication. The trailing 16 bytes remain untouched. Publish
+the eight signature bytes last with the established ordering barriers and
+readback. Each snapshot binds the trial nonce, all forty per-boot bitmap
+bytes and the BLAKE2s-128 of its complete 64-byte body. The remaining four
+bits stay zero. Maximum distinct diagnostic bytes per kernel entry are 240;
+at most 317 publications attempt at most 27,896 byte stores per kernel
+entry. A failure to publish cannot open another window or suppress ordinary
+Linux execution. No user-selectable address, event or writable interface.
+
+Require the preceding owner’s machine health, same USB port, practicable
+physical recovery, current attendance and fresh 900-second foreground grant.
+One grant covers one ADB Download transition, one candidate AP, the single
+180-second bounded passive ACM observer for this candidate's exact serial,
+descriptor and banner, one machine-cued physical Download, one original
+Magisk AP and the first identified original boot's bounded scan and health.
+All transport, process, busy-port, physical arrival, archive membership,
+durable intent, no-replay, reporting-cut and recovery checks carry forward.
+Recovery remains available under the original grant after the candidate
+window; a TWRP intervention preserves the first-observation gap.
+
+The fixed baseline and first-return scan retain original model/boot/root,
+procfs, canonical busybox, size, producer and output checks. Count exact
+anchors and full digest-verified snapshots of this nonce in the linear
+stock log. Return only these counts, size and one bitmap (greatest set-bit
+count, ties by fixed-width bitmap hex lexical order). Never join records
+across the ring ends or union records across attempts. Require a clean
+source baseline. A recovered positive bit establishes its compiled
+observation site; missing records, duplicate counts and a missing return
+do not prove a reset cause, boot count or last instruction. Keep retained
+PID 1 entry and independent live ACM proof distinct. A reporting gap or
+an intervening recovery boot cannot be promoted to an intact first-return
+scan. Require independent exact zero-finding review before activation.
