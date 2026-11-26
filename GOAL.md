@@ -119,7 +119,12 @@ the A transfer, as Android reports boot complete. Runs 2 and 3 each needed
 one host-side health resume
 ([run 3](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN3_2026-11-26.md)).
 That makes three normal runs, none needing a physical action, but the
-health start is not yet hands-off.
+health start is not yet hands-off. The v64 set (`fa2acb0ee2`, Codex
+`READY_SETTLE_PASS_GO` in round 3) makes readiness wait until the target's
+replies hold on one ADB transport and boot ID for 10 s before health starts.
+The seven-read health acceptance is unchanged. The set also adds two
+repeat-build qualifications. The verification run's task (`972df4f8…d6de`,
+AP `a9686f8a`) is prepared with no grant.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
