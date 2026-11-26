@@ -311,3 +311,21 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 첫 복귀 부팅에서 판독기가 반환한 값은 `y2q_early_v2=2097136,4,4,0`이다. 마지막 값은 두 표식이 각 1건이고 128바이트 간격으로 순서대로 나타났을 때만 1이 된다. 기존 필터로 호스트에서 대조한 결과 인접한 쌍을 4번 둔 입력과 첫 표식 4개 뒤에 둘째 표식 4개를 둔 입력이 모두 `4,4,0`을 반환했다. 실기 집계에는 각 표식의 위치나 작성 당시의 부팅 식별자가 없다. 중간 재부팅은 관찰됐지만, 어느 부팅에서 몇 건이 작성됐는지, TWRP 경유가 보존에 어떤 영향을 주었는지, 실제 인접 쌍이 몇 개인지는 판별할 수 없다. 이번 실험은 이후 initramfs나 사용자 공간을 관측하지 않았다.
 
 종료 판정은 `NO_PROOF_Y2Q_EARLY_PAIR_RESIDENT_HEALTH_OBSERVED`다. 비공개 실행은 `s20plus-g986n-mainline-list-f1/run-1795715419450778655`, 실행기 커밋은 `2ce48aee1f`, 종료 기록 SHA-256은 `2a73e13a634dcf194aef08fbee27891c4f87a546c8142c0b57a068a8885f3a71`이다. 후보와 원본 전송을 각각 한 번 사용했고 재전송은 없었다.
+
+### 같은 원복 부팅에서 두 표식의 인접성 확인
+
+추가 재부팅 없이 직전의 원본 Android 부팅 ID, USB 포트, Magisk 상태를 판독 전후에 확인했다. 독립 검토한 읽기 전용 판독기로 같은 `/proc/last_kmsg` 2,097,136바이트를 한 번 읽었다. `prebranch` 4건, `primary_entry` 4건이었고, **네 곳 모두 첫 표식의 시작점에서 정확히 128바이트 뒤에 둘째 표식이 있었다.** 기존 실기의 집계와 종료 판정은 보존했다. 이 추가 관측은 보존된 바이트 배열을 확인한다. 중간 재부팅과 TWRP 진입이 있었으며 네 쌍의 작성 시점이나 부팅 횟수는 알 수 없다. 독립 검토 입력은 `3da3ce48f7cfda894ff4d55999ca89eb8adb91a4edd3e89bbf68f256203c64c8`, 추가 판독 결과의 SHA-256은 `d9bc537f69ec127960299a984b9884fe97279c7b69e3687008d84afe64b3a015`이다. [판독 규약](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-first-return-mainline-marker-adjacency-d0)
+
+### Linux 기기 트리 초기화와 USB PID 1을 관측하는 후보
+
+최종 후보 AP는 `32e40210c5487f37de32c3d541e454df03e86855d74a5a9c5cf420f7811b5b68`, 원복 AP는 `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`이다. 둘 다 부트 전용이며 원본 Magisk의 부트 이미지에 붙은 DTB를 유지했다. 새 표식은 Linux의 `setup_machine_fdt`가 반환한 뒤와 `unflatten_device_tree`가 반환하고 y2q 루트가 확인된 뒤에 각각 기록된다. 두 코드 경로와 동일한 RAM initramfs를 포함한 후보를 검증했다.
+
+- 실제 후보 로더의 QEMU 인계 조건 97개 중 허용된 74개에서 커널 진입과 구성된 DT를 확인했다. 잘못된 목록 항목과 종료되지 않은 문자열은 거부됐다.
+- 커널 단계 모델 21개와 첫 부팅 로그 판독 54개에서 정상 쌍, 단독 표식, 실패 및 중복 사례를 구분했다. 새 후보의 Image와 initramfs를 사용한 QEMU 가상 보드에서 빌드 ID를 포함한 `INIT_ENTERED` 메시지가 PID 1에서 출력됐다. 가상 보드에는 y2q UDC가 없어 물리 ACM 검증은 별도다.
+- 실기에서는 후보에 명령을 보내지 않고 준비 단계에서 식별한 포트에서 같은 빌드 ID의 Linux USB 직렬 장치를 찾는다. PID 1의 완전한 `ACM_READY` 메시지와 원복 후의 두 커널 표식은 각각 판정한다. 케이블과 버튼 조작 시점은 실행기가 물리 Download 도착 관측을 준비한 뒤에 알린다.
+
+검토 중 이전 호스트 후보가 직렬 인터페이스를 AT 모뎀용 프로토콜 1로 표시하는 것을 발견했다. 호스트의 해당 ModemManager 버전은 단일 ACM 장치와 네트워크 인터페이스의 유무도 검사한다. 실제 자동 명령 전송을 관측한 것은 아니다. 최종 후보는 일반 직렬 프로토콜 0을 사용한다. 빌드한 커널의 `acm_alloc_instance`에서 해당 필드에 0을 저장하는 기계 명령을 확인했고, 호스트 cdc_acm 드라이버의 02/02/00 지원도 확인했다. 호스트 서비스와 udev 규칙은 변경하지 않았다. [ModemManager의 직렬 포트 필터](https://www.freedesktop.org/software/ModemManager/api/latest/ref-overview-modem-filter.html)
+
+호스트 검증 자료는 `workspace/private/analysis/s20plus-y2q-cstage-serial-20261127/`, 검증 목록 SHA-256은 `5b0b0cbf65f64d08e9734ff7f8c2c283fc18ad2abad7fc9c7387c26c0ee0cdfb`이다. [실기 규약](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-linux-c-stage-and-acm-pid1-under-one-attended-approval)
+
+최종 실행기 독립 검토는 `PASS_GO`(미해결 지적 0건)로 종료했다. 검토 입력 SHA-256은 `754abcc7e471e62fd3108e375b3be2df825c62857549dcc7f257d8db77634f03`, 활성 실행기는 `32d34edbd7b1fd2ce21e8a2880db02d2e7c3587a57344e473b189ef5be04b56a`이다. 03:30 KST 준비 조회에서 원본 Magisk 30.7(30700), UID 0과 Android 부팅 완료를 확인했다.

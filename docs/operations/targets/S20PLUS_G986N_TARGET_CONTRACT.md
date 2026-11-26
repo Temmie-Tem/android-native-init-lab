@@ -4858,3 +4858,93 @@ it must not reenter live finalization or touch another owner's guard. If
 publication was cut before release, existing same-owner guarded cleanup
 applies. Pre-candidate aborts retain their dedicated abort entrypoint. All
 earlier candidates, approvals and journals retain their identities.
+
+## S20+ first-return mainline marker adjacency D0
+
+For this foreground SM-G986N/y2q/G986NKSS8IYC2 postmortem only,
+`s20plus_g986n_mainline_adjacency_d0.py` may make one fixed read of the
+original Magisk first-observed return from the closed mainline-list trial
+ending in terminal `2a73e13a`. Its canonical private activation requires an
+independent zero-finding review of this exact owner, selected scope, retained
+first-return evidence, helper identities and generated reducer. Reuse the
+stock-direct first-return D0's target-session lease, owner exclusions and
+same-boot, same-serial, same-port and Magisk health brackets. This capability
+does not require physical attendance.
+
+A durable intent precedes one root scan. Only canonical `/proc/last_kmsg`
+is read, with the retained Magisk BusyBox and procfs checks, a 2,097,136-byte
+limit plus one sentinel byte, 120 seconds and 96 combined capture bytes.
+On the device, independently count both exact nonce-bound 128-byte frames
+and every ordered pair with Linux primary_entry beginning precisely 128 bytes
+after prebranch, including matches across stream rows. Do not join the end
+and start of the exported stream. Retain only its size and the three counts
+or a fixed unavailable status, plus bounded capture metadata and digests.
+No raw log, frame bytes or position list leaves the reducer. A comparable
+complete observation requires the original size and 4/4 stage totals to match
+the retained raw `4,4,0` summary. The old terminal and counts stay immutable.
+
+The canonical evidence directory is `runs/s20plus-g986n-mainline-adjacency-d0`.
+The capability closes on the one observation or loss of the recorded boot.
+Adjacency describes the layout of retained bytes in that snapshot. It does
+not identify a candidate boot, establish the number of boots, attribute the
+TWRP transition or prove progress into userspace. No mode change, transfer,
+device write, replay or further authority is granted.
+
+## S20+ y2q Linux C-stage and ACM PID1 under one attended approval
+
+This single boot-only successor for SM-G986N/y2q/y2qksx/G986NKSS8IYC2 uses
+`s20plus_g986n_cstage_list_f1.py`. Apply the common F1 constraints and the
+retained kernel stages, one-grant early pair and compatible-list early pair
+sections, including consumed-effect, physical recovery, first-return identity
+and completed-terminal handling. The only candidate AP is
+`32e40210c5487f37de32c3d541e454df03e86855d74a5a9c5cf420f7811b5b68`.
+The only rollback AP is the demonstrated original Magisk
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Each contains only boot.img.lz4. The fresh candidate uses the list-aware
+guard, a generic CDC ACM interface 02/02/00 in the RAM kernel (no AT
+protocol or network function), Linux 6.18 after setup_machine_fdt and after populating the y2q OF
+root, and the retained RAM initramfs. The exact two 128-byte Samsung log
+writes retain all kernel-stage geometry, reservation and header constraints.
+The prior mainline-list terminal, root and original transfer must validate.
+The previous operator observed an intermediate reboot and entry through TWRP;
+only same-port Download arrival and exact original transfer were host-proved.
+
+Fixed foreground preparation verifies current original Android and issues one
+900-second token. A currently attended affirmative grant covers one ADB
+Download, one candidate transfer, a 180-second candidate observation, one
+machine-cued same-port physical Download, one original AP transfer and
+first-return rooted Android and log observation. Neither candidate nor
+rollback may replay. Candidate admission and initial control use the inherited
+effect-time deadline. Physical return remains mandatory for faulty or absent
+USB; no automatic reboot or recovery partition action is authorized.
+
+Preparation and dispatch of initial Download and candidate AP check the
+reviewed host ModemManager binary, unit and default filter configuration.
+This single-candidate check prevents unsolicited modem probing and closes
+with this run or a change to the reviewed observer/host. Original-only
+recovery remains available if host policy changes.
+
+Only the original execute owner, following a completed candidate transfer and
+its durable observation intent, may attempt the fixed RAM PID1 ACM witness.
+The initial bound Download session on the prepared port precedes the candidate.
+Observe only the same USB topology, the fixed Linux gadget 1d6b:0104, exact
+product and build-specific serial, and a unique interface 00 on cdc_acm.
+A host parent may send its child one newly opened read-only O_NOFOLLOW
+ttyACM descriptor over its private inherited socket after validating the
+accepted grant, current guard, transfer receipt, phase, window and endpoint.
+Allow tty open/close, exclusive mode and raw line setup for this observation,
+including normal CDC line control. No data may be written to the candidate.
+Bound the serial read to 12 seconds, at most 512 private bytes, within the
+candidate dwell. Verify the character device and USB session before and
+after reading. Only a complete build-specific ACM_READY PID1 line from the
+bound endpoint is positive. Missing or changed endpoints, an observation
+cut, unexpected bytes or reporting failures never authorize candidate control.
+No repeat ACM open after a failed or interrupted attempt.
+
+Keep the USB PID1 result and both nonce-specific first-return kernel marker
+counts separately. Missing, ambiguous, interrupted or changed-boot evidence
+cannot become a later witness. A marker reobservation from another run
+grants no authority for this trial. Activation requires independent zero-
+finding review of the reachable owner, observer, artifacts, authority,
+both literal states, tests and exact private activation. Keep all evidence
+and the original terminal append-only. This grant closes on the one run.
