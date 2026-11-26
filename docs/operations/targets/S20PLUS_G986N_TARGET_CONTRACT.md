@@ -4788,3 +4788,38 @@ For fully parsed nonempty forms emit only membership in qcom,kona, qcom,sm8250,
 samsung,y2q and the presence of other tokens. No other string is exported.
 The matching receipt is activation-root-form.json in the same evidence parent;
 keep the earlier receipt, observation and source provenance.
+
+## S20+ stock-kernel compatible-list control under one attended approval
+
+The foreground S20+ SM-G986N/y2q/G986NKSS8IYC2 control uses only
+`s20plus_g986n_stock_list_f1.py` and the preceding stock Magisk direct
+marker transaction. The new boot-only AP is
+`6d2ba177d6447fc166580d07e9bc34a4d771f4c97aabc272f9e7756a26463f25`.
+The original Magisk boot-only AP is
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Both contain only boot.img.lz4. Use the closed stock-direct run's proved
+same-port original return and a fresh matching original Magisk health check.
+Private activation requires an exact independent zero-finding review of the
+selected scope, both owner literal states, transferred artifacts and reachable
+execution machinery. Fixed foreground preparation may read health and issue a
+900-second token before the operator confirms attendance. It changes no mode.
+
+Admit the stock input tree only when its entire root compatible is a valid
+bounded NUL-separated list containing the complete qcom,kona token. Preserve
+the retained loader's CPU, layout, reservation, writer and original kernel,
+ramdisk and stock DTB checks. This trial's fresh nonce identifies its single
+128-byte prebranch frame and the copied FDT's chosen property
+codex,y2q-stock-list-v1. The vendor kernel contains no primary_entry recorder.
+
+One affirmative token while physically present covers initial ADB Download,
+one candidate AP, the bounded same-port candidate Android observation, and
+one mandatory original AP return. Require candidate-time fresh Magisk root
+health, unchanged boot and the exact current FDT tag for attribution. Only C
+with exactly one current prebranch and zero primary_entry confirms complete
+marker recovery. A tagged C/U candidate may return by authenticated ADB after
+the effect-time recheck. An absent/unauthenticated candidate uses the inherited
+machine-armed, empty-baseline same-port physical Download path. Both branches
+share the same original-only rollback budget and require healthy rooted
+original Android and absence of this trial's property. Existing no-replay,
+uncertain-effect stops, ownership and recovery after candidate expiry apply.
+No previous claim or approval is reusable.

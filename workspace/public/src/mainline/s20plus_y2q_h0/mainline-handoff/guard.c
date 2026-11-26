@@ -79,6 +79,26 @@ LEAF int y2q_shape(const unsigned char *p)
     return 0;
 }
 
+/* Before stack setup. Match complete tokens and consume the entire property. */
+INLINE int has_kona_compatible(const unsigned char *p, unsigned len)
+{
+    unsigned pos = 0, count = 0, found = 0;
+    if (!len || len > 512) return 0;
+    while (pos < len) {
+        unsigned start = pos;
+        if (++count > 16) return 0;
+        while (pos < len && p[pos]) {
+            if (p[pos] < 33 || p[pos] > 126 || pos - start >= 127) return 0;
+            ++pos;
+        }
+        if (pos == start || pos == len) return 0;
+        if (pos - start == sizeof("qcom,kona") - 1 && eq(p + start, "qcom,kona"))
+            found = 1;
+        ++pos;
+    }
+    return found;
+}
+
 INLINE int status_ok(const unsigned char *p,unsigned n)
 {
     return (n==3 && eq(p,"ok")) || (n==5 && eq(p,"okay"));
@@ -155,7 +175,7 @@ LEAF int y2q_interval(const unsigned char *p, uint64_t lo, uint64_t end)
                 if (depth==2 && eq(k,"ranges")) { if (n) return 0; bit=64; }
                 if (eq(k,"status") && !status_ok(v,n)) return 0;
                 if (depth==1 && eq(k,"compatible")) {
-                    if (n!=10 || !eq(v,"qcom,kona")) return 0;
+                    if (!has_kona_compatible(v,n)) return 0;
                     bit=512;
                 }
             } else if (depth==2 && eq(k,"device_type") && n==7 && eq(v,"memory")) {

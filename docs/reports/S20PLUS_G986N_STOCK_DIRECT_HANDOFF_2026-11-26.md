@@ -101,3 +101,15 @@ Odin의 두 성공 영수증이 지목한 AP를 다시 열고 TAR 멤버·MD5와
 호스트 전용 복사본에서 `y2q_interval`의 루트 검사만 바꿨다. 전체 속성이 정상 종료된 비어 있지 않은 문자열 목록이고, 그 안에 완전한 `qcom,kona` 항목이 있으면 통과한다. 원본을 다시 빌드한 대조의 바이트는 실제 전송했던 후보와 일치했다. 수정본은 링커 검사와 ARM64 스택 설정 전 명령 검사를 통과했다. 11개 QEMU 대조 중 기존 단일 값과 대상 항목이 목록의 처음·중간·끝에 위치한 4건이 `prebranch`를 지나 원본 삼성 커널 첫 명령을 실행했다. 4건 모두 FDT의 확인 문자 C와 기준 시드에서 기대한 표식을 포함한 링 전체 바이트가 일치했다. 나머지 7건(다른 값, 부분 문자열, 추가 빈 항목, 종료 누락, 비정상 문자, 항목 수 초과, initrd 위치 불일치)은 표식 전에 거부됐다.
 
 수정본과 재현 자료는 비공개 `workspace/private/analysis/s20plus-y2q-stock-direct-20261126/postclosure/root-list-h0/`의 `guard-list.diff`, `build.json`, `results.json`에 있다. 통제된 비교를 위해 이전 VM의 식별값을 재사용했다. 원복 부팅에서는 읽기만 수행했고, 이 복사본으로 기기용 후보 AP를 만들거나 전송하지 않았다. 물리 후보의 다음 판별점은 고유 표식을 가진 목록 지원 로더가 원본 삼성 커널을 거쳐 Android에서 관측되는지다.
+
+## 11월 27일 문자열 목록을 지원하는 실기 후보 준비
+
+새 후보는 정상 NUL 구분 목록에서 완전한 `qcom,kona` 항목을 확인한다. 첫 실행의 호스트 전용 식별값은 재사용하지 않았다. 이번 128바이트 `prebranch` 프레임과 `/chosen/codex,y2q-stock-list-v1` 속성은 새 식별값을 공유한다. 속성은 U에서 시작해 기록을 다시 읽어 일치할 때 C로 바뀐다. 단일 boot 전송에 사용하는 후보 AP의 SHA-256은 `6d2ba177d6447fc166580d07e9bc34a4d771f4c97aabc272f9e7756a26463f25`이며 원복 AP는 `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`다. 두 AP를 각각 풀어 boot.img.lz4 단일 멤버, 64 MiB 디코딩 이미지, 원본 삼성 커널·Magisk 램디스크·삼성 DTB를 대조했다.
+
+실제 후보 바이트로 QEMU 여섯 경우를 시험했다. 쓰기 조건을 충족한 세 경우에는 새 표식을 읽은 뒤 원본 커널로 진입했고, 허용 인수 누락·잘못된 로그 헤더·짧은 커서에서는 표식 없이 원본 커널로 진입했다. 세 경우의 스냅샷을 순정 Android 도구로 판독해 256바이트와 2,097,136바이트 양성 및 255바이트 음성을 확인했다. 독립 대조에서도 목록 중간에 정확한 항목이 있는 입력은 삼성 커널 첫 명령을 실행했다. 잘못된 호환성 목록 또는 이동된 initrd를 준 여덟 경우는 첫 스택 설정 전에 거부됐다. 이 증거는 호스트 검증이다.
+
+[전용 실행기](../../workspace/public/src/scripts/revalidation/s20plus_g986n_stock_list_f1.py)는 승인 한 번에 후보 AP 1회와 원본 AP 1회를 묶는다. 같은 포트에서 후보의 새 Android 부팅, Magisk 루팅, 이번 FDT 태그와 이전 로그의 표식을 대조한다. C와 정확한 prebranch 1건, primary_entry 0건이어야 기록 회수를 확정한다. 인증된 후보는 ADB로 원복하며, 후보를 인증할 수 없으면 실행기의 안내에 따라 물리 Download로 진입한다. 원복 성공 판정에는 원래 기기의 새 Android 부팅, Magisk 루팅 및 후보 전용 속성 부재가 필요하다. [입회 및 원복 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-stock-kernel-compatible-list-control-under-one-attended-approval)
+
+호스트 자격 자료는 비공개 `workspace/private/analysis/s20plus-y2q-stock-list-20261127/qualification.json`, 독립 후보 검증은 같은 위치의 `independent/result.json`에 있다. 두 SHA-256은 각각 `125d68324a6bdcb7192e9b26c0726032c45b8bf19c4abe628eea6e6900327d84`, `99cdd7204b8ab5dc0d94bcc3d7f963b7fbb85b535ba9eb5179ed7df7e05cb81e`다.
+
+실행기 독립 검토 입력은 `e6838028f32296f2436477e07700f0e0a6e841bbe9e4be39d467940a1d279085`였고 미해결 지적은 0건이었다. 검토한 활성 소스와 호스트 검증을 확인한 뒤 02:15:35 KST에 SM-G986N의 이전 원복 첫 부팅 ID, 같은 포트, Magisk 30.7(30700), UID 0, Enforcing, PID 1 `/system/bin/init`을 확인해 15분 승인 토큰을 발급했다. 발급 시점에 수락 기록과 전송 실행 디렉터리는 없었다.
