@@ -112,8 +112,14 @@ hands-off gap observed
 ([run 2](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN2_2026-11-26.md)).
 The v63 set (`ff8a7cde8d`, Codex `READY_CLOSED_PASS_GO`) makes the mainline
 original-A readiness wait treat `error: closed` like `device not found`. The
-v62 run-3 task `5235aa7c…` was abandoned without a grant. The fresh run-3
-task (`d466f0e4…3226`, AP `5582ed47`) is prepared with no grant.
+v62 run-3 task `5235aa7c…` was abandoned without a grant. Run 3 (`d466f0e4…`) closed `ANDROID_CLOSED_HEALTHY` with the same route,
+timer and automatic return. Readiness passed, but the health bracket lost
+ADB at 649 s. Runs 1 to 3 all show transient ADB failures about 40 s after
+the A transfer, as Android reports boot complete. Runs 2 and 3 each needed
+one host-side health resume
+([run 3](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN3_2026-11-26.md)).
+That makes three normal runs, none needing a physical action, but the
+health start is not yet hands-off.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
