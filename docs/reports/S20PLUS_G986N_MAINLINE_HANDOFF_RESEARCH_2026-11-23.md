@@ -270,3 +270,22 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 판독기의 원본 계수는 `y2q_early_v2=2097136,0,0,0`이다. 앞서 같은 물리 경로에서는 순정 printk 표식이 1건 보존됐으므로 Download 원복이 모든 기록을 지운다고 볼 수 없다. 이 후보의 두 표식은 기록 허용 조건과 Samsung 로그 영역을 공유한다. 두 값이 0이어도 후보가 실제 실행한 마지막 명령을 가릴 수 없다. 종결 판정은 `NO_PROOF_Y2Q_EARLY_PAIR_RESIDENT_HEALTH_OBSERVED`다.
 
 비공개 실행은 `s20plus-g986n-early-pair-f1/run-1795640333141198698`, 관측 및 원복 소유자 커밋은 `9cd33584d0`, 종료 기록 SHA-256은 `abea672783a967eda0fbc18a686eab7800d7efcce40d330ccd867527a72fbc8f`이다. 이 후보의 전송과 원복은 모두 소진됐다.
+
+### 11월 27일 compatible 목록을 적용한 Linux 6.18 후보
+
+원본 Magisk 커널로 넘긴 실기 대조에서 검증한 로더 가드를 Linux 6.18 후보에 적용했다. 루트 FDT의 NUL 구분 `compatible` 목록 어디에든 완전한 `qcom,kona` 항목이 있으면 허용한다. 두 위치의 128바이트 표식에는 이번 이미지에만 쓰는 식별값을 넣었다. [원본 커널 대조 결과](S20PLUS_G986N_STOCK_DIRECT_HANDOFF_2026-11-26.md)
+
+| 호스트 검증 | 관측 |
+| --- | --- |
+| 정확한 후보로 실행한 QEMU 9개 조건 | 정상 3개에서 두 표식 각 1건. 기록이 허용되지 않은 3개에서 모두 0건. 두 지점 사이 정지 또는 인계 정보 불일치 3개에서 `prebranch`만 1건 |
+| 원복 첫 부팅을 모델링한 판독 4건 | 256바이트 및 2,097,136바이트의 정상 표본에서 두 표식. 중간 정지 표본에서 `prebranch`만 1건. 255바이트의 음성 표본에서 모두 0건 |
+| 독립 이미지 검토 | 후보와 원본 AP 내부에 각각 `boot.img.lz4` 하나. 압축 해제한 부트 이미지 두 개와 FDT를 대조. 정확한 목록에서 Linux 진입과 두 표식 확인. 일치 항목이 없거나 목록 끝이 훼손된 경우에는 스택 설정 전 정지 |
+| 중복 종료 회귀 | 내부에서 반환한 완료 결과는 원본 복구를 재호출하지 않고 보존한다. 과거 완료 기록을 USB와 네트워크가 차단된 환경에서 재판독했다. 물리 도착·확인·관측 의도 또는 후보 소비 기록을 개별 제거한 사본은 모두 거부했다. 도착 관측 중 중단 후 허용된 한 번의 관측으로 원복한 사본에서는 판독 공백을 유지했다 |
+
+후보 AP SHA-256은 `424ace70dcf22e5b2ed2b5b34636537f42acda19c914454c773455880ed44cdf`, 원본 Magisk AP는 `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`이다. 후보에는 보존한 조기 표식 빌드 소스 `e6dcf2a313`와 원본 커널 대조에서 검증한 가드 `13148334`를 사용했다. 비공개 이미지·QEMU·첫 부팅 판독 모델 및 독립 자료는 `workspace/private/analysis/s20plus-y2q-mainline-list-20261127/`에 있다.
+
+실기에서는 원본의 두 표식이 모두 0건인지 확인한 뒤 후보를 1회 전송한다. 후보에 ADB 명령을 보내지 않고 180초 대기한다. 실행기의 안내에 맞춰 같은 포트에서 물리 Download 도착을 확인하고 원본 AP를 1회 전송한다. 처음 식별한 원복 부팅에서 `/proc/last_kmsg`의 두 계수와 Magisk UID 0, Android 부팅 완료, SELinux 및 PID 1을 확인한다. `primary_entry` 한 건은 그 지점 진입의 증거이며 이후 initramfs 실행이나 서버 가동은 별도의 관측이 필요하다. [S20+ 실행 규약](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-mainline-compatible-list-early-pair-under-one-attended-approval)
+
+실행기 독립 검토 결과는 `PASS_GO`이며 미해결 지적은 0건이다. 검토 입력 SHA-256은 `b0a3899b76f9fbe8b3baac4ffd1fca788979d9b2ea2d3b35bfa4c9a78c8da8ab`, 활성 실행기는 `1b4ff7c5175367e12088682afab7e4e49ee497f53ce840e2605c6edcc5c3fe1b`이다. 이전 부트로더·커널 조합의 실기 결과와 이번 준비를 구분하기 위해 새 후보의 실기 결과는 승인 후에 기록한다.
+
+11월 27일 02:50 KST 준비 조회에서 직전 원복과 같은 기기·USB 포트·부팅 ID, Magisk 30.7(30700), UID 0, SELinux Enforcing, PID 1 `/system/bin/init`을 확인했다. 새 후보 전송은 0회이며 입회 승인을 기다린다.

@@ -4823,3 +4823,38 @@ share the same original-only rollback budget and require healthy rooted
 original Android and absence of this trial's property. Existing no-replay,
 uncertain-effect stops, ownership and recovery after candidate expiry apply.
 No previous claim or approval is reusable.
+
+## S20+ mainline compatible-list early pair under one attended approval
+
+Only `s20plus_g986n_mainline_list_f1.py` may run this Linux 6.18 successor
+for SM-G986N/y2q/G986NKSS8IYC2. It inherits the exact early-handoff pair
+transaction, observation and interrupted-recovery limits, the list-aware
+pre-stack guard qualified on the stock-kernel control, and the common F1
+constraints. The candidate boot AP is
+`424ace70dcf22e5b2ed2b5b34636537f42acda19c914454c773455880ed44cdf`.
+The only recovery AP is the demonstrated original Magisk boot archive
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Require the latest closed stock-list original return, fresh matching source
+health, exact artifacts, a clean claim and physical-return capability.
+Activate only after independent zero-finding review of the exact owner,
+both literal states, evidence, source closure and private activation.
+
+Fixed foreground preparation may check original Android and issue a
+900-second token. One affirmative token with the operator physically present
+covers ADB Download, one candidate AP, a 180-second host-only dwell, the
+machine-armed same-port physical Download entry, one original AP, and the
+first-observed restored Android's aggregate log and Magisk root-health checks.
+The candidate receives no ADB commands. Source and first-return scans count
+this candidate's nonce-specific 128-byte prebranch and Linux primary_entry
+frames separately. Use the inherited ordered-pair parser, exact original
+transfer evidence, fresh pinned return boot and raw validation. Interrupted
+observations cannot be newly attributed to a later boot. Preserve ambiguity
+and gaps, and never replay an uncertain control or transfer.
+
+A validated terminal returned by the inner operation is its final result.
+After the original guard has been released, an explicit status/recovery
+request may only rederive that run's completed post-candidate result from saved evidence;
+it must not reenter live finalization or touch another owner's guard. If
+publication was cut before release, existing same-owner guarded cleanup
+applies. Pre-candidate aborts retain their dedicated abort entrypoint. All
+earlier candidates, approvals and journals retain their identities.
