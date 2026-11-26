@@ -110,7 +110,10 @@ stopped on a transient `adb` `error: closed` during Android boot and was
 finished by one host-side `resume_approved_health`. This is the first
 hands-off gap observed
 ([run 2](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN2_2026-11-26.md)).
-The run-3 task (`5235aa7c…47b3`, AP `5582ed47`) is prepared with no grant.
+The v63 set (`ff8a7cde8d`, Codex `READY_CLOSED_PASS_GO`) makes the mainline
+original-A readiness wait treat `error: closed` like `device not found`. The
+v62 run-3 task `5235aa7c…` was abandoned without a grant. The fresh run-3
+task (`d466f0e4…3226`, AP `5582ed47`) is prepared with no grant.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
