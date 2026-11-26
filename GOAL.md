@@ -104,9 +104,13 @@ F1 remains the operator's decision.
 Two more normal runs are being prepared. The registry admits each AP once,
 so the v62 set (`1074da5b1c`) adds two repeat-build qualifications of the same
 composition to the binding module. Codex returned `ROUTE_TIMER_REPEAT_PASS_GO`.
-The run-2 task (`7253ab85…2e78`, AP `ab4c68d5`) is prepared with no grant. The
-run-3 board (AP `5582ed47`) is qualified, and its task is prepared after run 2
-closes.
+Run 2 closed `ANDROID_CLOSED_HEALTHY` with the same route, timer and
+automatic return (Download 589.77 s after N). The first health attempt
+stopped on a transient `adb` `error: closed` during Android boot and was
+finished by one host-side `resume_approved_health`. This is the first
+hands-off gap observed
+([run 2](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN2_2026-11-26.md)).
+The run-3 task (`5235aa7c…47b3`, AP `5582ed47`) is prepared with no grant.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
