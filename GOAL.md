@@ -140,8 +140,11 @@ transferred A, and health passed first time
 ([run 5](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN5_2026-11-27.md)).
 This is the first fully hands-off cycle. Repeatability is not yet shown. The
 v66 set (`0ea046353f`, Codex `REPEAT3_PASS_GO`) qualifies three more builds
-(r6 to r8) for repeatability runs. Run 6's task (`dbe5406b…5b37`, AP
-`b32e38eb`) is prepared with no grant.
+(r6 to r8) for repeatability runs. Run 6 (`dbe5406b…`) closed
+`ANDROID_CLOSED_HEALTHY` with no physical action. The usbfs departure race
+hit the census's initial inventory read, which v65 keeps strict, so one
+`recover_approved_task` was needed
+([run 6](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN6_2026-11-27.md)).
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
