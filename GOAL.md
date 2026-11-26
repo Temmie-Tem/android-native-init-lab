@@ -123,8 +123,14 @@ health start is not yet hands-off. The v64 set (`fa2acb0ee2`, Codex
 `READY_SETTLE_PASS_GO` in round 3) makes readiness wait until the target's
 replies hold on one ADB transport and boot ID for 10 s before health starts.
 The seven-read health acceptance is unchanged. The set also adds two
-repeat-build qualifications. The verification run's task (`972df4f8…d6de`,
-AP `a9686f8a`) is prepared with no grant.
+repeat-build qualifications. Run 4 (`972df4f8…`) closed
+`ANDROID_CLOSED_HEALTHY` with no physical action. Health passed on its first
+attempt after the settle window. The automatic-recovery usbfs scan stopped
+at the Download transition (`usbfs-endpoint-departed`, racing the
+candidate's own disconnect), so one host-side `recover_approved_task`
+transferred the original A
+([run 4](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN4_2026-11-27.md)).
+That scan race is now the remaining hands-off gap.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
