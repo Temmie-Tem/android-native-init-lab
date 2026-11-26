@@ -130,7 +130,11 @@ at the Download transition (`usbfs-endpoint-departed`, racing the
 candidate's own disconnect), so one host-side `recover_approved_task`
 transferred the original A
 ([run 4](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN4_2026-11-27.md)).
-That scan race is now the remaining hands-off gap.
+That scan race is now the remaining hands-off gap. The v65 set
+(`c56dea801f`, Codex `DEPARTURE_RACE_PASS_GO` in round 2) lets only the
+automatic-recovery observation take a new census after such an empty-census
+departure. Every other Odin wait keeps the strict stop. Run 5's task
+(`6f6f922c…d91d`, AP `217842b2`) is prepared with no grant.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
