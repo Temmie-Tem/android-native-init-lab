@@ -78,14 +78,15 @@ actions.
 
 ## Operator statement
 
-The policy's no-touch criterion also needs the operator's post-run statement
-that nothing was touched between approval and health.
-Status: **pending**.
+The policy's no-touch criterion also needs the operator's post-run statement.
+After closure, the operator stated that nothing was touched: "ㅇㅇ 아무것도
+안만짐" ("yes, touched nothing"). With the raw record (no cue, no
+continue/recover dispatch, the automatic owner's A launch) the run meets the
+policy's no-touch criteria for this one boot.
 
 ## Reading
 
-This one boot completed the whole cycle without a cue or a physical return
-step. The routing part reproduced the Stage 2 result.
+This one boot completed the whole cycle with no physical action. The routing part reproduced the Stage 2 result.
 
 The run does not show:
 - which caller reset the device (`recovery_proved=false`);
