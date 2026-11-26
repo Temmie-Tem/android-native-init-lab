@@ -133,8 +133,13 @@ transferred the original A
 That scan race is now the remaining hands-off gap. The v65 set
 (`c56dea801f`, Codex `DEPARTURE_RACE_PASS_GO` in round 2) lets only the
 automatic-recovery observation take a new census after such an empty-census
-departure. Every other Odin wait keeps the strict stop. Run 5's task
-(`6f6f922c…d91d`, AP `217842b2`) is prepared with no grant.
+departure. Every other Odin wait keeps the strict stop. Run 5
+(`6f6f922c…`) closed `ANDROID_CLOSED_HEALTHY` with no physical action and no
+host-side step. The race recurred and was retried, the automatic owner
+transferred A, and health passed first time
+([run 5](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN5_2026-11-27.md)).
+This is the first fully hands-off cycle. Repeatability is not yet shown, and
+no qualified board remains.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
