@@ -286,6 +286,10 @@ class MainlineReturnAndroid(Android):
     retain partial reads; no diagnostic boot history gates recovery or health.
     """
     BOOT_ID_COMMAND="printf 'boot_id='; cat /proc/sys/kernel/random/boot_id"
+    # adbd can close a listed device's shell while Android is still starting
+    # (route-timer run 2, 2026-11-26). Retain that failed read and select the
+    # exact target again, as TimedCandidateAndroid does; readiness only.
+    READY_DISCONNECT_STDERR=(b'error: closed\n',)
     READY_COMMAND=BOOT_ID_COMMAND+"; printf 'boot_completed='; getprop sys.boot_completed"
     READY_MAXIMUM=96
     PROPERTIES_COMMAND=BOOT_ID_COMMAND+'\n'+'\n'.join(

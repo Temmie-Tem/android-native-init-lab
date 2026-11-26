@@ -1179,7 +1179,14 @@ the boot ID first. It adds no connected command or snapshot read. Readiness
 still uses the original deadline, at most 256 inventory iterations and the
 existing 0.5-second interval. Successful EOF-truncated outputs that are lexical
 prefixes of the fixed readiness grammar remain not-ready; only a complete
-UUID and `boot_completed=1` establish readiness. Malformed non-prefix output,
+UUID and `boot_completed=1` establish readiness. A readiness read that fails
+with rc 1, empty stdout and exactly `adb: device '<serial>' not found` or
+`error: closed` on stderr is retained as not ready. If time and iterations
+remain, the next poll rechecks the inventory, and it issues another shell read
+only when the exact target is listed as `device`. If the target stays absent,
+the wait expires. adbd can close a listed device's shell while
+Android is still starting: route-timer run 2 stopped this way after its
+original-A transfer had completed. Malformed non-prefix output,
 unexpected producer failure, diagnostics, overflow or source/owner failure
 retain the existing stop behavior. The fixed seven-read health bracket,
 same-boot target/partition checks and full-health acceptance remain unchanged.

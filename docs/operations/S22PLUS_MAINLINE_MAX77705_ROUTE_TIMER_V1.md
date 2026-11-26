@@ -171,23 +171,25 @@ This scope is published together with these changes:
   board;
 - its target adoption.
 
-The v61 set first adopted this scope (`1e12f415a2`). The v62 set adds the
-two repeat-build qualifications; its only behavioural change is the
-qualification list. The branch selects six pending records under
+The v61 set first adopted this scope (`1e12f415a2`). The v62 set
+(`1074da5b1c`) added the two repeat-build qualifications. The v63 set makes
+the mainline original-A readiness wait treat `error: closed` like
+`device not found` (see the
+[mainline RAM policy](S22PLUS_MAINLINE_RAM_V1.md#return-interruption-and-evidence)). The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v62_review.json`
-- `s22plus_loader_android_timing_v3_cue_v6_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v7_review.json`
-- `s22plus_mainline_max77705_usb_v5_review.json`
-- `s22plus_mainline_max77705_route_v3_review.json`
-- `s22plus_mainline_max77705_route_timer_v2_review.json`
+- `s22plus_approved_terminal_persistent_v63_review.json`
+- `s22plus_loader_android_timing_v3_cue_v7_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v8_review.json`
+- `s22plus_mainline_max77705_usb_v6_review.json`
+- `s22plus_mainline_max77705_route_v4_review.json`
+- `s22plus_mainline_max77705_route_timer_v3_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:
 - the scope;
 - all six `PASS_GO` records;
 - the task selectors;
-- the gateway selector pin for the approved v62 receipt.
+- the gateway selector pin for the approved v63 receipt.
 
 Keep the published receipts and task evidence. Then follow the
 [shared cutover procedure](../reports/S22PLUS_MAINLINE_ORDINARY_CUE_H0_2026-11-22.md#integration-hold-and-atomic-adoption),

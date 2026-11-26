@@ -49,23 +49,26 @@ class ReturnIdentityTests(unittest.TestCase):
         self.assertEqual(target.raw.read_stdout(sample,maximum=96),self.wire[:44].encode())
 
     def test_existing_vanished_read_continues_but_other_producer_failures_stop(self):
-        for index,mode in enumerate(('vanished','stderr','rc','malformed')):
+        for index,mode in enumerate(('vanished','closed','stderr','rc','malformed','closed-rc','closed-extra')):
             folder=self.directory/mode;folder.mkdir();self.client.directory=folder;calls=[]
             def command(arguments,name,*,timeout,before_launch=None):
                 before_launch();calls.append(name)
                 if name.endswith('-inventory'):kw=dict(stdout=self.fixture.inventory.encode())
                 elif name=='wait-001-boot':kw=dict(stdout=self.wire.encode())
                 elif mode=='vanished':kw=dict(stdout=b'',returncode=1,stderr=b"adb: device 'FIXTURE123' not found\n")
+                elif mode=='closed':kw=dict(stdout=b'',returncode=1,stderr=b'error: closed\n')
+                elif mode=='closed-rc':kw=dict(stdout=b'',returncode=7,stderr=b'error: closed\n')
+                elif mode=='closed-extra':kw=dict(stdout=b'boot_id=',returncode=1,stderr=b'error: closed\n')
                 elif mode=='stderr':kw=dict(stdout=self.wire.encode(),stderr=b'error\n')
                 elif mode=='rc':kw=dict(stdout=self.wire.encode(),returncode=7)
                 else:kw=dict(stdout=b'boot_id=wrong')
                 return target.raw.publish_captured_bytes(folder,name,**kw)
             with mock.patch.object(self.client,'command',side_effect=command),mock.patch.object(target.time,'sleep'):
-                if mode=='vanished':self.client.wait_ready(deadline_ns=target.clock()+10_000_000_000)
+                if mode in ('vanished','closed'):self.client.wait_ready(deadline_ns=target.clock()+10_000_000_000)
                 else:
                     with self.assertRaises((ValueError,target.raw.RawCaptureError)):
                         self.client.wait_ready(deadline_ns=target.clock()+10_000_000_000)
-            self.assertEqual(len(calls),4 if mode=='vanished' else 2)
+            self.assertEqual(len(calls),4 if mode in ('vanished','closed') else 2)
             self.assertTrue((folder/'wait-000-boot.capture.json').exists())
 
     def test_health_still_requires_all_seven_reads_and_same_boot(self):
