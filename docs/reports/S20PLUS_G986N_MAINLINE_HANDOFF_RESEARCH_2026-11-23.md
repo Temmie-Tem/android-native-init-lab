@@ -329,3 +329,20 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 호스트 검증 자료는 `workspace/private/analysis/s20plus-y2q-cstage-serial-20261127/`, 검증 목록 SHA-256은 `5b0b0cbf65f64d08e9734ff7f8c2c283fc18ad2abad7fc9c7387c26c0ee0cdfb`이다. [실기 규약](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-linux-c-stage-and-acm-pid1-under-one-attended-approval)
 
 최종 실행기 독립 검토는 `PASS_GO`(미해결 지적 0건)로 종료했다. 검토 입력 SHA-256은 `754abcc7e471e62fd3108e375b3be2df825c62857549dcc7f257d8db77634f03`, 활성 실행기는 `32d34edbd7b1fd2ce21e8a2880db02d2e7c3587a57344e473b189ef5be04b56a`이다. 03:30 KST 준비 조회에서 원본 Magisk 30.7(30700), UID 0과 Android 부팅 완료를 확인했다.
+
+### 11월 27일 Linux 기기 트리 초기화와 PID 1 실기 결과
+
+메인라인 Linux 6.18 후보의 두 위치를 나타내는 새 128바이트 표식이 원본 복구 첫 부팅에서 각각 4건 검출됐다. 첫 표식 위치는 `setup_machine_fdt`가 반환한 직후다. 둘째 위치는 `unflatten_device_tree`가 반환하고 루트가 `samsung,y2q`인지 확인한 뒤다. 후보 전송 전 두 값은 모두 0건이었다. USB 관측 창 180초 동안 이 후보의 식별 조건을 만족하는 ACM 장치와 PID 1의 `ACM_READY` 메시지는 관측되지 않았다. 직렬 증거가 없는 원인은 이 실험으로 특정할 수 없다.
+
+| 한국 시각 | 실기 기록 |
+| --- | --- |
+| 03:33:42 | 원본 Android의 로그 2,097,136바이트, 두 표식 각 0건 |
+| 03:33:47–03:34:01 | ADB Download 전환 및 동일 포트 도착 확인 |
+| 03:34:19 | 후보 부트 AP `32e40210` 1회 전송 완료. 같은 포트의 빌드 지정 ACM 관측 시작 |
+| 03:37:19 | 180초 관측 완료. `not_seen`, 직렬 입력 0바이트 |
+| 03:37:20–03:38:02 | 빈 Download 목록을 확인하고 입회자에게 진입 안내. 같은 포트에서 Download 도착 확인 |
+| 03:38:10 | 원본 Magisk AP `1b33d098` 1회 복구 전송 완료 |
+| 03:38:41–48 | 첫 복귀 부팅 ID 식별. Android 부팅 완료, Magisk 30.7(30700), UID 0, SELinux Enforcing, PID 1 `/system/bin/init` 확인 |
+| 03:38:55 | 같은 부팅의 커널 표식 판독 및 종료. 실행기 코드 0, 잠금 해제 |
+
+복구 첫 판독 값은 `y2q_log_v1=2097136,4,4,0`이다. 이 판독기는 두 표식이 각 1건일 때만 한 쌍을 확정한다. 실행기 판정은 `NO_PROOF_Y2Q_CSTAGE_ORIGINAL_MAGISK_RETURNED`이며 사용자 공간이나 셸 작동을 확정하지 않았다. 비공개 실행은 `s20plus-g986n-cstage-list-f1/run-1795717837883139539`, 실행기 커밋은 `28b06a70f9`, 종료 기록 SHA-256은 `4acf0f9f96487a95089455a2ec4192107ec5a21fb30b674d7bc9bc3bf007890c`이다. USB와 네트워크를 숨긴 읽기 전용 환경에서 종료 결과를 보관된 자료로 재도출했다.
