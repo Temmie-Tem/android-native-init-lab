@@ -101,8 +101,15 @@ device, and it does not cover a hang before the child is armed. It is one
 normal run on the plan's evidence ladder. Activating Conditional Autonomous
 F1 remains the operator's decision.
 
-Next: router attach epochs (re-routing after an unplug) and the rest of the
-evidence ladder.
+Two more normal runs are being prepared. The registry admits each AP once,
+so the v62 set (`1074da5b1c`) adds two repeat-build qualifications of the same
+composition to the binding module. Codex returned `ROUTE_TIMER_REPEAT_PASS_GO`.
+The run-2 task (`7253ab85…2e78`, AP `ab4c68d5`) is prepared with no grant. The
+run-3 board (AP `5582ed47`) is qualified, and its task is prepared after run 2
+closes.
+
+After that: router attach epochs (re-routing after an unplug) and the
+failure-class runs of the evidence ladder.
 [Plan](docs/plans/S22PLUS_MAINLINE_USB_ROUTER_AND_HANDSOFF_CYCLE_2026-11-26.md) ·
 [Run](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN_2026-11-26.md) ·
 [H0](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_H0_2026-11-26.md) ·
