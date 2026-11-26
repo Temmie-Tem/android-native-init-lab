@@ -5035,3 +5035,60 @@ Missing, nonadjacent, unreadable or interrupted records cannot bound the
 last instruction executed. This profile closes on its one run. Activation
 requires independent zero-finding review of exact affected capability,
 artifacts, authority, tests, both owner literals and private activation.
+
+## S20+ y2q basic setup trial under one attended approval
+
+This one-run profile applies only to SM-G986N/y2q/G986NKSS8IYC2 and the
+owner `s20plus_g986n_basic_setup_f1.py`. Its exact candidate AP is
+`095fa59a69c6bfe44dfec7abdfdf275d5ae02942247c8191d578bfdc57054499`
+and the original Magisk AP is
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+It inherits the preceding PID1-stage owner's attended
+transfer, passive ACM, same-port physical recovery, original AP, no-replay,
+first-return and root-health checks. Use the closed PID1-stage run with both
+zero-count scans and its healthy original Magisk return as the source.
+Earlier candidates and grants stay consumed.
+
+The candidate is one boot-only Linux 6.18 AP with the qualified compatible
+list loader, validated y2q geometry, identical board and RAM initramfs, and
+generic ACM. The only new device observations are these built-in milestones:
+after arm64 unflatten_device_tree with a populated y2q tree, immediately
+before do_basic_setup in kernel_init_freeable, and immediately after its
+return. All three finish before free_initmem. Accept at most one attempt
+at each call site per kernel invocation. No userspace input selects an
+address, payload, mapping or callback.
+
+Each site checks the live y2q tree, validated chosen property, exact enabled
+no-map reservation, and RAM and NOMAP of every page it maps. Use fixmap
+early_ioremap/early_iounmap only for the tree callback; use normal
+ioremap/iounmap at the later sites. Use the existing byte-access, header-
+preserving protocol and its 256-byte window in the Samsung log. Validate
+the LOGM header and minimum cursor, latch the first eligible complete header
+per kernel invocation, and reject subsequent changes. The three fixed
+80-byte slots start at offsets 0, 80 and 160. Leave the other 16 bytes,
+header and storage untouched. Verify the frame body and publish its
+signature last. Each callback may publish with a valid unchanged header
+even if an earlier callback yielded no complete frame.
+
+A 900-second current foreground approval covers one ADB Download entry, one
+candidate transfer, up to 180 seconds of the inherited passive USB PID1
+observation, one machine-cued physical Download reentry, one original
+Magisk AP transfer and observation of its first restored Android boot. Require
+physical attendance, exact port, validated source identity, demonstrable
+recovery and the reviewed owner as for the preceding trial. Recovery proceeds
+regardless of the candidate's stage or USB result. Preserve all original
+budgets, journal ownership, durable effects and finalization checks.
+
+Use the fixed baseline and first-return /proc/last_kmsg reducer with the
+same boot identity bracketing, byte limit and stock tools. The source scan
+requires zero for all three trial-specific frames. Report each exact
+occurrence, the two ordered +80-byte pair counts and the +160-byte ordered
+triple count in the linear snapshot without joining its ends. Prove each
+observed milestone independently from the other two and from ACM, only
+after the required transfers and verified fresh first original return.
+Adjacency and repetition do not identify individual boot attempts. Negative
+or interrupted observations do not bound the last instruction executed.
+Reserve candidate userspace claims for the separately authenticated ACM
+witness. Activate only after the exact candidate, original, qualification,
+owner literals and full reachable evidence/authority machinery receive an
+independent zero-finding review. Close after the single run.
