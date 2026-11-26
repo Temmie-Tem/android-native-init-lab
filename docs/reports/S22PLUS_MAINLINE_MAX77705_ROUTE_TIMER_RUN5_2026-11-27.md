@@ -78,7 +78,9 @@ Conditional Autonomous F1 is not active.
 
 ## Operator statement
 
-Status: **pending**.
+After closure, the operator stated that nothing was touched: "아무것도
+안만짐" ("didn't touch anything"). No physical action and no host-side step
+occurred.
 
 The private run directory is
 `workspace/private/outputs/s22plus-max77705-route-timer-h0-20261126-6/`.
