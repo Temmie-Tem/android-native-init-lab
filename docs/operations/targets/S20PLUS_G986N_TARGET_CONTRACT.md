@@ -4736,3 +4736,25 @@ remain distinguishable. Keep diagnostic output digests and parsed counts private
 This profile closes on its one observation or on loss of the original boot.
 It authorizes no control, transfer, device write, raw log export or F1 replay.
 It cannot retroactively certify the candidate-time Android or FDT witness.
+
+## S20+ original Magisk vendor runtime FDT geometry D0
+
+The foreground S20+ stock-direct investigation may use
+`s20plus_g986n_vendor_runtime_layout_d0.py` after independent zero-finding
+review of its exact subject and private activation. This read-only profile
+reuses the foreground FDT layout D0's fixed sysfs reader, provider, parser,
+45-second capture deadline, 2,048-byte combined output limit and digest-only
+transcript. The retained control's OUT_KERNEL and KERNEL_RUNTIME specify the
+only changed query interval. The fixed source-sweep check remains the same.
+No caller selects a range, command, target or file. An enabled single RAM
+tuple must contain both ends of the half-open runtime interval. Report fixed
+reservation and initrd overlap separately from containment and dynamic pools.
+
+Hold the shared target lease and exclude existing control owners. Bind the
+same serial, USB port, exact build, first restored boot, completed enforcing
+Android and original Magisk/PID 1 health before and after the geometry read.
+Store each bounded observation separately in the canonical private
+`runs/s20plus-g986n-vendor-runtime-layout-d0` directory. No raw FDT, boot
+arguments or private device values leave the reducer. Only original Android
+geometry is measured. The profile ends with this foreground investigation and
+grants no device write, reboot, mode change, staging or transfer.
