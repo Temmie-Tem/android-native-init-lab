@@ -64,16 +64,36 @@ ROUTE_DISPATCH_GUARD = ("    uint64_t dispatch = mx_now();\n"
                         "    if (dispatch - sampled > MX_GATE_FRESH_MS) {\n")
 
 
+ROUTE_STROBE_ANCHOR = ("    if (mx_write_route() || mx_write(MX_USBC_ADDR, MX_AP_DATAOUT_END, 0x00))\n"
+                       "        mx.write_status = MX_IO;\n"
+                       "    else\n"
+                       "        mx.write_status = mx_await(MX_CTRL1_WRITE, &echo_value, &wseen);\n")
+ROUTE_STROBE_GUARD = ("    uint64_t strobe = 0;\n"
+                      "    if (mx_write_route())\n"
+                      "        mx.write_status = MX_IO;\n"
+                      "    else if ((strobe = mx_now()) == UINT64_MAX || strobe >= deadline) {\n"
+                      "        /* V13 route composition: the payload alone starts nothing. No start\n"
+                      "         * strobe on a failed clock read or at or after the window's end. */\n"
+                      "        mx.gate = MX_GATE_STALE;\n"
+                      "        return;\n"
+                      "    } else if (mx_write(MX_USBC_ADDR, MX_AP_DATAOUT_END, 0x00))\n"
+                      "        mx.write_status = MX_IO;\n"
+                      "    else\n"
+                      "        mx.write_status = mx_await(MX_CTRL1_WRITE, &echo_value, &wseen);\n")
+
+
 def route_header():
-    """The adopted route observer, byte for byte, plus one dispatch-time deadline check.
+    """The adopted route observer, byte for byte, plus two window checks: at the
+    write's dispatch sample and again directly before its mailbox start strobe.
 
     The shared header file is unchanged; this composition renders its own copy into
     the observer source, which candidate reproduction compares byte for byte.
     """
     require(digest(CANARY/ROUTE_HEADER) == ROUTE_HEADER_SHA256, "route observer header differs")
     text = (CANARY/ROUTE_HEADER).read_text()
-    require(text.count(ROUTE_DISPATCH_ANCHOR) == 1, "route dispatch point differs")
-    return text.replace(ROUTE_DISPATCH_ANCHOR, ROUTE_DISPATCH_GUARD)
+    require(text.count(ROUTE_DISPATCH_ANCHOR) == 1 and text.count(ROUTE_STROBE_ANCHOR) == 1,
+            "route dispatch point differs")
+    return text.replace(ROUTE_DISPATCH_ANCHOR, ROUTE_DISPATCH_GUARD).replace(ROUTE_STROBE_ANCHOR, ROUTE_STROBE_GUARD)
 
 
 def compose_route(code):

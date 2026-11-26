@@ -714,8 +714,10 @@ permission to perform host-only work.
      the SE5 pinctrl removed, as in the adopted MAX77705 observation;
    - the V13 observer, composed with the adopted Stage 2 route observer's
      MAX77705 reads and at most one gated `CONTROL1_W(COM_USB)` after the
-     gadget is bound and before the end of the original 120-second
-     first-connection window, never retried.
+     gadget is bound, never retried. Its payload and its mailbox start
+     strobe are each submitted only after an observer clock read that falls
+     before the end of the original 120-second first-connection window.
+     Kernel and bus latency after submission is not bounded.
    The fixed V13 module is unchanged. Its rebuild against that Image is
    byte-identical. Its late-hardware predicates, single link attempt, report envelope,
    120/300/540/15-second limits, timer child, automatic Download attempt,

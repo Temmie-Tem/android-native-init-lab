@@ -64,9 +64,13 @@ It then applies the route observer's three sampling insertions, unchanged:
 
 The composition renders `max77705-usb-route.h` into the observer source. The
 shared header file is unchanged. The rendered copy is the adopted header byte
-for byte, plus one check placed directly before the write's dispatch. The
-write is refused when the dispatch clock read failed or falls at or after
-the end of the 120-second window. Candidate reproduction compares the whole
+for byte, plus two window checks:
+- at the write's dispatch sample, before the payload is sent;
+- directly before the mailbox start strobe, which is what starts the command.
+
+Either check refuses on a failed clock read, or at or after the end of the
+120-second window by the observer's clock. A payload without its strobe
+starts nothing. Candidate reproduction compares the whole
 generated source, including the rendered header. The gate and bus effects
 are otherwise those of the adopted route observer:
 - MAX77705 status reads, which clear the read-to-clear `UIC_INT` and `CC_INT`
@@ -133,10 +137,19 @@ Everything else in V13 is unchanged:
   route observer stops sampling once the first connection is accepted, before
   the request is read. It issues no I2C transfer during the dwell, witness or
   module stage.
-- **Window end.** No tick starts in the last second of the 120-second window,
-  and the write itself is refused at dispatch at or after the window's end,
-  or on a failed clock read. A tick that started in time but was delayed,
-  by the scheduler or by slow I2C, therefore cannot write late.
+- **Window end.** The boundary is a submission boundary:
+  - no tick starts in the last second of the 120-second window;
+  - the payload and the start strobe are each submitted only after an
+    observer clock read that falls before the window's end;
+  - each failed clock read refuses its own submission. The check after the
+    payload can refuse only the strobe.
+
+  The governing condition is the time of each clock read. Two latencies are
+  not bounded: the gap between the clock read and the system call, and the
+  kernel and bus path after submission (message copy, adapter lock, GENI
+  setup). An admitted strobe can therefore reach the device after the
+  window's end. It is still the same submitted command the window admits,
+  not an additional effect.
 - **Module.** The module is the adopted byte-identical V13 module. The new
   kernel exports the same symbol versions.
 

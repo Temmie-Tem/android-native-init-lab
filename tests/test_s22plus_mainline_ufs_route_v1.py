@@ -59,7 +59,17 @@ class ObserverCompositionTests(unittest.TestCase):
             '+    if (dispatch == UINT64_MAX || dispatch >= deadline) {',
             '+        mx.gate = MX_GATE_STALE;',
             '+        return;',
-            '+    }'])
+            '+    }',
+            '-    if (mx_write_route() || mx_write(MX_USBC_ADDR, MX_AP_DATAOUT_END, 0x00))',
+            '+    uint64_t strobe = 0;',
+            '+    if (mx_write_route())',
+            '+        mx.write_status = MX_IO;',
+            '+    else if ((strobe = mx_now()) == UINT64_MAX || strobe >= deadline) {',
+            '+        /* V13 route composition: the payload alone starts nothing. No start',
+            "+         * strobe on a failed clock read or at or after the window's end. */",
+            '+        mx.gate = MX_GATE_STALE;',
+            '+        return;',
+            '+    } else if (mx_write(MX_USBC_ADDR, MX_AP_DATAOUT_END, 0x00))'])
 
 
 class DispatchDeadlineTests(unittest.TestCase):
@@ -70,7 +80,9 @@ class DispatchDeadlineTests(unittest.TestCase):
         fake = (builder.CANARY / 'max77705_route_fake.c').read_text()
         anchors = ('#include "max77705-usb-route.h"\n', 'static uint64_t mx_now(void) { return fake_ms; }\n',
                    '    scenario = argv[1];\n',
-                   '    for (unsigned i = 0; i < MX_RECORD_SIZE; i++) printf("%02x", rec[i]);\n')
+                   '    for (unsigned i = 0; i < MX_RECORD_SIZE; i++) printf("%02x", rec[i]);\n',
+                   '        written_at = fake_ms;\n',
+                   '    if (buf[0] == 0x41) { cmd_armed = 1; cmd_polls = 0; }\n')
         for anchor in anchors:
             assert fake.count(anchor) == 1, anchor
         fake = fake.replace(anchors[0], 'static uint64_t deadline;\n' + builder.route_header())
@@ -78,7 +90,16 @@ class DispatchDeadlineTests(unittest.TestCase):
                             'static uint64_t mx_now(void) { return fake_ms >= clock_fail_at ? UINT64_MAX : fake_ms; }\n')
         fake = fake.replace(anchors[2], anchors[2] + '    deadline = strtoull(getenv("G0Q_DEADLINE_MS"), NULL, 10);\n'
                             '    if (getenv("G0Q_CLOCK_FAIL_AT")) clock_fail_at = strtoull(getenv("G0Q_CLOCK_FAIL_AT"), NULL, 10);\n')
-        fake = fake.replace(anchors[3], '    printf("gate=%u stale=%u written=%llu\\n", mx.gate, MX_GATE_STALE, (unsigned long long)written_at);\n' + anchors[3])
+        fake = fake.replace(anchors[3], '    printf("gate=%u stale=%u written=%llu strobes=%u\\n", mx.gate, MX_GATE_STALE, '
+                            '(unsigned long long)written_at, route_strobes);\n' + anchors[3])
+        # The route payload's I2C call can return late (scheduler or slow bus).
+        fake = fake.replace(anchors[4], anchors[4] + '        fake_ms += payload_delay;\n')
+        fake = fake.replace(anchors[5], '    if (buf[0] == 0x41 && usbc[0x21] == 0x06) route_strobes++;\n' + anchors[5])
+        fake = fake.replace('static uint64_t clock_fail_at = UINT64_MAX;\n',
+                            'static uint64_t clock_fail_at = UINT64_MAX, payload_delay;\nstatic unsigned route_strobes;\n')
+        fake = fake.replace('    deadline = strtoull(getenv("G0Q_DEADLINE_MS"), NULL, 10);\n',
+                            '    deadline = strtoull(getenv("G0Q_DEADLINE_MS"), NULL, 10);\n'
+                            '    if (getenv("G0Q_PAYLOAD_DELAY_MS")) payload_delay = strtoull(getenv("G0Q_PAYLOAD_DELAY_MS"), NULL, 10);\n')
         source = Path(cls.tmp.name) / 'fake.c'; source.write_text(fake)
         cls.exe = Path(cls.tmp.name) / 'fake'
         subprocess.run(['gcc', '-std=gnu11', '-Wall', '-Wextra', '-Werror', '-O1', '-I', str(builder.CANARY),
@@ -88,14 +109,16 @@ class DispatchDeadlineTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmp.cleanup()
 
-    def run_fake(self, deadline, clock_fail_at=None):
+    def run_fake(self, deadline, clock_fail_at=None, payload_delay=None):
         env = dict(os.environ, G0Q_DEADLINE_MS=str(deadline))
         if clock_fail_at is not None:
             env['G0Q_CLOCK_FAIL_AT'] = str(clock_fail_at)
+        if payload_delay is not None:
+            env['G0Q_PAYLOAD_DELAY_MS'] = str(payload_delay)
         lines = subprocess.run([str(self.exe), 'pass'], capture_output=True, text=True, check=True, env=env).stdout.splitlines()
         meta = dict(item.split('=') for item in lines[0].split())
         gate = dict(item.split('=') for item in lines[1].split())
-        self.written = int(gate['written'])
+        self.written = int(gate['written']); self.strobes = int(gate['strobes'])
         return int(meta['route_bus_writes']), int(gate['gate']), int(gate['stale'])
 
     def test_write_inside_the_window_is_unchanged(self):
@@ -114,6 +137,24 @@ class DispatchDeadlineTests(unittest.TestCase):
             with self.subTest(deadline=deadline):
                 writes, gate, stale = self.run_fake(deadline)
                 self.assertEqual((writes, gate), (0, stale))
+
+    def test_no_start_strobe_after_a_late_payload_call(self):
+        self.run_fake(120000)
+        dispatch = self.written
+        self.assertEqual(self.strobes, 1)
+        # The payload call returns 100 ms late: the strobe would fall after the window.
+        writes, gate, stale = self.run_fake(dispatch + 50, payload_delay=100)
+        self.assertEqual((writes, self.strobes, gate), (1, 0, stale))
+        # The same delay inside the window still starts the command.
+        writes, gate, stale = self.run_fake(dispatch + 500, payload_delay=100)
+        self.assertEqual((writes, self.strobes), (1, 1))
+        self.assertNotEqual(gate, stale)
+
+    def test_a_failed_clock_read_before_the_strobe_is_refused(self):
+        self.run_fake(120000)
+        dispatch = self.written
+        writes, gate, stale = self.run_fake(120000, clock_fail_at=dispatch + 1, payload_delay=10)
+        self.assertEqual((writes, self.strobes, gate), (1, 0, stale))
 
     def test_a_failed_clock_read_at_dispatch_is_refused(self):
         writes, gate, stale = self.run_fake(120000, clock_fail_at=5000)
