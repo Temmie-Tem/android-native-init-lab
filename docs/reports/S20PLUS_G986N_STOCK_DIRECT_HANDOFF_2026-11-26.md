@@ -24,3 +24,20 @@ IYC2의 모델 적재 위치 64개에서 펌웨어 산출값과 로더의 FDT·i
 ## 실기 범위
 
 [전용 실행기](../../workspace/public/src/scripts/revalidation/s20plus_g986n_stock_direct_f1.py)는 한 번의 입회 승인으로 후보를 전송하고 현재 FDT·로그·Magisk 루팅을 측정한다. 인증된 후보 Android에서 원본 AP로 되돌아갈 때는 같은 부팅과 포트, FDT 값을 다시 확인하고 ADB로 Download에 진입한다. 후보 Android가 인증되지 않으면 물리 Download로 원복한다. 두 경로는 원본 AP 한 번만 공유하며, 원복 후 루팅과 후보 전용 속성의 부재를 확인한다. [S20+ 전용 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-stock-magisk-direct-loader-marker-under-one-attended-approval)
+
+## 실기 결과
+
+후보 전송 후 관측 시간 안에 같은 기기의 정상 루팅 Android를 식별하지 못했다. 후보 부팅에서 FDT 속성과 로그 표식을 판독하는 단계까지 도달하지 않아 표식 개수는 미측정이다. 물리 Download로 원본 AP를 복구했고, 처음 관측한 원복 부팅과 같은 부팅에서 Magisk 30.7(30700), UID 0, SELinux Enforcing, PID 1 `/system/bin/init` 및 후보 전용 FDT 속성의 부재를 확인했다.
+
+| 한국 시각 | 관측 |
+| --- | --- |
+| 21:57:03 | 원본 Android의 이전 로그 2,097,136바이트에서 새 표식 0건. 후보 FDT 속성 없음 |
+| 21:57:41 | 대조 후보 AP 1회 전송 완료 |
+| 22:00:43 | 후보 Android 관측 종료. 후보 시점의 태그·로그 판독 기록 없음 |
+| 22:01:27–35 | 같은 USB 포트에서 물리 Download 확인, 원본 Magisk AP 1회 전송 완료 |
+| 22:02:15 | 첫 복귀 Android 부팅 ID 확인 |
+| 22:04:41–42 | 같은 부팅에서 원본 건강과 후보 태그 부재 확인, 종료 및 공유 잠금 해제 |
+
+초기 원복 관측 프로세스가 첫 부팅 ID를 기록한 뒤 최종 건강 결과를 남기기 전에 종료했다. 이어진 건강 확인은 공용 세션 잠금이 사용 중이어서 대기한 뒤 완료했다. 추가 AP 전송은 0회였다. 종료 판정은 `NO_PROOF_STOCK_DIRECT_MARKER_ORIGINAL_MAGISK_RESTORED`다. 이 결과만으로 로더 표식 쓰기, 원본 커널 분기 실행 및 그 후 어느 단계에서 진행이 멈췄는지를 가를 수 없다. 복구된 원본의 FDT 속성 부재는 후보 시점의 측정을 대신하지 않는다.
+
+비공개 실행은 `s20plus-g986n-stock-direct-f1/run-1795697759773921837`, 검토된 소스 커밋은 `29221b0837`, 종료 기록 SHA-256은 `e0118d4fcc77d6aa17b5656b771db30a5bb7261476dfdee71e0bd702eb42dde7`이다.
