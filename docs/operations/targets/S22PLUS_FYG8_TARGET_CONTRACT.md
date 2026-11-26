@@ -393,6 +393,20 @@ It grants none of the following:
 - Linux storage access;
 - unattended, retry or replay capability.
 
+The [UFS V13 route composition](../S22PLUS_MAINLINE_UFS_ROUTE_V1.md) adopts the
+common delegation of that name. It runs the adopted report-v13 late-UFS
+experiment with the route write, so that USB enumerates without a replug.
+Its kernel Image and DT differ from the V13 capability only by I2C GENI and
+SE5 enablement, as in the MAX77705 observation. Its module is the fixed V13
+module, unchanged. Its observer is the V13 observer with the
+route observer's reads and single gated write. It has no attach cue. It uses
+the existing fixed foreground preapproval D0 and one finite attended
+mainline RAM operation. The operator stays present, with physical Download
+available as the fallback, and is asked to perform no action. Exact
+capability and candidate qualification, source review, current identity,
+usable recovery and final Android health apply. It grants nothing beyond
+V13 and the route write.
+
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive
 public-key session executing a fixed UID/GID 1000 command. Its complete signed

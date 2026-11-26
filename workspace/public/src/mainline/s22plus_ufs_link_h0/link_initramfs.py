@@ -23,6 +23,9 @@ PINNED = {
     "download-return.h": "e80cf76b194004b2acd67ff6adb7c3a9d4549a13a9854b8743562f1ffb7264b7",
 }
 SCHEMA = "s22plus-mainline-debian-ufs-link-ram-v1"
+# UFS V13 route composition: the adopted Stage 2 route observer, byte for byte.
+ROUTE_HEADER = "max77705-usb-route.h"
+ROUTE_HEADER_SHA256 = "6c5c3c1feb22fff799cc3cfa74322457e4cac82edbaa415c17b61c2c5edfe549"
 
 
 def specification():
@@ -30,7 +33,8 @@ def specification():
             {"etc/inittab": 0o644, MODULE: 0o400})
 
 
-def observer_source():
+def observer_source(route=False):
+    require(type(route) is bool, "explicit route composition mode required")
     code = (CANARY/"init.c").read_text()
     for anchor, addition in (("static int serve(void) {", '#include "dwell.h"\nstatic int serve(void) {'),
         ("    if(!error)error=transfer(client,fdt,fdt_size,1);",
@@ -42,6 +46,63 @@ def observer_source():
          '#ifdef G0Q_AUTOMATIC_RECOVERY\n    { int armed = recovery_begin(); if (armed) park(armed); }\n#endif\n'
          '    dprintf(2,"G0Q_RAM_PID1_BEGIN\\n");')):
         require(code.count(anchor) == 1, "observer insertion point differs")
+        code = code.replace(anchor, addition)
+    if route:
+        code = compose_route(code)
+    return code
+
+
+ROUTE_DISPATCH_ANCHOR = ("    uint64_t dispatch = mx_now();\n"
+                         "    if (dispatch - sampled > MX_GATE_FRESH_MS) {\n")
+ROUTE_DISPATCH_GUARD = ("    uint64_t dispatch = mx_now();\n"
+                        "    /* V13 route composition: never dispatch on a failed clock read or at\n"
+                        "     * or after the end of the 120 s first-connection window. */\n"
+                        "    if (dispatch == UINT64_MAX || dispatch >= deadline) {\n"
+                        "        mx.gate = MX_GATE_STALE;\n"
+                        "        return;\n"
+                        "    }\n"
+                        "    if (dispatch - sampled > MX_GATE_FRESH_MS) {\n")
+
+
+def route_header():
+    """The adopted route observer, byte for byte, plus one dispatch-time deadline check.
+
+    The shared header file is unchanged; this composition renders its own copy into
+    the observer source, which candidate reproduction compares byte for byte.
+    """
+    require(digest(CANARY/ROUTE_HEADER) == ROUTE_HEADER_SHA256, "route observer header differs")
+    text = (CANARY/ROUTE_HEADER).read_text()
+    require(text.count(ROUTE_DISPATCH_ANCHOR) == 1, "route dispatch point differs")
+    return text.replace(ROUTE_DISPATCH_ANCHOR, ROUTE_DISPATCH_GUARD)
+
+
+def compose_route(code):
+    """Add the adopted route observer's three sampling insertions to the V13 observer.
+
+    The timer child is already armed above G0Q_RAM_PID1_BEGIN. mx_begin() samples
+    before USB setup; the first-connection wait polls in 200 ms steps and calls
+    mx_tick(), which may issue the one gated CONTROL1_W(COM_USB). A tick starts
+    only while at least MX_TICK_GUARD_MS of the 120 s window remains, and the
+    write is never dispatched at or after the window's end. The response layout
+    is unchanged: mx_final()/mx_fill() are not called.
+    """
+    header = route_header()
+    for anchor, addition in (
+        ("static int proof(", "/* ---- rendered " + ROUTE_HEADER + " ---- */\n" + header +
+         "/* ---- end of rendered " + ROUTE_HEADER + " ---- */\n"
+         "/* No tick starts in the last second of the window. */\n"
+         "#define MX_TICK_GUARD_MS 1000U\nstatic int proof("),
+        ('    dprintf(2,"G0Q_RAM_PID1_BEGIN\\n");\n', '    dprintf(2,"G0Q_RAM_PID1_BEGIN\\n");\n    mx_begin();\n'),
+        ("        struct pollfd p={fd,POLLIN,0};int rc=poll(&p,1,(int)(deadline-now));\n"
+         "        if(rc<0) {if(errno==EINTR)continue;error=errno;break;}\n"
+         "        if(!rc) {error=ETIMEDOUT;break;}\n",
+         "        struct pollfd p={fd,POLLIN,0};uint64_t wait=deadline-now;if(wait>MX_TICK_MS)wait=MX_TICK_MS;\n"
+         "        int rc=poll(&p,1,(int)wait);\n"
+         "        if(rc<0) {if(errno==EINTR)continue;error=errno;break;}\n"
+         "        if(!rc) {uint64_t tick=now_ms();\n"
+         "            if(tick!=UINT64_MAX&&tick<deadline&&deadline-tick>=MX_TICK_GUARD_MS)mx_tick();\n"
+         "            continue;}\n")):
+        require(code.count(anchor) == 1, "route insertion point differs")
         code = code.replace(anchor, addition)
     return code
 
@@ -74,8 +135,10 @@ def compile_command(out, *, vm, destination=None, **modes):
     return list(map(str, cmd))
 
 
-def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
+def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=False):
     require(type(pre_effect_return) is bool, "explicit observer return mode required")
+    require(type(route) is bool and (not route or (pre_effect_return and not vm)),
+            "route composition requires the board V13 observer")
     kr = kernel_dir.resolve()
     out = out.resolve()
     require(all(p.is_relative_to(PRIVATE.resolve()) for p in (kr, component.resolve(), out)),
@@ -96,7 +159,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
             "module/kernel identity differs")
     out.mkdir(mode=0o700)
     packages, lock = debian.extract(PRIVATE/"outputs/s22plus-debian-bootstrap-h0-20260921-1/rootfs-d", out)
-    code = observer_source()
+    code = observer_source(route)
     (out/"observer.c").write_text(code)
     key = secrets.token_bytes(32)
     net_file = PRIVATE/"outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105-1/network.json"
@@ -106,11 +169,15 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
         out/"observer.c", Path(lock["path"]), component, mod, kr/"guard-result.json", kr/"kernel-build/.config", dtb, net_file)]
     if pre_effect_return:
         inputs.append(debian.pin(HERE/'link-report.h'))
+    if route:
+        inputs.append(debian.pin(CANARY/ROUTE_HEADER))
     if hce_handoff:
         inputs.append(debian.pin(HERE/'recovery.h'))
     recipe = dict(schema=SCHEMA, vm=vm, inputs=inputs, key_digest=hashlib.sha256(key).hexdigest())
     if pre_effect_return:
         recipe['pre_effect_return'] = True
+    if route:
+        recipe['usb_route'] = True
     if hci_snapshot or hce_handoff:
         recipe['report_version'] = record['report_version']
     identity = hashlib.sha256(json.dumps(recipe,sort_keys=True,separators=(",",":")).encode()).digest()
@@ -143,6 +210,8 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False):
                     device_actions=0, physical_admitted=False)
     if pre_effect_return:
         manifest.update(report_version=record['report_version'], pre_effect_return=True)
+    if route:
+        manifest.update(usb_route=True)
     (out/"result.json").write_text(json.dumps(manifest,indent=2)+"\n")
     (out/"producer.json").write_text(json.dumps(dict(compile_command=list(map(str,cmd)),
         recipe=recipe,seal=debian.pin(out/"seal.h"),provenance=provenance),indent=2)+"\n")
@@ -157,5 +226,7 @@ if __name__ == "__main__":
     cli.add_argument("out",type=Path)
     cli.add_argument("--vm",action="store_true")
     cli.add_argument("--pre-effect-return",action="store_true")
+    cli.add_argument("--route",action="store_true")
     args = cli.parse_args()
-    print(build(args.kernel,args.component,args.out,vm=args.vm,pre_effect_return=args.pre_effect_return)["status"])
+    print(build(args.kernel,args.component,args.out,vm=args.vm,pre_effect_return=args.pre_effect_return,
+                route=args.route)["status"])

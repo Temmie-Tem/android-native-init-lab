@@ -44,8 +44,10 @@ def selected(request):
     if image.get('schema')!='s22plus-mainline-ufs-image-v2':
         return False
     cap=read(verify(image['capability']))
+    # The UFS route scope is V13 with the route write; it keeps V13's return.
     require(cap['schema']=='s22plus-mainline-ufs-capability-v2' and
-            cap['scope']=='S22PLUS_LATE_UFS_KEY_ONLY_V2','automatic recovery capability scope')
+            cap['scope'] in ('S22PLUS_LATE_UFS_KEY_ONLY_V2','S22PLUS_LATE_UFS_ROUTE_V1'),
+            'automatic recovery capability scope')
     return _automatic(cap['fixed']['report_version'])
 
 

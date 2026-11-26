@@ -108,7 +108,13 @@ IMAGE_V2 = 's22plus-mainline-ufs-image-v2'
 CAPABILITY_SCHEMA = 's22plus-mainline-ufs-capability-v2'
 CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_KEY_ONLY_V2'
 CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md'
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v10_review.json'
+# UFS V13 with the MAX77705 route write: the same V2 capability machinery with
+# its own scope, the I2C Image/SE5 DT and the composed observer. No attach cue.
+ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
+ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
+ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
+ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v11_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -133,6 +139,12 @@ def candidate_v2(image):
     return image is not None and image.get('schema') == IMAGE_V2
 
 
+def ufs_route(image):
+    """Metadata only: the bound capability names the route scope."""
+    return (candidate_v2(image) and 'capability' in image and
+            read(verify(image['capability']))['scope'] == ROUTE_CAPABILITY_SCOPE)
+
+
 def selected_profile(image):
     if image.get('profile')==profile.PROFILE:return profile
     if image.get('profile')=='loader-android-v1':
@@ -141,7 +153,7 @@ def selected_profile(image):
     require(False,'unselected mainline-project comparison profile')
 
 
-def source_paths(root,selected=profile,*,image=None,ordinary_cue=False):
+def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
@@ -210,12 +222,16 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False):
         require(selected is profile, 'v2 requires the mainline profile')
         paths = [path for path in paths if path not in V2_RETIRED]
         paths += [CAPABILITY_POLICY, *V2_BUILD]
+        # A capability is frozen before it exists; its freeze names the scope.
+        if (ufs_route(image) if route is None else route):
+            paths += list(ROUTE_SOURCES)
     return tuple(root/path for path in sorted(set(paths)))
 
 
-def source_pins(root,selected=profile,*,image=None,ordinary_cue=False):
+def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None):
     root=Path(root)
-    return [dict(pin(path),path=str(path.relative_to(root))) for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue)]
+    return [dict(pin(path),path=str(path.relative_to(root)))
+            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route)]
 
 
 def loader_build_only(path):
@@ -257,18 +273,22 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
         # candidate validator: the original A owner never requalifies N.
         cap=read(verify(image['capability']))
         receipt=image['capability_review'];value=read(verify(receipt))
+        scope,policy=((ROUTE_CAPABILITY_SCOPE,ROUTE_CAPABILITY_POLICY) if cap.get('scope')==ROUTE_CAPABILITY_SCOPE
+                      else (CAPABILITY_SCOPE,CAPABILITY_POLICY))
         require(set(value)=={'schema','verdict','scope','capability','reviewer','findings'} and
             value['schema']=='s22plus-mainline-ufs-capability-review-v2' and
-            value['scope']==CAPABILITY_SCOPE and value['verdict']=='PASS_GO' and
+            value['scope']==scope and value['verdict']=='PASS_GO' and
             value['capability']==image['capability'] and value['findings']==[] and
             type(value['reviewer']) is str and value['reviewer'].strip(), 'v2 capability review differs')
         require(set(cap)=={'schema','scope','policy','sources','fixed','evidence','device_actions'} and
-            cap['schema']==CAPABILITY_SCHEMA and cap['scope']==CAPABILITY_SCOPE and
-            cap['policy']==CAPABILITY_POLICY and cap['device_actions']==0, 'v2 capability scope differs')
+            cap['schema']==CAPABILITY_SCHEMA and cap['scope']==scope and
+            cap['policy']==policy and cap['device_actions']==0, 'v2 capability scope differs')
         expected=[str(p.relative_to(root)) for p in source_paths(root,selected,image=image)]
         require([r['path'] for r in cap['sources']]==expected, 'v2 selected source closure differs')
         for row in cap['sources']:
-            if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD):continue
+            # Guest build inputs are candidate admission only; the policy stays bound.
+            if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD or
+                             row['path'] in ROUTE_GUEST_SOURCES):continue
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
     udc = image is not None and 'udc_observation' in image

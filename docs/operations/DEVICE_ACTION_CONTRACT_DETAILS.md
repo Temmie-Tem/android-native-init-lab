@@ -705,6 +705,32 @@ permission to perform host-only work.
    of ML050. It has no attach cue and no authenticated reset command. Physical
    attendance and the original one-operation grant remain. This admits
    neither unattended operation nor a claim of recovery from a hung kernel.
+   The separately selected [UFS V13 route composition](S22PLUS_MAINLINE_UFS_ROUTE_V1.md)
+   is a successor of the late-UFS capability V2 above for this exact target.
+   It differs from the adopted report-v13 capability in only three inputs:
+   - the ML035 Image, rebuilt from the same patched source and configuration
+     with only `CONFIG_I2C_QCOM_GENI=y`;
+   - the reduced no-display DT, with only QUP0 and its SE5 I2C enabled and
+     the SE5 pinctrl removed, as in the adopted MAX77705 observation;
+   - the V13 observer, composed with the adopted Stage 2 route observer's
+     MAX77705 reads and at most one gated `CONTROL1_W(COM_USB)` after the
+     gadget is bound and before the end of the original 120-second
+     first-connection window, never retried.
+   The fixed V13 module is unchanged. Its rebuild against that Image is
+   byte-identical. Its late-hardware predicates, single link attempt, report envelope,
+   120/300/540/15-second limits, timer child, automatic Download attempt,
+   N-launch-plus-660-second original-owner return, single original A,
+   physical fallback, health-only continuation and no-replay rules are those
+   of V13. It has no attach cue. Without an authenticated first response in
+   the original window, no module permit is issued and the timer child
+   attempts Download.
+   It grants no other `CONTROL1_W` value or second write; no PMIC, charger,
+   PD or FSA4480 write; no added UFS, storage or general effect; and no
+   unattended, retry or replay capability. Exact capability and candidate
+   qualification, independent review, current attendance with no requested
+   action, the original one-operation grant, usable physical Download and
+   final Android health remain. This admits neither unattended operation nor
+   a claim of recovery from a hung kernel.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

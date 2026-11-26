@@ -49,6 +49,9 @@ def context(operation):
 
 def observation_action(adapter, request):
     if request['N'].get('ufs_link') is True:
+        # The UFS route scope has no attach cue: USB must enumerate untouched.
+        import s22plus_mainline_task_v1 as tasks
+        require(not tasks.ufs_route(request['N']), 'the UFS route scope has no attach cue')
         return 'mainline-download'
     require(access.profile.ordinary_cue(adapter, request), 'no reviewed ordinary cue scope')
     return 'mainline-evidence'
