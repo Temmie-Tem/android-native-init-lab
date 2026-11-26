@@ -187,21 +187,23 @@ whether the cycle repeats.
 The v67 set adds the UFS V13 route composition, which selects this
 scope's route write for the late-UFS experiment
 ([policy](S22PLUS_MAINLINE_UFS_ROUTE_V1.md)). It changes nothing in this scope.
+The v68 set lets the UFS candidate validator admit the route scope's
+producer recipe. It also changes nothing in this scope.
 The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v67_review.json`
-- `s22plus_loader_android_timing_v3_cue_v11_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v12_review.json`
-- `s22plus_mainline_max77705_usb_v10_review.json`
-- `s22plus_mainline_max77705_route_v8_review.json`
-- `s22plus_mainline_max77705_route_timer_v7_review.json`
+- `s22plus_approved_terminal_persistent_v68_review.json`
+- `s22plus_loader_android_timing_v3_cue_v12_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v13_review.json`
+- `s22plus_mainline_max77705_usb_v11_review.json`
+- `s22plus_mainline_max77705_route_v9_review.json`
+- `s22plus_mainline_max77705_route_timer_v8_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:
 - the scope;
 - all six `PASS_GO` records;
 - the task selectors;
-- the gateway selector pin for the approved v67 receipt.
+- the gateway selector pin for the approved v68 receipt.
 
 Keep the published receipts and task evidence. Then follow the
 [shared cutover procedure](../reports/S22PLUS_MAINLINE_ORDINARY_CUE_H0_2026-11-22.md#integration-hold-and-atomic-adoption),

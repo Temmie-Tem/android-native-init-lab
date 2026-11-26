@@ -170,6 +170,38 @@ class ScopeSelectionTests(unittest.TestCase):
         self.assertFalse(candidate.route_scope(fixed))
 
 
+class RecipeTests(unittest.TestCase):
+    def test_only_a_route_declaration_admits_the_route_recipe(self):
+        import s22plus_mainline_ufs_image_v1 as image
+        manifest, key = dict(inputs=[]), b'k' * 32
+        plain = image.expected_recipe(manifest, key, dict(report_version=13))
+        route = image.expected_recipe(manifest, key, dict(report_version=13, usb_route=True))
+        self.assertNotIn('usb_route', plain)
+        self.assertEqual(route, dict(plain, usb_route=True))
+        self.assertEqual(image.expected_recipe(manifest, key, dict(report_version=13, usb_route=1)), plain)
+
+    def test_recipe_booleans_are_type_exact(self):
+        import s22plus_mainline_ufs_image_v1 as image
+        manifest, key = dict(inputs=[]), b'k' * 32
+        route = image.expected_recipe(manifest, key, dict(report_version=13, usb_route=True))
+        plain = image.expected_recipe(manifest, key, dict(report_version=13))
+        self.assertTrue(image.recipe_matches(dict(route), route))
+        self.assertTrue(image.recipe_matches(dict(plain), plain))
+        for name, value in (('usb_route', 1), ('pre_effect_return', 1), ('vm', 0)):
+            with self.subTest(name=name):
+                forged = dict(route, **{name: value})
+                self.assertEqual(forged, route)            # Python equality alone would accept it
+                self.assertFalse(image.recipe_matches(forged, route))
+        self.assertFalse(image.recipe_matches(dict(plain, usb_route=True), plain))
+        self.assertFalse(image.recipe_matches(plain, route))
+        # Equal-but-different numbers change the hashed bytes and are rejected.
+        self.assertEqual(dict(route, report_version=13.0), route)
+        self.assertFalse(image.recipe_matches(dict(route, report_version=13.0), route))
+        floaty = dict(inputs=[dict(path='/x', sha256='0' * 64, size=7.0)])
+        exact = dict(inputs=[dict(path='/x', sha256='0' * 64, size=7)])
+        self.assertNotEqual(image.canonical_json(floaty), image.canonical_json(exact))
+
+
 class RecoveryTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup); self.dir = Path(tmp.name)

@@ -114,7 +114,7 @@ ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
 ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
 ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
 ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v11_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v12_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.

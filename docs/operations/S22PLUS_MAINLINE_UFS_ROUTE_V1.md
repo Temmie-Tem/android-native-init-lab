@@ -6,7 +6,8 @@ capability record and candidate need their own owner review)
 On 2026-11-27 the operator approved the common-contract delegation for this
 scope ("그렇게 승인할게 진행해"). The approved summary listed four differing
 inputs. The module turned out byte-identical, so the delegation lists three,
-which is narrower. Adoption still needs independent review.
+which is narrower. The code and contract are adopted (`c9c1b15ecb`); each
+capability record and candidate still needs its own owner review.
 
 This scope runs the adopted report-v13 late-UFS experiment
 ([capability V2](S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md)) without a USB
@@ -152,12 +153,12 @@ It does not claim:
 
 ## Authority
 
-This draft grants nothing. Adoption needs:
-- the operator's approval of the common-contract delegation text;
-- the target paragraph;
-- an independent review of the exact capability record, the observer
-  composition and the host changes;
-- a fresh qualified key-only candidate.
+This policy grants nothing by itself. The operator approved the
+common-contract delegation, and the code, contract and target paragraph are
+adopted (`c9c1b15ecb`, v67). Before any run:
+- the exact capability record and its candidate need an independent owner
+  review;
+- the candidate must be fresh, qualified and key-only.
 
 Each run then needs:
 - current D0;

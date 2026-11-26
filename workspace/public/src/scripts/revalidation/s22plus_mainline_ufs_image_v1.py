@@ -133,6 +133,28 @@ def runtime(manifest,*,candidate='ML030'):
     return _runtime(manifest, DECLARATIONS[candidate])
 
 
+def expected_recipe(manifest, key, declaration):
+    """The producer recipe an exact declaration admits; its digest is the candidate ID."""
+    expected=dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],key_digest=hashlib.sha256(key).hexdigest())
+    version=declaration.get('report_version')
+    latest=_report_modes().LATEST
+    if type(version) is int and 4<=version<=latest:expected['pre_effect_return']=True
+    if type(version) is int and 5<=version<=latest:expected['report_version']=version
+    # Only the UFS route capability's declaration selects the composed observer recipe.
+    if declaration.get('usb_route') is True:expected['usb_route']=True
+    return expected
+
+
+def canonical_json(value):
+    return json.dumps(value,sort_keys=True,separators=(',',':')).encode()
+
+
+def recipe_matches(recipe, expected):
+    """Canonical-byte equality: 1 is not true and 13.0 is not 13, so the hashed
+    candidate identity is the only one a fixed key and fixed inputs admit."""
+    return type(recipe) is dict and canonical_json(recipe)==canonical_json(expected)
+
+
 def _runtime(manifest, declaration):
     from mainline.s22plus_canary_h0 import debian_ram as d
     require(manifest['debian_ram']['schema']==SCHEMA and manifest['vm'] is False and
@@ -167,12 +189,8 @@ def _runtime(manifest, declaration):
     producer=read(Path(manifest['initramfs']['path']).parent/'producer.json')
     key=Path(manifest['key_path']).read_bytes()
     recipe=producer['recipe']
-    expected=dict(schema=SCHEMA,vm=False,inputs=manifest['inputs'],key_digest=hashlib.sha256(key).hexdigest())
-    version=declaration.get('report_version')
-    latest=_report_modes().LATEST
-    if type(version) is int and 4<=version<=latest:expected['pre_effect_return']=True
-    if type(version) is int and 5<=version<=latest:expected['report_version']=version
-    require(len(key)==32 and recipe==expected and hashlib.sha256(json.dumps(recipe,
+    expected=expected_recipe(manifest,key,declaration)
+    require(len(key)==32 and recipe_matches(recipe,expected) and hashlib.sha256(json.dumps(recipe,
             sort_keys=True,separators=(',',':')).encode()).hexdigest()==manifest['candidate_id'], 'ML030 key/recipe binding')
     return value
 

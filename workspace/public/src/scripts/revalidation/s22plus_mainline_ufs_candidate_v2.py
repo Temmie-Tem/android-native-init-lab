@@ -167,10 +167,15 @@ def runtime_binding(candidate,fixed,component):
             manifest['device_actions']==0 and manifest['port']==47649 and
             manifest['initrd_address']==0xb6915000 and manifest['dtb']==fixed['dtb'],
             'v2 runtime mode/DT/placement differs')
-    require(input_template(manifest)==fixed['input_template'], 'v2 fixed recipe inputs changed')
+    from s22plus_mainline_ufs_image_v1 import canonical_json
+    # Canonical bytes: a float size or other equal-but-different JSON is a changed input.
+    require(canonical_json(input_template(manifest))==canonical_json(fixed['input_template']),
+            'v2 fixed recipe inputs changed')
     for row in manifest['inputs']:profile.unchanged(row)
-    value=_runtime(manifest,dict(module=component['module_sha256'],
-                                archive=manifest['initramfs']['sha256'],report_version=fixed['report_version']))
+    declaration=dict(module=component['module_sha256'],archive=manifest['initramfs']['sha256'],
+                     report_version=fixed['report_version'])
+    if route:declaration['usb_route']=True
+    value=_runtime(manifest,declaration)
     require(producer['provenance']['schema']=='s22plus-observer-build-inputs-v1' and
             producer['provenance']['fixed']==fixed['observer_build'], 'v2 observer toolchain changed')
     for name in ('dependency','log'):profile.unchanged(producer['provenance'][name])
