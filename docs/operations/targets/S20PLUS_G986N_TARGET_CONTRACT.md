@@ -4715,3 +4715,24 @@ retention success. Before the actual rollback ADB control the owner rechecks
 the same current tag and boot. Closure requires the exact original transfer,
 its healthy fresh boot, and its own original-boot attribution. All previously
 consumed candidates and approvals stay consumed.
+
+## S20+ first-return stock-direct marker readback D0
+
+For the foreground SM-G986N/y2q/G986NKSS8IYC2 postmortem only,
+s20plus_g986n_stock_direct_readback_d0.py may inspect the first observed original
+Magisk return of the closed stock-direct run ending in terminal e0118d4f.
+Activation requires independent zero-finding review of the exact reader,
+selected authority, transport, retained first-return chain, and generated scan.
+The separate D0 holds the canonical target-session lease and excludes active
+owners. It checks the restored serial, USB port, enforcing completed Android
+boot, original Magisk and PID 1 before and after one bounded scan.
+A durable observation intent precedes dispatch. The remote reader checks the
+same restored boot before and after reducing only /proc/last_kmsg to the
+snapshot length and two nonce-specific full-frame counts. It uses the retained
+120-second scanner and a maximum of 96 stdout bytes. Unexpected primary_entry
+or repeated frames are ambiguous for this single-writer control. Only a complete
+snapshot supports a count. Missing, unreadable, empty and failed observations
+remain distinguishable. Keep diagnostic output digests and parsed counts private.
+This profile closes on its one observation or on loss of the original boot.
+It authorizes no control, transfer, device write, raw log export or F1 replay.
+It cannot retroactively certify the candidate-time Android or FDT witness.
