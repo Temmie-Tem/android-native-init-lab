@@ -509,3 +509,22 @@ USB2 PHY 기준 클럭과 아홉 개 순정 기기 모드 설정을 수정하고
 **부트루프에 대해 남는 범위.** 첫 `flush_work()`는 보류된 장치 작업의 한 실행을 기다린다. 작업은 활성 목록에서 장치를 꺼내 뮤텍스를 풀고 `bus_probe_device()`를 호출한다. 공급자를 찾지 못한 장치는 대기 목록으로 되돌아갈 수 있으므로 단순 보류가 그 자체로 무한 대기를 뜻하지 않는다. 실제 Image를 쓴 QEMU에서도 RSC probe에 진입하지 못한 채 첫 대기가 반환했다. 휴대전화에서는 대기 직전까지만 기록됐으며, 어느 장치가 활성 목록에 있었는지와 실제 재시도·리셋 원인은 여전히 미확인이다. S22+의 TLMM 관측을 y2q의 원인으로 귀속할 수 없다. [재시도·대기 경로](https://github.com/torvalds/linux/blob/v6.18/drivers/base/dd.c)
 
 다음 실기의 설계는 **PSCI 공급자 등록 결과와 RSC probe 진입을 먼저 구분하고, 같은 후보에서 첫 작업의 장치·재시도 반환도 관측**하는 방향이다. 호스트에서 도메인 공급자를 켠 커널은 정규 initcall이 153개에서 159개로 늘었고 deferred probe의 0 기준 인덱스가 146에서 152로 이동했다. 기존 방식으로 159개 전후와 고정 지점 10개를 모두 표시하려면 328비트가 필요하다. 이전 320비트 프레임에는 들어가지 않는다. 이번 QEMU 판정은 후보의 비트 인덱스 대신 해당 빌드에서 확인한 실제 함수와 호출 복귀 주소로 검증했다. 다음에는 이미 관측한 앞쪽 호출에 배분한 비트를 줄여 공급자·작업 스레드 관측에 쓸 수 있다. 비공개 그래프·호스트 대조·빌드 근거는 `workspace/private/analysis/s20plus-y2q-deferred-static-20261127/`에 있다. 기기 명령과 AP 전송은 0건이다.
+
+### 실기 후보의 USB 전원·인터커넥트와 PID 1 호스트 대조
+
+직전 실기에 사용한 Image, ELF, DTB, initramfs를 기준으로 USB 공급자와 관측 프로그램을 대조했다. 이번 조사에서 기기 명령·재부팅·AP 전송은 0건이었다.
+
+| 확인한 경로 | 호스트에서 얻은 결과 |
+| --- | --- |
+| GCC 클럭과 리셋 | 후보 DT가 지정한 클럭 6개의 인덱스를 최종 ELF의 공급자 배열에서 해석했다. 순정 IYC2 DT 여섯 조합과 삼성 공개 커널의 GCC 정의를 대조하니 같은 6개 클럭과 enable 레지스터를 가리켰다. 이름에 SEC가 들어가는 XO 게이트도 양쪽이 같다. USB 코어·PHY 리셋 두 개도 같은 레지스터다. |
+| USB2 PHY 전원 | 세 레일과 고정 전압이 여섯 조합에서 일치한다. L5는 0.880 V, L12는 1.800 V, L2는 3.072 V다. 후보는 PM8150 레귤레이터 그룹에 이 세 LDO의 입력 전원을 명시하지 않았다. 6.18 regulator 코어는 DT 시스템에서 공급자를 찾지 못하면 조건에 따라 더미 공급자를 쓸 수 있다. 명시된 출력 전압만으로 상위 전원이나 실기 인가 상태를 판정할 수 없다. |
+| 인터커넥트와 Command DB | 후보 DT의 두 경로를 ELF에 링크된 SM8250 노드 번호와 연결 배열로 따라갔다. USB에서 DDR까지 8개 노드, AP에서 USB까지 6개 노드가 이어진다. 두 경로에 걸친 BCM 리소스 8개의 이름과 주소 필드는 순정 AOP 펌웨어의 연속된 BCM 형식 레코드 37개 안에서 모두 확인됐다. PHY 기준 클럭의 `xo.lvl`은 ARC 형식 레코드에서, 세 LDO 이름은 문자열에서 확인됐다. Command DB 예약 영역의 위치와 길이도 일치한다. 부팅 시 RAM의 DB 내용과 실제 전원 요청의 성공 여부는 미확인이다. |
+| DWC3·IOMMU·IRQ | 주 USB 코어와 USB2 PHY의 시작 주소, 코어 IRQ(GIC SPI 133), SMMU 주소·스트림 인자는 순정과 일치한다. 순정은 SMMU 참조를 상위 USB 노드에, 후보는 DWC3 코어에 둔다. 후보의 SMMU와 SCM 드라이버가 최종 커널에 있으며 Qualcomm SMMU 생성 시 SCM 준비 여부를 확인한다. DP/DM 깨우기 입력은 양쪽 모두 PDC 14·15이지만 에지 설정은 순정 상승, 후보 양방향이다. 후보 드라이버는 요청 시 이 깨우기 IRQ를 비활성으로 두며, 코어의 전송 IRQ는 별개다. 이 차이의 실기 영향은 미확인이다. |
+
+후보의 클럭·전원·인터커넥트·IRQ·IOMMU 참조는 기존 74개 성공 핸드오프 출력 DT에서도 동일했다. 순정 비교 수는 펌웨어 DT 조합의 수다. 실기에서는 첫 지연 probe 대기 직전까지만 확인됐고, 여기서 확인한 장치들의 probe 완료 여부는 회수되지 않았다. [Linux 6.18 SM8250 인터커넥트](https://github.com/torvalds/linux/blob/v6.18/drivers/interconnect/qcom/sm8250.c) · [Qualcomm USB 래퍼](https://github.com/torvalds/linux/blob/v6.18/drivers/usb/dwc3/dwc3-qcom-legacy.c)
+
+**PID 1 배너를 끝까지 읽는 대조**에서는 실기에 사용한 initramfs에서 꺼낸 `/init`과 QEMU에서 PID 1로 실행한 ELF가 바이트 단위로 같았다(SHA-256 `182ab85bdf8abc7a6fce7e58a64ab77c2e99aca3d13980fb1a5c7bd316c843e4`). 가상 전용 커널에는 dummy HCD/UDC와 호스트 CDC-ACM을 켜고, dummy UDC가 프로그램이 기다리는 이름 `a600000.usb`로 보이게 했다. 후보의 configfs 설정으로 가상 호스트에 ACM 인터페이스가 생겼고, 게스트에서 호스트 측 `ttyACM0`를 열어 이번 빌드의 83바이트 배너를 받았다. 수신한 USB 속성과 바이트를 원래 관측기의 `lookup`·`derive`에 재생했다. 정상 사례가 통과했고, 포트·시리얼·인터페이스 프로토콜·배너 nonce·관측 전후 엔드포인트를 각각 바꾼 다섯 사례는 모두 배제됐다. 이 검사는 실제 DWC3·PHY를 에뮬레이션하지 않는다. [Linux USB gadget configfs 문서](https://docs.kernel.org/usb/gadget_configfs.html) · [Linux 6.18 dummy HCD/UDC](https://github.com/torvalds/linux/blob/v6.18/drivers/usb/gadget/udc/dummy_hcd.c)
+
+**첫 대기 안의 장치 재시도**는 직전 실기 Image를 그대로 부팅하는 별도의 QEMU 대조에서 확인했다. 테스트 DT에 도메인 참조가 없는 가상 RSC를 두고 Command DB를 생략했을 때, 첫 대기 구간 안에서 작업 스레드의 `test-rsc` 재시도 진입, `cmd_db_ready()`의 `-EPROBE_DEFER`, 같은 장치의 `bus_probe_device()` 호출 복귀, 첫 대기 복귀가 차례로 관측됐다. 가상 RSC를 제거한 경우에는 같은 구간에 장치 재시도가 0건이고 대기가 복귀했다. `bus_probe_device()`는 void 함수라 호출 복귀와 드라이버 성공을 따로 구분해야 한다. S20+의 실제 재시도 장치와 리셋 원인은 미확인이다.
+
+호스트에 남은 일은 PSCI 공급자를 켠 159개 initcall 빌드에서 PID 1과 작업 스레드의 진행 기록이 겹쳐도 어느 장치의 어느 호출까지 보존됐는지 판독 가능한지 검증하는 것이다. 실제 작업 스레드의 호출·반환 측정 지점은 이번 대조에서 확인했다. 비공개 재현 코드·최종 ELF 대조·QEMU 콘솔과 판정은 `workspace/private/analysis/s20plus-y2q-host-closure-20261127/`에 보관했다.
