@@ -209,3 +209,26 @@ nine substitutions and rejected drift in each of the nine guest files.
 Private directories:
 - `workspace/private/analysis/s22plus-max77705-route-timer-board-r4.EXmhpaXg`
 - `workspace/private/analysis/s22plus-max77705-route-timer-board-r5.INV6v1tS`
+
+## Repeatability builds (v66)
+
+Runs 1 to 5 consumed r1 to r5. Run 5 was the first cycle with no physical
+action and no host step. To test whether that repeats, the v66 set adds
+three more builds of the same composition. They used the same build, check
+and binding scripts as r2 to r5.
+
+| Build | Qualification | AP | Candidate |
+|---|---|---|---|
+| r6 | `dde32521…0d7b` | `b32e38eb…` | `07404678…` |
+| r7 | `55edd403…cbf2` | `78d598cd…` | `6cc8a4ef…` |
+| r8 | `0ae8f5fe…673e` | `0b965b1e…` | `8d794c54…` |
+
+Each passed loader qualification, the entry VM, packaging and the package
+check: six producer verdicts verified and twelve rejections held. The loader
+DT differs from the Stage 2 candidate only in `/chosen linux,initrd-end`.
+Against the v66 binding module, each mapped the three outcomes, rejected the
+nine substitutions and rejected drift in each of the nine guest files.
+Private directories:
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r6.i4a0iYsk`
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r7.EeP9u9IG`
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r8.wcHXwz0Z`
