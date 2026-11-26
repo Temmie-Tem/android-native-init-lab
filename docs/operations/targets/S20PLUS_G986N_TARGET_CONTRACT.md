@@ -4948,3 +4948,31 @@ grants no authority for this trial. Activation requires independent zero-
 finding review of the reachable owner, observer, artifacts, authority,
 both literal states, tests and exact private activation. Keep all evidence
 and the original terminal append-only. This grant closes on the one run.
+
+## S20+ first-return C-stage marker adjacency D0
+
+For this foreground SM-G986N/y2q/G986NKSS8IYC2 postmortem,
+`s20plus_g986n_cstage_adjacency_d0.py` may make one fixed read of the original
+Magisk first-observed return from C-stage-list run `1795717837883139539`,
+whose terminal SHA-256 begins `4acf0f9f`. Independent zero-finding review of
+the exact runner, selected rules, pinned helper and retained evidence, and a
+canonical private activation apply. Reuse the first-return mainline marker
+adjacency D0 target-session lease, owner exclusions, same serial/USB topology
+and same-boot Magisk health brackets. Physical attendance is unnecessary.
+
+The bounded reader uses the fixed C-stage frame format. In canonical
+`/proc/last_kmsg`, count each exact nonce-bound 128-byte FDT and unflatten
+frame and every ordered pair with unflatten starting exactly 128 bytes
+after FDT. Include matches across stream rows without joining the end to
+the beginning. Keep the inherited procfs and Magisk BusyBox checks, the
+2,097,136-byte limit plus one sentinel, 120 seconds and 96 combined capture
+bytes. The device emits only size, counts or a fixed unavailable status.
+A complete comparable snapshot must match the retained original size and
+4/4 totals. The append-only evidence root is
+`runs/s20plus-g986n-cstage-adjacency-d0`. A durable intent precedes the one
+scan and neither old record nor activation changes.
+
+This scope ends on its one observation or loss of the recorded boot.
+Adjacency describes the layout of retained bytes in that snapshot. It
+does not identify individual candidate boots or prove PID 1 or ACM access.
+No mode change, transfer, device write, replay or further authority is granted.
