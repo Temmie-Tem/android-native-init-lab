@@ -106,6 +106,8 @@ class Android:
     READY_MAXIMUM=16
     READY_DISCONNECT_STDERR=()
     READY_POLL_SECONDS=.5
+    # Zero keeps the first complete readiness read as readiness.
+    READY_SETTLE_NS=0
     def __init__(self, tool, target, android, directory, *, guard):
         self.tool=tool; self.target=target; self.android=android
         self.directory=Path(directory); self.directory.mkdir(mode=0o700,exist_ok=True)
@@ -226,6 +228,13 @@ class Android:
         require(value in ('','0','1'),'Android boot-complete property is malformed')
         return value=='1'
 
+    def readiness_transport(self,row):
+        tokens=[token for token in row[2:] if token.startswith('transport_id:')]
+        require(len(tokens)==1 and tokens[0][len('transport_id:'):].isdigit()
+            and tokens[0][len('transport_id:'):].isascii(),
+            'ADB readiness target transport is malformed')
+        return tokens[0]
+
     def wait_ready(self, *, deadline_ns):
         """Bounded readiness reads; the required seven-read health is separate."""
         def remaining_timeout():
@@ -237,15 +246,10 @@ class Android:
             # A late completion cannot become readiness or renew this deadline.
             return self.command(arguments,name,timeout=remaining_timeout(),
                 before_launch=remaining_timeout)
-        unavailable=(
-            ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'),
-            *self.READY_DISCONNECT_STDERR,
-        )
-        index=0
-        while clock()<deadline_ns:
-            inventory=observe(['devices','-l'],f'wait-{index:03d}-inventory')
-            text=raw.decode_success_stdout(inventory,maximum=16384)
-            require(not raw.read_stderr(inventory,maximum=16384),'ADB readiness inventory returned diagnostics')
+        def inventory(name):
+            handle=observe(['devices','-l'],name)
+            text=raw.decode_success_stdout(handle,maximum=16384)
+            require(not raw.read_stderr(handle,maximum=16384),'ADB readiness inventory returned diagnostics')
             lines=text.splitlines()
             require(lines and lines[0]=='List of devices attached','ADB readiness inventory header differs')
             rows=[line.split() for line in lines[1:] if line.strip()]
@@ -257,6 +261,20 @@ class Android:
                 'ADB readiness target is ambiguous')
             if selected and selected[0][1]=='device':
                 select_android(text,self.target)
+                return selected[0]
+            return None
+        unavailable=(
+            ("adb: device '"+self.target['serial']+"' not found\n").encode('ascii'),
+            *self.READY_DISCONNECT_STDERR,
+        )
+        index=0
+        # (transport, complete reply) of the first read in an unbroken run of
+        # identical complete reads, and when it was taken; see READY_SETTLE_NS.
+        anchor=None
+        while clock()<deadline_ns:
+            row=inventory(f'wait-{index:03d}-inventory')
+            settled=False
+            if row is not None:
                 command=['-s',self.target['serial'],'shell',self.READY_COMMAND]
                 handle=observe(command,f'wait-{index:03d}-boot')
                 vanished=(handle.returncode==1 and not handle.timed_out and not handle.output_exceeded and
@@ -270,8 +288,26 @@ class Android:
                     value=raw.decode_success_stdout(handle,maximum=self.READY_MAXIMUM)
                     require(not raw.read_stderr(handle,maximum=16384),'Android readiness read returned diagnostics')
                 if self.readiness_complete(value):
-                    require(clock()<deadline_ns,'Android readiness exceeded original deadline')
-                    return
+                    if not self.READY_SETTLE_NS:
+                        require(clock()<deadline_ns,'Android readiness exceeded original deadline')
+                        return
+                    # The serial selects the target's reply on any ADB server.
+                    # Crediting it to a transport needs that transport listed
+                    # before and after the read; IDs are not reused within a
+                    # server, and a different ID restarts the window.
+                    transport=self.readiness_transport(row)
+                    after=inventory(f'wait-{index:03d}-confirm')
+                    if after is not None and self.readiness_transport(after)==transport:
+                        key=(transport,value)
+                        observed=clock()
+                        if anchor is None or anchor[0]!=key:anchor=(key,observed)
+                        elif observed-anchor[1]>=self.READY_SETTLE_NS:
+                            require(clock()<deadline_ns,'Android readiness exceeded original deadline')
+                            return
+                        settled=True
+            # Any absent, non-device, incomplete, vanished or different read
+            # starts the settle window again on a later complete read.
+            if not settled:anchor=None
             index+=1
             require(index<256,'Android readiness inventory exceeds bound')
             time.sleep(self.READY_POLL_SECONDS)
@@ -290,6 +326,14 @@ class MainlineReturnAndroid(Android):
     # (route-timer run 2, 2026-11-26). Retain that failed read and select the
     # exact target again, as TimedCandidateAndroid does; readiness only.
     READY_DISCONNECT_STDERR=(b'error: closed\n',)
+    # Route-timer runs 1-3 (2026-11-26) each changed ADB transport ID around
+    # the first boot_completed=1: run 1 before the first complete reply, run 2
+    # through an "error: closed" read before any, and run 3 by vanishing
+    # 0.2 s after readiness, inside the health bracket. Readiness therefore
+    # needs identical complete replies (same boot ID), each bracketed by
+    # inventories that list the same transport, across this window with no
+    # other read in between. Deadline, poll and iteration bounds are unchanged.
+    READY_SETTLE_NS=10_000_000_000
     READY_COMMAND=BOOT_ID_COMMAND+"; printf 'boot_completed='; getprop sys.boot_completed"
     READY_MAXIMUM=96
     PROPERTIES_COMMAND=BOOT_ID_COMMAND+'\n'+'\n'.join(

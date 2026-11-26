@@ -30,6 +30,8 @@ QUALIFICATIONS = (
     '55bbeedf0737914c58dc5b7da73c35280ad7f730625d3a76ee4ad37c3027806f',
     'c42725e1bf0d9346a9f98ba07f47e1b4cd2b86e7dce1726fb706185aba06ec5b',
     '9a19b32b56ae44ef2d24198301fe48409ade604f5e043614ddf3c2f53a20580f',
+    '821c15fafc0da34fd9e10c8550bd851e79283167babdfe1626e364e38d597f9f',
+    '34763bedf661b2e1e8145febaf8a6340fb64b0bcb7b3a3ff29e43502c85aa044',
 )
 DECODER_SHA256 = 'e3974368f4dea823e470be2eedf90a7eee2796efdd5e9fda3258bf062b8dae36'
 # The intervention was tested and the record answers the routing question.

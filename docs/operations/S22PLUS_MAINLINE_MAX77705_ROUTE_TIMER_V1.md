@@ -172,24 +172,28 @@ This scope is published together with these changes:
 - its target adoption.
 
 The v61 set first adopted this scope (`1e12f415a2`). The v62 set
-(`1074da5b1c`) added the two repeat-build qualifications. The v63 set makes
-the mainline original-A readiness wait treat `error: closed` like
-`device not found` (see the
-[mainline RAM policy](S22PLUS_MAINLINE_RAM_V1.md#return-interruption-and-evidence)). The branch selects six pending records under
+(`1074da5b1c`) added the two repeat-build qualifications. The v63 set
+(`ff8a7cde8d`) made the mainline original-A readiness wait treat
+`error: closed` like `device not found`. The v64 set requires readiness to
+hold on one ADB transport and boot ID for 10 s before health starts, and adds
+two repeat-build qualifications (r4, r5). Both readiness changes
+are described in the
+[mainline RAM policy](S22PLUS_MAINLINE_RAM_V1.md#return-interruption-and-evidence).
+The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v63_review.json`
-- `s22plus_loader_android_timing_v3_cue_v7_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v8_review.json`
-- `s22plus_mainline_max77705_usb_v6_review.json`
-- `s22plus_mainline_max77705_route_v4_review.json`
-- `s22plus_mainline_max77705_route_timer_v3_review.json`
+- `s22plus_approved_terminal_persistent_v64_review.json`
+- `s22plus_loader_android_timing_v3_cue_v8_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v9_review.json`
+- `s22plus_mainline_max77705_usb_v7_review.json`
+- `s22plus_mainline_max77705_route_v5_review.json`
+- `s22plus_mainline_max77705_route_timer_v4_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:
 - the scope;
 - all six `PASS_GO` records;
 - the task selectors;
-- the gateway selector pin for the approved v63 receipt.
+- the gateway selector pin for the approved v64 receipt.
 
 Keep the published receipts and task evidence. Then follow the
 [shared cutover procedure](../reports/S22PLUS_MAINLINE_ORDINARY_CUE_H0_2026-11-22.md#integration-hold-and-atomic-adoption),

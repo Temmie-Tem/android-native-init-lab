@@ -189,3 +189,23 @@ behavioural change, and the v62 review set reflects it.
 Private directories:
 - `workspace/private/analysis/s22plus-max77705-route-timer-board-r2.lp9NKeVS`
 - `workspace/private/analysis/s22plus-max77705-route-timer-board-r3.sYLUMaKz`
+
+## Further repeat builds (v64)
+
+Normal runs 1 to 3 consumed r1 to r3. The v64 set adds two more builds: one
+for the run that verifies the readiness settle window and one spare. They used
+the same build, check and binding scripts as r2 and r3.
+
+| Build | Qualification | AP | Candidate |
+|---|---|---|---|
+| r4 | `821c15fa…7f9f` | `a9686f8a…` | `c8db88ae…` |
+| r5 | `34763bed…a044` | `217842b2…` | `ac4f5b6b…` |
+
+Each passed loader qualification, the entry VM, packaging and the package
+check: six producer verdicts verified and twelve rejections held. The loader
+DT differs from the Stage 2 candidate only in `/chosen linux,initrd-end`.
+Against the v64 binding module, each mapped the three outcomes, rejected the
+nine substitutions and rejected drift in each of the nine guest files.
+Private directories:
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r4.EXmhpaXg`
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r5.INV6v1tS`

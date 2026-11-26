@@ -39,7 +39,9 @@ class ReturnIdentityTests(unittest.TestCase):
             before_launch();calls.append((arguments,name,timeout))
             text=self.fixture.inventory if arguments==['devices','-l'] else next(outputs)
             return target.raw.publish_captured_bytes(self.directory,name,stdout=text.encode())
-        with mock.patch.object(self.client,'command',side_effect=command),mock.patch.object(target.time,'sleep'):
+        # Truncation handling only; the settle window is covered separately.
+        with mock.patch.object(self.client,'command',side_effect=command),mock.patch.object(target.time,'sleep'), \
+                mock.patch.object(self.client,'READY_SETTLE_NS',0):
             self.client.wait_ready(deadline_ns=target.clock()+10_000_000_000)
         self.assertEqual(len(calls),2*(len(self.wire)+1))
         self.assertTrue(all(args==['-s','FIXTURE123','shell',self.client.READY_COMMAND]
@@ -63,7 +65,8 @@ class ReturnIdentityTests(unittest.TestCase):
                 elif mode=='rc':kw=dict(stdout=self.wire.encode(),returncode=7)
                 else:kw=dict(stdout=b'boot_id=wrong')
                 return target.raw.publish_captured_bytes(folder,name,**kw)
-            with mock.patch.object(self.client,'command',side_effect=command),mock.patch.object(target.time,'sleep'):
+            with mock.patch.object(self.client,'command',side_effect=command),mock.patch.object(target.time,'sleep'), \
+                    mock.patch.object(self.client,'READY_SETTLE_NS',0):
                 if mode in ('vanished','closed'):self.client.wait_ready(deadline_ns=target.clock()+10_000_000_000)
                 else:
                     with self.assertRaises((ValueError,target.raw.RawCaptureError)):
@@ -97,6 +100,70 @@ class ReturnIdentityTests(unittest.TestCase):
         self.assertEqual(target.Android.PROPERTIES_COMMAND,target.PROPERTIES)
         self.assertTrue(target.Android.PROPERTIES_COMMAND.startswith("printf 'model='"))
         self.assertEqual(target.Android.READY_COMMAND,'getprop sys.boot_completed')
+
+    def settle(self,script,*,deadline_s=180,step_ns=200_000_000):
+        """Run wait_ready on a scripted clock: each script row is one poll.
+
+        A row is (transport or None for absent, boot reply bytes, stderr, rc
+        [, transport listed by the confirming inventory]). The clock advances
+        step_ns per adb command. Returns the command names.
+        """
+        now=[1_000_000_000_000];rows=iter(script);calls=[];current={}
+        self.runs=getattr(self,'runs',0)+1
+        folder=self.directory/('settle-'+str(self.runs));folder.mkdir()
+        def listing(transport):
+            line='' if transport is None else ('FIXTURE123 device model:SM_S906N device:g0q '+transport+'\n')
+            return ('List of devices attached\n'+line).encode()
+        def command(arguments,name,*,timeout,before_launch=None):
+            before_launch();calls.append(name);now[0]+=step_ns
+            if name.endswith('-inventory'):
+                current['row']=next(rows)
+                return target.raw.publish_captured_bytes(folder,name,stdout=listing(current['row'][0]))
+            if name.endswith('-confirm'):
+                row=current['row']
+                return target.raw.publish_captured_bytes(folder,name,stdout=listing(row[4] if len(row)>4 else row[0]))
+            self.assertEqual(arguments,['-s','FIXTURE123','shell',self.client.READY_COMMAND])
+            _,stdout,stderr,rc=current['row'][:4]
+            return target.raw.publish_captured_bytes(folder,name,stdout=stdout,stderr=stderr,returncode=rc)
+        with mock.patch.object(self.client,'command',side_effect=command),mock.patch.object(target.time,'sleep'), \
+                mock.patch.object(target,'clock',side_effect=lambda:now[0]):
+            self.client.wait_ready(deadline_ns=now[0]+deadline_s*1_000_000_000)
+        return calls
+
+    def test_mainline_readiness_requires_a_settled_transport_and_reply(self):
+        self.assertEqual(target.MainlineReturnAndroid.READY_SETTLE_NS,10_000_000_000)
+        self.assertEqual(target.Android.READY_SETTLE_NS,0)
+        ready=self.wire.encode();other=ready.replace(self.fixture.properties['boot_id'][:8].encode(),b'87654321')
+        good=lambda transport='transport_id:56':(transport,ready,b'',0)
+        # Steady state: a complete poll is inventory, read, confirming inventory
+        # (0.6 s here). The first anchors; acceptance needs >=10 s, poll 18.
+        calls=self.settle([good()]*40)
+        self.assertEqual(len(calls),3*18)
+        self.assertEqual(calls[:3],['wait-000-inventory','wait-000-boot','wait-000-confirm'])
+        for interruption in ([(None,b'',b'',0)]*2,                       # absent
+                [('transport_id:56',b'',b"adb: device 'FIXTURE123' not found\n",1)],
+                [('transport_id:56',b'',b'error: closed\n',1)],
+                [('transport_id:56',ready.replace(b'boot_completed=1',b'boot_completed='),b'',0)],
+                [('transport_id:56',ready,b'',0,'transport_id:57')],    # re-attached during the read
+                [('transport_id:56',ready,b'',0,None)],                 # gone after the read
+                [good('transport_id:57')],                               # new transport
+                [('transport_id:56',other,b'',0)]):                      # new boot ID
+            # The same-transport tail shows that the interruption itself, not
+            # only a transport change, restarts the window.
+            for tail in (good(),good('transport_id:58')):
+                with self.subTest(interruption=interruption[0],tail=tail[0]):
+                    calls=self.settle([good()]*3+interruption+[tail]*40)
+                    reads=sum(1 if row[0] is None else 3 if row[1]==ready or row[1]==other else 2
+                        for row in interruption)
+                    self.assertEqual(len(calls),3*(3+18)+reads)
+        # A transport that keeps changing never settles inside the bounds.
+        with self.assertRaises((TimeoutError,ValueError)):
+            self.settle([good('transport_id:'+str(n)) for n in range(400)])
+
+    def test_settle_requires_one_numeric_transport_token(self):
+        for transport in ('usb:2-1.3','transport_id:','transport_id:5x','transport_id:1 transport_id:1','transport_id:\u0665'):
+            with self.subTest(transport=transport),self.assertRaisesRegex(ValueError,'transport is malformed'):
+                self.settle([(transport,self.wire.encode(),b'',0)]*40)
 
     def test_partial_read_loop_keeps_poll_bound_and_original_deadline(self):
         calls=[]

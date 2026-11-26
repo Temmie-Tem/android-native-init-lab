@@ -1175,7 +1175,8 @@ Only the mainline original-A return-health path selects
 `MainlineReturnAndroid`, including a later permitted health-only continuation.
 Its existing readiness shell read prints the Android boot ID before
 `boot_completed`; its existing properties read prints the same nine fields with
-the boot ID first. It adds no connected command or snapshot read. Readiness
+the boot ID first. It adds no shell command or snapshot read; the settle window
+below adds one inventory after each complete reply. Readiness
 still uses the original deadline, at most 256 inventory iterations and the
 existing 0.5-second interval. Successful EOF-truncated outputs that are lexical
 prefixes of the fixed readiness grammar remain not-ready; only a complete
@@ -1186,7 +1187,41 @@ remain, the next poll rechecks the inventory, and it issues another shell read
 only when the exact target is listed as `device`. If the target stays absent,
 the wait expires. adbd can close a listed device's shell while
 Android is still starting: route-timer run 2 stopped this way after its
-original-A transfer had completed. Malformed non-prefix output,
+original-A transfer had completed.
+
+A complete reply alone does not end the wait. The readiness read still
+selects the exact serial (`adb -s`), so the reply is the target's on any ADB
+server. After a complete reply, one more `adb devices -l` inventory runs, and
+the reply counts toward settling only if both inventories list the exact
+target as `device` with the same `transport_id`. Within one ADB server,
+transport IDs are not reused, so a re-attachment during the read changes the
+ID. Readiness requires identical complete replies, with the same boot ID and
+the same bracketing transport, across at least 10 s of consecutive polls.
+Any poll in between restarts the window when the target is absent or not
+`device`, the reply is incomplete, the read fails with a tolerated form
+above, the confirming inventory differs or lacks the target, or the transport
+or boot ID differs. A restarted ADB server that happened to give the target
+its old ID would leave the window running. The replies would still be the
+target's, because of the serial selection.
+
+In route-timer runs 1 to 3, the transport ID changed around the first
+`boot_completed=1`:
+- in run 1 before the first complete reply;
+- in run 2 through an `error: closed` read before any complete reply;
+- in run 3 by the device vanishing 0.2 s after the first complete reply,
+  inside the health bracket, which needed a host-side health resume.
+
+The exact re-attach times in runs 2 and 3 were not observed. The window adds
+the confirming inventory and changes no deadline, poll interval or iteration
+bound. Only this class sets it. Other Android readers keep the first complete
+reply as readiness, with no confirming inventory.
+
+The window is a liveness measure that keeps health out of the observed
+re-attach. It is not a health criterion. The seven-read bracket remains the
+only acceptance, and it does not compare its transport with readiness. Its
+inventory captures retain the transport for later comparison.
+
+Malformed non-prefix output,
 unexpected producer failure, diagnostics, overflow or source/owner failure
 retain the existing stop behavior. The fixed seven-read health bracket,
 same-boot target/partition checks and full-health acceptance remain unchanged.
