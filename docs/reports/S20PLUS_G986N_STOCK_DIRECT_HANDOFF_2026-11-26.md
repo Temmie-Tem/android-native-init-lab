@@ -113,3 +113,19 @@ Odin의 두 성공 영수증이 지목한 AP를 다시 열고 TAR 멤버·MD5와
 호스트 자격 자료는 비공개 `workspace/private/analysis/s20plus-y2q-stock-list-20261127/qualification.json`, 독립 후보 검증은 같은 위치의 `independent/result.json`에 있다. 두 SHA-256은 각각 `125d68324a6bdcb7192e9b26c0726032c45b8bf19c4abe628eea6e6900327d84`, `99cdd7204b8ab5dc0d94bcc3d7f963b7fbb85b535ba9eb5179ed7df7e05cb81e`다.
 
 실행기 독립 검토 입력은 `e6838028f32296f2436477e07700f0e0a6e841bbe9e4be39d467940a1d279085`였고 미해결 지적은 0건이었다. 검토한 활성 소스와 호스트 검증을 확인한 뒤 02:15:35 KST에 SM-G986N의 이전 원복 첫 부팅 ID, 같은 포트, Magisk 30.7(30700), UID 0, Enforcing, PID 1 `/system/bin/init`을 확인해 15분 승인 토큰을 발급했다. 발급 시점에 수락 기록과 전송 실행 디렉터리는 없었다.
+
+## 11월 27일 목록 지원 후보의 실기 부팅과 원복
+
+S20+ 실기에서 목록을 지원하는 유니로더가 원본 삼성 커널로 인계해 Magisk Android 부팅을 완료했다. 후보 Android에서 이번 nonce의 FDT 확인 문자 C와 128바이트 `prebranch` 표식 1건을 함께 확인했다. `primary_entry`는 0건이었고, 이 대조의 원본 삼성 커널에는 그 기록기가 없다. 원본 커널로 넘어가는 경로와 실기 표식 회수가 증명됐다. 메인라인 커널의 첫 명령과 Debian PID 1은 이후 별도 후보에서 확인할 사항이다.
+
+| 2026년 11월 27일 한국 시각 | 관측 |
+| --- | --- |
+| 02:24:52 | 원본 Magisk의 2,097,136바이트 기준 로그에서 이번 두 프레임 각 0건. 후보 속성 부재 |
+| 02:25:37 | 승인된 단일 boot 후보 AP 전송 완료 |
+| 02:27:01–11 | 새 부팅의 Android 완료, SELinux Enforcing, Magisk 30.7(30700), UID 0, PID 1 `/system/bin/init`. FDT C와 2,097,136바이트 로그의 prebranch 1건 확인 |
+| 02:27:13–38 | 같은 후보 부팅·포트·태그를 다시 확인해 ADB로 Download 진입. 원본 Magisk AP 1회 전송 완료. 물리 키 조작 0회 |
+| 02:28:26–27 | 새 원복 부팅에서 Android 완료, 같은 Magisk 루팅과 Enforcing, PID 1 및 후보 속성 부재 확인. 성공 기록 저장 및 공유 가드 해제 |
+
+시작·후보·원복의 세 부팅 ID는 서로 다르고 기기 및 포트는 같았다. 실행기는 후보 AP와 원본 AP를 각각 한 번 보냈고 재전송은 없었다. 종료 기록 SHA-256은 `9a0354400077f81dff308c60ec60bb027b9f1db583d31828d48b34cb9bfc63a4`이며 판정은 `PROVED_STOCK_DIRECT_MARKER_ON_TAGGED_MAGISK_ORIGINAL_RESTORED`다.
+
+자동 원복 성공 후 바깥 실행기가 종료 처리를 한 번 더 호출하면서 종료 코드 2를 반환했다. 당시에는 이미 성공 기록이 있었고 공유 가드는 해제된 상태였다. USB와 네트워크를 차단한 읽기 전용 호스트 검사로 후보 증거·인증된 ADB 복구·원본 복귀 기록을 각각 다시 검증했다. 종료 후 같은 가드를 요구하는 검사에서 `shared B0 guard is unavailable` 오류도 재현했다. 추가 기기 명령 없이 확인했으며, 후속 실행기에서는 자동 경로가 저장한 종료 결과를 그대로 반환하도록 검토해야 한다. 검증에 사용한 소스 커밋은 `1ff0f458f8`, 비공개 증거 목록은 `workspace/private/analysis/s20plus-y2q-stock-list-20261127/attended-result.json`이다.
