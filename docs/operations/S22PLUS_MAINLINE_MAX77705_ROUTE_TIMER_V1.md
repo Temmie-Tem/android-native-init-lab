@@ -124,9 +124,9 @@ Autonomous F1.
 adopts this scope as a **REVIEW_GATED_CAPABILITY**. Each run requires:
 - the selected route-timer review at `PASS_GO` for the exact owner closure,
   checked before candidate code is imported;
-- the exact board qualification named by the binding module. The binding
-  module also requires that the qualified observer was built from the
-  reviewed guest sources, with the fixed compile flags;
+- one of the exact board qualifications named by the binding module. The
+  binding module also requires that the qualified observer was built from
+  the reviewed guest sources, with the fixed compile flags;
 - the [common-contract](DEVICE_ACTION_CONTRACT_DETAILS.md) delegation of
   the timed reset and automatic original-A return to this exact observer;
 - current target identity and a usable original-A recovery path;
@@ -148,6 +148,20 @@ It grants none of the following:
 
 Preparing a task is H0.
 
+**Repeat builds.** The candidate registry consumes each AP once, so each
+normal run needs its own board build. A repeat build uses the same reviewed
+guest sources, Image, DT and staging, and gets its own run ID and key. It
+passes the same board checks:
+- the rebuilt observer is byte-identical to the shipped member;
+- the producer verdicts verify, and the fixture rejections hold;
+- the binding substitutions and guest drift are rejected.
+
+The binding module lists each qualification. Adding one is a reviewed
+module change. Each repeat run is a separate attended grant on a fresh task.
+The connector requires a healthy predecessor closure for the same target and
+original A. Running the repeats in order, each chained to the latest closure,
+is the operator's sequencing; the code does not enforce it.
+
 ## Successor reviews and adoption
 
 This scope is published together with these changes:
@@ -157,21 +171,23 @@ This scope is published together with these changes:
   board;
 - its target adoption.
 
-The branch selects six pending records under
+The v61 set first adopted this scope (`1e12f415a2`). The v62 set adds the
+two repeat-build qualifications; its only behavioural change is the
+qualification list. The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v61_review.json`
-- `s22plus_loader_android_timing_v3_cue_v5_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v6_review.json`
-- `s22plus_mainline_max77705_usb_v4_review.json`
-- `s22plus_mainline_max77705_route_v2_review.json`
-- `s22plus_mainline_max77705_route_timer_v1_review.json`
+- `s22plus_approved_terminal_persistent_v62_review.json`
+- `s22plus_loader_android_timing_v3_cue_v6_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v7_review.json`
+- `s22plus_mainline_max77705_usb_v5_review.json`
+- `s22plus_mainline_max77705_route_v3_review.json`
+- `s22plus_mainline_max77705_route_timer_v2_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:
 - the scope;
 - all six `PASS_GO` records;
 - the task selectors;
-- the gateway selector pin for the approved v61 receipt.
+- the gateway selector pin for the approved v62 receipt.
 
 Keep the published receipts and task evidence. Then follow the
 [shared cutover procedure](../reports/S22PLUS_MAINLINE_ORDINARY_CUE_H0_2026-11-22.md#integration-hold-and-atomic-adoption),

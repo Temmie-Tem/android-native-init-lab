@@ -160,3 +160,32 @@ physical action. It does not show the following:
 
 It is one input to the plan's evidence ladder, not the activation of
 Conditional Autonomous F1.
+
+## Repeat builds for normal runs (v62)
+
+The first run consumed AP `2e58bfc7`. The candidate registry admits each AP
+once, so two more normal runs need two more board builds. Each build used the
+same script with the staging read from main, where it is byte-identical to the
+reviewed copy. Each has its own run ID and key.
+
+| Build | Qualification | AP | Candidate |
+|---|---|---|---|
+| r1 (consumed) | `55bbeedf…806f` | `2e58bfc7…` | `f4df8483…` |
+| r2 | `c42725e1…ec5b` | `ab4c68d5…` | `d84b517b…` |
+| r3 | `9a19b32b…580f` | `5582ed47…` | `ca344384…` |
+
+Each build passed the same checks as r1:
+- loader qualification, the EL1/EL2/EL3 entry VM, and two identical packages;
+- the rebuilt observer is byte-identical to the shipped member;
+- the decoder is unchanged (`e3974368…`);
+- six producer verdicts verified and twelve rejections held;
+- the loader DT differs from the Stage 2 candidate only in
+  `/chosen linux,initrd-end`;
+- three outcomes mapped through the binding module, nine substitutions
+  were rejected, and drift in any of the nine guest files was rejected.
+
+The binding module now lists the three qualifications. That list is its only
+behavioural change, and the v62 review set reflects it.
+Private directories:
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r2.lp9NKeVS`
+- `workspace/private/analysis/s22plus-max77705-route-timer-board-r3.sYLUMaKz`

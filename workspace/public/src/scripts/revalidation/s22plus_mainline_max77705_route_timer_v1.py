@@ -1,4 +1,4 @@
-"""One qualified g0q MAX77705 route-timer artifact; no device I/O or recovery decisions.
+"""Qualified g0q MAX77705 route-timer artifacts; no device I/O or recovery decisions.
 
 The observer is the reviewed Stage 2 route producer (max77705-usb-route.h:
 at most one gated CONTROL1_W(COM_USB)) composed with the ML050 timer child
@@ -22,7 +22,15 @@ from s22plus_native_records_v3 import digest, pin, private_path, read_bytes, req
 
 from s22plus_mainline_profile_v1 import MXT_COMPILE_FLAGS, MXT_GUEST, MXT_SCHEMA, MXT_WIRE_SCHEMA, MXT_STATUS
 
-QUALIFICATION_SHA256 = '55bbeedf0737914c58dc5b7da73c35280ad7f730625d3a76ee4ad37c3027806f'
+# Each qualification is one board build of the same reviewed guest sources,
+# Image and DT, with its own run ID and key. The candidate registry consumes
+# each AP once, so a repeated normal run needs its own qualified build.
+# The first entry is the 2026-11-26 run's (consumed).
+QUALIFICATIONS = (
+    '55bbeedf0737914c58dc5b7da73c35280ad7f730625d3a76ee4ad37c3027806f',
+    'c42725e1bf0d9346a9f98ba07f47e1b4cd2b86e7dce1726fb706185aba06ec5b',
+    '9a19b32b56ae44ef2d24198301fe48409ade604f5e043614ddf3c2f53a20580f',
+)
 DECODER_SHA256 = 'e3974368f4dea823e470be2eedf90a7eee2796efdd5e9fda3258bf062b8dae36'
 # The intervention was tested and the record answers the routing question.
 TESTED = ('ROUTE_CONFIGURED_WITHOUT_REPLUG', 'ROUTE_CONFIGURED_AFTER_REPLUG', 'ROUTE_PARTIAL_ENUMERATION',
@@ -55,7 +63,7 @@ def _checked(receipt):
 
 
 def qualification(receipt):
-    require(receipt['sha256'] == QUALIFICATION_SHA256, 'unqualified MAX77705 route-timer board artifact')
+    require(receipt['sha256'] in QUALIFICATIONS, 'unqualified MAX77705 route-timer board artifact')
     return _checked(receipt)
 
 
