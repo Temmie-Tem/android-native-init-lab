@@ -120,6 +120,24 @@ class OdinMeasuredEvidenceFailure(OdinTransitionError):
         self.added = added
 
 
+
+class OdinEndpointDepartureRace(OdinTransitionError):
+    """A usbfs node departed mid-census while no Odin endpoint was selected.
+
+    Only endpoint-arrival polling raises it. It carries the measured failure
+    so that the poll can persist the same diagnostic before taking a fresh
+    census; it never issues a ticket or proves absence.
+    """
+
+    def __init__(self, failure: "OdinMeasuredEvidenceFailure"):
+        if (
+            not isinstance(failure, OdinMeasuredEvidenceFailure)
+            or failure.failure_kind != "usbfs-endpoint-departed"
+        ):
+            raise OdinTransitionError("Odin departure race input is invalid")
+        super().__init__("USB endpoint departed during empty Odin census")
+        self.failure = failure
+
 class RunResult(Protocol):
     returncode: int
     stdout: str | bytes | None
@@ -426,11 +444,18 @@ def enumerate_odin(
     allow_live_arrival_race: bool = False,
     timeout_sec: float = 10.0,
     timestamp: Callable[[], str] = live_core.utc_now,
+    allow_empty_census_departure: bool = False,
 ) -> OdinSnapshot:
     """Return one bounded snapshot; stale paths are evidence, not live devices."""
 
     if not math.isfinite(timeout_sec) or timeout_sec <= 0:
         raise OdinTransitionError("Odin enumeration timeout must be positive")
+    if allow_empty_census_departure is not False and (
+        allow_empty_census_departure is not True
+        or not allow_live_arrival_race
+        or endpoint_observer_factory is None
+    ):
+        raise OdinTransitionError("empty-census departure policy is invalid")
     if expected_live_departure is not None and (
         not allow_live_departure_race
         or endpoint_observer_factory is None
@@ -650,10 +675,20 @@ def enumerate_odin(
             added=exc.added,
         ) from exc
     except usbfs_identity.UsbfsEndpointDeparture as exc:
-        # Preserve the bounded cause without a path, retry, or weaker snapshot.
-        raise OdinMeasuredEvidenceFailure(
+        # Preserve the bounded cause without a path or weaker snapshot. Only an
+        # explicitly opted-in arrival poll with an empty Odin enumeration may
+        # take a new census; every other caller keeps the strict stop.
+        failure = OdinMeasuredEvidenceFailure(
             "usbfs-endpoint-departed", "UsbfsEndpointDeparture"
-        ) from exc
+        )
+        if (
+            allow_empty_census_departure
+            and allow_live_arrival_race
+            and expected_live_departure is None
+            and not raw_devices
+        ):
+            raise OdinEndpointDepartureRace(failure) from exc
+        raise failure from exc
     except usbfs_identity.UsbfsIdentityError as exc:
         raise OdinMeasuredEvidenceFailure(
             "usbfs-identity-failed", "UsbfsIdentityError"
@@ -1669,9 +1704,12 @@ def _snapshot_and_record(
     allow_live_departure: bool = False,
     expected_live_departure: str | None = None,
     expected_departure_identity: str | None = None,
+    allow_empty_census_departure: bool = False,
 ) -> tuple[OdinSnapshot, dict[str, Any]]:
     if allow_empty_post_receipt_change and allow_live_departure:
         raise OdinTransitionError("snapshot transition policy is ambiguous")
+    if allow_empty_census_departure and not allow_empty_post_receipt_change:
+        raise OdinTransitionError("empty-census departure requires arrival polling")
     effective_runner = runner
     effective_observer_factory = endpoint_observer_factory
     raw_handles: list[raw_capture.RawCaptureHandle] = []
@@ -1698,7 +1736,21 @@ def _snapshot_and_record(
             allow_live_arrival_race=allow_empty_post_receipt_change,
             timeout_sec=enumeration_timeout_sec,
             timestamp=timestamp,
+            allow_empty_census_departure=allow_empty_census_departure,
         )
+    except OdinEndpointDepartureRace as race:
+        # A retry must leave its diagnostic; without one, stop as before.
+        try:
+            _persist_measured_evidence_diagnostic(
+                run_dir,
+                sequence,
+                race.failure,
+                timestamp=timestamp,
+                lease=lease,
+            )
+        except Exception:
+            raise race.failure from race
+        raise
     except OdinMeasuredEvidenceFailure as failure:
         try:
             _persist_measured_evidence_diagnostic(
@@ -1763,7 +1815,15 @@ def wait_for_single_live_endpoint(
     timestamp: Callable[[], str] = live_core.utc_now,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
+    allow_empty_census_departure: bool = False,
 ) -> WaitResult:
+    """Wait for one new live Odin endpoint within the original deadline.
+
+    ``allow_empty_census_departure`` is an explicit caller opt-in: a usbfs
+    node that departs during the final evidence read while Odin listed no
+    endpoint leaves a diagnostic and the wait takes a new census. Callers
+    that leave it false keep the strict measured-evidence stop.
+    """
     if (
         not math.isfinite(timeout_sec)
         or not math.isfinite(poll_sec)
@@ -1771,6 +1831,8 @@ def wait_for_single_live_endpoint(
         or poll_sec < 0
     ):
         raise OdinTransitionError("endpoint timeout must be positive and poll non-negative")
+    if allow_empty_census_departure not in (False, True):
+        raise OdinTransitionError("empty-census departure policy is invalid")
     deadline = _deadline_after(_monotonic_now(monotonic), timeout_sec)
     sequence = sequence_start
     tracker, _receipts = _resume_tracker(run_dir, sequence_start, lease=lease)
@@ -1793,8 +1855,9 @@ def wait_for_single_live_endpoint(
                 enumeration_timeout_sec=min(DEFAULT_ENUM_TIMEOUT_SEC, remaining),
                 lease=lease,
                 allow_empty_post_receipt_change=True,
+                allow_empty_census_departure=allow_empty_census_departure,
             )
-        except OdinEndpointArrivalRace:
+        except (OdinEndpointArrivalRace, OdinEndpointDepartureRace):
             remaining = deadline - _monotonic_now(monotonic)
             if remaining <= 0:
                 return WaitResult(ticket=None, next_sequence=sequence, timed_out=True)

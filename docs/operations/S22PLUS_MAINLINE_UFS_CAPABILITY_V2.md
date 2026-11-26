@@ -719,6 +719,25 @@ transfer. The original-A implementation obtains a new lease, reobserves and
 revalidates the exact endpoint and checks the same automatic cap at dispatch.
 No ticket is transferred across leases and no second A slot exists.
 
+Each Odin arrival census reads every usbfs node before and after `odin -l`.
+In this automatic observation only, a node can depart during the read after
+`odin -l` while Odin lists no endpoint. Route-timer run 4 stopped this way at
+the timer reset, about a second after the candidate's USB disconnect.
+Nothing is selected at that point. The census then leaves one sealed
+`usbfs-endpoint-departed` diagnostic and no snapshot, and the observation
+takes a new census within the same window. A departure still stops in four
+cases:
+- it happens at the initial inventory read, before `odin -l`;
+- Odin lists any endpoint (the earlier identity read may stop it first);
+- the wait expects a departure;
+- the diagnostic cannot be sealed, for example when all 64 slots of the
+  evidence directory are used.
+
+A tolerated departure never issues a ticket, proves absence or extends the
+window. The automatic observer opts in explicitly in the shared Odin arrival
+wait. Every other caller keeps the strict stop, including the target
+contract's native-return and request-recovery paths.
+
 Timeout or failure preserves raw evidence and the owner, then permits the
 existing attended physical Download recovery with its own original semantics.
 A stale automatic-wait record cannot renew that wait or force the later

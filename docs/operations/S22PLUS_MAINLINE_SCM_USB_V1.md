@@ -27,7 +27,7 @@ The foreground preapproval `ready` operation uses the mainline RAM policy’s ex
 
 The S22+ target contract's SCM observation may use the existing bounded
 phone-end attach procedure on its ordinary `mainline-evidence` step. The
-new task must bind the dedicated [SCM ordinary-cue source review](../../workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v9_review.json)
+new task must bind the dedicated [SCM ordinary-cue source review](../../workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v10_review.json)
 and meet the existing SCM qualification, finite approval, attendance and
 rollback requirements. Earlier SCM tasks retain their original review and
 operation records. The qualification named above was consumed in the

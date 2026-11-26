@@ -151,9 +151,11 @@ def observe(session,receipt,folder):
             return transition.measured_usbfs_observer(endpoints)
         sequence=0
         while clock()<end:
+            # The candidate's own USB node can depart during an empty census at
+            # the timer reset (route-timer run 4); that census is retried.
             found=transition.wait_for_single_live_endpoint(odin.path,endpoints,
                 timeout_sec=max(.001,(end-clock())/1e9),lease=lease,endpoint_observer_factory=guard,
-                sequence_start=sequence,monotonic=lambda:clock()/1e9)
+                sequence_start=sequence,monotonic=lambda:clock()/1e9,allow_empty_census_departure=True)
             sequence=found.next_sequence
             if found.timed_out or found.ticket is None:break
             if origin is not None and not after_original_generation(origin,found.ticket):

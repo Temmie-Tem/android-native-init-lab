@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -2029,6 +2030,187 @@ class S22PlusOdinTransitionCoreTest(unittest.TestCase):
             )
             self.assertEqual(module.list_snapshot_receipts(run_dir), [])
 
+
+    # Departure races during endpoint-arrival polling (route-timer run 4).
+
+    def _arrival_record(self, run_dir, lease, observer, output="", opt_in=True):
+        module = self.module
+        return module._snapshot_and_record(
+            Path("odin4"), run_dir, 5, runner=SequenceRunner([output]),
+            device_identity=module._default_device_identity,
+            device_inventory=module._default_device_inventory,
+            endpoint_observer_factory=lambda: observer,
+            timestamp=lambda: "2026-11-27T00:00:00.000000Z",
+            enumeration_timeout_sec=1, lease=lease,
+            allow_empty_post_receipt_change=True,
+            allow_empty_census_departure=opt_in,
+        )
+
+    def _diagnostics(self, run_dir):
+        return [
+            json.loads(path.read_text(encoding="utf-8"))
+            for path in sorted((run_dir / "diagnostics").glob("*.json"))
+        ]
+
+    def test_empty_arrival_census_departure_is_a_race_with_one_diagnostic(self):
+        module = self.module
+        observer = FinalEvidenceFailureObserver(
+            module.usbfs_identity.UsbfsEndpointDeparture(USB_008)
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaises(module.OdinEndpointDepartureRace) as raised:
+                    self._arrival_record(run_dir, lease, observer)
+            self.assertNotIsInstance(raised.exception, module.OdinMeasuredEvidenceFailure)
+            payloads = self._diagnostics(run_dir)
+            self.assertEqual(len(payloads), 1)
+            self.assertEqual(payloads[0]["failure_kind"], "usbfs-endpoint-departed")
+            self.assertEqual(payloads[0]["observation_stage"], module.DIAGNOSTIC_OBSERVATION_STAGE)
+            self.assertEqual(payloads[0]["attempted_snapshot_sequence"], 5)
+            self.assertFalse(payloads[0]["snapshot_persisted"])
+            self.assertEqual(module.list_snapshot_receipts(run_dir), [])
+
+    def test_departure_with_any_listed_odin_device_still_stops(self):
+        module = self.module
+        observer = FinalEvidenceFailureObserver(
+            module.usbfs_identity.UsbfsEndpointDeparture(USB_008)
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaises(module.OdinMeasuredEvidenceFailure):
+                    self._arrival_record(run_dir, lease, observer, output=USB_008)
+            self.assertEqual(len(self._diagnostics(run_dir)), 1)
+
+    def test_departure_race_is_an_explicit_opt_in_on_top_of_arrival_polling(self):
+        module = self.module
+        error = module.usbfs_identity.UsbfsEndpointDeparture(USB_008)
+        # Arrival polling alone (every other wait caller) keeps the strict stop.
+        for arrival in (False, True):
+            with self.subTest(arrival=arrival):
+                with self.assertRaises(module.OdinMeasuredEvidenceFailure) as raised:
+                    module.enumerate_odin(
+                        Path("odin4"), runner=SequenceRunner([""]),
+                        endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(error),
+                        timestamp=lambda: "2026-11-27T00:00:00.000000Z",
+                        allow_live_arrival_race=arrival,
+                    )
+                self.assertNotIsInstance(raised.exception, module.OdinEndpointDepartureRace)
+        with self.assertRaises(module.OdinEndpointDepartureRace):
+            module.enumerate_odin(
+                Path("odin4"), runner=SequenceRunner([""]),
+                endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(error),
+                timestamp=lambda: "2026-11-27T00:00:00.000000Z",
+                allow_live_arrival_race=True, allow_empty_census_departure=True,
+            )
+        for kwargs in (dict(allow_empty_census_departure=True),
+                       dict(allow_live_arrival_race=True, allow_empty_census_departure=1)):
+            with self.subTest(kwargs=kwargs), self.assertRaisesRegex(
+                module.OdinTransitionError, "empty-census departure policy is invalid"
+            ):
+                module.enumerate_odin(
+                    Path("odin4"), runner=SequenceRunner([""]),
+                    endpoint_observer_factory=lambda: FinalEvidenceFailureObserver(error),
+                    timestamp=lambda: "2026-11-27T00:00:00.000000Z", **kwargs,
+                )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                with self.assertRaises(module.OdinMeasuredEvidenceFailure):
+                    self._arrival_record(run_dir, lease, FinalEvidenceFailureObserver(error), opt_in=False)
+
+    def test_initial_inventory_departure_always_stops(self):
+        module = self.module
+        error = module.usbfs_identity.UsbfsEndpointDeparture(USB_008)
+
+        class InitialDeparture(FinalEvidenceFailureObserver):
+            def inventory(self):
+                raise error
+
+        with self.assertRaises(module.OdinMeasuredEvidenceFailure) as raised:
+            module.enumerate_odin(
+                Path("odin4"), runner=SequenceRunner([""]),
+                endpoint_observer_factory=lambda: InitialDeparture(error),
+                timestamp=lambda: "2026-11-27T00:00:00.000000Z",
+                allow_live_arrival_race=True, allow_empty_census_departure=True,
+            )
+        self.assertNotIsInstance(raised.exception, module.OdinEndpointDepartureRace)
+        self.assertEqual(
+            raised.exception.observation_stage, module.INITIAL_INVENTORY_OBSERVATION_STAGE
+        )
+
+    def test_departure_race_without_a_diagnostic_slot_stops(self):
+        module = self.module
+        observer = FinalEvidenceFailureObserver(
+            module.usbfs_identity.UsbfsEndpointDeparture(USB_008)
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            run_dir = Path(temporary)
+            with module.transaction_session(run_dir) as lease:
+                diagnostics = run_dir / "diagnostics"
+                diagnostics.mkdir()
+                for ordinal in range(module.MAX_DIAGNOSTIC_RECEIPTS):
+                    (diagnostics / f"odin-diagnostic-failure-{ordinal:06d}.json").touch()
+                with self.assertRaises(module.OdinMeasuredEvidenceFailure) as raised:
+                    self._arrival_record(run_dir, lease, observer)
+            self.assertNotIsInstance(raised.exception, module.OdinEndpointDepartureRace)
+
+    def _vanishing_wait(self, opt_in):
+        module = self.module
+        usb = module.usbfs_identity
+        clock = FakeClock()
+        temporary = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, temporary)
+        root = Path(temporary)
+        endpoint = root / "usb/003/026"
+        endpoint.parent.mkdir(parents=True)
+        endpoint.touch()
+        reads = []
+
+        def inventory():
+            reads.append(1)
+            if len(reads) != 2:
+                return {}
+            # The candidate's node vanishes during the evidence read.
+            def disappear(path):
+                with mock.patch.object(usb.os, "stat", side_effect=FileNotFoundError(2, "private")):
+                    return usb.snapshot_node(path)
+            return usb.capture_inventory(root=root / "usb", snapshotter=disappear)
+
+        runner = SequenceRunner([""])
+        run_dir = root / "run"
+        with module.transaction_session(run_dir) as lease:
+            result = module.wait_for_single_live_endpoint(
+                Path("odin4"), run_dir, timeout_sec=3, lease=lease, poll_sec=1,
+                runner=runner,
+                endpoint_observer_factory=lambda: usb.MeasuredUsbfsIdentityObserver(
+                    inventory_reader=inventory
+                ),
+                timestamp=lambda: "2026-11-27T00:00:00.000000Z",
+                monotonic=clock.monotonic, sleep=clock.sleep,
+                allow_empty_census_departure=opt_in,
+            )
+        return result, runner, run_dir
+
+    def test_wait_without_opt_in_still_stops_on_an_empty_census_departure(self):
+        module = self.module
+        with self.assertRaises(module.OdinMeasuredEvidenceFailure) as raised:
+            self._vanishing_wait(False)
+        self.assertNotIsInstance(raised.exception, module.OdinEndpointDepartureRace)
+
+    def test_wait_takes_a_new_census_after_an_empty_census_departure(self):
+        module = self.module
+        result, runner, run_dir = self._vanishing_wait(True)
+        self.assertTrue(result.timed_out)
+        self.assertIsNone(result.ticket)
+        self.assertGreaterEqual(runner.index, 2)
+        payloads = self._diagnostics(run_dir)
+        self.assertEqual([p["failure_kind"] for p in payloads], ["usbfs-endpoint-departed"])
+        self.assertEqual(payloads[0]["attempted_snapshot_sequence"], 0)
+        # The next census reused sequence 0 and recorded an empty snapshot.
+        self.assertGreaterEqual(len(module.list_snapshot_receipts(run_dir)), 1)
+        self.assertEqual(result.next_sequence, len(module.list_snapshot_receipts(run_dir)))
 
 if __name__ == "__main__":
     unittest.main()
