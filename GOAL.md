@@ -138,8 +138,10 @@ departure. Every other Odin wait keeps the strict stop. Run 5
 host-side step. The race recurred and was retried, the automatic owner
 transferred A, and health passed first time
 ([run 5](docs/reports/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_RUN5_2026-11-27.md)).
-This is the first fully hands-off cycle. Repeatability is not yet shown, and
-no qualified board remains.
+This is the first fully hands-off cycle. Repeatability is not yet shown. The
+v66 set (`0ea046353f`, Codex `REPEAT3_PASS_GO`) qualifies three more builds
+(r6 to r8) for repeatability runs. Run 6's task (`dbe5406b…5b37`, AP
+`b32e38eb`) is prepared with no grant.
 
 After that: router attach epochs (re-routing after an unplug) and the
 failure-class runs of the evidence ladder.
