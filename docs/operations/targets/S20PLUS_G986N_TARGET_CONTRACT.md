@@ -5092,3 +5092,35 @@ Reserve candidate userspace claims for the separately authenticated ACM
 witness. Activate only after the exact candidate, original, qualification,
 owner literals and full reachable evidence/authority machinery receive an
 independent zero-finding review. Close after the single run.
+
+## S20+ current restored boot basic-setup marker readback D0
+
+The current foreground S20+ research task may use the independently reviewed
+`s20plus_g986n_basic_setup_readback_d0.py` once on the restored SM-G986N
+boot identified by final health in the closed basic-setup F1 trial. Source
+terminal SHA-256 is
+`9e9518abbd6f3d06e3c5e15a5103adff832c5546c22ab7a88df21a3c211cd90e`
+and final-health SHA-256 is
+`b16dd3ec3105905362aca215d5f788b8d28fff018f7e2ebd8506c66ef007bab7`.
+Bind both completed transfers, the original baseline zero counts, the retained
+first-return observation gap and the exact original Magisk health. The
+operator reported an intervening TWRP boot and selected System. This
+observation describes the current restored Android snapshot only.
+
+Use the fixed basic-setup reducer and nonce of that exact candidate, the
+stock-direct D0 target lease and owner exclusions, and matching full root
+health on each side of the read. Require the saved serial, USB topology
+and current boot ID. Read only the canonical /proc/last_kmsg using the
+existing boot bracket, Magisk BusyBox and procfs checks, size limit of
+2,097,136 bytes plus one sentinel, 120 seconds and 96 combined output
+bytes. Return only size and the three occurrence counts, two linear pair
+counts and triple count, or the fixed unavailable status. Keep records in
+`runs/s20plus-g986n-basic-setup-readback-d0`, apart from the F1 evidence.
+
+This D0 requires its own independently reviewed exact activation and ends
+after the single durable reservation or loss of this boot. Complete the initial
+identity and health checks before reserving the read. A cut following reservation
+never reissues the scan. This profile grants no device
+write, mode change, transfer or F1 claim. A positive can establish that
+a candidate-specific record survived; its age and the originating boot
+attempt remain unknown. A zero cannot exclude candidate execution.
