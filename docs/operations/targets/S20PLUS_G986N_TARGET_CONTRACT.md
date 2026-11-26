@@ -4758,3 +4758,24 @@ Store each bounded observation separately in the canonical private
 arguments or private device values leave the reducer. Only original Android
 geometry is measured. The profile ends with this foreground investigation and
 grants no device write, reboot, mode change, staging or transfer.
+
+## S20+ restored Magisk FDT input comparisons D0
+
+The fixed foreground owner `s20plus_g986n_fdt_input_d0.py` may read the same
+first restored SM-G986N/y2q/IYC2 Magisk boot under its own exact independent
+zero-finding review and private activation. Use the vendor-runtime FDT D0
+transport, target-session lease, original health/port/boot brackets, canonical
+/sys/firmware/fdt input, pinned BusyBox and existing 2 MiB plus sentinel
+limit, 45-second deadline and 2,048-byte combined capture ceiling.
+
+On device, compare /chosen's initrd endpoints and length with the retained
+candidate layout, its root compatible with the candidate's single string,
+and its chosen status, reserved child ranges and header fit. Under the assumed
+IN_FDT, check input-tree and expected initrd coverage and fixed reservation
+overlap. Export only the tree length and closed comparison states or a fixed
+unavailable status. No raw tree, actual addresses or property contents leave
+the reader. Each invocation saves a separate private result under
+`runs/s20plus-g986n-fdt-input-d0`. These observations concern the original
+kernel's exported FDT; they do not measure a register, examine physical RAM,
+or prove candidate-time execution. This foreground read authorizes no device
+write, reboot, transfer or change of mode.

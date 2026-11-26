@@ -77,3 +77,21 @@ Odin의 두 성공 영수증이 지목한 AP를 다시 열고 TAR 멤버·MD5와
 이 원본 FDT에서 목적지가 RAM 뱅크 경계를 넘는다는 가설은 배제된다. 동적 풀의 실제 할당 주소, 후보 때 펌웨어가 넘긴 FDT 포인터와 initrd 위치, 후보의 실제 정지 지점은 이 판독으로 정해지지 않는다. 이번 조회는 기기에서 FDT를 집계해 43바이트를 반환했다. 원시 트리는 기기에 두었고, 표식 재판독·재부팅·AP 전송은 없었다. 새 판독 테스트 3건과 기존 회귀 테스트 12건이 통과했다. 별도로 실제 Magisk ARM64 BusyBox를 사용한 호스트 대조에서 정확한 끝 경계, 연속된 두 뱅크, 1바이트 부족, 1바이트 예약 중첩을 구분했다.
 
 비공개 측정 결과는 `workspace/private/runs/s20plus-g986n-vendor-runtime-layout-d0/d0-46cbcbc3a71d44848c24f09f2a4b2447/result.json`에 있다. SHA-256은 `293ab6a502aeae7b31596fbee82687edd69c92de4dd2cc992bbc725b0a67c50c`이다.
+
+## 11월 27일 initrd와 입력 FDT 조건 대조
+
+소모된 후보의 원본 배치 정의를 기준으로 initrd 예상 구간은 `[0xaff25000, 0xafffe64c)`(890,444바이트), 입력 FDT의 예상 물리 주소는 `0xafd24000`이다. 두 AP를 다시 디코딩해 실제 Image와 램디스크 크기를 IYC2 펌웨어의 기존 배치 모델에 넣었다. 원본과 후보 각각 64개 적재 위치에서 모델은 같은 initrd 시작·끝과 FDT 주소를 산출했다. 모델은 해당 EFI 메모리 영역 조회가 성공한 경로를 전제로 한다.
+
+같은 후보 바이트와 원본 보드 트리로 QEMU에서 다음 세 경로를 대조했다. 중단점으로 `y2q_shape` 진입과 반환값을 읽고 이후 실행한 분기를 확인했다.
+
+| 호스트 대조 입력 | 후보에서 직접 관측한 경로 |
+| --- | --- |
+| 기존 정상 입력 | FDT 형태 검사 성공, 스택 설정 지점과 `prebranch` 도달 |
+| FDT 내용은 그대로 유지하고 입력 포인터와 트리의 물리 위치를 4 KiB 낮춤 | FDT 형태 검사에서 0 반환, `reject_fdt` 도달 |
+| FDT 포인터 고정, chosen의 initrd 시작·끝만 각각 4 KiB 낮춤 | FDT 형태 검사 통과, 첫 구간 검사에서 `reject_range` 도달 |
+
+원본 Android용 [입력 비교 판독](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-restored-magisk-fdt-input-comparisons-d0)은 같은 복귀 부팅의 원시 FDT를 기기 안에서 해석한다. initrd 시작·끝·크기와 루트 compatible을 독립적으로 분류한다. 선택된 노드 상태, 예약 reg 길이, 예상 입력 FDT와 예상 initrd의 단일 뱅크 포함·고정 예약 중첩도 함께 확인한다. 이 판독은 실제 펌웨어 x0, 부팅 순간의 initrd 내용 또는 이후 동적 할당 주소를 읽지 않는다. 호스트 대조 원본은 비공개 `postclosure/input-boundary-results.json`에 있다.
+
+01:51:39 KST의 실기 판독에서 기기·포트·부팅 ID와 Magisk 건강 상태가 첫 원복 기록과 일치했다. initrd의 시작, 끝, 크기는 모두 후보 예상값과 일치했다. 931,599바이트 FDT의 chosen 상태와 검사한 예약 reg 크기 조건을 통과했다. 예상 위치의 입력 트리와 예상 initrd는 각각 단일 RAM 뱅크에 들어갔고 고정 예약과 겹치지 않았다. 반면 루트 compatible은 존재했지만 후보가 요구하는 정확한 10바이트 `qcom,kona\0`와 달랐다. 이 첫 판독은 실제 문자열이나 목록 형식을 수집하지 않았다. 결과 SHA-256은 `b7ed6b6b56545aee09aab99b0e24dda426cdb9109b2f40927a6a565ba2a27505`다.
+
+후보와 원본의 동일한 DTB 묶음에는 트리 네 개가 있었다. 셋은 루트 compatible이 그 10바이트였고 하나에는 해당 속성이 없었다. 기존 VM 보드 입력 여섯 개는 모두 10바이트였다. 정상 입력에서 루트 compatible만 바꾼 세 QEMU 대조(다른 단일 값, `qcom,kona`를 포함한 목록, 끝에 NUL을 하나 더 붙인 값)에서는 모두 형태 검사 통과 후 첫 `y2q_interval`에서 `reject_range`로 분기했다. 정상 대조는 같은 후보에서 `prebranch`에 도달했다. 당시 실기도 원본 복귀 부팅과 같은 루트 값을 받았다면 이 검사만으로 기존 무표식 결과를 설명할 수 있다. 후보 부팅 당시 입력이나 실행 PC는 미측정이다.
