@@ -14,7 +14,7 @@ from test_s20plus_g986n_fdt_layout_d0 import BOOT, DTS, tree
 BASE = (DTS.replace("MEMRESERVE", "").replace("test,board", "qcom,kona")
         .replace("0x8000>", "0xaff25000>").replace("0x8100>", "0xafffe64c>")
         .replace("0 0 0 0x10000", "0 0xaf000000 0 0x1000000"))
-RESULT = b"input_v1=500,match,match,match,match,1,1,1,1,1,0,0\n"
+RESULT = b"input_v2=500,match,match,match,match,1,1,1,1,1,0,0,single,1\n"
 
 
 def compare(blob, app=("awk",)):
@@ -49,6 +49,23 @@ class InputFdtTest(unittest.TestCase):
             with self.subTest(states=states):
                 facts = compare(tree(text))
                 self.assertEqual(tuple(facts[k] for k in ("initrd_start","initrd_end","initrd_size")), states)
+
+    def test_root_representation_and_private_tokens(self):
+        for value, form, members in [
+            ('"qcom,kona"', "single", ["qcom,kona"]),
+            ('"samsung,y2q","qcom,kona"', "list", ["qcom,kona","samsung,y2q"]),
+            ('"qcom,sm8250"', "single", ["qcom,sm8250"]),
+            ('"private,fixture"', "single", ["other"]),
+            ('"qcom,kona","private,fixture",""', "padded_list", ["qcom,kona","other"]),
+            ('"qcom,kona",""', "padded_single", ["qcom,kona"]),
+            ('[00]', "empty", []), ('[61 62]', "noncanonical", []),
+            ('[71 63 6f 6d 2c 6b 6f 6e 61 61]', "noncanonical", []),
+            ('[71 63 6f 6d 2c 6b 6f 6e 01 00]', "noncanonical", []),
+            ('"qcom,kona","","private,fixture"', "noncanonical", []),
+        ]:
+            result=compare(tree(BASE.replace('"qcom,kona"',value)))
+            self.assertEqual((result["root_form"],result["root_members"]), (form,members))
+            self.assertNotIn("private,fixture", json.dumps(result))
 
     def test_structure_and_reservations(self):
         changed = BASE.replace('"qcom,kona"', '"qcom,kona","qcom,other"').replace("chosen {", 'chosen { status = "disabled";')
@@ -93,7 +110,7 @@ class InputFdtTest(unittest.TestCase):
                 self.assertEqual((deadline,limit),(45,2048))
                 self.assertIn(BOOT, argv[-1])
                 evidence.publish_json.assert_called_once()
-                self.assertNotIn("input_v1=", json.dumps(evidence.publish_json.call_args.args))
+                self.assertNotIn("input_v2=", json.dumps(evidence.publish_json.call_args.args))
 
 
 if __name__ == "__main__":

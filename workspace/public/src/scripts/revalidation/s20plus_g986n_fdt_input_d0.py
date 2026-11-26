@@ -73,7 +73,7 @@ def admit(identity):
             or PARENT.stat().st_uid != os.geteuid() or stat.S_IMODE(PARENT.stat().st_mode) != 0o700):
         raise ValueError("invalid private observation directory")
     expected = health._json_bytes(dict(identity=identity, review=files.REVIEW_PASS))
-    if files.read_file(PARENT / "activation.json", mode=0o400) != expected or subject() != identity:
+    if files.read_file(PARENT / "activation-root-form.json", mode=0o400) != expected or subject() != identity:
         raise ValueError("input comparison has no matching review")
     support.registry.require_no_f1_owner(files.ROOT)
     if any(os.path.lexists(p) for p in (files.CAMPAIGN_GUARD, files.RUN_ROOT / "active-action.json",
@@ -85,8 +85,8 @@ def parse(out):
     if out.startswith(b"layout_unavailable="):
         return io.parse_layout(out)
     endpoint = rb"(lower|higher|missing|match)"
-    form = (rb"input_v1=([1-9][0-9]{1,6})," + (endpoint + b",")*3 + rb"(match|different|missing),"
-            + b",".join([rb"([01])"] * len(FLAGS)) + rb"\n")
+    form = (rb"input_v2=([1-9][0-9]{1,6})," + (endpoint + b",")*3 + rb"(match|different|missing),"
+            + b",".join([rb"([01])"] * len(FLAGS)) + rb",(single|list|padded_single|padded_list|empty|over_limit|noncanonical|missing),([0-9]|1[0-5])\n")
     m = re.fullmatch(form, out)
     if not m or not 40 <= int(m[1]) <= 2097152:
         raise ValueError("invalid FDT comparison")
@@ -100,8 +100,17 @@ def parse(out):
             direction = sign[end] - sign[start]
             if sign[size] != (direction > 0) - (direction < 0):
                 raise ValueError("inconsistent initrd comparisons")
-    return dict(observation="input_comparison", fdt_bytes=int(m[1]), initrd_start=start, initrd_end=end,
-                initrd_size=size, root_compatible=root, **dict(zip(FLAGS, (v==b"1" for v in m.groups()[5:]))))
+    encoding = m.groups()[-2].decode()
+    mask = int(m.groups()[-1])
+    listed = encoding in {"single", "list", "padded_single", "padded_list"}
+    if ((root == "missing") != (encoding == "missing") or listed != bool(mask)
+            or encoding.endswith("single") and mask.bit_count() != 1
+            or (root == "match") != (encoding == "single" and mask == 1)):
+        raise ValueError("inconsistent compatible classification")
+    members = [name for i, name in enumerate(("qcom,kona", "qcom,sm8250", "samsung,y2q", "other"))
+               if mask & (1 << i)]
+    return dict(root_form=encoding, root_members=members, observation="input_comparison", fdt_bytes=int(m[1]), initrd_start=start, initrd_end=end,
+                initrd_size=size, root_compatible=root, **dict(zip(FLAGS, (v==b"1" for v in m.groups()[5:-2]))))
 
 
 def collect(identity, owner):

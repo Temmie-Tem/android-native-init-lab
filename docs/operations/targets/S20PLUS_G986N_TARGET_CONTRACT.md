@@ -4779,3 +4779,12 @@ the reader. Each invocation saves a separate private result under
 kernel's exported FDT; they do not measure a register, examine physical RAM,
 or prove candidate-time execution. This foreground read authorizes no device
 write, reboot, transfer or change of mode.
+
+After the first comparison returned different, the independently requalified
+root-form refinement also classifies the NUL-separated root compatible
+as missing, empty, single, list, terminal padding, noncanonical or over limit.
+Inspect at most 512 bytes, 16 tokens of at most 127 printable non-space bytes.
+For fully parsed nonempty forms emit only membership in qcom,kona, qcom,sm8250,
+samsung,y2q and the presence of other tokens. No other string is exported.
+The matching receipt is activation-root-form.json in the same evidence parent;
+keep the earlier receipt, observation and source provenance.
