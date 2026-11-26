@@ -485,3 +485,27 @@ USB2 PHY 기준 클럭과 아홉 개 순정 기기 모드 설정을 수정하고
 다음 실기의 관측 가치가 가장 큰 곳은 보류된 장치를 다시 시도하는 `deferred_probe_work_func()` 안의 `bus_probe_device()` 전후다. S20+의 기기 트리와 드라이버 이름을 호스트에서 고정된 식별값에 대응시켜 작업 스레드의 진입·반환과 해당 장치를 함께 구분할 수 있다. 현재 기록기는 PID 1 전용이다. 작업 스레드를 관측할 때에는 별도의 동시성 처리와 검증이 필요하다. S22+ ML011은 이 구간을 측정한 선례이며, 어느 장치가 문제인지는 S20+ 증거로 결정한다. [S22+ 작업 스레드 관측](S22PLUS_MAINLINE_ML011_RUN_2026-10-31.md)
 
 실기 기록은 `s20plus-g986n-consolidated-f1/run-1795729541663678722`, 실행기 커밋은 `79cd83d4d6`, 종료 SHA-256은 `4129da052df972c2486c117e8cada9c441bf8bf443d6f5dec46d0761fcdbf2c4`다. USB와 네트워크를 숨긴 읽기 전용 환경에서 저장된 증거로 판정을 다시 도출했고, 원복 첫 부팅 일치와 공유 잠금 해제를 확인했다. 검증 범위를 넓혀 실행한 기존 F1 테스트 166개 중 13개는 구형 소스 해시·레지스트리 가정으로 실패했다. 이번 실행기가 실제 사용하는 고정 소스 검증과 전용 테스트 9개는 통과했다.
+
+### 첫 지연 probe의 정적 분석과 RPMh 전원 도메인 대조
+
+직전 실기 커널과 DTB를 함께 추적해 **USB가 필요로 하는 RPMh 컨트롤러에 전원 도메인 공급자가 빠져 있음**을 확인했다. 앞선 조사에서 S20+의 CPU idle이 이미 꺼져 있다고만 본 설명을 수정한다. CPU의 유휴 상태 진입과 PSCI 전원 도메인 공급자의 등록은 서로 다른 동작이다. S22+ ML020도 공급자는 커널에 남겨 두고 스케줄러의 CPU idle 진입만 제한했다. [S22+ ML020의 실제 설정](S22PLUS_MAINLINE_ML020_CPUIDLE_EXCLUSION_H0_2026-11-04.md)
+
+- 실제 후보의 DTB에서 `apps_rsc`는 `/psci/power-domain-cpu-cluster0`을 유일한 전원 도메인으로 참조한다. 이전에 핸드오프가 성공한 74개 호스트 사례의 출력 DTB에서도 같은 참조를 확인했다. 최종 ELF에는 일반 전원 도메인 연결 코드와 RPMh 드라이버가 있다. `CONFIG_CPU_IDLE=n`으로 인해 해당 PSCI 도메인을 등록할 드라이버와 초기화 함수가 빠졌다. [SM8250 기기 트리](https://github.com/torvalds/linux/blob/v6.18/arch/arm64/boot/dts/qcom/sm8250.dtsi) · [PSCI 도메인 등록 코드](https://github.com/torvalds/linux/blob/v6.18/drivers/cpuidle/cpuidle-psci-domain.c)
+- 컴파일된 `platform_probe()`는 기기별 콜백에 들어가기 전에 `dev_pm_domain_attach()` 반환값을 확인한다. 더 앞선 `device_links_check_suppliers()`에서도 공급자를 기다리며 보류될 수 있다. RPMh 드라이버가 초기화를 마쳐야 자식 클럭·전원 도메인·레귤레이터·인터커넥트 투표 장치를 생성한다. 이 후보의 USB2 PHY는 그 클럭과 세 전원 레일을 참조한다. USB 컨트롤러가 쓰는 GCC 클럭 및 네 인터커넥트 종단 역시 이 하위 트리에 의존한다. 따라서 PHY 튜닝 전에 해결할 USB 경로의 선행 조건이 확인됐다. [RPMh 컨트롤러 코드](https://github.com/torvalds/linux/blob/v6.18/drivers/soc/qcom/rpmh-rsc.c)
+- IYC2 순정 DT 여섯 조합에서 RSC의 DRV 번호, TCS 오프셋·구성과 IRQ 셀은 메인라인과 일치했다. 순정 RSC 노드는 `power-domains`를 선언하지 않지만, Linux 6.18의 SM8250용 바인딩에는 필요하다. 아래의 참조 삭제는 비교 실험에만 사용했다. [RPMh DT 바인딩](https://github.com/torvalds/linux/blob/v6.18/Documentation/devicetree/bindings/soc/qcom/qcom%2Crpmh-rsc.yaml)
+
+**호스트 대조.** 격리된 QEMU virt에 단일 도메인 참조와 실제 RPMh 플랫폼 드라이버를 선택하는 노드를 두었다. Command DB와 Qualcomm MMIO는 제공하지 않았다. 따라서 대조의 성공 기준은 전원 도메인 연결과 RPMh 드라이버 함수 본문 진입까지다. QEMU의 직접 부팅 경로가 `/psci`의 자식 노드를 재생성해 참조가 끊어진 첫 시도는 제외했다. 아래 값들은 커널이 읽기 직전에 유효한 노드·phandle을 복원하고 확인한 DT에서 측정했다.
+
+| 조건 | 실제 RPMh probe 진입 | 관측 |
+| --- | ---: | --- |
+| 직전 실기 Image와 도메인 참조 | 0회 | 공급자 없음. 첫 지연 작업 대기는 가상 부팅에서 반환했다. |
+| 같은 Image에서 해당 참조만 제거한 대조 | 3회 | 세 번 모두 의도적으로 없는 Command DB에서 보류됐다. |
+| 같은 Image에 공급자 사전 검사를 완화한 진단 옵션만 추가 | 0회 | 플랫폼 도메인 연결이 초기 두 번 `-EPROBE_DEFER`, 초기화 후 `-ENODEV`를 반환했다. |
+| 공급자 드라이버를 빌드하고 `cpuidle.off=1`로 부팅 | 0회 | 기본 QEMU 펌웨어가 PC 모드 설정 요청을 거절해 도메인 등록이 취소됐다. |
+| 같은 설정과 DT, OSI 미지원 때 PC 모드 설정 요청을 생략하는 소스 수정 | 3회 | 기본 QEMU 펌웨어 그대로 PC 모드 도메인을 등록했다. 도메인 연결이 성공하고 Command DB 단계까지 진입했다. |
+
+마지막 비교는 Linux 메일링 리스트의 PSCI 수정 제안을 이 후보의 6.18 소스에 국소 반영한 호스트 빌드다. 별도 대조에서는 펌웨어 성공 응답만 모사해 같은 분기를 확인했으며, 위 표의 마지막 행은 응답 모사 없이 얻었다. 실물 IYC2의 OSI 지원·모드 설정 응답과 USB 열거는 측정하지 않았다. [원 수정 제안](https://lists.openwall.net/linux-kernel/2026/11/12/2974)
+
+**부트루프에 대해 남는 범위.** 첫 `flush_work()`는 보류된 장치 작업의 한 실행을 기다린다. 작업은 활성 목록에서 장치를 꺼내 뮤텍스를 풀고 `bus_probe_device()`를 호출한다. 공급자를 찾지 못한 장치는 대기 목록으로 되돌아갈 수 있으므로 단순 보류가 그 자체로 무한 대기를 뜻하지 않는다. 실제 Image를 쓴 QEMU에서도 RSC probe에 진입하지 못한 채 첫 대기가 반환했다. 휴대전화에서는 대기 직전까지만 기록됐으며, 어느 장치가 활성 목록에 있었는지와 실제 재시도·리셋 원인은 여전히 미확인이다. S22+의 TLMM 관측을 y2q의 원인으로 귀속할 수 없다. [재시도·대기 경로](https://github.com/torvalds/linux/blob/v6.18/drivers/base/dd.c)
+
+다음 실기의 설계는 **PSCI 공급자 등록 결과와 RSC probe 진입을 먼저 구분하고, 같은 후보에서 첫 작업의 장치·재시도 반환도 관측**하는 방향이다. 호스트에서 도메인 공급자를 켠 커널은 정규 initcall이 153개에서 159개로 늘었고 deferred probe의 0 기준 인덱스가 146에서 152로 이동했다. 기존 방식으로 159개 전후와 고정 지점 10개를 모두 표시하려면 328비트가 필요하다. 이전 320비트 프레임에는 들어가지 않는다. 이번 QEMU 판정은 후보의 비트 인덱스 대신 해당 빌드에서 확인한 실제 함수와 호출 복귀 주소로 검증했다. 다음에는 이미 관측한 앞쪽 호출에 배분한 비트를 줄여 공급자·작업 스레드 관측에 쓸 수 있다. 비공개 그래프·호스트 대조·빌드 근거는 `workspace/private/analysis/s20plus-y2q-deferred-static-20261127/`에 있다. 기기 명령과 AP 전송은 0건이다.
