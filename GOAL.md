@@ -51,9 +51,11 @@ never executed. Every consumed run, grant and candidate stays consumed.
 packaged Debian SysVinit as initial PID1; a fixed unprivileged same-boot SSH
 command (ML026); authenticated normal Download return (ML027); rc2 start,
 nonroot SSH and rc6 stop in one boot (ML028); the 300-second same-boot
-witness; the V6+ automatic result-bound Download and original-A recovery.
-**Not proven:** Linux UFS link, installed Debian, full SysV shutdown, a
-general shell, stall recovery, residency or endurance.
+witness; the V6+ automatic result-bound Download and original-A recovery;
+one completed UFS link startup with Device Present (ML054, one boot).
+**Not proven:** UFS beyond link startup (power mode, UPIU/SCSI, block
+devices), installed Debian, full SysV shutdown, a general shell, stall
+recovery, residency or endurance.
 
 ### Selected unit: observe the first mainline USB connection (closed)
 
@@ -189,14 +191,23 @@ the owner stopped before the witness and permit.
 [ML052 run](docs/reports/S22PLUS_MAINLINE_ML052_V13_RUN_2026-11-19.md).
 [V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 
-**UFS V13 without a replug (ML054 prepared).** The operator chose UFS next
+**UFS V13 without a replug: ML054 closed `PASS_MAINLINE_UFS_LINK` /
+`ANDROID_CLOSED_HEALTHY` on 2026-11-27.** USB enumerated with no cue and no
+physical action. One `DME_LINK_STARTUP` completed with result 0 and HCS
+`0xf` (Device Present); the only UIC error code was PA `0x80000010`
+(LINERESET indication), and CFG1 bit 0 still read clear. Authenticated
+Download, one original-A transfer and final health followed with no host
+recovery step. This is one boot and covers link startup only.
+[ML054 run](docs/reports/S22PLUS_MAINLINE_ML054_UFS_ROUTE_RUN_2026-11-27.md).
+
+Preparation: The operator chose UFS next
 and set no-replug as the baseline. The operator-approved successor scope
 S22PLUS_LATE_UFS_ROUTE_V1 composes V13 with the MAX77705 route write. It
 uses the ML035 Image with only I2C GENI built in, the SE5 DT, the
 byte-identical V13 module, and no attach cue. Code and contract were
 adopted in v67 to v69 (`c9c1b15ecb`, `dc3aea26b4`, `886c1a4d04`). The
 capability record and candidate passed owner review. The ML054 task
-(`2db30bfb…`) is prepared with no grant
+was `2db30bfb…`
 ([H0](docs/reports/S22PLUS_MAINLINE_UFS_ROUTE_H0_2026-11-27.md)).
 
 ### UFS link series (shared V2 capability, one link attempt each)
@@ -216,8 +227,11 @@ capability record and candidate passed owner review. The ML054 task
 | ML045 | v10 | CFG1 `0x1c00052c` before/after, bit 0 clear | [run](docs/reports/S22PLUS_MAINLINE_ML045_RUN_2026-11-11.md) |
 | ML046 | v11 | six local UniPro commands; link issued; EIO (word unrecorded) | [run](docs/reports/S22PLUS_MAINLINE_ML046_RUN_2026-11-11.md) |
 | ML047 | v12 | link poll IS `0x00000004` (UIC_ERROR) | [run](docs/reports/S22PLUS_MAINLINE_ML047_RUN_2026-11-11.md) |
+| ML051, ML052 | v13 | no USB first response in the window; module not reached | [ML051](docs/reports/S22PLUS_MAINLINE_ML051_V13_RUN_2026-11-19.md), [ML052](docs/reports/S22PLUS_MAINLINE_ML052_V13_RUN_2026-11-19.md) |
+| ML054 | v13 + route | **link completed**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML054_UFS_ROUTE_RUN_2026-11-27.md) |
 
-All closed `NO_PROOF` with `ANDROID_CLOSED_HEALTHY`. The module source,
+All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
+ML054 closed `PASS_MAINLINE_UFS_LINK`. The module source,
 capability record and per-version scope are in
 [the V2 capability](docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md).
 
