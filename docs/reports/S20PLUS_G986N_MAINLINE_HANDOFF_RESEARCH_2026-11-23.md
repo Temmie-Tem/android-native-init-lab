@@ -351,3 +351,29 @@ SM-G986N/y2q의 원본 Magisk Android에서 시작했다. 복구 뒤 처음 확�
 **같은 복귀 부팅의 추가 판독에서 FDT → unflatten 인접 쌍 4개를 확인했다.** 03:50:46 KST에 완료된 별도 읽기 전용 판독은 같은 기기·포트와 첫 복귀 부팅 ID를 전후에 확인했다. 2,097,136바이트에서 각 FDT 표식의 시작점보다 정확히 128바이트 뒤에 해당 후보의 unflatten 표식이 하나씩 있었다. 후보 코드는 첫 표식 기록을 완료한 뒤에만 두 번째 위치에서 기록하도록 되어 있다. 이 결과는 Linux가 y2q 기기 트리 구성 이후의 표식 위치까지 진행했다는 실기 근거다. 부트루프의 재시작 횟수, 마지막 정지 지점, 사용자 공간 PID 1 실행은 이 기록만으로 판정할 수 없다.
 
 추가 판독은 기기 재부팅이나 AP 전송 없이 수행했다. 독립 검토 입력 SHA-256은 `d49db9af2146bf268af0337c0f860cad4b245cc8a5c8804cef6cece43ae98508`, 추가 판독 결과 SHA-256은 `38431613bdc66841b0f08ff0ab19a1044a763e066c690601d68649f62aac1b68`이다. [C-stage 인접 판독 규약](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-first-return-c-stage-marker-adjacency-d0)
+
+### S22+ 및 공개 Linux 자료와 Gemini Carbon 검토
+
+S22+ ML008은 원복 후 보존된 기록으로 커널 초기화 스레드의 대기 반환을 확인했다. ML009는 `do_basic_setup()` 직전까지를, ML010은 초기화 함수별 진입·반환을 구분했다. S22+의 RAM 사용자 공간 PID 1과 USB는 나중에 ML021의 빌드에 묶인 질의·응답에서 별도로 입증됐다. 이 순서를 S20+의 부팅 진도로 간주하지 않았다. [ML008](S22PLUS_MAINLINE_ML008_RUN_2026-10-30.md) · [ML009](S22PLUS_MAINLINE_ML009_RUN_2026-10-30.md) · [ML010](S22PLUS_MAINLINE_ML010_RUN_2026-10-30.md) · [ML021](S22PLUS_MAINLINE_ML021_RUN_2026-11-04.md)
+
+Linux 6.18은 initramfs를 풀고 `/init`을 초기 사용자 프로세스로 실행한다. 커널 문서는 실행 파일 존재·형식·의존성, 콘솔, `kernel_execve()`의 반환을 구분해서 살피도록 안내한다. S20+의 실제 initramfs 안에는 707,960바이트의 정적 AArch64 `/init`이 있었다. 이 파일의 `main`은 USB 구성보다 먼저 `getpid()`를 호출한다. [Linux 6.18 initramfs 설명](https://docs.kernel.org/6.18/filesystems/ramfs-rootfs-initramfs.html) · [Linux 6.18 부팅 코드](https://github.com/torvalds/linux/blob/v6.18/init/main.c) · [커널의 init 진단 문서](https://docs.kernel.org/admin-guide/init.html)
+
+Gemini 4 Carbon (High)과 두 차례 논의했다. 먼저 S22+처럼 초기화 함수 전후를 좁히는 실험과, S20+에서 실제 사용자 모드 실행을 확인하는 실험을 비교했다. Carbon은 후자를 선택하면서 두 표식이 다 사라지면 초기화 중간에서의 실패를 세분하기 어렵다고 지적했다. 두 번째 논의에서는 새 매핑 속성이나 체크섬을 도입하지 않고 기존 검증 방식과 바이트 단위 접근을 유지하기로 했다. 어느 표식이 없더라도 그 부팅의 마지막 실행 지점을 단정할 수 없다. Carbon이 반환한 총 토큰은 두 호출 합계 84,354개다. 남은 할당량 비율은 CLI에서 확인되지 않았으며 요금은 측정하지 않았다. 비공개 대화 기록은 `workspace/private/analysis/s20plus-y2q-pid1-next-20261127/carbon/`에 있다.
+
+### USB와 독립적인 /init 실행 표식 후보
+
+후보 부트 AP `bd55d714cebf1a4931c31cf4592f559a460283f947ff5dd9e5603bfa709391d7`과 원본 Magisk 부트 AP `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`를 검증했다. 기존 로더, DT, RAM initramfs 및 02/02/00 ACM 구성을 유지했다. 앞의 두 기기 트리 표식 대신 다음 지점에 이번 빌드의 128바이트 표식을 넣었다.
+
+| 표식 | 관측 의미 |
+| --- | --- |
+| `exec_attempt` | 초기 PID 네임스페이스의 스레드 1이 RAM의 `/init`을 대상으로 `kernel_execve()`를 호출하기 직전의 기록 지점에 도달했다. |
+| `el0_getpid` | 같은 커널 부팅에서 첫 표식을 확인한 뒤, 해당 `/init` 실행 파일의 `main`에서 발생한 네이티브 사용자 모드 `getpid` 호출이 커널에 들어왔다. 실행 파일 경로와 마운트, 저장된 PC·LR·시스템 호출 번호를 대조했다. |
+| `ACM_READY` | 동일 포트에서 정해진 빌드의 USB 직렬 메시지를 실제로 받았다. 두 RAM 표식과 별도로 판정한다. |
+
+기존 커널의 초기화 메모리를 해제한 뒤에도 유효한 코드·데이터를 사용한다. 정상 `ioremap`으로 헤더와 제한된 슬롯만 매핑하기 전에 y2q 기기 트리, 예약 속성과 전체 페이지의 RAM 포함 여부, 일반 선형 매핑이 없음을 확인한다. 표식은 완성 바이트를 다시 읽어 검증한다. [Linux의 I/O 매핑 문서](https://docs.kernel.org/driver-api/device-io.html) · [S20+ 실기 규약](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-pid1-stage-trial-under-one-attended-approval)
+
+실제 후보 Image와 동일한 initramfs로 QEMU에서 정상 쌍, 표시 허용 조건 누락, 매핑 가능한 예약, 잘못된 헤더·커서, 호출자 불일치와 중간 헤더 변경 등 10개 조건을 확인했다. 정상 3개는 두 표식, 두 지점 사이에서 조건을 바꾼 2개는 첫 표식, 나머지 5개는 0건이었다. 정상 실행에서 사용자 공간으로 반환한 PID는 1이었다. 로더의 입력·CPU·적재 조건 97개 중 74개에서 커널로 진입했다. 판독 검증 18개에는 실제 Android ARM64 도구로 전체 길이 스냅샷을 읽은 사례와 중복·인접·역순 대조가 포함된다. 실기에서는 첫 복귀 판독 하나로 두 수와 정방향 인접 쌍 수를 함께 구한다.
+
+호스트 검증 자료는 `workspace/private/analysis/s20plus-y2q-pid1-next-20261127/`, 검증 목록 SHA-256은 `6e6ab43530fb9bfaf21418462a8cdca0da05f0efec6e534b709e152df29d1829`이다.
+
+독립 검토는 미해결 지적 0건으로 `PASS_GO`를 기록했다. 검토 입력 SHA-256은 `6a6457e6ec1ed2d73eb5f51b70fd1b8602d1f3f76d0a1a4b9a709fd6050c9648`, 활성 실행기는 `b298bccbd2b152d7a908ce52ff22b4bef9129db3c031ca50c9d026ce51c43988`이다.

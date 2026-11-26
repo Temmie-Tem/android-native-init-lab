@@ -4976,3 +4976,62 @@ This scope ends on its one observation or loss of the recorded boot.
 Adjacency describes the layout of retained bytes in that snapshot. It
 does not identify individual candidate boots or prove PID 1 or ACM access.
 No mode change, transfer, device write, replay or further authority is granted.
+
+## S20+ y2q PID1 stage trial under one attended approval
+
+Only the independently reviewed `s20plus_g986n_pid1_stage_f1.py` may run this
+single boot-only successor on SM-G986N/y2q/y2qksx/G986NKSS8IYC2. Inherit
+the y2q C-stage and ACM PID1, compatible-list early pair, one-grant early
+pair and retained kernel stages conditions except for the following exact
+diagnostic sites and return reducer. The fresh candidate AP is
+`bd55d714cebf1a4931c31cf4592f559a460283f947ff5dd9e5603bfa709391d7`.
+Its only rollback AP is the previously demonstrated original Magisk
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Both contain only boot.img.lz4. Validate the previous C-stage closure and
+its same-boot four-pair readback. No prior token or transfer is reusable.
+
+Keep the exact list-aware loader, device tree, RAM-only Linux configuration,
+generic serial interface 02/02/00, and byte-identical static RAM /init.
+Replace the earlier two C-stage writers with the following two fixed
+diagnostic points. The first records at the global initial thread's exact
+ramdisk /init call site immediately before kernel_execve, gated on the
+pinned regular /init path and size. The second runs only for its native EL0
+getpid syscall at the exact static /init main caller and syscall return PC,
+with the bound executable path, same-boot arm and expected syscall number.
+It witnesses syscall entry; the normal getpid result is preserved.
+
+The fixed recorder runs in process context with late ioremap/iounmap,
+after free_initmem. Use resident code, constants and per-boot state. Require
+the y2q root, validated permission property, exact fixed no-map reservation,
+RAM containment and absence of normal linear mappings on every touched page.
+Only the two 128-byte subslots in the previously permitted Samsung log
+region may be overwritten per kernel entry. Preserve the LOGM header. Both
+sites retain the header and complete frame validation, publishing the
+signature last. The second requires the first frame in its expected slot and
+identical header before publication. A user task cannot select an address,
+supply frame data or request a repeat. No new device interface or persistent
+storage operation is admitted.
+
+The foreground preparation checks current original rooted health and issues
+one 900-second token. A currently attended affirmative grant covers initial
+ADB Download, one candidate AP, a 180-second bounded USB PID1 observation,
+one machine-cued same-port physical Download, one original AP, and the first
+restored Android's log and root-health checks. Reuse the exact C-stage
+ModemManager admission/dispatch checks, single bounded ACM descriptor and
+candidate/rollback budgets. Recovery does not depend on a candidate USB
+witness or subsequent host serial policy. The durable archive, physical
+observation cuts, no replay, duplicate finalization and abort conditions
+remain those of the inherited owner.
+
+On baseline and first original return, reduce only /proc/last_kmsg as in
+the C-stage reader, returning its size, exact trial-specific exec_attempt
+and el0_getpid counts, and the number of ordered pairs at +128 bytes. No
+end-to-start join or raw log export. Source counts must be zero. Attribute
+a positive retained EL0 witness only with an exact adjacent pair, completed
+transfers and a validated fresh first-return bracket. Also report the
+independent ACM status. An attempt alone proves observation of that site,
+not successful exec. Multiplicity cannot identify a number of boots.
+Missing, nonadjacent, unreadable or interrupted records cannot bound the
+last instruction executed. This profile closes on its one run. Activation
+requires independent zero-finding review of exact affected capability,
+artifacts, authority, tests, both owner literals and private activation.
