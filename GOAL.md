@@ -189,6 +189,16 @@ the owner stopped before the witness and permit.
 [ML052 run](docs/reports/S22PLUS_MAINLINE_ML052_V13_RUN_2026-11-19.md).
 [V13 H0](docs/reports/S22PLUS_MAINLINE_V13_UPSTREAM_LINK_H0_2026-11-19.md).
 
+**UFS V13 without a replug (ML054 prepared).** The operator chose UFS next
+and set no-replug as the baseline. The operator-approved successor scope
+S22PLUS_LATE_UFS_ROUTE_V1 composes V13 with the MAX77705 route write. It
+uses the ML035 Image with only I2C GENI built in, the SE5 DT, the
+byte-identical V13 module, and no attach cue. Code and contract were
+adopted in v67 to v69 (`c9c1b15ecb`, `dc3aea26b4`, `886c1a4d04`). The
+capability record and candidate passed owner review. The ML054 task
+(`2db30bfb…`) is prepared with no grant
+([H0](docs/reports/S22PLUS_MAINLINE_UFS_ROUTE_H0_2026-11-27.md)).
+
 ### UFS link series (shared V2 capability, one link attempt each)
 
 | Run | Module | Furthest point / first refusal | Report |
