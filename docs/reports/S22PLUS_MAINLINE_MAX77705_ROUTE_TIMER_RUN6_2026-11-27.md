@@ -77,7 +77,9 @@ other read of the census.
 
 ## Operator statement
 
-Status: **pending**.
+After closure, the operator stated that nothing was touched: "아무것도
+안만짐" ("didn't touch anything"). No physical action occurred. The one
+host-side step was the `recover_approved_task` described above.
 
 The private run directory is
 `workspace/private/outputs/s22plus-max77705-route-timer-h0-20261126-7/`.
