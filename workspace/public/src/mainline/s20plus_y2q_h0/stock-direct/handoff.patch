@@ -1,0 +1,123 @@
+--- a/build.py
++++ b/build.py
+@@ -63,7 +63,7 @@
+ 
+ def layout(model, image, board, initrd):
+     text_offset, runtime, flags = struct.unpack_from("<3Q", image, 8)
+-    if image[56:60] != b"ARMd" or (text_offset, runtime, flags) != (0, 0x480000, 10):
++    if image[56:60] != b"ARMd" or (text_offset, runtime, flags) != (0x80000, 70512640, 10):
+         raise ValueError("mainline Image header differs")
+     first, sweep_end = model["source_sweep"]
+     last = first + 63 * 32768
+@@ -72,19 +72,19 @@
+     file_size = kernel_offset + len(image)
+     dt = aligned(last + file_size, ALIGN)
+     stack_top = dt + ALIGN + 131072
+-    dest = model["destination"]
+-    rd, fp = model["ramdisk"], model["fdt"]
++    dest = model["destination"] + text_offset
+     page = 4096
+     limit = model["region"] + model["span"]
++    rd = limit - aligned(len(initrd), page) - page
++    fp = rd - ALIGN - page
+     if (
+-        rd != limit - aligned(len(initrd), page) - page
+-        or fp != rd - ALIGN - page
++        dest + runtime > fp
+         or first != model["region"] + 0x80000
+         or last + file_size > fp
+         or first + file_size + ALIGN > fp
+     ):
+         raise ValueError("input differs from firmware placement rules")
+-    if dest % ALIGN or not first <= dt < stack_top <= sweep_end:
++    if (dest - text_offset) % ALIGN or not first <= dt < stack_top <= sweep_end:
+         raise ValueError("layout exceeds measured envelope")
+     writes = [(dt, stack_top), (dest, dest + runtime)]
+     excluded = [*model["static_clipped"], (fp, model["region"] + model["span"])]
+@@ -167,7 +167,7 @@
+     return len(rows)
+ 
+ 
+-def build(output, *, stage_image=None, pair_data=None):
++def build(output, *, stage_image, pair_data, resident_ramdisk):
+     output = output.resolve()
+     if not output.is_relative_to(PRIVATE) or output == PRIVATE:
+         raise ValueError("private build directory required")
+@@ -187,10 +187,7 @@
+         BENCH / "sm8250-samsung-y2q-h0.dtb",
+         "d84c08ac2d429637d0a381865d95de8a5a942f8baa554aa5f7473a9cd6934b14",
+     )
+-    initrd = read_bound(
+-        BENCH / "initramfs.cpio.gz",
+-        "46757f90128509a95836df46dbab0a1b66af21c10522e6497780f57c32280a46",
+-    )
++    initrd = resident_ramdisk
+     cfg = layout(model, image, board, initrd)
+     archive = read_bound(
+         SOURCE, "ab91352dc1d189ab43dab4883248b8a4a87a77e09fe10e83dd1122674f1bc88e"
+--- a/compose.c
++++ b/compose.c
+@@ -275,6 +275,7 @@
+ #ifdef Y2Q_STAGE_EVIDENCE
+ #include "stage-geometry.h"
+ #ifdef Y2Q_EARLY_PAIR
++#include "stock-control-fdt.h"
+ int y2q_pair_permitted(const void *fdt)
+ {
+     int len, chosen, region;
+--- a/entry.S
++++ b/entry.S
+@@ -84,7 +84,8 @@
+     ldr x5,=FW_LEN
+     ldr x6,=RD_SIZE
+     bl y2q_compose
+-    cbnz w0,reject_compose
++    cmp w0,#0
++    cset w27,eq     /* Diagnostic composition only; stock uses the input FDT. */
+ y2q_before_copy:
+     ldr x0,=OUT_KERNEL
+     adrp x1,kernel_blob
+@@ -106,9 +107,18 @@
+     dsb sy
+     isb
+ #ifdef Y2Q_EARLY_PAIR
++    mov w25,wzr
++    cbz w27,.Lstock_permission_done
+     ldr x0,=OUT_FDT
+     bl y2q_pair_permitted
+-    mov w15,w0
++    mov w25,w0
++.Lstock_permission_done:
++    mov x0,x28
++    ldr x1,=OUT_FDT
++    bl y2q_stock_handoff_fdt
++    cbz x0,reject_compose
++    mov x26,x0
++    mov w15,w25
+ #endif
+     ldr x0,=OUT_FDT
+     mov x1,xzr
+@@ -118,7 +128,22 @@
+ #ifdef Y2Q_EARLY_PAIR
+ .global y2q_prebranch_witness
+ y2q_prebranch_witness:
+-    pair_record 0, y2q_before_branch
++    pair_record 0, y2q_stock_restore_args
++.global y2q_stock_restore_args
++y2q_stock_restore_args:
++    cbz x6,.Lstock_tag_ready
++    mov w11,#67        /* Publish C only after the original writer completed. */
++    strb w11,[x26]
++    dsb sy
++    ldrb w12,[x26]
++    cmp w12,w11
++    b.ne reject_compose
++.Lstock_tag_ready:
++    mov x6,xzr
++    mov x7,xzr
++    mov x8,xzr
++    dsb sy
++    isb
+ #endif
+ y2q_before_branch:
+     br x4

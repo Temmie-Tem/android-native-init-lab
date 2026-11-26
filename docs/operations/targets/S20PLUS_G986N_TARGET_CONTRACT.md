@@ -4667,3 +4667,51 @@ publicly identified changed Android boot through final rooted health and
 the same-boot bounded scan. The fixed comparator reports prebranch and
 primary_entry separately, with ambiguous, missing or unproved reads supplying
 no stage proof. Old candidates, approvals and recovery remain consumed.
+
+## S20+ stock Magisk direct loader marker under one attended approval
+
+Only s20plus_g986n_stock_direct_f1.py may run this boot-only successor for
+SM-G986N/y2q/G986NKSS8IYC2 after independent zero-finding review and its
+exact private activation. It inherits the preceding early-handoff single-grant
+owner's target lease, registry claim, durable no-replay effects, bounded process
+cage, post-Download endpoint binding, 900-second new-effect deadline, physical
+fallback return and root health checks. Its source boot is the exact healthy
+original return from the closed early-pair trial. The candidate boot-only AP
+is ad9caa48da7c58854b177d29e6552abc81eb7487b32d944a4df7c4f9baa7e696.
+Original recovery is 1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2.
+
+The single loader writer uses the retained prebranch instructions on the
+firmware- and FDT-validated Samsung LOGM region. It may change only its
+first 128-byte slot, leaving the header unchanged. The embedded original
+vendor kernel and the resident Magisk ramdisk are byte-identical. The loader
+copies the stock FDT within validated scratch RAM and inserts only one bounded
+chosen property, codex,y2q-stock-direct-v1, exclusive to this fresh candidate.
+Its nonce and U (unconfirmed) are prepared before the writer; C is published
+only after full readback. It hands the vendor Image that tree with the
+stock initrd, boot arguments, reserved memory and other properties preserved.
+
+One currently attended affirmative token covers initial ADB Download entry,
+one candidate AP, one observation of the fresh candidate Android boot, and
+one mandatory original AP with final healthy rooted return. The approved
+machine path may use ADB for rollback only from the authenticated same-port,
+fresh rooted Android boot bearing the current exact FDT nonce. When that
+path is unavailable the prior empty-baseline, one-cue attended physical
+Download path applies. Both recovery branches share the single rollback
+budget, independent of expiry after candidate consumption. An ambiguous
+or attempted control never replays. A completed machine return is terminal.
+
+The original source must lack the property and both log frames. Each allowed
+live-property read is fixed to one current boot and that one sysfs property.
+The only candidate log read is the fixed 120-second bounded previous-log
+scanner, with 96 stdout bytes and 1024 stderr bytes. Candidate-time root
+brackets and fixed tag plus log raw captures must bind the same fresh boot,
+port, grant and completed candidate transfer. Interruption may rederive
+complete saved evidence, never newly attribute a scan to a lost candidate
+boot. A positive retention claim requires tag C, one matching prebranch
+and zero primary_entry at candidate time. Tag U, other/missing, malformed,
+ambiguous, or a record first found only after rollback cannot prove this
+claim. Fresh tag and root authorize the machine recovery independently of
+retention success. Before the actual rollback ADB control the owner rechecks
+the same current tag and boot. Closure requires the exact original transfer,
+its healthy fresh boot, and its own original-boot attribution. All previously
+consumed candidates and approvals stay consumed.
