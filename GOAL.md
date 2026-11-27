@@ -245,6 +245,10 @@ stopped safely at TEST UNIT READY: the device answered CHECK CONDITION, and the
 stage refused the response on its extra-header (EHS) guard before any media
 read.
 [ML057 run](docs/reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md).
+The operator approved the fix. Report V15 (v73, `d927a15f7a`, Codex review
+PASS_GO in round 3) accepts the extra header, never reads sense behind it,
+repeats TEST UNIT READY once after such a CHECK CONDITION, and reports the
+response header word. Capability-6 and ML058 are being prepared.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
