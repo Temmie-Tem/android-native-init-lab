@@ -235,7 +235,11 @@ session took 202 s.
 Step 1 is done. For step 2, read/write and persistence, the operator
 approved the [design](docs/reports/S22PLUS_MAINLINE_UFS_RW_DESIGN_H0_2026-11-27.md).
 Its target is one block in LU0's unallocated tail (LBA 62,305,152), reached
-in phases. Phase 2a (read-only, report V14) is on review before adoption.
+in phases. Phase 2a (read-only, report V14) was adopted in v72
+(`b6e0d3bc59`) after 12 rounds of Codex review. It runs a fixed polled UTP
+sequence on LU 0 after the link: NOP OUT, fDeviceInit, TEST UNIT READY,
+READ CAPACITY(16), and reads of the GPT (LBAs 1–3) and the test block. It
+issues no write opcode. Capability-5 and ML057 are being prepared.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
