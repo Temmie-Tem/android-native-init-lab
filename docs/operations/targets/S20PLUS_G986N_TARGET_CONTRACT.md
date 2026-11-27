@@ -5262,3 +5262,22 @@ facts privately. A cut consumes the reservation. A boot mismatch stops the
 scan. A positive describes only the currently retained snapshot, with the
 R4 cohort and attribution limits. Keep the earlier observation gap intact.
 The scope ends on consumption or boot loss and grants no control or reboot.
+
+## S20+ current boot unordered deferred probe presence D0
+
+After the closed R4 readback with result SHA-256
+`abce42118bb6b43e1fc01a2c28e929f3ab34d50157e34b3bccb2c6eb92ab78b3`,
+the current foreground S20+ task may use the independently reviewed
+`s20plus_g986n_presence_readback_d0.py` once on that exact restored boot.
+Inherit the preceding profile's closed F1 and original health bindings,
+lease, owner exclusions, complete pre/post health and shell boot brackets,
+procfs, BusyBox, input and time bounds. Reserve once after initial health
+under s20plus-g986n-presence-readback-d0; a cut consumes the read and a
+different boot stops it. The fixed filter returns at most 4656 combined bytes
+of derived counts, first-flush-return presence and unique worker name hashes
+before or after bus_probe_device. Only complete separate candidate windows,
+matching anchor and slot digests and valid slot position and fields count.
+Refuse invalid/overlapping, foreign, legacy or excess windows; ignore slots
+with mismatched digests. Report name candidates from the pinned dictionary.
+Keep host digest receipts and derived facts; no raw snapshot, trial ordering,
+same-attempt join, control, replay or change to the closed F1 verdict.
