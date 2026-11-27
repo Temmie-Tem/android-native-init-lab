@@ -1,5 +1,12 @@
 # ML057: read-only storage stage stopped at TEST UNIT READY
 
+> **Correction (ML058, 2026-11-28).** The last status below is `0x21020100`,
+> not `0x21020000`: response byte 6 was `0x01` (Target Failure). The
+> `-EPROTO` came from the response-byte check in `scsi()`, not from the Total
+> EHS Length guard, and the EHS length was 0. The cause analysis and the
+> proposed next unit below are superseded by the
+> [ML058 run](S22PLUS_MAINLINE_ML058_UFS_STORAGE_HEADER_RUN_2026-11-28.md).
+
 ML057 was the first run of the
 [read-only storage stage](../operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md)
 (phase 2a, report V14). It used the witness-floor route with the floor kernel

@@ -248,7 +248,11 @@ read.
 The operator approved the fix. Report V15 (v73, `d927a15f7a`, Codex review
 PASS_GO in round 3) accepts the extra header, never reads sense behind it,
 repeats TEST UNIT READY once after such a CHECK CONDITION, and reports the
-response header word. Capability-6 and ML058 are being prepared.
+response header word. **ML058 closed `PASS_MAINLINE_UFS_LINK` /
+`ANDROID_CLOSED_HEALTHY`** with the same stop. Its header word showed EHS 0:
+the refused byte is the response field (Target Failure `0x01` with CHECK
+CONDITION). ML057's EHS diagnosis was a decoding error (status `0x21020100`).
+[ML058 run](docs/reports/S22PLUS_MAINLINE_ML058_UFS_STORAGE_HEADER_RUN_2026-11-28.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
@@ -271,10 +275,11 @@ response header word. Capability-6 and ML058 are being prepared.
 | ML054 | v13 + route | **link completed**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML054_UFS_ROUTE_RUN_2026-11-27.md) |
 | ML055 | v13 + route + 60 s floor | witness at 62.8 s; module refused (own 300 s floor, `ETIMEDOUT`), pre-effect | [run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md) |
 | ML056 | floor kernel/module + route + 60 s floor | **link completed at 62.4 s**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML056_UFS_BOOT_FLOOR_RUN_2026-11-27.md) |
-| ML057 | V14 storage module + floor kernel + route + 60 s floor | link = ML056; storage stopped at TUR (CHECK CONDITION refused on EHS guard, `-EPROTO`), no media read | [run](docs/reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md) |
+| ML057 | V14 storage module + floor kernel + route + 60 s floor | link = ML056; storage stopped at TUR (`-EPROTO`: CHECK CONDITION with response Target Failure; first misread as EHS), no media read | [run](docs/reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md) |
+| ML058 | V15 storage-header module + floor kernel + route + 60 s floor | link = ML056; same TUR stop, header word EHS 0, segment 20: response byte `0x01` confirmed | [run](docs/reports/S22PLUS_MAINLINE_ML058_UFS_STORAGE_HEADER_RUN_2026-11-28.md) |
 
 All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
-ML054, ML056 and ML057 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
+ML054 and ML056–ML058 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
 capability record and per-version scope are in
 [the V2 capability](docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md).
 
