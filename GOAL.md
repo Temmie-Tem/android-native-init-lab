@@ -253,6 +253,11 @@ response header word. **ML058 closed `PASS_MAINLINE_UFS_LINK` /
 the refused byte is the response field (Target Failure `0x01` with CHECK
 CONDITION). ML057's EHS diagnosis was a decoding error (status `0x21020100`).
 [ML058 run](docs/reports/S22PLUS_MAINLINE_ML058_UFS_STORAGE_HEADER_RUN_2026-11-28.md).
+The operator approved report V16 (v74, `c2dde46285`). It accepts response Target
+Failure only together with CHECK CONDITION and parses the sense as before.
+Round 1 of the review was Codex; round 2 was an independent Claude agent,
+because the OpenAI content filter cut off Codex twice. Capability-7 and ML059
+are being prepared.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
