@@ -5,7 +5,7 @@ branch; every mode from v6 on is cumulative. Builders, the guest observer,
 candidate reproduction and the host decoder derive their choices from here.
 """
 
-LATEST = 14
+LATEST = 15
 # (first report version, builder keyword, C define), in Kbuild/compiler order.
 CHAIN = (
     (6, 'hce_handoff', 'G0Q_HCE_HANDOFF'),
@@ -17,13 +17,14 @@ CHAIN = (
     (12, 'link_irq_diagnostics', 'G0Q_LINK_IRQ_DIAGNOSTICS'),
     (13, 'upstream_link', 'G0Q_UPSTREAM_LINK'),
     (14, 'storage_read', 'G0Q_STORAGE_READ'),
+    (15, 'storage_header', 'G0Q_STORAGE_HEADER'),
 )
 KEYWORDS = ('pre_effect_return', 'hci_snapshot', *(kw for _, kw, _ in CHAIN))
 # Decimal fields in each report version's status line (host decoder schema).
 FIELDS = {1: 19, 2: 21, 3: 23, 4: 23, 5: 30, 6: 30, 7: 30, 8: 30, 9: 30,
-          10: 33, 11: 33, 12: 33, 13: 38, 14: 54}
-# Report envelope in bytes; V14's storage fields need 512.
-ENVELOPE = {**{v: 256 for v in FIELDS}, 14: 512}
+          10: 33, 11: 33, 12: 33, 13: 38, 14: 54, 15: 55}
+# Report envelope in bytes; the V14 and V15 storage fields need 512.
+ENVELOPE = {**{v: 256 for v in FIELDS}, 14: 512, 15: 512}
 FIRST = {kw: first for first, kw, _ in CHAIN}
 
 

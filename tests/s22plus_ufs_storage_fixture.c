@@ -125,7 +125,9 @@ static void complete(void)
 	case 0x00:                                /* NOP OUT */
 		assert(!direction && !prdt);
 		note("NOP;", 0, 0);
-		rsp[0] = 0x20;
+		rsp[0] = is("nop-bad-ehs") ? 0x00 : 0x20;   /* a malformed reply type */
+		if (is("nop-bad-ehs"))
+			rsp[8] = 1;
 		if (is("timeout-nop") || is("hce-stuck-timeout"))
 			hold_doorbell = true;
 		break;
@@ -146,10 +148,10 @@ static void complete(void)
 		assert(expected == bytes && (expected ? direction == 2 && ucd[1] == 0x40 : !direction && !ucd[1]));
 		if (cdb[0] == 0x00) {
 			note("TUR;", 0, 0);
-			if ((++tur_count == 1 && !is("no-ua")) || is("tur-not-ready")) {
+			if ((++tur_count == 1 && !is("no-ua")) || is("tur-not-ready") || is("ehs-twice")) {
 				rsp[7] = 0x02;
 				put_unaligned_be16(18, rsp + 32);
-				if (is("ehs"))
+				if (is("ehs") || is("ehs-twice") || is("ehs-garbage"))
 					rsp[8] = 1;                  /* an unrequested extra header */
 				if (!is("ua-no-segment"))   /* data segment: length field + sense bytes */
 					put_unaligned_be16(2 + 18, rsp + 10);
@@ -165,10 +167,17 @@ static void complete(void)
 					rsp[36] = is("tur-not-ready") ? 0x2 : 0x6;
 					rsp[46] = is("tur-not-ready") ? 0x04 : 0x29;
 				}
+				if (is("ehs-garbage"))       /* the legacy sense place holds EHS bytes */
+					memset(rsp + 32, 0xff, 32);
 			}
 		} else if (cdb[0] == 0x9e) {
 			assert(cdb[1] == 0x10 && get_unaligned_be32(cdb + 10) == 32 && bytes == 32);
 			note("CAPACITY;", 0, 0);
+			if (is("ehs-capacity")) {             /* CHECK CONDITION with an extra header */
+				rsp[7] = 0x02;
+				rsp[8] = 1;
+				break;
+			}
 			put_unaligned_be64(is("capacity") ? 62305278ULL : 62305279ULL, data);
 			put_unaligned_be32(4096, data + 8);
 		} else if (cdb[0] == 0x28) {
@@ -195,6 +204,8 @@ static void complete(void)
 		fprintf(stderr, "forbidden UPIU %02x\n", ucd[0]);
 		abort();
 	}
+	if (is("ehs-all"))
+		rsp[8] = 1;                          /* every response, GOOD ones included */
 	utrd[8] = ocs;
 }
 
@@ -267,6 +278,9 @@ int main(int argc, char **argv)
 	       out.sense, out.last_status, out.capacity_low, out.gpt_word);
 	for (int i = 0; i < 8; i++)
 		printf(" %u", out.block_digest[i]);
+#ifdef G0Q_STORAGE_HEADER
+	printf(" %u", out.rsp_header);
+#endif
 	printf("\n%u %u %u %d\n%s\n", commands, allocations, hci[REG_UTP_TRANSFER_REQ_DOOR_BELL / 4], started, trace);
 	return 0;
 }

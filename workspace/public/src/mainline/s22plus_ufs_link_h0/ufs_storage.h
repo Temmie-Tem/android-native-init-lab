@@ -33,12 +33,22 @@ enum g0q_storage_flag {
 	G0Q_SF_CAPACITY = 1U << 6, G0Q_SF_GPT_READ = 1U << 7, G0Q_SF_GPT_MATCH = 1U << 8,
 	G0Q_SF_RANGE = 1U << 9, G0Q_SF_BLOCK_READ = 1U << 10, G0Q_SF_BLOCK_ZERO = 1U << 11,
 	G0Q_SF_UNCERTAIN = 1U << 12,
+#ifdef G0Q_STORAGE_HEADER
+	/* V15: a CHECK CONDITION carried a nonzero Total EHS Length, so its sense
+	 * bytes were not located; and the TEST UNIT READY repeat was attempted. */
+	G0Q_SF_SENSE_UNPARSED = 1U << 13, G0Q_SF_TUR_REPEAT = 1U << 14,
+#endif
 };
 
 struct g0q_storage {
 	int rc;
 	u32 step, flags, init_polls, sense, last_status, capacity_low, gpt_word;
 	u32 block_digest[8];
+#ifdef G0Q_STORAGE_HEADER
+	/* V15: header bytes 8-11 of the last response (Total EHS Length, Device
+	 * Information, Data Segment Length), big-endian as on the wire. */
+	u32 rsp_header;
+#endif
 };
 
 struct device;

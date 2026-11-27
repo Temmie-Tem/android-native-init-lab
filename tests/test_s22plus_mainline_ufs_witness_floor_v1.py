@@ -313,7 +313,7 @@ class BootFloorTests(unittest.TestCase):
         module = root/'component/module/g0q_ml030.ko'
         module.parent.mkdir(parents=True)
         (module.parent/'g0q_stage.c').write_text(boot_floor.stage_source() if floor_stage else boot_floor.STAGE.read_text())
-        record = dict(module_path=str(module), report_version=14)
+        record = dict(module_path=str(module), report_version=15)
         if record_floor:
             record.update({boot_floor.FIELD: 60000,
                            boot_floor.STAGE_FIELD: boot_floor.digest(boot_floor.stage_source()),
@@ -331,7 +331,7 @@ class BootFloorTests(unittest.TestCase):
         bad += [dict(record, **{field: '0' * 64}) for field in (boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
         bad += [{k: v for k, v in record.items() if k != drop}
                 for drop in (boot_floor.FIELD, boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
-        bad += [dict(record, report_version=v) for v in (12, 13, 15, 14.0, None)]
+        bad += [dict(record, report_version=v) for v in (12, 13, 14, 16, 15.0, None)]
         for value in bad:
             with self.subTest(record=value), self.assertRaisesRegex(ValueError, 'boot floor record differs'):
                 boot_floor.component_floor(value, kernel)
@@ -357,6 +357,19 @@ class BootFloorTests(unittest.TestCase):
         kernel = json.loads((base/'transport-build-floor/guard-result.json').read_bytes())
         self.assertTrue(boot_floor.component_floor(record, kernel))
 
+    @unittest.skipUnless(Path('/home/temmie/dev/android-native-init-lab/workspace/private/outputs/'
+                              's22plus-ufs-route-h0-20261127-1/component-storage/component-result.json').exists(),
+                         'retained v72 storage component not present')
+    def test_the_retained_v14_storage_component_still_verifies(self):
+        import json
+        base = Path('/home/temmie/dev/android-native-init-lab/workspace/private/outputs/s22plus-ufs-route-h0-20261127-1')
+        record = json.loads((base/'component-storage/component-result.json').read_bytes())
+        kernel = json.loads((base/'transport-build-floor/guard-result.json').read_bytes())
+        self.assertEqual(record['report_version'], 14)
+        self.assertTrue(boot_floor.component_floor(record, kernel))
+        with self.assertRaisesRegex(ValueError, 'boot floor record differs'):
+            boot_floor.component_floor(dict(record, report_version=15), kernel)
+
     def test_a_changed_transport_record_is_refused(self):
         record, kernel = self.build_dirs()
         with self.assertRaisesRegex(ValueError, 'kernel transport record differs'):
@@ -367,8 +380,8 @@ class BootFloorTests(unittest.TestCase):
             for paired in (True, False):
                 record, kernel = self.build_dirs(floor_kernel=paired, floor_stage=paired, record_floor=paired)
                 fixed = {name: None for name in candidate.FIXED_FIELDS}
-                # V14 is the current floor rendering; V13 without a floor needs no rendering.
-                version = 14 if floor else 13
+                # V15 is the current floor rendering; V13 without a floor needs no rendering.
+                version = 15 if floor else 13
                 fixed.update(report_version=version, usb_route=True, kernel='k', component='c')
                 if floor:
                     fixed['witness_floor_ms'] = 60000

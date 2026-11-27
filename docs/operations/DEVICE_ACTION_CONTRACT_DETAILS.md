@@ -767,7 +767,7 @@ permission to perform host-only work.
    unattended, retry or replay capability.
    The operator adopted on 2026-11-27 one read-only storage stage (phase 2a)
    for that witness-floor variant. Only an exact floor capability with module
-   report version 14 may use it. Its module is the floor module with the
+   report version 14 or 15 may use it. Its module is the floor module with the
    reviewed storage source added. Its late overlay also gives the link node the
    controller's own SMMU stream and coherency, so Linux attaches one DMA
    domain for that stream at probe. The stage runs only after this boot's one
@@ -777,7 +777,9 @@ permission to perform host-only work.
    sends, in order, only these commands to LU 0:
    - NOP OUT;
    - query set flag and read flag of `fDeviceInit`;
-   - TEST UNIT READY, repeated once only after a UNIT ATTENTION;
+   - TEST UNIT READY, repeated once only after a UNIT ATTENTION or, in
+     version 15, after a CHECK CONDITION whose sense was not located because
+     the response declared an extra header segment;
    - READ CAPACITY(16);
    - READ(10) of LBAs 1–3 (the primary GPT);
    - READ(10) of the one LBA 62,305,152 in LU0's unallocated tail.
@@ -792,6 +794,9 @@ permission to perform host-only work.
    read 0. If HCE does not read 0, it asserts the controller's own block
    reset and parks the restart, so the SMMU never stops translating under a
    possibly live slot. The attended physical Download is then the recovery.
+   Version 15 changes only how responses are read: an extra header segment no
+   longer stops the stage, the sense bytes of such a response are never
+   guessed, and the report adds the last response's header bytes 8–11.
    No write, other opcode, other query write, attribute or descriptor write,
    other LUN, power-mode change, ICE or key operation, or generic UFS, SCSI or
    block driver is delegated. The authenticated report adds the stage's

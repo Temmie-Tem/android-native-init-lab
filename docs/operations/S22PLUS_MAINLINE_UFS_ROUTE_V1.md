@@ -215,21 +215,22 @@ parser applies the same floor when it checks the witness and builds the
 permit. All other parts of this composition are unchanged, as listed under
 [Unchanged](#unchanged).
 
-## Read-only storage stage (phase 2a, report V14)
+## Read-only storage stage (phase 2a, reports V14 and V15)
 
 Step 2 of the operator's roadmap is UFS read/write and persistence across a
 reboot. The operator approved its [design](../reports/S22PLUS_MAINLINE_UFS_RW_DESIGN_H0_2026-11-27.md)
 and the read-only phase 2a on 2026-11-27.
 
 `ufs_storage.c` runs once after the completed link, inside the module's
-budget, only in report V14 on the floor route kernel and module. It uses
+budget, only in report V14 or V15 on the floor route kernel and module. It uses
 one transfer slot with a polled doorbell and no interrupt. Crypto stays
 disabled, the LUN is always 0, and every field is fixed:
 
 1. NOP OUT, expecting NOP IN.
 2. Query set flag `fDeviceInit`, then read the flag until it clears
    (1.5-second bound).
-3. TEST UNIT READY; one repeat only after a UNIT ATTENTION.
+3. TEST UNIT READY; one repeat only after a UNIT ATTENTION (V15: or after a
+   CHECK CONDITION whose sense was not located, see below).
 4. READ CAPACITY(16): exactly 62,305,280 blocks of 4096 bytes.
 5. READ(10) of LBAs 1–3. Their SHA-256 must equal the live Android32 table
    (`a0de4421…`), and a parse must show that no entry covers the test block.
@@ -238,12 +239,12 @@ disabled, the LUN is always 0, and every field is fixed:
 
 Supporting changes:
 - **SMMU.** The late overlay's link node gains `iommus = <&apps_smmu 0xe0 0>`
-  and `dma-coherent` for V14 only. The kernel blocks unmatched SMMU
+  and `dma-coherent` for V14 and V15 only. The kernel blocks unmatched SMMU
   streams, so UTP DMA needs the controller's own stream.
 - **Report.** The V14 report appends 16 fields: the stage rc and step, flags,
   the `fDeviceInit` poll count, sense, the last transfer status, the capacity,
   a GPT digest word and the block digest. Its envelope is 512 bytes; older
-  versions keep 256. The host decoder rejects inconsistent step and flag
+  versions keep 256. V15 adds one field (below). The host decoder rejects inconsistent step and flag
   sets, and any storage field after a link that did not complete.
 - **Return.** The stage's outcome never changes the return conditions.
 - **Uncertain slot.** A slot that does not complete in time is never
@@ -268,6 +269,34 @@ Supporting changes:
 The UTP sequence has a host device model (`tests/s22plus_ufs_storage_fixture.c`).
 It drives the actual source and rejects any command outside the set above,
 including any write opcode, another LUN or the crypto bit.
+
+### Response header (report V15)
+
+ML057 ran V14. Its TEST UNIT READY came back as a RESPONSE UPIU with OCS 0,
+response 0 and CHECK CONDITION. The stage then refused the response with
+`-EPROTO` because header byte 8 (Total EHS Length) was nonzero
+([run](../reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md)).
+Upstream `ufshcd` does not check that byte on ordinary responses.
+
+V15 (`G0Q_STORAGE_HEADER`, cumulative on V14) changes only how a response
+is read. The command set, the sequence and every other guard are unchanged.
+- An extra header segment follows the 32-byte header. Every header field the
+  stage reads keeps its offset: type, flags, response, status, residual, and
+  the query echo and value. Data moves through the PRDT. So a nonzero EHS
+  length no longer stops the stage.
+- The one data segment the stage reads is sense. When a CHECK CONDITION
+  declares an extra header segment, the sense bytes are not located and
+  never guessed. The sense stays 0 and the flag `SENSE_UNPARSED` is set.
+- TEST UNIT READY is repeated once after a UNIT ATTENTION or after such an
+  unparsed CHECK CONDITION. The repeat attempt sets `TUR_REPEAT`. A parsed CHECK
+  CONDITION with another sense key still stops the stage, and so does a
+  second CHECK CONDITION.
+- The report appends one field: header bytes 8–11 of the last response (Total
+  EHS Length, Device Information, Data Segment Length). It has 55 fields in
+  the same 512-byte envelope.
+
+V14 still builds with the earlier behavior. ML057's V14 component keeps its
+own retained stage rendering in `boot_floor.py`.
 
 The persistence check by rooted Android belongs to phase 2c, after the one
 write of phase 2b. Phase 2b needs its own closed raw-block exception.

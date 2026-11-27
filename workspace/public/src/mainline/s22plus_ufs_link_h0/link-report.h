@@ -40,7 +40,15 @@
 #if defined(G0Q_STORAGE_READ) && !defined(G0Q_UPSTREAM_LINK)
 #error "The read-only storage stage requires the V13 upstream link"
 #endif
-#ifdef G0Q_STORAGE_READ
+#if defined(G0Q_STORAGE_HEADER) && !defined(G0Q_STORAGE_READ)
+#error "The response-header storage report requires the V14 storage stage"
+#endif
+#ifdef G0Q_STORAGE_HEADER
+/* V15 appends the last response's header bytes 8-11 to V14's fields. */
+#define G0Q_REPORT_TAG 0xf0000000U
+#define G0Q_REPORT_FIELDS 55
+#define G0Q_REPORT_BYTES 512U
+#elif defined(G0Q_STORAGE_READ)
 /* V14 appends 16 storage fields; its envelope is 512 bytes. */
 #define G0Q_REPORT_TAG 0xe0000000U
 #define G0Q_REPORT_FIELDS 54
@@ -80,8 +88,8 @@
 #ifndef G0Q_REPORT_BYTES
 #define G0Q_REPORT_BYTES 256U
 #endif
-/* Signed fields: operation rc, RPMh error and (V14) the storage rc. */
-#define G0Q_SIGNED_FIELD(i) ((i) == 0 || (i) == 16 || (G0Q_REPORT_FIELDS == 54 && (i) == 38))
+/* Signed fields: operation rc, RPMh error and (V14, V15) the storage rc. */
+#define G0Q_SIGNED_FIELD(i) ((i) == 0 || (i) == 16 || (G0Q_REPORT_FIELDS >= 54 && (i) == 38))
 
 static inline int g0q_report_parse(const unsigned char *data, unsigned int size,
 				 long long values[G0Q_REPORT_FIELDS])

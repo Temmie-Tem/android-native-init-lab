@@ -114,7 +114,7 @@ ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
 ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
 ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
 ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v16_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v17_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -141,18 +141,18 @@ def candidate_v2(image):
     return image is not None and image.get('schema') == IMAGE_V2
 
 
-# The V14 read-only storage stage; pinned only for a V14 capability, so earlier
+# The V14/V15 read-only storage stage; pinned only for a V14/V15 capability, so earlier
 # capabilities keep their exact source and recovery closure.
 STORAGE_SOURCES = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
     ('ufs_storage.c', 'ufs_storage.h'))
 
 
 def ufs_storage(image):
-    """Metadata only: the bound capability fixes report version 14."""
+    """Metadata only: the bound capability fixes report version 14 or 15."""
     if not (candidate_v2(image) and 'capability' in image):
         return False
     fixed = read(verify(image['capability'])).get('fixed')
-    return type(fixed) is dict and fixed.get('report_version') == 14
+    return type(fixed) is dict and fixed.get('report_version') in (14, 15)
 
 
 def ufs_route(image):

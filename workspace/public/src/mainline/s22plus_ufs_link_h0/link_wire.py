@@ -46,6 +46,7 @@ REPORT_FIELDS = report_modes.FIELDS
 HANDOFF, RESET_CONFIG, DISABLED_UCRDY, STALE_ACK = (report_modes.FIRST[k] for k in
     ('hce_handoff', 'reset_config', 'disabled_ucrdy', 'stale_uccs_ack'))
 STORAGE_READ = report_modes.FIRST['storage_read']
+STORAGE_HEADER = report_modes.FIRST['storage_header']
 CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = (report_modes.FIRST[k] for k in
     ('cfg1_diagnostics', 'cfg1_ordered_selection', 'link_irq_diagnostics', 'upstream_link'))
 # UIC error-code registers 0x38..0x48 (ufshci.h). PA/DL are reported raw;
@@ -458,7 +459,8 @@ STORAGE_LAST_LBA = 62305279
 STORAGE_STEPS = ('NONE', 'ADMIT', 'LIST', 'NOP', 'INIT_SET', 'INIT_POLL', 'TUR', 'CAPACITY',
                  'GPT', 'BLOCK', 'DONE')
 STORAGE_FLAGS = ('LIST', 'NOP', 'INIT_SET', 'INIT_CLEAR', 'UNIT_ATTENTION', 'TUR', 'CAPACITY',
-                 'GPT_READ', 'GPT_MATCH', 'RANGE', 'BLOCK_READ', 'BLOCK_ZERO', 'UNCERTAIN')
+                 'GPT_READ', 'GPT_MATCH', 'RANGE', 'BLOCK_READ', 'BLOCK_ZERO', 'UNCERTAIN',
+                 'SENSE_UNPARSED', 'TUR_REPEAT')
 STORAGE_DONE = (1 << 13) - 1 & ~(1 << 4 | 1 << 11 | 1 << 12)   # every step flag
 
 
@@ -467,22 +469,28 @@ def result_size(report_version=1):
     return HEADER.size + 12 + report_modes.ENVELOPE.get(report_version, 256) + 32
 
 
-def storage_read(values, link_completed):
-    """V14: the fixed read-only storage stage, run only after a completed link."""
+def storage_read(values, link_completed, header=False):
+    """V14: the fixed read-only storage stage, run only after a completed link.
+
+    V15 (header=True) adds the last response's header bytes 8-11 and two flags:
+    SENSE_UNPARSED (a CHECK CONDITION with a nonzero Total EHS Length, sense not
+    located) and TUR_REPEAT (the one TEST UNIT READY repeat was attempted)."""
     rc, step, flags, polls, sense, status, capacity, gpt = values[38:46]
     digest = values[46:54]
-    check(-4095 <= rc <= 0 and 0 <= step < len(STORAGE_STEPS) and 0 <= flags < 1 << 13 and
-          all(0 <= v < 2**32 for v in (polls, sense, status, capacity, gpt, *digest)),
+    end = 55 if header else 54
+    rsp_header = values[54] if header else 0
+    check(-4095 <= rc <= 0 and 0 <= step < len(STORAGE_STEPS) and 0 <= flags < 1 << (15 if header else 13) and
+          all(0 <= v < 2**32 for v in (polls, sense, status, capacity, gpt, rsp_header, *digest)),
           'storage field range')
     if not link_completed:
-        check(not any(values[38:54]), 'storage stage without a completed link')
+        check(not any(values[38:end]), 'storage stage without a completed link')
         return dict(storage=None)
     check(step >= 1 and (rc == 0) == (step == 10), 'storage step and rc disagree')
     # Flags each step sets on success; UNIT_ATTENTION (TUR) and BLOCK_ZERO (BLOCK) are optional.
     required = {2: 1 << 0, 3: 1 << 1, 4: 1 << 2, 5: 1 << 3, 6: 1 << 5, 7: 1 << 6,
                 8: 1 << 7 | 1 << 8 | 1 << 9, 9: 1 << 10}
     # Flags a step can leave on failure; RANGE and BLOCK_READ advance the step.
-    optional = {6: 1 << 4, 8: 1 << 7 | 1 << 8, 10: 1 << 11}
+    optional = {6: 1 << 4 | (1 << 13 | 1 << 14 if header else 0), 8: 1 << 7 | 1 << 8, 10: 1 << 11}
     done = sum(bits for k, bits in required.items() if k < step)
     allowed = done | sum(bits for k, bits in optional.items() if k <= step) | (1 << 12)
     check(flags & done == done and not flags & ~allowed, 'storage flags and step disagree')
@@ -493,7 +501,7 @@ def storage_read(values, link_completed):
     check(not flags & 1 << 10 or bool(flags & 1 << 11) == (digest == STORAGE_ZERO_DIGEST),
           'zero flag and block digest disagree')
     # An uncertain slot is the current step's unfinished command: none of its flags.
-    check(not flags & 1 << 12 or not flags & ~(done | 1 << 4 | 1 << 12),
+    check(not flags & 1 << 12 or not flags & ~(done | 1 << 4 | 1 << 12 | 1 << 13 | 1 << 14),
           'uncertain slot with the current step completed')
     check(not flags & 1 << 12 or 3 <= step <= 9, 'uncertain slot without a command step')
     # Each field exists only once its producing step ran (the producer's order).
@@ -523,6 +531,62 @@ def storage_read(values, link_completed):
     check(not flags & (1 << 10 | 1 << 11) or step == 10, 'block evidence before the stage ended')
     check(not flags & 1 << 3 or polls >= 1, 'device init cleared without a poll')
     check(not flags & 1 << 11 or flags & 1 << 10, 'zero block without a read')
+    if header:
+        UA, UNPARSED, REPEAT = 1 << 4, 1 << 13, 1 << 14
+        ehs = rsp_header >> 24
+        # The header word is written with the status by every completed exchange, from NOP OUT on.
+        check(step >= 3 or rsp_header == 0, 'response header before the first command')
+        # The repeat follows the first TUR's UNIT ATTENTION (UA set) or its unparsed
+        # CHECK CONDITION (UA clear); a first unparsed TUR always takes the repeat.
+        check(not flags & UA or flags & REPEAT, 'unit attention without the repeat')
+        first_unparsed = bool(flags & REPEAT) and not flags & UA
+        check(step != 6 or not flags & UNPARSED or flags & REPEAT, 'unparsed TUR without the repeat')
+        # Any other unparsed CHECK CONDITION ended the stage.
+        check(not flags & UNPARSED or first_unparsed or rc == -11, 'unparsed sense without its stop')
+        check(not first_unparsed or flags & UNPARSED, 'repeat without its CHECK CONDITION')
+        # (status, header word) is the sample of the last exchange that completed: ring()
+        # records both before any check, and records nothing when it refuses to ring
+        # (busy, late) or the slot times out.
+        segment = rsp_header & 0xffff
+        check(sense < 1 << 20, 'sense wider than its packed key, ASC and ASCQ')
+        ocs, response, scsi, upiu = status & 255, status >> 8 & 255, status >> 16 & 255, status >> 24
+        if step < 3:
+            check(status == 0 and rsp_header == 0, 'response sample before the first command')
+        elif rc == -11:
+            # A stop is a CHECK CONDITION of a SCSI step: RESPONSE, status 2, response 0, OCS 0.
+            check(step in (6, 7, 8, 9), 'CHECK CONDITION stop outside a SCSI step')
+            check(status == 0x21020000, 'CHECK CONDITION stop with another status')
+            if ehs:   # unparsed: no byte past the header was read
+                check(flags & UNPARSED and sense == 0, 'unparsed stop with a parsed sense')
+            else:     # parsed: nonzero sense needs the length field and an 8-byte record
+                check(not flags & UNPARSED or first_unparsed, 'unparsed flag with a parsed stop')
+                check(not sense or segment >= 10, 'parsed sense without its data segment')
+                # A parsed first-TUR UNIT ATTENTION always takes the repeat.
+                check(step != 6 or flags & REPEAT or sense >> 16 != 6, 'unit attention stop without the repeat')
+        elif rc in (-16, -110):
+            # Refused, late or uncertain: the sample is the previous completed exchange.
+            if step == 3:
+                check(status == 0 and rsp_header == 0, 'response sample before NOP OUT completed')
+            elif step == 4:
+                check(status & 0xff00ffff == 0x20000000, 'sample is not the NOP IN')
+            elif step == 5 or (step == 6 and not flags & REPEAT):
+                check(status & 0xff00ffff == 0x36000000, 'sample is not the query response')
+            elif step == 6:
+                # The repeat's sample is the first TUR's CHECK CONDITION and its reason.
+                check(status == 0x21020000, 'repeat sample is not the first CHECK CONDITION')
+                check(bool(ehs) == first_unparsed, 'repeat sample disagrees with its reason')
+                check(not flags & UA or segment >= 10, 'parsed unit attention without its data segment')
+            else:
+                check(status == 0x21000000, 'sample is not the previous GOOD response')
+        elif rc == -71:
+            # A completed reply with a wrong type or response (OCS 0).
+            expected = {3: 0x20, 4: 0x36, 5: 0x36}.get(step, 0x21)
+            check(ocs == 0 and (step in (4, 5) or upiu != expected or response),
+                  'protocol refusal of a well-formed reply')
+        elif rc == -5 and step >= 3:
+            check(ocs or (step >= 6 and scsi not in (0, 2)), 'transfer error without its status')
+        elif rc == -61:
+            check(status == 0x21000000, 'residual refusal without a GOOD response')
     if rc == 0:
         # The last command is the block READ: OCS 0, response 0, GOOD, RESPONSE UPIU.
         check(flags & STORAGE_DONE == STORAGE_DONE and capacity == STORAGE_LAST_LBA and
@@ -540,7 +604,10 @@ def storage_read(values, link_completed):
         capacity_last_lba_low=capacity, gpt_digest_word=gpt,
         gpt_match=bool(flags & 1 << 8), range_ok=bool(flags & 1 << 9),
         test_lba=STORAGE_TEST_LBA, block_sha256=block.hex() if block else None,
-        block_zero=bool(flags & 1 << 11)))
+        block_zero=bool(flags & 1 << 11),
+        **(dict(response_header=dict(raw=rsp_header, ehs_length=rsp_header >> 24,
+                                     device_information=rsp_header >> 16 & 255,
+                                     data_segment_length=rsp_header & 0xffff)) if header else {})))
 
 
 def upstream_link(values):
@@ -670,7 +737,8 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
             facts.update(upstream_link(values))
     storage = report_version >= STORAGE_READ
     if storage:
-        facts.update(storage_read(values, link_completed=rc == 0 and not pre_effect))
+        facts.update(storage_read(values, link_completed=rc == 0 and not pre_effect,
+                                  header=report_version >= STORAGE_HEADER))
     if pre_effect:
         return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest()), raw, report_version)

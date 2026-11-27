@@ -198,14 +198,16 @@ The v71 set adds the witness-floor kernel and module boot floors of the UFS
 route composition. It changes nothing in this scope.
 The v72 set adds the read-only storage stage (phase 2a, report V14) of the UFS
 route composition. It changes nothing in this scope.
+The v73 set adds the storage stage's response-header fix (report V15) of the UFS
+route composition. It changes nothing in this scope.
 The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v72_review.json`
-- `s22plus_loader_android_timing_v3_cue_v16_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v17_review.json`
-- `s22plus_mainline_max77705_usb_v15_review.json`
-- `s22plus_mainline_max77705_route_v13_review.json`
-- `s22plus_mainline_max77705_route_timer_v12_review.json`
+- `s22plus_approved_terminal_persistent_v73_review.json`
+- `s22plus_loader_android_timing_v3_cue_v17_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v18_review.json`
+- `s22plus_mainline_max77705_usb_v16_review.json`
+- `s22plus_mainline_max77705_route_v14_review.json`
+- `s22plus_mainline_max77705_route_timer_v13_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:

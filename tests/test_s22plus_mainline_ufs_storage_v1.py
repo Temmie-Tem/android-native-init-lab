@@ -294,5 +294,169 @@ class StorageStageTest(unittest.TestCase):
         self.assertIn(''.join(f'\\x{b:02x}' for b in expected[16:]), header)
 
 
+class StorageHeaderStageTest(unittest.TestCase):
+    """V15: the same stage with the response-header word and an unparsed-sense repeat."""
+    UNPARSED, REPEAT = 1 << 13, 1 << 14
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        out = Path(cls.tmp.name)
+        for header in HEADERS:
+            (out / header).parent.mkdir(parents=True, exist_ok=True)
+            (out / header).touch()
+        (out / 'linux/errno.h').write_text('#include_next <linux/errno.h>\n')
+        cls.table, cls.block = out / 'gpt.bin', out / 'zero.bin'
+        cls.table.write_bytes(gpt())
+        cls.block.write_bytes(bytes(4096))
+        (out / 'gpt.h').write_text(f'#define G0Q_GPT_SHA256 {c_digest(gpt())}\n')
+        cls.exe = out / 'fixture-v15'
+        subprocess.run(['cc', '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function',
+                        '-DG0Q_STORAGE_HEADER', '-include', str(out / 'gpt.h'), '-I', str(out), '-I', str(SOURCE),
+                        str(ROOT / 'tests/s22plus_ufs_storage_fixture.c'), '-o', str(cls.exe)], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_case(self, case):
+        done = subprocess.run([str(self.exe), case, str(self.table), str(self.block)],
+                              check=True, capture_output=True, text=True)
+        fields, _, trace = done.stdout.splitlines()
+        values = [int(v) for v in fields.split()]
+        self.assertEqual(len(values), 17)
+        return values, trace
+
+    def decode(self, values):
+        word = int.from_bytes(hashlib.sha256(gpt()).digest()[:4], 'big')
+        with mock.patch.object(wire, 'STORAGE_GPT_WORD', word):
+            return wire.storage_read([0] * 38 + values, link_completed=True, header=True)['storage']
+
+    def test_parsed_unit_attention_is_repeated_and_the_header_word_reported(self):
+        values, trace = self.run_case('ok')
+        self.assertEqual((values[0], values[1], trace.count('TUR')), (0, 10, 2))
+        self.assertEqual(values[2], DONE_FLAGS | 1 << 4 | 1 << 11 | self.REPEAT)
+        facts = self.decode(values)
+        self.assertEqual(facts['response_header'], dict(raw=0, ehs_length=0, device_information=0,
+                                                        data_segment_length=0))
+        self.assertEqual(facts['sense'], dict(key=6, asc=0x29, ascq=0))
+
+    def test_check_condition_with_an_extra_header_is_repeated_unparsed(self):
+        # ML057's device answer: CHECK CONDITION with a nonzero Total EHS Length.
+        values, trace = self.run_case('ehs')
+        self.assertEqual((values[0], values[1], values[4], trace.count('TUR')), (0, 10, 0, 2))
+        self.assertEqual(values[2], DONE_FLAGS | 1 << 11 | self.UNPARSED | self.REPEAT)
+        facts = self.decode(values)
+        self.assertTrue(facts['completed'])
+        self.assertIn('SENSE_UNPARSED', facts['flags'])
+        self.assertNotIn('UNIT_ATTENTION', facts['flags'])
+
+    def test_a_second_check_condition_stops_with_the_header_word(self):
+        values, trace = self.run_case('ehs-twice')
+        self.assertEqual((values[0], values[1], values[4], trace.count('TUR')), (-11, STEP['TUR'], 0, 2))
+        self.assertNotIn('CAPACITY', trace)
+        self.assertEqual(values[16], 1 << 24 | 20)        # EHS 1, data segment 2 + 18 bytes
+        facts = self.decode(values)
+        self.assertEqual((facts['response_header']['ehs_length'],
+                          facts['response_header']['data_segment_length']), (1, 20))
+
+    def test_extra_header_on_good_responses_is_accepted(self):
+        # Header fields keep their offsets; the data moves through the PRDT.
+        values, trace = self.run_case('ehs-all')
+        self.assertEqual((values[0], values[1]), (0, 10))
+        self.assertEqual(values[16], 1 << 24)
+        self.assertIn('READ 62305152+1', trace)
+        self.assertIn('SENSE_UNPARSED', self.decode(values)['flags'])
+
+    def test_a_parsed_other_sense_key_is_not_repeated(self):
+        values, trace = self.run_case('tur-not-ready')
+        self.assertEqual((values[0], values[1], trace.count('TUR')), (-11, STEP['TUR'], 1))
+        self.assertFalse(values[2] & (self.UNPARSED | self.REPEAT))
+        self.assertEqual(self.decode(values)['sense'], dict(key=2, asc=4, ascq=0))
+
+    def test_extra_header_bytes_are_never_read_as_sense(self):
+        # The legacy sense place holds 0xff (EHS bytes); the outcome equals the clean case.
+        garbage, trace = self.run_case('ehs-garbage')
+        clean, _ = self.run_case('ehs')
+        self.assertEqual(garbage, clean)
+        self.assertEqual(trace.count('TUR'), 2)
+
+    def test_a_malformed_reply_keeps_its_header_word(self):
+        # ring() records both words before the type check; -EPROTO, status 0, header set.
+        values, trace = self.run_case('nop-bad-ehs')
+        self.assertEqual((values[0], values[1], values[5], values[16]), (-71, STEP['NOP'], 0, 1 << 24))
+        self.assertEqual(trace, 'NOP;')
+        self.assertEqual(self.decode(values)['response_header']['ehs_length'], 1)
+
+    def test_an_unparsed_stop_after_a_parsed_unit_attention(self):
+        values, trace = self.run_case('ehs-capacity')
+        self.assertEqual((values[0], values[1], values[4]), (-11, STEP['CAPACITY'], 0))
+        self.assertEqual(values[2] & (1 << 4 | self.UNPARSED | self.REPEAT), 1 << 4 | self.UNPARSED | self.REPEAT)
+        self.assertEqual(values[16] >> 24, 1)
+        self.assertNotIn('READ 1+3', trace)
+        self.decode(values)
+
+    def test_decoder_binds_the_v15_flags(self):
+        ok, _ = self.run_case('ok')
+        unparsed, _ = self.run_case('ehs')
+        stop, _ = self.run_case('ehs-twice')
+        capacity, _ = self.run_case('ehs-capacity')
+        good = 0x21 << 24
+        for values, message in (
+                (ok[:2] + [ok[2] & ~self.REPEAT] + ok[3:], 'unit attention without the repeat'),
+                (unparsed[:2] + [unparsed[2] & ~self.UNPARSED] + unparsed[3:], 'repeat without its CHECK CONDITION'),
+                # A completed stage cannot carry a parsed UNIT ATTENTION and an unparsed CHECK CONDITION.
+                (ok[:2] + [ok[2] | self.UNPARSED] + ok[3:], 'unparsed sense without its stop'),
+                # A first unparsed TUR always repeats.
+                (stop[:2] + [stop[2] & ~self.REPEAT] + stop[3:], 'unparsed TUR without the repeat'),
+                # The terminal unparsed CHECK CONDITION needs its status, extra header and zero sense.
+                (capacity[:5] + [good] + capacity[6:], 'CHECK CONDITION stop with another status'),
+                (capacity[:16] + [20], 'unparsed flag with a parsed stop'),
+                (stop[:4] + [6 << 16] + stop[5:], 'unparsed stop with a parsed sense'),
+                ([-110, 2, 0] + [0] * 13 + [5], 'response header before the first command'),
+                # Round 2: stops bound to SCSI steps and to their own CHECK CONDITION.
+                ([-71] + unparsed[1:2] + [unparsed[2] & ~(self.UNPARSED | self.REPEAT | 1 << 5 | 1 << 6 | 1 << 7 |
+                  1 << 8 | 1 << 9 | 1 << 10 | 1 << 11)] + [3, 0, 0x21020000, 0, 0] + [0] * 8 + [1 << 24 | 20],
+                 'storage step and rc disagree|protocol refusal of a well-formed reply'),
+                ([-11, STEP['NOP'], 1, 0, 0, 0x21020000, 0, 0] + [0] * 8 + [20],
+                 'CHECK CONDITION stop outside a SCSI step|storage flags'),
+                (stop[:2] + [stop[2] & ~(self.UNPARSED | self.REPEAT)] + stop[3:4] + [6 << 16 | 0x2900] + stop[5:16] + [20],
+                 'unit attention stop without the repeat'),
+                (stop[:4] + [2 << 16] + stop[5:16] + [0], 'parsed sense without its data segment|unparsed flag'),
+                # Round 2: a refused or uncertain command keeps the previous exchange's sample.
+                ([-110, STEP['NOP'], 1 | 1 << 12, 0, 0, 0, 0, 0] + [0] * 8 + [1 << 24],
+                 'response sample before NOP OUT completed'),
+                ([-110, STEP['TUR'], 0b1111 | 1 << 12 | self.UNPARSED | self.REPEAT, 3, 0, 0x21000000, 0, 0] + [0] * 8 + [1 << 24 | 20],
+                 'repeat sample is not the first CHECK CONDITION'),
+                ([-110, STEP['TUR'], 0b1111 | 1 << 12 | self.UNPARSED | self.REPEAT, 3, 0, 0x21020000, 0, 0] + [0] * 8 + [20],
+                 'repeat sample disagrees with its reason'),
+                ([-16, STEP['TUR'], 0b1111 | 1 << 4 | self.REPEAT, 3, 6 << 16, 0x21020000, 0, 0] + [0] * 8 + [0],
+                 'parsed unit attention without its data segment'),
+                ([-110, STEP['CAPACITY'], 0b101111 | 1 << 5, 3, 0, 0x36000000, 0, 0] + [0] * 8 + [0],
+                 'sample is not the previous GOOD response')):
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                self.decode(values)
+        with self.assertRaisesRegex(ValueError, 'storage field range'):
+            wire.storage_read([0] * 38 + ok, link_completed=True)   # V15 flags in a V14 report
+        with self.assertRaisesRegex(ValueError, 'storage stage without a completed link'):
+            wire.storage_read([0] * 54 + [1], link_completed=False, header=True)
+
+    def test_every_producer_scenario_decodes(self):
+        # Completeness: each report the V15 producer emits in the device model is accepted.
+        for case in ('ok', 'no-ua', 'capacity', 'timeout-nop', 'init-stuck', 'ocs', 'tur-not-ready',
+                     'short-read', 'underflow', 'descriptor-ua', 'ua-no-segment', 'ehs', 'short-additional',
+                     'ehs-twice', 'ehs-all', 'ehs-garbage', 'nop-bad-ehs', 'ehs-capacity', 'no-iommu',
+                     'short-budget', 'host-error', 'list-running'):
+            with self.subTest(case=case):
+                values, _ = self.run_case(case)
+                self.decode(values)
+
+    def test_v15_envelope_and_fields(self):
+        self.assertEqual(report_modes.FIELDS[15], 55)
+        self.assertEqual(report_modes.LATEST, 15)
+        self.assertEqual(wire.result_size(15), wire.result_size(14))
+        self.assertEqual(report_modes.defines(15)[-2:], ['G0Q_STORAGE_READ', 'G0Q_STORAGE_HEADER'])
+
+
 if __name__ == '__main__':
     unittest.main()

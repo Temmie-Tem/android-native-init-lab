@@ -99,6 +99,9 @@ static int report(char *buf, const struct kernel_param *kp)
 	for (unsigned int i = 0; i < 8; i++)
 		size += scnprintf(buf + size, PAGE_SIZE - size, " %u", storage.block_digest[i]);
 #endif
+#ifdef G0Q_STORAGE_HEADER
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %u", storage.rsp_header);
+#endif
 	return size + scnprintf(buf + size, PAGE_SIZE - size, "\n");
 }
 static const struct kernel_param_ops report_ops = { .get = report };

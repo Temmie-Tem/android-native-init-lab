@@ -122,11 +122,19 @@ static int ring(struct utp *u, u64 until)
 	ocs = u->utrd[8];
 	u->out->last_status = ocs | u->ucd[UPIU + 6] << 8 | u->ucd[UPIU + 7] << 16 |
 			      u->ucd[UPIU] << 24;
+#ifdef G0Q_STORAGE_HEADER
+	u->out->rsp_header = get_unaligned_be32(u->ucd + UPIU + 8);
+#endif
 	if (ocs != OCS_SUCCESS)
 		return -EIO;
+#ifndef G0Q_STORAGE_HEADER
 	/* No command requests an extra header; one would move every later offset. */
 	if (u->ucd[UPIU + 8])
 		return -EPROTO;
+#endif
+	/* V15: an extra header segment follows the 32-byte header, so every header
+	 * field used here keeps its offset; only a data segment would move, and the
+	 * one data segment read (sense) is refused unparsed when EHS is present. */
 	return u->ucd[UPIU];
 }
 
@@ -179,11 +187,20 @@ static int scsi(struct utp *u, const u8 *cdb, unsigned int length, u32 bytes)
 		return -EPROTO;
 	if (u->ucd[UPIU + 7] == 0x02) {   /* CHECK CONDITION: fixed or descriptor sense */
 		const u8 *sense = u->ucd + UPIU + 34;
-		u16 segment = get_unaligned_be16(u->ucd + UPIU + 10);
-		u16 length = get_unaligned_be16(u->ucd + UPIU + 32);
+		u16 segment, length;
 
-		/* Sense counts only inside the declared data segment (length field + bytes). */
 		u->out->sense = 0;
+#ifdef G0Q_STORAGE_HEADER
+		/* With an extra header segment the data segment moves: no byte past the
+		 * 32-byte header is read, and the sense stays unparsed. */
+		if (u->ucd[UPIU + 8]) {
+			u->out->flags |= G0Q_SF_SENSE_UNPARSED;
+			return -EAGAIN;
+		}
+#endif
+		/* Sense counts only inside the declared data segment (length field + bytes). */
+		segment = get_unaligned_be16(u->ucd + UPIU + 10);
+		length = get_unaligned_be16(u->ucd + UPIU + 32);
 		if (segment < 2 || length > segment - 2 || length > 18)
 			return -EAGAIN;
 		/* Each format's own record length (8 + additional length) must fit the bytes. */
@@ -274,10 +291,21 @@ static int sequence(struct utp *u)
 
 	out->step = G0Q_ST_TUR;
 	rc = scsi(u, tur, sizeof(tur), 0);
+#ifdef G0Q_STORAGE_HEADER
+	/* One repeat for a UNIT ATTENTION, or for a CHECK CONDITION whose sense could
+	 * not be located; TEST UNIT READY moves no data either way. */
+	if (rc == -EAGAIN && ((out->sense >> 16) == 0x6 || (out->flags & G0Q_SF_SENSE_UNPARSED))) {
+		if ((out->sense >> 16) == 0x6)
+			out->flags |= G0Q_SF_UNIT_ATTENTION;
+		out->flags |= G0Q_SF_TUR_REPEAT;
+		rc = scsi(u, tur, sizeof(tur), 0);
+	}
+#else
 	if (rc == -EAGAIN && (out->sense >> 16) == 0x6) {   /* one UNIT ATTENTION repeat */
 		out->flags |= G0Q_SF_UNIT_ATTENTION;
 		rc = scsi(u, tur, sizeof(tur), 0);
 	}
+#endif
 	if (rc)
 		return rc;
 	out->flags |= G0Q_SF_TUR;
