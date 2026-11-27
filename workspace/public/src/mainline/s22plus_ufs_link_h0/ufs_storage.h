@@ -38,6 +38,10 @@ enum g0q_storage_flag {
 	 * bytes were not located; and the TEST UNIT READY repeat was attempted. */
 	G0Q_SF_SENSE_UNPARSED = 1U << 13, G0Q_SF_TUR_REPEAT = 1U << 14,
 #endif
+#ifdef G0Q_STORAGE_RESPONSE
+	/* V16: a CHECK CONDITION carried response Target Failure (0x01). */
+	G0Q_SF_TARGET_FAILURE = 1U << 15,
+#endif
 };
 
 struct g0q_storage {

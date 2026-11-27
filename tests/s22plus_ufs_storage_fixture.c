@@ -148,8 +148,18 @@ static void complete(void)
 		assert(expected == bytes && (expected ? direction == 2 && ucd[1] == 0x40 : !direction && !ucd[1]));
 		if (cdb[0] == 0x00) {
 			note("TUR;", 0, 0);
-			if ((++tur_count == 1 && !is("no-ua")) || is("tur-not-ready") || is("ehs-twice")) {
+			if (is("target-failure-timeout") && tur_count == 1)
+				hold_doorbell = true;             /* the repeat never completes */
+			if ((++tur_count == 1 && !is("no-ua")) || is("tur-not-ready") || is("ehs-twice") ||
+			    is("target-failure-twice")) {
 				rsp[7] = 0x02;
+				if (is("target-failure") || is("target-failure-twice") || is("target-failure-ehs") ||
+				    is("target-failure-timeout"))
+					rsp[6] = 0x01;               /* ML058's answer: Target Failure */
+				if (is("response-two"))
+					rsp[6] = 0x02;               /* any other response value */
+				if (is("target-failure-ehs"))
+					rsp[8] = 1;
 				put_unaligned_be16(18, rsp + 32);
 				if (is("ehs") || is("ehs-twice") || is("ehs-garbage"))
 					rsp[8] = 1;                  /* an unrequested extra header */
@@ -178,6 +188,8 @@ static void complete(void)
 				rsp[8] = 1;
 				break;
 			}
+			if (is("target-failure-good"))
+				rsp[6] = 0x01;                       /* Target Failure with GOOD */
 			put_unaligned_be64(is("capacity") ? 62305278ULL : 62305279ULL, data);
 			put_unaligned_be32(4096, data + 8);
 		} else if (cdb[0] == 0x28) {

@@ -43,7 +43,15 @@
 #if defined(G0Q_STORAGE_HEADER) && !defined(G0Q_STORAGE_READ)
 #error "The response-header storage report requires the V14 storage stage"
 #endif
-#ifdef G0Q_STORAGE_HEADER
+#if defined(G0Q_STORAGE_RESPONSE) && !defined(G0Q_STORAGE_HEADER)
+#error "The response-byte storage report requires the V15 header report"
+#endif
+#ifdef G0Q_STORAGE_RESPONSE
+/* V16 keeps V15's fields; tags past v15 are 0xf plus the excess in bits 20-27. */
+#define G0Q_REPORT_TAG 0xf0100000U
+#define G0Q_REPORT_FIELDS 55
+#define G0Q_REPORT_BYTES 512U
+#elif defined(G0Q_STORAGE_HEADER)
 /* V15 appends the last response's header bytes 8-11 to V14's fields. */
 #define G0Q_REPORT_TAG 0xf0000000U
 #define G0Q_REPORT_FIELDS 55

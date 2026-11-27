@@ -215,14 +215,14 @@ parser applies the same floor when it checks the witness and builds the
 permit. All other parts of this composition are unchanged, as listed under
 [Unchanged](#unchanged).
 
-## Read-only storage stage (phase 2a, reports V14 and V15)
+## Read-only storage stage (phase 2a, reports V14 to V16)
 
 Step 2 of the operator's roadmap is UFS read/write and persistence across a
 reboot. The operator approved its [design](../reports/S22PLUS_MAINLINE_UFS_RW_DESIGN_H0_2026-11-27.md)
 and the read-only phase 2a on 2026-11-27.
 
 `ufs_storage.c` runs once after the completed link, inside the module's
-budget, only in report V14 or V15 on the floor route kernel and module. It uses
+budget, only in report V14, V15 or V16 on the floor route kernel and module. It uses
 one transfer slot with a polled doorbell and no interrupt. Crypto stays
 disabled, the LUN is always 0, and every field is fixed:
 
@@ -239,7 +239,7 @@ disabled, the LUN is always 0, and every field is fixed:
 
 Supporting changes:
 - **SMMU.** The late overlay's link node gains `iommus = <&apps_smmu 0xe0 0>`
-  and `dma-coherent` for V14 and V15 only. The kernel blocks unmatched SMMU
+  and `dma-coherent` for V14 to V16 only. The kernel blocks unmatched SMMU
   streams, so UTP DMA needs the controller's own stream.
 - **Report.** The V14 report appends 16 fields: the stage rc and step, flags,
   the `fDeviceInit` poll count, sense, the last transfer status, the capacity,
@@ -272,11 +272,10 @@ including any write opcode, another LUN or the crypto bit.
 
 ### Response header (report V15)
 
-ML057 ran V14. Its TEST UNIT READY came back as a RESPONSE UPIU with OCS 0,
-response 0 and CHECK CONDITION. The stage then refused the response with
-`-EPROTO` because header byte 8 (Total EHS Length) was nonzero
-([run](../reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md)).
-Upstream `ufshcd` does not check that byte on ordinary responses.
+V15 was built on a misdecoded ML057 status. ML058 showed that the Total EHS
+Length was 0 and that the refused byte is the response field (see V16 below).
+V15's handling of an extra header is harmless, and its header word is what
+exposed the real cause.
 
 V15 (`G0Q_STORAGE_HEADER`, cumulative on V14) changes only how a response
 is read. The command set, the sequence and every other guard are unchanged.
@@ -297,6 +296,27 @@ is read. The command set, the sequence and every other guard are unchanged.
 
 V14 still builds with the earlier behavior. ML057's V14 component keeps its
 own retained stage rendering in `boot_floor.py`.
+
+### Response byte (report V16)
+
+ML057 and ML058 both stopped at TEST UNIT READY with `-EPROTO`, before any
+media command. The status word was `0x21020100`: RESPONSE UPIU, OCS 0,
+status CHECK CONDITION and response `0x01` (Target Failure). ML058's header
+word was `0x00000014`: no extra header and a 20-byte data segment, the size
+of a length field plus 18 bytes of fixed-format sense. That sense was not
+parsed ([run](../reports/S22PLUS_MAINLINE_ML058_UFS_STORAGE_HEADER_RUN_2026-11-28.md)).
+`scsi()` refuses any nonzero response byte. Upstream
+`ufshcd_transfer_rsp_status()` takes only the status of a SCSI response.
+
+V16 (`G0Q_STORAGE_RESPONSE`, cumulative on V15) accepts response `0x01`
+only together with CHECK CONDITION, and sets the sticky flag
+`TARGET_FAILURE`. The sense is parsed as before, so a UNIT ATTENTION takes
+the one TEST UNIT READY repeat. A GOOD status with a nonzero response, or
+any other response value, is still refused with `-EPROTO`. The report keeps
+V15's 55 fields and envelope. Its tag is `0xf0100000`: tags through V15 are
+`version << 28`, and later ones keep `0xf` and carry the excess in bits
+20–27, clear of the site (bits 0–15) and the certificate (bit 16). V16 adds
+no stage source change, so it shares V15's stage rendering.
 
 The persistence check by rooted Android belongs to phase 2c, after the one
 write of phase 2b. Phase 2b needs its own closed raw-block exception.

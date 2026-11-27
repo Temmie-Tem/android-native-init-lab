@@ -183,8 +183,19 @@ static int scsi(struct utp *u, const u8 *cdb, unsigned int length, u32 bytes)
 	type = ring(u, until);
 	if (type < 0)
 		return type;
+#ifdef G0Q_STORAGE_RESPONSE
+	/* V16: a CHECK CONDITION may carry response Target Failure (0x01), as the
+	 * device does for the first TEST UNIT READY after reset; upstream ufshcd
+	 * takes only the status of a SCSI response. GOOD still needs response 0. */
+	if (type != T_RESPONSE ||
+	    (u->ucd[UPIU + 6] && (u->ucd[UPIU + 6] != 0x01 || u->ucd[UPIU + 7] != 0x02)))
+		return -EPROTO;
+	if (u->ucd[UPIU + 6])
+		u->out->flags |= G0Q_SF_TARGET_FAILURE;
+#else
 	if (type != T_RESPONSE || u->ucd[UPIU + 6])
 		return -EPROTO;
+#endif
 	if (u->ucd[UPIU + 7] == 0x02) {   /* CHECK CONDITION: fixed or descriptor sense */
 		const u8 *sense = u->ucd + UPIU + 34;
 		u16 segment, length;

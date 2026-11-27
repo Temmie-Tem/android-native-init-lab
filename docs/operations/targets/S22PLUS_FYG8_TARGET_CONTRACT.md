@@ -416,7 +416,7 @@ the V13 module, instead of 300 seconds. Every other route-composition
 condition, limit and requirement above is unchanged.
 This target also adopts the common read-only storage stage (phase 2a) of that
 witness-floor variant, for an exact floor capability with module report version
-14 or 15. After the completed link, the module reads the device's capacity, the
+14, 15 or 16. After the completed link, the module reads the device's capacity, the
 primary GPT and the one test block at LBA 62,305,152 through its own fixed
 UTP commands. It writes nothing. Every other witness-floor condition, limit
 and requirement above is unchanged.

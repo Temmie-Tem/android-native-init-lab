@@ -92,7 +92,7 @@ def component_floor(record, kernel):
         return False
     stage, authority = stage_source(), authority_source()
     version = record.get("report_version")
-    expected = {13: V13_STAGE_RENDERING, 14: V14_STAGE_RENDERING, 15: digest(stage)}.get(version) if type(version) is int else None
+    expected = {13: V13_STAGE_RENDERING, 14: V14_STAGE_RENDERING, 15: digest(stage), 16: digest(stage)}.get(version) if type(version) is int else None
     _require(keys == fields and type(record[FIELD]) is int and record[FIELD] == FLOOR_MS and
              expected is not None and record[STAGE_FIELD] == expected and
              record[AUTHORITY_FIELD] == digest(authority),

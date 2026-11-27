@@ -331,7 +331,7 @@ class BootFloorTests(unittest.TestCase):
         bad += [dict(record, **{field: '0' * 64}) for field in (boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
         bad += [{k: v for k, v in record.items() if k != drop}
                 for drop in (boot_floor.FIELD, boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
-        bad += [dict(record, report_version=v) for v in (12, 13, 14, 16, 15.0, None)]
+        bad += [dict(record, report_version=v) for v in (12, 13, 14, 17, 15.0, None)]
         for value in bad:
             with self.subTest(record=value), self.assertRaisesRegex(ValueError, 'boot floor record differs'):
                 boot_floor.component_floor(value, kernel)
@@ -369,6 +369,19 @@ class BootFloorTests(unittest.TestCase):
         self.assertTrue(boot_floor.component_floor(record, kernel))
         with self.assertRaisesRegex(ValueError, 'boot floor record differs'):
             boot_floor.component_floor(dict(record, report_version=15), kernel)
+
+    @unittest.skipUnless(Path('/home/temmie/dev/android-native-init-lab/workspace/private/outputs/'
+                              's22plus-ufs-route-h0-20261127-1/component-storage-v15/component-result.json').exists(),
+                         'retained v73 storage component not present')
+    def test_the_retained_v15_component_verifies_and_v16_shares_its_rendering(self):
+        import json
+        base = Path('/home/temmie/dev/android-native-init-lab/workspace/private/outputs/s22plus-ufs-route-h0-20261127-1')
+        record = json.loads((base/'component-storage-v15/component-result.json').read_bytes())
+        kernel = json.loads((base/'transport-build-floor/guard-result.json').read_bytes())
+        self.assertEqual(record['report_version'], 15)
+        self.assertTrue(boot_floor.component_floor(record, kernel))
+        # V16 changes no stage source: the same rendering selects both.
+        self.assertTrue(boot_floor.component_floor(dict(record, report_version=16), kernel))
 
     def test_a_changed_transport_record_is_refused(self):
         record, kernel = self.build_dirs()

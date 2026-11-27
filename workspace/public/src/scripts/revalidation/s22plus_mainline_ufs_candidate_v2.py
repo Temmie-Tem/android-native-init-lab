@@ -108,10 +108,10 @@ def fixed_binding(cap):
     route = cap.get('scope') == tasks.ROUTE_CAPABILITY_SCOPE
     floor=FLOOR_FIXED_FIELD in fixed
     require(set(fixed)==FIXED_FIELDS|({ROUTE_FIXED_FIELD} if route else set())|({FLOOR_FIXED_FIELD} if floor else set()) and
-            (not route or (route_scope(fixed) and fixed['report_version'] in (13,14,15))) and
+            (not route or (route_scope(fixed) and fixed['report_version'] in (13,14,15,16))) and
             (not floor or (route and witness_floor(fixed))) and
-            # V14/V15 (read-only storage stage) exist only on the floor route kernel and module.
-            (fixed['report_version'] not in (14,15) or (route and floor)) and
+            # V14-V16 (read-only storage stage) exist only on the floor route kernel and module.
+            (fixed['report_version'] not in (14,15,16) or (route and floor)) and
             type(fixed['report_version']) is int and
             4 <= fixed['report_version'] <= _report_modes().LATEST, 'v2 fixed capability fields or report mode')
     kernel=checked(fixed['kernel']);component=checked(fixed['component'])

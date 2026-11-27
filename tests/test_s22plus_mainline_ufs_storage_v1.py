@@ -297,6 +297,8 @@ class StorageStageTest(unittest.TestCase):
 class StorageHeaderStageTest(unittest.TestCase):
     """V15: the same stage with the response-header word and an unparsed-sense repeat."""
     UNPARSED, REPEAT = 1 << 13, 1 << 14
+    DEFINES = ('-DG0Q_STORAGE_HEADER',)
+    DECODE = dict(header=True)
 
     @classmethod
     def setUpClass(cls):
@@ -312,7 +314,7 @@ class StorageHeaderStageTest(unittest.TestCase):
         (out / 'gpt.h').write_text(f'#define G0Q_GPT_SHA256 {c_digest(gpt())}\n')
         cls.exe = out / 'fixture-v15'
         subprocess.run(['cc', '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function',
-                        '-DG0Q_STORAGE_HEADER', '-include', str(out / 'gpt.h'), '-I', str(out), '-I', str(SOURCE),
+                        *cls.DEFINES, '-include', str(out / 'gpt.h'), '-I', str(out), '-I', str(SOURCE),
                         str(ROOT / 'tests/s22plus_ufs_storage_fixture.c'), '-o', str(cls.exe)], check=True)
 
     @classmethod
@@ -330,7 +332,7 @@ class StorageHeaderStageTest(unittest.TestCase):
     def decode(self, values):
         word = int.from_bytes(hashlib.sha256(gpt()).digest()[:4], 'big')
         with mock.patch.object(wire, 'STORAGE_GPT_WORD', word):
-            return wire.storage_read([0] * 38 + values, link_completed=True, header=True)['storage']
+            return wire.storage_read([0] * 38 + values, link_completed=True, **self.DECODE)['storage']
 
     def test_parsed_unit_attention_is_repeated_and_the_header_word_reported(self):
         values, trace = self.run_case('ok')
@@ -453,9 +455,90 @@ class StorageHeaderStageTest(unittest.TestCase):
 
     def test_v15_envelope_and_fields(self):
         self.assertEqual(report_modes.FIELDS[15], 55)
-        self.assertEqual(report_modes.LATEST, 15)
+        self.assertGreaterEqual(report_modes.LATEST, 15)
         self.assertEqual(wire.result_size(15), wire.result_size(14))
         self.assertEqual(report_modes.defines(15)[-2:], ['G0Q_STORAGE_READ', 'G0Q_STORAGE_HEADER'])
+
+
+class StorageResponseStageTest(StorageHeaderStageTest):
+    """V16: V15 plus response Target Failure accepted only with CHECK CONDITION."""
+    DEFINES = ('-DG0Q_STORAGE_HEADER', '-DG0Q_STORAGE_RESPONSE')
+    DECODE = dict(target_failure=True)
+    TF = 1 << 15
+
+    def test_target_failure_check_condition_is_parsed_and_repeated(self):
+        # ML058's device answer: CHECK CONDITION, response 0x01, 18-byte UNIT ATTENTION sense.
+        values, trace = self.run_case('target-failure')
+        self.assertEqual((values[0], values[1], trace.count('TUR')), (0, 10, 2))
+        self.assertEqual(values[2], DONE_FLAGS | 1 << 4 | 1 << 11 | self.REPEAT | self.TF)
+        facts = self.decode(values)
+        self.assertTrue(facts['completed'] and facts['gpt_match'] and facts['range_ok'])
+        self.assertEqual(facts['sense'], dict(key=6, asc=0x29, ascq=0))
+        self.assertIn('TARGET_FAILURE', facts['flags'])
+        self.assertIn('READ 62305152+1', trace)
+
+    def test_a_second_target_failure_check_condition_stops(self):
+        values, trace = self.run_case('target-failure-twice')
+        self.assertEqual((values[0], values[1], values[5], trace.count('TUR')),
+                         (-11, STEP['TUR'], 0x21020100, 2))
+        self.assertNotIn('CAPACITY', trace)
+        self.decode(values)
+
+    def test_target_failure_with_good_status_is_refused(self):
+        values, trace = self.run_case('target-failure-good')
+        self.assertEqual((values[0], values[1], values[5]), (-71, STEP['CAPACITY'], 0x21000100))
+        self.assertFalse(values[2] & self.TF)
+        self.assertNotIn('READ 1+3', trace)
+        self.decode(values)
+
+    def test_target_failure_with_an_extra_header_is_repeated_unparsed(self):
+        values, trace = self.run_case('target-failure-ehs')
+        self.assertEqual((values[0], values[1], values[4], trace.count('TUR')), (0, 10, 0, 2))
+        self.assertEqual(values[2], DONE_FLAGS | 1 << 11 | self.UNPARSED | self.REPEAT | self.TF)
+
+    def test_an_unanswered_repeat_after_target_failure_is_uncertain(self):
+        values, trace = self.run_case('target-failure-timeout')
+        self.assertEqual((values[0], values[1], values[5], trace.count('TUR')), (-110, STEP['TUR'], 0x21020100, 2))
+        self.assertTrue(values[2] & 1 << 12 and values[2] & self.TF)
+
+    def test_another_response_value_is_refused(self):
+        values, trace = self.run_case('response-two')
+        self.assertEqual((values[0], values[1], values[5], trace.count('TUR')), (-71, STEP['TUR'], 0x21020200, 1))
+        self.assertFalse(values[2] & self.TF)
+
+    def test_every_target_failure_scenario_decodes(self):
+        for case in ('target-failure', 'target-failure-twice', 'target-failure-good', 'target-failure-ehs',
+                     'target-failure-timeout', 'response-two'):
+            with self.subTest(case=case):
+                self.decode(self.run_case(case)[0])
+
+    def test_decoder_binds_the_target_failure_flag(self):
+        ok, _ = self.run_case('target-failure')
+        stop, _ = self.run_case('target-failure-twice')
+        good, _ = self.run_case('target-failure-good')
+        for values, message in (
+                ([0, 10, DONE_FLAGS | 1 << 11 | self.TF] + ok[3:4] + [0] + ok[5:], 'target failure without a CHECK CONDITION'),
+                (stop[:2] + [stop[2] & ~self.TF] + stop[3:], 'target failure stop without its flag'),
+                (good[:5] + [0x21000000] + good[6:], 'protocol refusal of a well-formed reply'),
+                # Round 1: the flag follows the visible response; a pinned GPT match passes its range.
+                ([-11, STEP['TUR'], 0b1111 | self.TF, 1, 2 << 16 | 0x0400, 0x21020000, 0, 0] + [0] * 8 + [20],
+                 'target failure flag disagrees with the stop'),
+                ([-110, STEP['TUR'], 0b1111 | 1 << 4 | 1 << 12 | self.REPEAT | self.TF, 1, 6 << 16, 0x21020000, 0, 0]
+                 + [0] * 8 + [20], 'target failure flag disagrees with the repeat sample'),
+                ([-6, STEP['GPT'], 0b1111111 | 1 << 4 | 1 << 7 | 1 << 8 | self.REPEAT, 1, 6 << 16 | 0x2900,
+                  0x21000000, LAST_LBA, int.from_bytes(hashlib.sha256(gpt()).digest()[:4], 'big')] + [0] * 8 + [0],
+                 'pinned GPT match without its range')):
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                self.decode(values)
+        with self.assertRaisesRegex(ValueError, 'storage field range'):
+            wire.storage_read([0] * 38 + ok, link_completed=True, header=True)   # V16 flag in a V15 report
+
+    def test_v16_envelope_and_fields(self):
+        self.assertEqual(report_modes.FIELDS[16], 55)
+        self.assertEqual(report_modes.LATEST, 16)
+        self.assertEqual(wire.result_size(16), wire.result_size(15))
+        self.assertEqual(report_modes.defines(16)[-3:], ['G0Q_STORAGE_READ', 'G0Q_STORAGE_HEADER', 'G0Q_STORAGE_RESPONSE'])
+        self.assertEqual([report_modes.tag(v) for v in (4, 15, 16)], [0x40000000, 0xf0000000, 0xf0100000])
 
 
 if __name__ == '__main__':
