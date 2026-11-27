@@ -86,6 +86,13 @@ def _report_modes():
     return report_modes
 
 
+def _boot_floor():
+    """The witness-floor module and kernel renderings beside the module sources."""
+    _report_modes()
+    import boot_floor
+    return boot_floor
+
+
 def route_scope(fixed):
     return fixed.get(ROUTE_FIXED_FIELD) is True
 
@@ -111,6 +118,7 @@ def fixed_binding(cap):
             component['physical_admitted'] is False and component['device_actions']==0 and
             component['selected_kernel']==kernel['sha256'] and
             component['transport']==kernel['transport_sha256'], 'v2 fixed module/kernel mismatch')
+    require(_boot_floor().component_floor(component, kernel) is floor, 'v2 module/kernel boot floor differs from the witness floor')
     artifact_pin(kernel['image'],kernel['sha256'],kernel['file_size'])
     artifact_pin(component['module_path'],component['module_sha256'])
     for key in ('dtb','config','network','original_boot'):

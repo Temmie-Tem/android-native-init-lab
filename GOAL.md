@@ -222,8 +222,10 @@ took 230 s instead of ML054's 424 s. The fixed V13 module, however, has
 its own 300-second boot-time floor and refused before any effect
 (`load_errno` 110).
 [ML055 run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md).
-Lowering the module's check needs a module change and the operator's
-approval.
+The transport kernel's RPMh authority has the same 300-second floor. The
+operator approved a floor kernel and module, rebuilt from renderings whose
+only changes are those two floors, set to 60 seconds. They are on review
+before adoption.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 

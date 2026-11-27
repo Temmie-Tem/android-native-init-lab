@@ -177,13 +177,43 @@ The field is allowed only in the route scope and only with that exact value.
   host waits 60 seconds minus that BOOTTIME, plus a 2-second margin, and at
   least 1 second. It then re-derives the witness and requires a BOOTTIME of at
   least 60 seconds, later than the first.
+- **Module and kernel.** Two fixed artifacts refuse to run below 300 seconds of
+  boot time: the V13 module's `start()` (`g0q_stage.c`) and the transport
+  kernel's `g0q_rpmh_begin()` (`transport/authority.inc.c`, built into
+  `rpmh.c`). ML055 ran the first floor capability with both. The witness
+  passed at 62.8 seconds, and the module refused before any effect
+  ([run](../reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md)). A
+  search of every module, transport and patched kernel source for an
+  absolute boot-time bound found only these two; the other kernel checks are
+  relative deadlines.
+  The operator then approved a floor kernel and module. `boot_floor.py`
+  renders both sha-pinned sources with that one comparison set to 60 seconds
+  and nothing else changed:
+  - the kernel is rebuilt from the route composition's kernel source and
+    configuration, with the rendered authority substituted into the prepared
+    `rpmh.c`;
+  - the module is rebuilt from the rendered `g0q_stage.c` against that kernel.
+
+  The module record carries `boot_floor_ms = 60000` and both rendered source
+  digests. The candidate validator and the observer builder admit a floor
+  capability only with that module, and an unfloored capability only with an
+  unfloored module. For a floor record they also check the recorded build
+  directories: the module directory's `g0q_stage.c` must be the rendering,
+  and the kernel's transport record must pin a prepared `rpmh.c` that carries
+  the rendered authority and not the adopted one. The step from those sources
+  to the binaries rests on the H0 build records and the owner review, as for
+  every earlier kernel and module. `boot_floor.py` and `authority.inc.c` are
+  pinned in every V2 capability's source set.
 - **Older records.** Capabilities and images without the field keep the
-  300-second witness byte for byte. These include ML054's capability.
+  300-second witness, the route kernel and the V13 module byte for byte.
+  These include ML054's capability. ML055's capability-3, which paired the
+  floor with the V13 kernel and module, no longer admits.
 
 With the field, the closure records `same_boot_witness` and
 `witness_floor_ms = 60000`, and omits `five_minute_same_boot`. The host wire
-parser applies the same floor when it checks the witness and builds the permit. All other parts
-of this composition are unchanged, as listed under [Unchanged](#unchanged).
+parser applies the same floor when it checks the witness and builds the
+permit. All other parts of this composition are unchanged, as listed under
+[Unchanged](#unchanged).
 
 ## Evidence and claims
 

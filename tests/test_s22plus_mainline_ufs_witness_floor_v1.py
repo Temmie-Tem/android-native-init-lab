@@ -17,6 +17,7 @@ import link_initramfs as builder
 import s22plus_mainline_task_v1 as task
 import s22plus_mainline_ufs_candidate_v2 as candidate
 import s22plus_mainline_ufs_image_v1 as image
+import boot_floor
 
 BEGIN = '/* ---- rendered dwell.h ---- */\n'
 END = '/* ---- end of rendered dwell.h ---- */\n'
@@ -263,6 +264,117 @@ class WireFloorTests(unittest.TestCase):
             with self.subTest(floor=floor), self.assertRaisesRegex(ValueError, 'late witness floor'):
                 self.signed(62000, floor)
 
+
+class BootFloorTests(unittest.TestCase):
+    """The floor module and kernel differ from the adopted V13 sources only in their boot-time floors."""
+
+    def changed(self, original, rendered):
+        return [line for line in difflib.unified_diff(original.splitlines(), rendered.splitlines(), lineterm='', n=0)
+                if line[:1] in '+-' and not line.startswith(('+++', '---'))]
+
+    def test_rendered_module_changes_only_the_boot_floor(self):
+        self.assertEqual(self.changed(boot_floor.STAGE.read_text(), boot_floor.stage_source()), [
+            '-\tif (now < 300ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)',
+            '+\tif (now < 60ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)'])
+        self.assertEqual(boot_floor.FLOOR_MS, builder.WITNESS_FLOOR_MS)
+
+    def test_rendered_authority_changes_only_the_boot_floor(self):
+        self.assertEqual(self.changed(boot_floor.AUTHORITY.read_text(), boot_floor.authority_source()), [
+            '-\t    now < 300ULL * NSEC_PER_SEC || now >= deadline ||',
+            '+\t    now < 60ULL * NSEC_PER_SEC || now >= deadline ||'])
+
+    def test_kernel_rpmh_substitution_needs_the_adopted_authority_once(self):
+        adopted = boot_floor.AUTHORITY.read_text()
+        built = 'prefix\n' + adopted + 'suffix\n'
+        self.assertEqual(boot_floor.kernel_rpmh_source(built), 'prefix\n' + boot_floor.authority_source() + 'suffix\n')
+        for bad in ('prefix\n', built + adopted, built.replace('300ULL', '30ULL')):
+            with self.subTest(size=len(bad)), self.assertRaisesRegex(ValueError, 'lacks the adopted transport authority'):
+                boot_floor.kernel_rpmh_source(bad)
+
+    def build_dirs(self, *, floor_kernel=True, floor_stage=True, record_floor=True):
+        """A kernel transport record and module directory on disk, as the floor builds lay them out."""
+        import hashlib, json
+        root = Path(self.enterContext(tempfile.TemporaryDirectory(dir=ROOT/'workspace/private/tmp')))
+        tree = root/'transport-build'
+        image = tree/'kernel-build/arch/arm64/boot/Image'
+        image.parent.mkdir(parents=True)
+        image.write_bytes(b'image')
+        rpmh = tree/'kernel-source'/boot_floor.RPMH
+        rpmh.parent.mkdir(parents=True)
+        adopted = boot_floor.AUTHORITY.read_text()
+        built = 'prefix\n' + adopted
+        rpmh.write_text(boot_floor.kernel_rpmh_source(built) if floor_kernel else built)
+        transport = dict(kernel=str(tree/'kernel-source'),
+                         files={boot_floor.RPMH: hashlib.sha256(rpmh.read_bytes()).hexdigest()})
+        if floor_kernel:
+            transport['boot_floor'] = dict(authority_source_sha256=boot_floor.digest(boot_floor.authority_source()))
+        (tree/'transport.json').write_text(json.dumps(transport))
+        kernel = dict(image=str(image), transport_sha256=hashlib.sha256((tree/'transport.json').read_bytes()).hexdigest())
+        module = root/'component/module/g0q_ml030.ko'
+        module.parent.mkdir(parents=True)
+        (module.parent/'g0q_stage.c').write_text(boot_floor.stage_source() if floor_stage else boot_floor.STAGE.read_text())
+        record = dict(module_path=str(module))
+        if record_floor:
+            record.update({boot_floor.FIELD: 60000,
+                           boot_floor.STAGE_FIELD: boot_floor.digest(boot_floor.stage_source()),
+                           boot_floor.AUTHORITY_FIELD: boot_floor.digest(boot_floor.authority_source())})
+        return record, kernel
+
+    def test_component_floor_accepts_exact_floor_and_unfloored_builds(self):
+        self.assertTrue(boot_floor.component_floor(*self.build_dirs()))
+        self.assertFalse(boot_floor.component_floor(*self.build_dirs(floor_kernel=False, floor_stage=False,
+                                                                     record_floor=False)))
+
+    def test_component_floor_record_fields_are_exact(self):
+        record, kernel = self.build_dirs()
+        bad = [dict(record, **{boot_floor.FIELD: v}) for v in (60000.0, True, 300000)]
+        bad += [dict(record, **{field: '0' * 64}) for field in (boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
+        bad += [{k: v for k, v in record.items() if k != drop}
+                for drop in (boot_floor.FIELD, boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
+        for value in bad:
+            with self.subTest(record=value), self.assertRaisesRegex(ValueError, 'boot floor record differs'):
+                boot_floor.component_floor(value, kernel)
+
+    def test_floor_fields_cannot_describe_unfloored_builds(self):
+        # The review probe: exact floor fields over the 300 s kernel or module build.
+        cases = ((dict(floor_stage=False), 'not built from the rendered source'),
+                 (dict(floor_kernel=False), 'kernel without the floor'),
+                 (dict(floor_kernel=False, floor_stage=False), 'not built from the rendered source'))
+        for options, message in cases:
+            with self.subTest(options=options), self.assertRaisesRegex(ValueError, message):
+                boot_floor.component_floor(*self.build_dirs(**options))
+        with self.assertRaisesRegex(ValueError, 'unfloored module paired with a floor kernel'):
+            boot_floor.component_floor(*self.build_dirs(floor_stage=False, record_floor=False))
+
+    def test_a_changed_transport_record_is_refused(self):
+        record, kernel = self.build_dirs()
+        with self.assertRaisesRegex(ValueError, 'kernel transport record differs'):
+            boot_floor.component_floor(record, dict(kernel, transport_sha256='0' * 64))
+
+    def test_fixed_binding_pairs_the_module_floor_with_the_witness_floor(self):
+        for floor in (True, False):
+            for paired in (True, False):
+                record, kernel = self.build_dirs(floor_kernel=paired, floor_stage=paired, record_floor=paired)
+                fixed = {name: None for name in candidate.FIXED_FIELDS}
+                fixed.update(report_version=13, usb_route=True, kernel='k', component='c')
+                if floor:
+                    fixed['witness_floor_ms'] = 60000
+                kernel.update(sha256='a' * 64, file_size=1)
+                component = dict(record, status='BUILT_H0_COLD_LINK_COMPONENT', pre_effect_return=True,
+                                 report_version=13, physical_admitted=False, device_actions=0,
+                                 selected_kernel='a' * 64, transport=kernel['transport_sha256'], module_sha256='c' * 64)
+                with self.subTest(floor=floor, paired=paired), \
+                        mock.patch.object(candidate, 'checked', side_effect=[kernel, component]), \
+                        mock.patch.object(candidate, 'artifact_pin', side_effect=ValueError('past the module floor')), \
+                        self.assertRaises(ValueError) as caught:
+                    candidate.fixed_binding(dict(scope=task.ROUTE_CAPABILITY_SCOPE, fixed=fixed))
+                expected = 'past the module floor' if floor == paired else 'module/kernel boot floor differs'
+                self.assertIn(expected, str(caught.exception))
+
+    def test_v2_sources_pin_the_pairing_code(self):
+        # Shared V2 admission calls the pairing check, so every V2 scope pins it.
+        self.assertIn('workspace/public/src/mainline/s22plus_ufs_link_h0/boot_floor.py', task.V2_BUILD)
+        self.assertIn('workspace/public/src/mainline/s22plus_ufs_link_h0/transport/authority.inc.c', task.V2_BUILD)
 
 if __name__ == '__main__':
     unittest.main()

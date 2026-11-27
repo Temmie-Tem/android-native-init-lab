@@ -208,6 +208,9 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=Fals
     version = record.get('report_version', 3)
     require(record.get('pre_effect_return', False) is pre_effect_return and
             (not pre_effect_return or 4 <= version <= report_modes.LATEST), 'module/observer return mode differs')
+    import boot_floor
+    require(boot_floor.component_floor(record, kernel) is witness_floor,
+            "module/kernel boot floor must match the witness floor")
     selected = report_modes.modes(version if pre_effect_return else 3)
     hci_snapshot, hce_handoff = selected['hci_snapshot'], selected['hce_handoff']
     mod = Path(record["module_path"])

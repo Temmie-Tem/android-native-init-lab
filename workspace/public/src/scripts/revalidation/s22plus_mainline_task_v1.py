@@ -114,7 +114,7 @@ ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
 ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
 ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
 ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v14_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v15_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -125,7 +125,9 @@ V2_RETIRED = {
 V2_BUILD = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
     ('build_evidence.py', 'build_module.py', 'cold_phy_tables.py', 'late_overlay.py', 'late_rails.py',
      'link_initramfs.py', 'report_modes.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'recovery.h', 'g0q_stage.c',
-     'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h', 'reset-pin.h')) + tuple(
+     'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h', 'reset-pin.h',
+     # The witness-floor pairing decision (shared V2 admission) and its rendered kernel input.
+     'boot_floor.py', 'transport/authority.inc.c')) + tuple(
     'workspace/public/src/mainline/s22plus_canary_h0/'+name for name in
     ('init.c', 'protocol.h', 'download-return.h', 'build_loader.py', 'package_loader.py',
      'qualify_loader.py', 'loader_entry_vm.py', 'uniloader-g0q-entry.patch', 'sources.json')) + (

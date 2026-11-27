@@ -194,21 +194,23 @@ checked again before the mailbox start strobe. It changes nothing in this
 scope.
 The v70 set adds the opt-in 60-second witness floor of the UFS route
 composition. It changes nothing in this scope.
+The v71 set adds the witness-floor kernel and module boot floors of the UFS
+route composition. It changes nothing in this scope.
 The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v70_review.json`
-- `s22plus_loader_android_timing_v3_cue_v14_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v15_review.json`
-- `s22plus_mainline_max77705_usb_v13_review.json`
-- `s22plus_mainline_max77705_route_v11_review.json`
-- `s22plus_mainline_max77705_route_timer_v10_review.json`
+- `s22plus_approved_terminal_persistent_v71_review.json`
+- `s22plus_loader_android_timing_v3_cue_v15_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v16_review.json`
+- `s22plus_mainline_max77705_usb_v14_review.json`
+- `s22plus_mainline_max77705_route_v12_review.json`
+- `s22plus_mainline_max77705_route_timer_v11_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:
 - the scope;
 - all six `PASS_GO` records;
 - the task selectors;
-- the gateway selector pin for the approved v70 receipt.
+- the gateway selector pin for the approved v71 receipt.
 
 Keep the published receipts and task evidence. Then follow the
 [shared cutover procedure](../reports/S22PLUS_MAINLINE_ORDINARY_CUE_H0_2026-11-22.md#integration-hold-and-atomic-adoption),

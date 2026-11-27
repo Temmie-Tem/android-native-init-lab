@@ -53,7 +53,7 @@ def unchanged(receipt,maximum=128*1024*1024):
 SCM_POLICY = 'docs/operations/S22PLUS_MAINLINE_SCM_USB_V1.md'
 SCM_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_usb_v1_review.json'
 SCM_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_V1'
-SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v15_review.json'
+SCM_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_scm_ordinary_cue_v16_review.json'
 SCM_CUE_SCOPE = 'S22PLUS_ONE_ATTENDED_SCM_USB_WITH_ORDINARY_CUE_V1'
 SCM_CUE_ADOPTION = b'Ordinary cue status: **REVIEW_GATED_CAPABILITY**'
 SCM_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_scm_v1.py'
@@ -67,7 +67,7 @@ def scm_board(image):
 
 
 MX_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_USB_V1.md'
-MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v13_review.json'
+MX_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_usb_v14_review.json'
 MX_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_USB_V1'
 MX_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_v1.py'
 MX_SCHEMA = 's22plus-mainline-max77705-image-v1'
@@ -81,7 +81,7 @@ def max77705_board(image):
 
 # Stage 2: the same observation plus one gated CONTROL1_W(COM_USB).
 MXR_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_V1.md'
-MXR_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_v11_review.json'
+MXR_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_v12_review.json'
 MXR_SCOPE = 'S22PLUS_ONE_ATTENDED_MAX77705_ROUTE_V1'
 MXR_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_route_v1.py'
 MXR_SCHEMA = 's22plus-mainline-max77705-route-image-v1'
@@ -96,7 +96,7 @@ def max77705_route_board(image):
 # Hands-off cycle unit: the same route observer with the ML050 timer child.
 # No cue exists for it; return is the child's single 555 s Download attempt.
 MXT_POLICY = 'docs/operations/S22PLUS_MAINLINE_MAX77705_ROUTE_TIMER_V1.md'
-MXT_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_timer_v10_review.json'
+MXT_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_mainline_max77705_route_timer_v11_review.json'
 MXT_SCOPE = 'S22PLUS_ONE_ATTENDED_NO_TOUCH_MAX77705_ROUTE_TIMER_V1'
 MXT_MODULE = 'workspace/public/src/scripts/revalidation/s22plus_mainline_max77705_route_timer_v1.py'
 MXT_SCHEMA = 's22plus-mainline-max77705-route-timer-image-v1'

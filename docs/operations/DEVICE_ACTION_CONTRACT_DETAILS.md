@@ -745,13 +745,26 @@ permission to perform host-only work.
    BOOTTIME of at least 60 seconds and later than the first. All other
    same-boot identity checks of the ML030 witness remain. The first-response
    window is 120 seconds, the ceilings remain 540 seconds and the module budget
-   remains 15 seconds. There is one link attempt, and the module, timer child,
+   remains 15 seconds. There is one link attempt, and the timer child,
    original-owner return, single original A, recovery and no-replay rules are
-   unchanged. Evidence from this variant records a same-boot witness at the
+   unchanged. The fixed V13 module and the transport kernel's RPMh authority
+   each refuse to start below 300 seconds of boot time. After ML055 showed the
+   module refusal, the operator adopted, also on 2026-11-27, a kernel and
+   module for this variant only. The kernel is a rebuild of the route
+   composition's kernel from the same source and configuration, except that
+   the reviewed rendering of the transport authority refuses below 60
+   seconds instead of 300. The module is the V13 module rebuilt against that
+   kernel from the reviewed rendering of its source, which likewise differs
+   only in refusing below 60 seconds. Their 540-second refusals, 15-second
+   budgets, late-hardware predicates, single link attempt and report are
+   those of V13. The module record must carry `boot_floor_ms = 60000` and
+   both rendered source digests. A floor capability admits only that module,
+   and a capability without the floor admits only a module without it.
+   Evidence from this variant records a same-boot witness at the
    60-second floor, never a five-minute witness. Capabilities and images
-   without the field keep the 300-second witness byte for byte. It grants no
-   added hardware, storage or general effect and no unattended, retry or
-   replay capability.
+   without the field keep the 300-second witness, kernel and V13 module byte
+   for byte. It grants no added hardware, storage or general effect and no
+   unattended, retry or replay capability.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:
