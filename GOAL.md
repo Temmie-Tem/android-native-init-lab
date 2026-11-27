@@ -224,8 +224,11 @@ its own 300-second boot-time floor and refused before any effect
 [ML055 run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md).
 The transport kernel's RPMh authority has the same 300-second floor. The
 operator approved a floor kernel and module, rebuilt from renderings whose
-only changes are those two floors, set to 60 seconds. They are on review
-before adoption.
+only changes are those two floors, set to 60 seconds. They were adopted in
+v71 (`276462cd0c`). In the disassembly, each binary changes only the
+immediate `300e9−1` → `60e9−1`. Capability-4 and its candidate passed owner
+review. The ML056 task `f3471114…` is prepared and needs the operator's
+returned approval.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
