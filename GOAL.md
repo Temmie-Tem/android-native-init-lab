@@ -239,7 +239,12 @@ in phases. Phase 2a (read-only, report V14) was adopted in v72
 (`b6e0d3bc59`) after 12 rounds of Codex review. It runs a fixed polled UTP
 sequence on LU 0 after the link: NOP OUT, fDeviceInit, TEST UNIT READY,
 READ CAPACITY(16), and reads of the GPT (LBAs 1–3) and the test block. It
-issues no write opcode. Capability-5 and ML057 are being prepared.
+issues no write opcode. **ML057 closed `PASS_MAINLINE_UFS_LINK` /
+`ANDROID_CLOSED_HEALTHY`.** The link repeated ML056's. The storage stage
+stopped safely at TEST UNIT READY: the device answered CHECK CONDITION, and the
+stage refused the response on its extra-header (EHS) guard before any media
+read.
+[ML057 run](docs/reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
@@ -262,9 +267,10 @@ issues no write opcode. Capability-5 and ML057 are being prepared.
 | ML054 | v13 + route | **link completed**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML054_UFS_ROUTE_RUN_2026-11-27.md) |
 | ML055 | v13 + route + 60 s floor | witness at 62.8 s; module refused (own 300 s floor, `ETIMEDOUT`), pre-effect | [run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md) |
 | ML056 | floor kernel/module + route + 60 s floor | **link completed at 62.4 s**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML056_UFS_BOOT_FLOOR_RUN_2026-11-27.md) |
+| ML057 | V14 storage module + floor kernel + route + 60 s floor | link = ML056; storage stopped at TUR (CHECK CONDITION refused on EHS guard, `-EPROTO`), no media read | [run](docs/reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md) |
 
 All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
-ML054 and ML056 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
+ML054, ML056 and ML057 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
 capability record and per-version scope are in
 [the V2 capability](docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md).
 
