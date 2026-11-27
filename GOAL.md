@@ -227,8 +227,13 @@ operator approved a floor kernel and module, rebuilt from renderings whose
 only changes are those two floors, set to 60 seconds. They were adopted in
 v71 (`276462cd0c`). In the disassembly, each binary changes only the
 immediate `300e9−1` → `60e9−1`. Capability-4 and its candidate passed owner
-review. The ML056 task `f3471114…` is prepared and needs the operator's
-returned approval.
+review. **ML056 closed `PASS_MAINLINE_UFS_LINK` /
+`ANDROID_CLOSED_HEALTHY`.** The module ran at 62.4 s of guest uptime, and
+the link result matched ML054's in every field (result 0, HCS `0xf`). The
+session took 202 s.
+[ML056 run](docs/reports/S22PLUS_MAINLINE_ML056_UFS_BOOT_FLOOR_RUN_2026-11-27.md).
+Step 1 is done. Step 2, read/write and persistence, needs a new design and
+the operator's approval.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
@@ -250,9 +255,10 @@ returned approval.
 | ML051, ML052 | v13 | no USB first response in the window; module not reached | [ML051](docs/reports/S22PLUS_MAINLINE_ML051_V13_RUN_2026-11-19.md), [ML052](docs/reports/S22PLUS_MAINLINE_ML052_V13_RUN_2026-11-19.md) |
 | ML054 | v13 + route | **link completed**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML054_UFS_ROUTE_RUN_2026-11-27.md) |
 | ML055 | v13 + route + 60 s floor | witness at 62.8 s; module refused (own 300 s floor, `ETIMEDOUT`), pre-effect | [run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md) |
+| ML056 | floor kernel/module + route + 60 s floor | **link completed at 62.4 s**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML056_UFS_BOOT_FLOOR_RUN_2026-11-27.md) |
 
 All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
-ML054 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
+ML054 and ML056 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
 capability record and per-version scope are in
 [the V2 capability](docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md).
 
