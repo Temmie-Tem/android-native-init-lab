@@ -180,7 +180,7 @@ def rederive_link(adapter,request):
     require(access.endpoint(raw.load_handle(folder/'usb-before-permit.capture.json'),manifest)==read(verify(base['endpoint'])),
             'ML030 dispatch endpoint changed')
     key,identity,_,_,_=wire_identity(manifest,base)
-    data=bytes_for(folder,'link',wire.RESULT_SIZE)
+    data=bytes_for(folder,'link',wire.result_size(report_version_for(request['N'])))
     facts=wire.result(data,bytes_for(folder,'witness',wire.HEADER.size+32),key,identity,
                       report_version=report_version_for(request['N']))
     if 'control_nonce' in facts:facts=dict(facts,control_nonce=facts['control_nonce'].hex())
@@ -283,7 +283,7 @@ def observe(adapter,request,guard,before_permit):
         checked_endpoint('before-permit',late['deadline_ns'])
         client.settimeout(min(1,(late['deadline_ns']-clock())/1e9));client.sendall(permit)
         publish(folder/'permit-sent.json',dict(intent=pin(folder/'permit-intent.json'),sent_ns=clock()))
-        result=capture_frame(client,folder,'link',wire.RESULT_SIZE,late['deadline_ns'])
+        result=capture_frame(client,folder,'link',wire.result_size(report_version_for(request['N'])),late['deadline_ns'])
         publish(folder/'link-complete.json',dict(permit=pin(folder/'permit-sent.json'),response=pin(result.receipt_path),finished_ns=clock()))
         link=rederive_link(adapter,request)
         require(wire.return_allowed(link['result']),'ML030 hardware result stops normal control')

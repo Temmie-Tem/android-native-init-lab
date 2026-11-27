@@ -1,6 +1,7 @@
 # S22+ mainline UFS read/write and persistence: design proposal (H0)
 
-Status: **proposal, not adopted**. It grants no device authority. It is step 2
+Status: **proposal, not adopted**; the operator approved the design and phase 2a
+(read-only) on 2026-11-27 ("그렇게 하자, 2a부터 진행"). It grants no device authority. It is step 2
 of the operator's UFS roadmap (shorter wait, then read/write and persistence,
 then stability, then the upstream driver). Step 1 closed with ML056: link
 startup at the 60-second floor, Device Present
@@ -106,6 +107,30 @@ the design stops for review before any write.
 
 Stability (step 3) would chain runs. Each run reads the previous run's
 pattern, writes its own new one and reads it back.
+
+## Implementation findings (2a)
+
+- **DMA through the SMMU.** The apps SMMU is enabled, and the kernel blocks
+  unmatched streams (`CONFIG_ARM_SMMU_DISABLE_BYPASS_BY_DEFAULT=y`). The late
+  overlay's link node has no `iommus`, so any UTP DMA would fault. 2a adds the
+  original controller's `iommus = <&apps_smmu 0xe0 0x0>` and `dma-coherent` to
+  that node. Linux then attaches a strict DMA domain for stream `0xe0` at
+  probe, and the module allocates its descriptors and buffer with
+  `dma_alloc_coherent`. USB already runs through the same SMMU on these boots.
+  This is a new device effect: one SMMU context for the UFS stream.
+- **Report envelope.** A V13 success report is 161 bytes of a 256-byte
+  envelope. The new report version (V14) appends the storage fields, so the
+  observer and the host use a 512-byte envelope for V14 only. Older versions
+  keep 256 bytes.
+- **SHA-256 and CRC.** The kernel exports `sha256()` and `crc32_le`
+  (`CONFIG_CRYPTO_LIB_SHA256=y`), so the module can digest the GPT and the
+  test block without new kernel code.
+- **Inline crypto (ICE).** UTRD crypto-enable stays 0, and the module touches
+  no ICE register. If the Waipio controller rejects or alters a plaintext
+  SCSI transfer while ICE is uninitialized, 2a reports an OCS error or a GPT
+  mismatch. That is the read-only phase's job to reveal.
+- **Base.** The module is the v71 floor module (60-second boot floor). The
+  storage stage runs only after a completed link with Device Present.
 
 ## Host verification and report
 

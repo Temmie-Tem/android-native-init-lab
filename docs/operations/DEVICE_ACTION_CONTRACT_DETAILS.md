@@ -765,6 +765,39 @@ permission to perform host-only work.
    without the field keep the 300-second witness, kernel and V13 module byte
    for byte. It grants no added hardware, storage or general effect and no
    unattended, retry or replay capability.
+   The operator adopted on 2026-11-27 one read-only storage stage (phase 2a)
+   for that witness-floor variant. Only an exact floor capability with module
+   report version 14 may use it. Its module is the floor module with the
+   reviewed storage source added. Its late overlay also gives the link node the
+   controller's own SMMU stream and coherency, so Linux attaches one DMA
+   domain for that stream at probe. The stage runs only after this boot's one
+   completed link with Device Present. It runs in the same module and its
+   15-second budget. It programs one transfer request slot and starts that
+   list, with polled completion, no interrupt and crypto disabled. It then
+   sends, in order, only these commands to LU 0:
+   - NOP OUT;
+   - query set flag and read flag of `fDeviceInit`;
+   - TEST UNIT READY, repeated once only after a UNIT ATTENTION;
+   - READ CAPACITY(16);
+   - READ(10) of LBAs 1–3 (the primary GPT);
+   - READ(10) of the one LBA 62,305,152 in LU0's unallocated tail.
+
+   A capacity or GPT mismatch stops the stage before the last read. So does
+   a GPT entry that covers that LBA. The stage needs the device's own SMMU
+   mapping before any DMA, and it ends 2 seconds before the module budget. A
+   slot that does not complete in time is uncertain: it is never cleared,
+   reused or retried, and the stage stops. At restart, before the SMMU
+   shuts down, the link driver's shutdown stops the transfer list. If a slot
+   is still outstanding, it clears HCE and waits up to 1 second for HCE to
+   read 0. If HCE does not read 0, it asserts the controller's own block
+   reset and parks the restart, so the SMMU never stops translating under a
+   possibly live slot. The attended physical Download is then the recovery.
+   No write, other opcode, other query write, attribute or descriptor write,
+   other LUN, power-mode change, ICE or key operation, or generic UFS, SCSI or
+   block driver is delegated. The authenticated report adds the stage's
+   outcome and digests. That outcome never changes the link result's return
+   conditions, the Download and original-A path, recovery or no-replay rules.
+   It grants no media write; a write needs its own closed exception.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

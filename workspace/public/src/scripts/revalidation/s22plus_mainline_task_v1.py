@@ -114,7 +114,7 @@ ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
 ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
 ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
 ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v15_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v16_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -141,6 +141,20 @@ def candidate_v2(image):
     return image is not None and image.get('schema') == IMAGE_V2
 
 
+# The V14 read-only storage stage; pinned only for a V14 capability, so earlier
+# capabilities keep their exact source and recovery closure.
+STORAGE_SOURCES = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
+    ('ufs_storage.c', 'ufs_storage.h'))
+
+
+def ufs_storage(image):
+    """Metadata only: the bound capability fixes report version 14."""
+    if not (candidate_v2(image) and 'capability' in image):
+        return False
+    fixed = read(verify(image['capability'])).get('fixed')
+    return type(fixed) is dict and fixed.get('report_version') == 14
+
+
 def ufs_route(image):
     """Metadata only: the bound capability names the route scope."""
     return (candidate_v2(image) and 'capability' in image and
@@ -155,7 +169,7 @@ def selected_profile(image):
     require(False,'unselected mainline-project comparison profile')
 
 
-def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None):
+def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
@@ -227,13 +241,15 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=Non
         # A capability is frozen before it exists; its freeze names the scope.
         if (ufs_route(image) if route is None else route):
             paths += list(ROUTE_SOURCES)
+        if (ufs_storage(image) if storage is None else storage):
+            paths += list(STORAGE_SOURCES)
     return tuple(root/path for path in sorted(set(paths)))
 
 
-def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None):
+def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None):
     root=Path(root)
     return [dict(pin(path),path=str(path.relative_to(root)))
-            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route)]
+            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route,storage=storage)]
 
 
 def loader_build_only(path):
@@ -290,7 +306,7 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
         for row in cap['sources']:
             # Guest build inputs are candidate admission only; the policy stays bound.
             if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD or
-                             row['path'] in ROUTE_GUEST_SOURCES):continue
+                             row['path'] in ROUTE_GUEST_SOURCES or row['path'] in STORAGE_SOURCES):continue
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
     udc = image is not None and 'udc_observation' in image

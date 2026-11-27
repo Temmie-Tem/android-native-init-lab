@@ -9,7 +9,11 @@
 
 #define ML030_MODULE_PATH "/usr/lib/g0q_ml030.ko"
 #define ML030_RESULT_PATH "/sys/module/g0q_ml030/parameters/result"
+#ifdef G0Q_REPORT_BYTES
+#define ML030_REPORT_MAX G0Q_REPORT_BYTES
+#else
 #define ML030_REPORT_MAX 256U
+#endif
 static uint8_t ml030_result_digest[32];
 
 static int ml030_read_result(uint8_t *out, size_t *size)

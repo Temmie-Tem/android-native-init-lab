@@ -35,7 +35,8 @@ def references(main, raw, kind):
     return ", ".join(parts)
 
 
-def build(output):
+def build(output, dma=False):
+    """dma adds the controller's own SMMU stream and coherency (V14 storage only)."""
     study.require(output.resolve().is_relative_to(study.PRIVATE.resolve()), "private output required")
     live, baseline, _, _, _ = study.inputs()
     stock, main = study.nodes(live), study.nodes(baseline)
@@ -91,7 +92,10 @@ def build(output):
         "interconnects = " + references(main, host["interconnects"], "interconnect") + ";",
         'interconnect-names = "ufs-ddr", "cpu-ufs";',
         "vdda-phy-supply = " + references(main, original_l5["phandle"], None) + ";",
-    ])
+    ] + ([
+        "iommus = " + references(main, host["iommus"], "iommu") + ";",
+        "dma-coherent;",
+    ] if dma else []))
     fragment = """/dts-v1/;
 /plugin/;
 / {

@@ -45,6 +45,7 @@ except ImportError:  # imported as a top-level module beside its sources
 REPORT_FIELDS = report_modes.FIELDS
 HANDOFF, RESET_CONFIG, DISABLED_UCRDY, STALE_ACK = (report_modes.FIRST[k] for k in
     ('hce_handoff', 'reset_config', 'disabled_ucrdy', 'stale_uccs_ack'))
+STORAGE_READ = report_modes.FIRST['storage_read']
 CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = (report_modes.FIRST[k] for k in
     ('cfg1_diagnostics', 'cfg1_ordered_selection', 'link_irq_diagnostics', 'upstream_link'))
 # UIC error-code registers 0x38..0x48 (ufshci.h). PA/DL are reported raw;
@@ -240,7 +241,7 @@ def hce_handoff(values, *, reset_config=False, stale_ack=False):
     check(0 <= word < 1 << 32, 'handoff metadata range')
     flags, polls, elapsed = word & 8191, (word >> 13) & 127, word >> 20
     check(0 <= flags <= 8191 and not flags & (flags + 1) and
-          all(0 <= n < 1 << 32 for n in values[24:]) and index <= 11,
+          all(0 <= n < 1 << 32 for n in values[24:38]) and index <= 11,
           'handoff report shape or read prefix')
     check(bool(polls) == bool(flags & 1024) and (flags & 512 or elapsed == 0) and
           (not flags & 4096 or elapsed < 1000), 'handoff poll/time history')
@@ -449,6 +450,99 @@ def cfg1_diagnostics(values, *, report_version):
         budget_expired=(outcome == 2) if evaluated else None))
 
 
+STORAGE_TEST_LBA = 62305152
+STORAGE_GPT_WORD = 0xa0de4421          # first word of the pinned live-GPT SHA-256
+STORAGE_ZERO_DIGEST = [int.from_bytes(hashlib.sha256(bytes(4096)).digest()[i:i + 4], 'big')
+                       for i in range(0, 32, 4)]
+STORAGE_LAST_LBA = 62305279
+STORAGE_STEPS = ('NONE', 'ADMIT', 'LIST', 'NOP', 'INIT_SET', 'INIT_POLL', 'TUR', 'CAPACITY',
+                 'GPT', 'BLOCK', 'DONE')
+STORAGE_FLAGS = ('LIST', 'NOP', 'INIT_SET', 'INIT_CLEAR', 'UNIT_ATTENTION', 'TUR', 'CAPACITY',
+                 'GPT_READ', 'GPT_MATCH', 'RANGE', 'BLOCK_READ', 'BLOCK_ZERO', 'UNCERTAIN')
+STORAGE_DONE = (1 << 13) - 1 & ~(1 << 4 | 1 << 11 | 1 << 12)   # every step flag
+
+
+def result_size(report_version=1):
+    """The sealed module result record for one report version's envelope."""
+    return HEADER.size + 12 + report_modes.ENVELOPE.get(report_version, 256) + 32
+
+
+def storage_read(values, link_completed):
+    """V14: the fixed read-only storage stage, run only after a completed link."""
+    rc, step, flags, polls, sense, status, capacity, gpt = values[38:46]
+    digest = values[46:54]
+    check(-4095 <= rc <= 0 and 0 <= step < len(STORAGE_STEPS) and 0 <= flags < 1 << 13 and
+          all(0 <= v < 2**32 for v in (polls, sense, status, capacity, gpt, *digest)),
+          'storage field range')
+    if not link_completed:
+        check(not any(values[38:54]), 'storage stage without a completed link')
+        return dict(storage=None)
+    check(step >= 1 and (rc == 0) == (step == 10), 'storage step and rc disagree')
+    # Flags each step sets on success; UNIT_ATTENTION (TUR) and BLOCK_ZERO (BLOCK) are optional.
+    required = {2: 1 << 0, 3: 1 << 1, 4: 1 << 2, 5: 1 << 3, 6: 1 << 5, 7: 1 << 6,
+                8: 1 << 7 | 1 << 8 | 1 << 9, 9: 1 << 10}
+    # Flags a step can leave on failure; RANGE and BLOCK_READ advance the step.
+    optional = {6: 1 << 4, 8: 1 << 7 | 1 << 8, 10: 1 << 11}
+    done = sum(bits for k, bits in required.items() if k < step)
+    allowed = done | sum(bits for k, bits in optional.items() if k <= step) | (1 << 12)
+    check(flags & done == done and not flags & ~allowed, 'storage flags and step disagree')
+    check(not flags & 1 << 12 or rc == -110, 'uncertain slot without a timeout')
+    check(not flags & (1 << 8 | 1 << 9) or flags & 1 << 7, 'GPT result without a GPT read')
+    check(not flags & 1 << 9 or flags & 1 << 8, 'GPT range without a matching table')
+    check(not flags & 1 << 8 or gpt == STORAGE_GPT_WORD, 'GPT match with another table digest')
+    check(not flags & 1 << 10 or bool(flags & 1 << 11) == (digest == STORAGE_ZERO_DIGEST),
+          'zero flag and block digest disagree')
+    # An uncertain slot is the current step's unfinished command: none of its flags.
+    check(not flags & 1 << 12 or not flags & ~(done | 1 << 4 | 1 << 12),
+          'uncertain slot with the current step completed')
+    check(not flags & 1 << 12 or 3 <= step <= 9, 'uncertain slot without a command step')
+    # Each field exists only once its producing step ran (the producer's order).
+    check((capacity == STORAGE_LAST_LBA) if step > 7 else (capacity == 0 if step < 7 else True),
+          'capacity outside its step')
+    check(not flags & 1 << 6 or capacity == STORAGE_LAST_LBA, 'capacity flag with another capacity')
+    check(step >= 5 or polls == 0, 'device-init polls before the poll step')
+    check(step != 5 or not flags & 1 << 12 or polls >= 1, 'uncertain poll without a poll')
+    check(step >= 6 or sense == 0, 'sense before TEST UNIT READY')
+    check(bool(flags & 1 << 7) or gpt == 0, 'GPT word without a GPT read')
+    check(not flags & 1 << 8 or step > 8 or rc == -6, 'matching GPT stopped without a range refusal')
+    good = 0x21 << 24
+    # A completed command's result fields exist only with its GOOD response.
+    check(step != 8 or not flags & 1 << 7 or (rc == -6 and status == good),
+          'GPT read evidence without a GOOD read')
+    check(step != 7 or capacity == 0 or (rc == -34 and status == good),
+          'capacity value without a GOOD capacity read')
+    # sense is the latest CHECK CONDITION; a later failing command may overwrite the
+    # initial UNIT ATTENTION, so the key is fixed only when every later command succeeded.
+    check(step != 10 or bool(sense) == bool(flags & 1 << 4), 'completed stage sense without a unit attention')
+    # sense is written only by a CHECK CONDITION: the UNIT ATTENTION, or the stop (-EAGAIN).
+    check(not sense or flags & 1 << 4 or rc == -11, 'sense without a CHECK CONDITION')
+    check(not flags & 1 << 4 or rc == -11 or sense >> 16 & 15 == 6,
+          'unit attention sense replaced without a CHECK CONDITION')
+    check(step != 10 or not flags & 1 << 4 or sense >> 16 & 15 == 6, 'unit attention with another sense key')
+    # The block digest exists only after its successful read, which ends the stage.
+    check(not flags & (1 << 10 | 1 << 11) or step == 10, 'block evidence before the stage ended')
+    check(not flags & 1 << 3 or polls >= 1, 'device init cleared without a poll')
+    check(not flags & 1 << 11 or flags & 1 << 10, 'zero block without a read')
+    if rc == 0:
+        # The last command is the block READ: OCS 0, response 0, GOOD, RESPONSE UPIU.
+        check(flags & STORAGE_DONE == STORAGE_DONE and capacity == STORAGE_LAST_LBA and
+              not flags & 1 << 12 and status == 0x21 << 24 and any(digest),
+              'completed storage stage is incomplete')
+    if not flags & 1 << 10:
+        check(not any(digest), 'block digest without a read')
+    block = b''.join(v.to_bytes(4, 'big') for v in digest) if flags & 1 << 10 else None
+    return dict(storage=dict(
+        rc=rc, step=STORAGE_STEPS[step], completed=rc == 0,
+        flags=[name for i, name in enumerate(STORAGE_FLAGS) if flags >> i & 1],
+        init_polls=polls, sense=dict(key=sense >> 16 & 15, asc=sense >> 8 & 255, ascq=sense & 255),
+        last_status=dict(ocs=status & 255, response=status >> 8 & 255, scsi=status >> 16 & 255,
+                         upiu=status >> 24),
+        capacity_last_lba_low=capacity, gpt_digest_word=gpt,
+        gpt_match=bool(flags & 1 << 8), range_ok=bool(flags & 1 << 9),
+        test_lba=STORAGE_TEST_LBA, block_sha256=block.hex() if block else None,
+        block_zero=bool(flags & 1 << 11)))
+
+
 def upstream_link(values):
     """V13: OR of all link-poll IS samples and the one-pass UEC prefix."""
     seen, mask, pa, dl, ntd = values[33:38]
@@ -512,7 +606,8 @@ def link_irq_diagnostics(values, *, report_version=LINK_IRQ):
 
 def result(raw, verified_witness, key, identity, *, report_version=1):
     check(report_version in REPORT_FIELDS, 'unselected module report schema')
-    check(len(raw) == RESULT_SIZE and len(verified_witness) == HEADER.size+32, "incomplete module result")
+    check(len(raw) == result_size(report_version) and len(verified_witness) == HEADER.size+32,
+          "incomplete module result")
     check(verified_witness[:40] == b"G030WIT1" + identity and
           hmac.compare_digest(verified_witness[-32:],tag(key,identity,17,verified_witness[:-32])),
           "unverified result witness")
@@ -573,6 +668,9 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
             facts.update(link_irq_diagnostics(values, report_version=report_version))
         if report_version >= UPSTREAM_LINK:
             facts.update(upstream_link(values))
+    storage = report_version >= STORAGE_READ
+    if storage:
+        facts.update(storage_read(values, link_completed=rc == 0 and not pre_effect))
     if pre_effect:
         return recovery_result(dict(facts, normal_return=True, return_reason='PRE_EFFECT_REJECTION',
                     control_nonce=hashlib.sha256(raw).digest()), raw, report_version)

@@ -215,6 +215,63 @@ parser applies the same floor when it checks the witness and builds the
 permit. All other parts of this composition are unchanged, as listed under
 [Unchanged](#unchanged).
 
+## Read-only storage stage (phase 2a, report V14)
+
+Step 2 of the operator's roadmap is UFS read/write and persistence across a
+reboot. The operator approved its [design](../reports/S22PLUS_MAINLINE_UFS_RW_DESIGN_H0_2026-11-27.md)
+and the read-only phase 2a on 2026-11-27.
+
+`ufs_storage.c` runs once after the completed link, inside the module's
+budget, only in report V14 on the floor route kernel and module. It uses
+one transfer slot with a polled doorbell and no interrupt. Crypto stays
+disabled, the LUN is always 0, and every field is fixed:
+
+1. NOP OUT, expecting NOP IN.
+2. Query set flag `fDeviceInit`, then read the flag until it clears
+   (1.5-second bound).
+3. TEST UNIT READY; one repeat only after a UNIT ATTENTION.
+4. READ CAPACITY(16): exactly 62,305,280 blocks of 4096 bytes.
+5. READ(10) of LBAs 1–3. Their SHA-256 must equal the live Android32 table
+   (`a0de4421…`), and a parse must show that no entry covers the test block.
+6. READ(10) of LBA 62,305,152. The report carries its full SHA-256 and
+   whether the block is all zeros.
+
+Supporting changes:
+- **SMMU.** The late overlay's link node gains `iommus = <&apps_smmu 0xe0 0>`
+  and `dma-coherent` for V14 only. The kernel blocks unmatched SMMU
+  streams, so UTP DMA needs the controller's own stream.
+- **Report.** The V14 report appends 16 fields: the stage rc and step, flags,
+  the `fDeviceInit` poll count, sense, the last transfer status, the capacity,
+  a GPT digest word and the block digest. Its envelope is 512 bytes; older
+  versions keep 256. The host decoder rejects inconsistent step and flag
+  sets, and any storage field after a link that did not complete.
+- **Return.** The stage's outcome never changes the return conditions.
+- **Uncertain slot.** A slot that does not complete in time is never
+  cleared or reused. At restart, the link driver's `.shutdown` runs before
+  the SMMU's own shutdown. It stops the transfer list. With no slot
+  outstanding, there is no DMA to stop. With one outstanding, it clears HCE
+  and waits up to 1 second for HCE to read 0. The Qualcomm reset provider
+  does not prove that a reset took effect. If HCE does not clear, the
+  callback therefore asserts the block reset and parks the restart instead
+  of letting the SMMU stop translating. The attended physical Download
+  (a PMIC reset of the whole SoC) recovers from that state.
+- **Guards.**
+  - The stage requires `device_iommu_mapped()` before any DMA.
+  - The module's budget check for the link runs before the stage. The
+    stage ends 2 seconds before the module budget, so it can never change
+    the link outcome.
+  - Every command wait is an absolute deadline.
+  - GOOD status counts only with no underflow, overflow or residual.
+  - The GPT is parsed only after its exact digest matches, with an explicit
+    entry-count bound.
+
+The UTP sequence has a host device model (`tests/s22plus_ufs_storage_fixture.c`).
+It drives the actual source and rejects any command outside the set above,
+including any write opcode, another LUN or the crypto bit.
+
+The persistence check by rooted Android belongs to phase 2c, after the one
+write of phase 2b. Phase 2b needs its own closed raw-block exception.
+
 ## Evidence and claims
 
 A completed run can claim:

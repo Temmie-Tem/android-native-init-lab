@@ -17,7 +17,10 @@ STAGE_FIELD = "stage_source_sha256"
 AUTHORITY_FIELD = "authority_source_sha256"
 
 STAGE = HERE/"g0q_stage.c"
-STAGE_SHA256 = "01d188bf56ce1c55467e985cf12352454f21e63c2176fe95729808fa63bea280"
+STAGE_SHA256 = "d0c16d7326492fa1c2b4fd34f203694fe8b312a7c0729622ed8f15502d4c3c61"
+# The v71 (report V13) floor module was rendered from the earlier adopted g0q_stage.c;
+# its retained component and run keep that exact rendering.
+V13_STAGE_RENDERING = "397c9fe33cf7a419de64a2dc0f7c672478eca51d357e45d084d28e9d32994e64"
 STAGE_LINE = ("\tif (now < 300ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)\n",
               "\tif (now < 60ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)\n")
 
@@ -86,10 +89,13 @@ def component_floor(record, kernel):
         _require("boot_floor" not in transport, "unfloored module paired with a floor kernel")
         return False
     stage, authority = stage_source(), authority_source()
+    version = record.get("report_version")
+    expected = {13: V13_STAGE_RENDERING, 14: digest(stage)}.get(version) if type(version) is int else None
     _require(keys == fields and type(record[FIELD]) is int and record[FIELD] == FLOOR_MS and
-             record[STAGE_FIELD] == digest(stage) and record[AUTHORITY_FIELD] == digest(authority),
+             expected is not None and record[STAGE_FIELD] == expected and
+             record[AUTHORITY_FIELD] == digest(authority),
              "boot floor record differs")
-    _require((Path(record["module_path"]).parent/STAGE.name).read_text() == stage,
+    _require(_file_digest(Path(record["module_path"]).parent/STAGE.name) == expected,
              "floor module was not built from the rendered source")
     rpmh = Path(transport["kernel"])/RPMH
     built = rpmh.read_text()

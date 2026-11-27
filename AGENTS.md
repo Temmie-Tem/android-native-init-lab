@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`0a5558303186ed2958b3431eeb18a8ab49a8ae340d47ae99dfb2b6dc86f7fa6c`.
+`36557b50d64248f76ebb44598bdff71e4040005af7463c3105ba655eea83bdeb`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device

@@ -414,6 +414,12 @@ uptime. Its kernel and module are the common rebuilds whose only source
 differences are 60-second boot-time floors, in the RPMh transport authority and
 the V13 module, instead of 300 seconds. Every other route-composition
 condition, limit and requirement above is unchanged.
+This target also adopts the common read-only storage stage (phase 2a) of that
+witness-floor variant, for an exact floor capability with module report version
+14. After the completed link, the module reads the device's capacity, the
+primary GPT and the one test block at LBA 62,305,152 through its own fixed
+UTP commands. It writes nothing. Every other witness-floor condition, limit
+and requirement above is unchanged.
 
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive

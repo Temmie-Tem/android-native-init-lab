@@ -13,12 +13,14 @@ import late_rails
 
 HERE = Path(__file__).resolve().parent
 BASE = tables.PRIVATE / "outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105-1/prepare-1"
-FILES = ("waipio_phy.c", "waipio_phy.h", "waipio_hci.c", "waipio_hci.h", "g0q_stage.c", "usb-admission.h", "link-report.h", "reset-pin.h")
+FILES = ("waipio_phy.c", "waipio_phy.h", "waipio_hci.c", "waipio_hci.h", "g0q_stage.c", "usb-admission.h", "link-report.h", "reset-pin.h",
+         "ufs_storage.c", "ufs_storage.h")
 
 
 def kbuild_text(version):
     """Kbuild for one report version; defines come from report_modes in fixed order."""
-    return ("obj-m += g0q_ml030.o\ng0q_ml030-y := g0q_stage.o waipio_phy.o waipio_hci.o rails.o\n" +
+    storage = " ufs_storage.o" if report_modes.modes(version)["storage_read"] else ""
+    return ("obj-m += g0q_ml030.o\ng0q_ml030-y := g0q_stage.o waipio_phy.o waipio_hci.o rails.o" + storage + "\n" +
             "".join(f"ccflags-y += -D{name}\n" for name in report_modes.defines(version)))
 
 
@@ -49,7 +51,7 @@ def build(header, output, transport, **modes):
     tables.require(tables.digest(Path(retained["image"])) == retained["sha256"] and
                    tables.digest(baseline/".config") == retained["config_sha256"], "ML028 build identity")
     tables.validate(header, output/"parity")
-    late_overlay.build(output/"overlay")
+    late_overlay.build(output/"overlay", dma=report_version >= 14)
     late_rails.generate(kernel/"drivers/regulator/qcom-rpmh-regulator.c", output/"rails")
     obj = output/"module"
     obj.mkdir()

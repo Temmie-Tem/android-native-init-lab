@@ -313,7 +313,7 @@ class BootFloorTests(unittest.TestCase):
         module = root/'component/module/g0q_ml030.ko'
         module.parent.mkdir(parents=True)
         (module.parent/'g0q_stage.c').write_text(boot_floor.stage_source() if floor_stage else boot_floor.STAGE.read_text())
-        record = dict(module_path=str(module))
+        record = dict(module_path=str(module), report_version=14)
         if record_floor:
             record.update({boot_floor.FIELD: 60000,
                            boot_floor.STAGE_FIELD: boot_floor.digest(boot_floor.stage_source()),
@@ -331,6 +331,7 @@ class BootFloorTests(unittest.TestCase):
         bad += [dict(record, **{field: '0' * 64}) for field in (boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
         bad += [{k: v for k, v in record.items() if k != drop}
                 for drop in (boot_floor.FIELD, boot_floor.STAGE_FIELD, boot_floor.AUTHORITY_FIELD)]
+        bad += [dict(record, report_version=v) for v in (12, 13, 15, 14.0, None)]
         for value in bad:
             with self.subTest(record=value), self.assertRaisesRegex(ValueError, 'boot floor record differs'):
                 boot_floor.component_floor(value, kernel)
@@ -346,6 +347,16 @@ class BootFloorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'unfloored module paired with a floor kernel'):
             boot_floor.component_floor(*self.build_dirs(floor_stage=False, record_floor=False))
 
+    @unittest.skipUnless(Path('/home/temmie/dev/android-native-init-lab/workspace/private/outputs/'
+                              's22plus-ufs-route-h0-20261127-1/component-floor/component-result.json').exists(),
+                         'retained v71 floor component not present')
+    def test_the_retained_v13_floor_component_still_verifies(self):
+        import json
+        base = Path('/home/temmie/dev/android-native-init-lab/workspace/private/outputs/s22plus-ufs-route-h0-20261127-1')
+        record = json.loads((base/'component-floor/component-result.json').read_bytes())
+        kernel = json.loads((base/'transport-build-floor/guard-result.json').read_bytes())
+        self.assertTrue(boot_floor.component_floor(record, kernel))
+
     def test_a_changed_transport_record_is_refused(self):
         record, kernel = self.build_dirs()
         with self.assertRaisesRegex(ValueError, 'kernel transport record differs'):
@@ -356,20 +367,24 @@ class BootFloorTests(unittest.TestCase):
             for paired in (True, False):
                 record, kernel = self.build_dirs(floor_kernel=paired, floor_stage=paired, record_floor=paired)
                 fixed = {name: None for name in candidate.FIXED_FIELDS}
-                fixed.update(report_version=13, usb_route=True, kernel='k', component='c')
+                # V14 is the current floor rendering; V13 without a floor needs no rendering.
+                version = 14 if floor else 13
+                fixed.update(report_version=version, usb_route=True, kernel='k', component='c')
                 if floor:
                     fixed['witness_floor_ms'] = 60000
                 kernel.update(sha256='a' * 64, file_size=1)
                 component = dict(record, status='BUILT_H0_COLD_LINK_COMPONENT', pre_effect_return=True,
-                                 report_version=13, physical_admitted=False, device_actions=0,
+                                 report_version=version, physical_admitted=False, device_actions=0,
                                  selected_kernel='a' * 64, transport=kernel['transport_sha256'], module_sha256='c' * 64)
                 with self.subTest(floor=floor, paired=paired), \
                         mock.patch.object(candidate, 'checked', side_effect=[kernel, component]), \
                         mock.patch.object(candidate, 'artifact_pin', side_effect=ValueError('past the module floor')), \
                         self.assertRaises(ValueError) as caught:
                     candidate.fixed_binding(dict(scope=task.ROUTE_CAPABILITY_SCOPE, fixed=fixed))
-                expected = 'past the module floor' if floor == paired else 'module/kernel boot floor differs'
-                self.assertIn(expected, str(caught.exception))
+                if floor == paired:
+                    self.assertIn('past the module floor', str(caught.exception))
+                else:   # refused by the pairing, or earlier by the record's own rendering check
+                    self.assertRegex(str(caught.exception), 'module/kernel boot floor differs|boot floor record differs')
 
     def test_v2_sources_pin_the_pairing_code(self):
         # Shared V2 admission calls the pairing check, so every V2 scope pins it.

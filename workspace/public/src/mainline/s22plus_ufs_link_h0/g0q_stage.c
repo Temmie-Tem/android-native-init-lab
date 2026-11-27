@@ -17,6 +17,9 @@
 #include "reset-pin.h"
 #include "overlay-data.h"
 #include "usb-admission.h"
+#ifdef G0Q_STORAGE_READ
+#include "ufs_storage.h"
+#endif
 
 extern int ml030_register_rails(void);
 extern void ml030_open_rail_requests(void);
@@ -38,6 +41,11 @@ static atomic_t probe_taken = ATOMIC_INIT(0);
 static struct g0q_rpmh_report power;
 static bool usb_covered, usb_released;
 static u32 usb_reason, usb_detail;
+#ifdef G0Q_STORAGE_READ
+/* Phase 2a read-only storage outcome; zero unless the link completed. */
+static struct g0q_storage storage;
+static bool storage_list_started;
+#endif
 #ifdef G0Q_PRE_EFFECT_RETURN
 #include "link-report.h"
 /* Published only after coverage refusal, its complete unwind and arena end.
@@ -83,6 +91,13 @@ static int report(char *buf, const struct kernel_param *kp)
 	size += scnprintf(buf + size, PAGE_SIZE - size, " %u %u %u %u %u",
 		link->link_seen, link->uec_mask, link->uec[0], link->uec[1],
 		g0q_uec_ntd(link));
+#endif
+#ifdef G0Q_STORAGE_READ
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %d %u %u %u %u %u %u %u",
+		storage.rc, storage.step, storage.flags, storage.init_polls, storage.sense,
+		storage.last_status, storage.capacity_low, storage.gpt_word);
+	for (unsigned int i = 0; i < 8; i++)
+		size += scnprintf(buf + size, PAGE_SIZE - size, " %u", storage.block_digest[i]);
 #endif
 	return size + scnprintf(buf + size, PAGE_SIZE - size, "\n");
 }
@@ -410,11 +425,28 @@ static int once_probe(struct platform_device *pdev)
 	if (atomic_cmpxchg(&probe_taken, 0, 1))
 		return -EALREADY;
 	operation_rc = run(pdev);
+#ifdef G0Q_STORAGE_READ
+	/* The link outcome, budget included, is final before the read-only stage;
+	 * the stage can never change it. Never retried. */
+	if (!operation_rc)
+		operation_rc = remaining();
+	if (!operation_rc)
+		g0q_storage_read(&board.link, board.dev, &storage, &storage_list_started);
+#endif
 	/* Keep the original references and reached state until the attended return.
 	 * The probe core must never unwind or schedule another hardware attempt.
 	 */
 	return 0;
 }
+
+#ifdef G0Q_STORAGE_READ
+/* Restart shuts devices down before the SMMU: stop any slot before translation ends. */
+static void link_shutdown(struct platform_device *pdev)
+{
+	if (storage_list_started)
+		g0q_storage_shutdown(&board.link, board.reset);
+}
+#endif
 
 static const struct of_device_id matches[] = {
 	{ .compatible = "samsung,g0q-ml030-link" }, {}
@@ -424,6 +456,9 @@ static struct platform_driver link_driver = {
 		.name = "g0q-ml030-link", .of_match_table = matches,
 		.probe_type = PROBE_FORCE_SYNCHRONOUS, .suppress_bind_attrs = true,
 	},
+#ifdef G0Q_STORAGE_READ
+	.shutdown = link_shutdown,
+#endif
 };
 
 static bool original_board(void)
@@ -479,8 +514,11 @@ static int __init start(void)
 		rc = platform_driver_probe(&link_driver, once_probe);
 	if (operation_rc == -EINPROGRESS)
 		operation_rc = rc ? rc : -ETIMEDOUT;
+#ifndef G0Q_STORAGE_READ
+	/* V14 checked the budget in the probe, before its storage stage. */
 	if (!operation_rc)
 		operation_rc = remaining();
+#endif
 	if (usb) {
 		pm_runtime_put_noidle(usb);
 		put_device(usb);

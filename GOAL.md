@@ -232,8 +232,10 @@ review. **ML056 closed `PASS_MAINLINE_UFS_LINK` /
 the link result matched ML054's in every field (result 0, HCS `0xf`). The
 session took 202 s.
 [ML056 run](docs/reports/S22PLUS_MAINLINE_ML056_UFS_BOOT_FLOOR_RUN_2026-11-27.md).
-Step 1 is done. Step 2, read/write and persistence, needs a new design and
-the operator's approval.
+Step 1 is done. For step 2, read/write and persistence, the operator
+approved the [design](docs/reports/S22PLUS_MAINLINE_UFS_RW_DESIGN_H0_2026-11-27.md).
+Its target is one block in LU0's unallocated tail (LBA 62,305,152), reached
+in phases. Phase 2a (read-only, report V14) is on review before adoption.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 

@@ -37,7 +37,15 @@
 #if defined(G0Q_UPSTREAM_LINK) && !defined(G0Q_LINK_IRQ_DIAGNOSTICS)
 #error "Upstream link tolerance requires the V12 link IRQ diagnostics"
 #endif
-#ifdef G0Q_UPSTREAM_LINK
+#if defined(G0Q_STORAGE_READ) && !defined(G0Q_UPSTREAM_LINK)
+#error "The read-only storage stage requires the V13 upstream link"
+#endif
+#ifdef G0Q_STORAGE_READ
+/* V14 appends 16 storage fields; its envelope is 512 bytes. */
+#define G0Q_REPORT_TAG 0xe0000000U
+#define G0Q_REPORT_FIELDS 54
+#define G0Q_REPORT_BYTES 512U
+#elif defined(G0Q_UPSTREAM_LINK)
 #define G0Q_REPORT_TAG 0xd0000000U
 #define G0Q_REPORT_FIELDS 38
 #elif defined(G0Q_LINK_IRQ_DIAGNOSTICS)
@@ -69,17 +77,23 @@
 #define G0Q_REPORT_FIELDS 23
 #endif
 
+#ifndef G0Q_REPORT_BYTES
+#define G0Q_REPORT_BYTES 256U
+#endif
+/* Signed fields: operation rc, RPMh error and (V14) the storage rc. */
+#define G0Q_SIGNED_FIELD(i) ((i) == 0 || (i) == 16 || (G0Q_REPORT_FIELDS == 54 && (i) == 38))
+
 static inline int g0q_report_parse(const unsigned char *data, unsigned int size,
 				 long long values[G0Q_REPORT_FIELDS])
 {
 	unsigned int pos = 0;
-	if (!size || size > 256)
+	if (!size || size > G0Q_REPORT_BYTES)
 		return -1;
 	for (unsigned int i = 0; i < G0Q_REPORT_FIELDS; i++) {
 		unsigned long long value = 0;
 		unsigned int first, negative = 0;
 		if (pos < size && data[pos] == '-') {
-			if (i != 0 && i != 16)
+			if (!G0Q_SIGNED_FIELD(i))
 				return -1;
 			negative = 1;
 			pos++;
@@ -91,7 +105,7 @@ static inline int g0q_report_parse(const unsigned char *data, unsigned int size,
 			value = value * 10 + data[pos++] - '0';
 		}
 		if (pos == first || (negative && !value) ||
-		    value > (negative ? 2147483648ULL : (i == 0 || i == 16) ? 2147483647ULL : 4294967295ULL) ||
+		    value > (negative ? 2147483648ULL : G0Q_SIGNED_FIELD(i) ? 2147483647ULL : 4294967295ULL) ||
 		    pos >= size || data[pos++] != (i + 1 == G0Q_REPORT_FIELDS ? '\n' : ' '))
 			return -1;
 		values[i] = negative ? -(long long)value : (long long)value;
