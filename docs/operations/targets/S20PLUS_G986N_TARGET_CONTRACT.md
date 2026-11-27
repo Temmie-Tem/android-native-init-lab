@@ -5239,3 +5239,7 @@ hang. A worker return does not establish probe success. The immutable
 first-return receipt, independently observed USB PID 1 response and original
 root health remain separate evidence. Preserve no-replay through recovery
 and terminal reporting with the preceding owner's durable raw boundaries.
+
+## S20+ deferred-worker single incident recovery
+
+Only the [deferred-worker incident recovery](../S20PLUS_DEFERRED_WORKER_ONE_RUN_RECOVERY_2026-11-27.md) may identify a new incident endpoint for the named run and perform the first original rollback. Its exact runner, review, finite attended grant, no-replay, first-return and closure requirements apply.

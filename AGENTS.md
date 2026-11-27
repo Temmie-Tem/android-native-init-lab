@@ -381,3 +381,5 @@ are scoped to the current action and reusable while their inputs are unchanged.
   Record the source version and evidence location in the existing close record
   so later audit does not depend on the moving working tree. Routine narrative
   may be a concise commit body; do not duplicate it across per-run documents.
+
+For S20+ deferred-worker run `run-1795780019923307510` only, boundary 7 admits the [single incident recovery](docs/operations/S20PLUS_DEFERRED_WORKER_ONE_RUN_RECOVERY_2026-11-27.md) under all its conditions, the matching target section, independent execution review and a fresh finite attended incident grant. The earlier physical observation stays consumed.

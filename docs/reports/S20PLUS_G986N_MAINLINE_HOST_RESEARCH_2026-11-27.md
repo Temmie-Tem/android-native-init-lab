@@ -149,3 +149,5 @@ Opus와 Gemini Carbon Medium은 이 결과와 실제 y2q 장치 이름의 인코
 비공개 원자료는 `workspace/private/runs/s20plus-g986n-deferred-worker-f1/run-1795780019923307510/`의 `candidate-result.json`, `physical-observation-miss.json` 및 같은 번호의 ticket 디렉터리에 있는 `acm-evidence.json`이다.
 
 [이번 회차의 원복 예외 초안](../operations/S20PLUS_DEFERRED_WORKER_ONE_RUN_RECOVERY_2026-11-27.md)을 별도로 준비했다. 공유 가드는 이 회차를 가리킨다. 원복 의도와 전송 결과는 없었고, 기존 경로의 원본 AP가 단일 `boot.img.lz4`를 포함하며 67,108,864바이트로 풀린다는 것과 압축 전후 해시를 재확인했다. 초안 SHA-256 `5a86dee114e31f5e0611d9ea4ba40de7e098f910d686dbc0d3cc20f2d4841c93`에 대한 독립 검토는 미해결 지적 0건으로 끝났다. 이 검토는 예외 설계에 한정된다. 실기 적용에는 이번 회차 전용 실행 경로와 그 경로에 대한 검토 및 규약 채택이 필요하다.
+
+회차 전용 복구 실행기와 공통·대상 규약 반영분도 독립 검토에서 미해결 지적 0건으로 통과했다. 실행기 SHA-256은 `e474b24daafb72ae07e126420d3b471e15a46f260d70a92b3db83cc4e50e95f7`이며 전체 검토 대상의 정규화된 식별값은 `6afa3a5ddd4e2433d70b89972240a53f32ee40fb1fa276d0a4fbd68c221f57f0`이다. 격리한 호스트에서 식별 중단, 전송 시점의 포트 재검사, 전송 결과 누락, 보존된 원복 기록 재판독을 포함한 복구 테스트 7건과 기존 판독기·후보 테스트 7건을 통과했다. 호스트 검증과 실행기 입회 토큰 발급을 마쳤으며 원본 전송은 승인 대기 상태다. 검증 자료는 비공개 `workspace/private/analysis/s20plus-y2q-deferred-worker-f1/incident-qualification/`에 있다.
