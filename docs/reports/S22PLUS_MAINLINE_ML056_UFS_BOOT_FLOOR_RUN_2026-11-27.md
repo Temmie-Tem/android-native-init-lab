@@ -17,7 +17,8 @@ this time with the floor kernel and module. It closed
 The operator returned the exact approval for task `f3471114…` (1800 s, one
 operation, attended). Readiness passed with zero device controls. The
 target-session lease was free. The approved terminal dispatched once. The
-operator was present and was asked to perform no action.
+operator was present and was asked to perform no action. Afterwards the
+operator confirmed touching nothing during the run ("ㄴㄴ 만진거 없음").
 
 | Event (from N launch) | Seconds |
 | --- | ---: |
