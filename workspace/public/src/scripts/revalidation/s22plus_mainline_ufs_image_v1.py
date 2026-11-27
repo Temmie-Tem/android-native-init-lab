@@ -124,6 +124,14 @@ def report_version_for(image):
     return selection(image)[1].get('report_version', 1)
 
 
+def witness_floor_for(image):
+    """The 60 s witness floor exists only in an admitted v2 route capability."""
+    if image.get('schema')=='s22plus-mainline-ufs-image-v2':
+        from s22plus_mainline_ufs_candidate_v2 import selection as selected, witness_floor
+        return witness_floor(selected(image)[0]['fixed'])
+    return False
+
+
 def checked(receipt):
     return read(profile.unchanged(receipt))
 
@@ -142,6 +150,10 @@ def expected_recipe(manifest, key, declaration):
     if type(version) is int and 5<=version<=latest:expected['report_version']=version
     # Only the UFS route capability's declaration selects the composed observer recipe.
     if declaration.get('usb_route') is True:expected['usb_route']=True
+    # Only a route declaration may also select the 60 s witness floor.
+    floor=declaration.get('witness_floor_ms')
+    if declaration.get('usb_route') is True and type(floor) is int and floor==60000:
+        expected['witness_floor_ms']=floor
     return expected
 
 

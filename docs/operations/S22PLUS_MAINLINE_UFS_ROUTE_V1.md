@@ -153,6 +153,38 @@ Everything else in V13 is unchanged:
 - **Module.** The module is the adopted byte-identical V13 module. The new
   kernel exports the same symbol versions.
 
+## Witness-floor variant
+
+ML054 spent about 300 seconds in the witness dwell before the module permit.
+On 2026-11-27 the operator approved shortening the wait as the first step of a
+roadmap: shorter wait, then UFS read/write and persistence across a reboot,
+then stability, then handover to the upstream driver. The candidate kernel
+queues its regulator cleanup 30 seconds after late initcalls, at about 31 to
+33 seconds of uptime. It sets the deferred-probe timeout to 10 seconds. A
+60-second guest BOOTTIME floor is clear of both.
+
+A capability selects the variant with the fixed field `witness_floor_ms = 60000`.
+The field is allowed only in the route scope and only with that exact value.
+- **Guest.** The candidate does not change the adopted `dwell.h` (sha256
+  `6d523868…faad4590`). Instead the observer embeds a rendered copy of it. The
+  copy differs only in its two 300-second comparisons. The dwell refuses a
+  challenge that arrives before 60 seconds of BOOTTIME. The guest's fresh
+  same-boot proof, whose uptime the witness reply reports, must show at least
+  60 seconds and be later than the first response. The challenge itself still
+  carries the first uptime and a zero second-uptime field. The 540-second
+  ceiling check is unchanged.
+- **Host.** The first response must report a BOOTTIME below 120 seconds. The
+  host waits 60 seconds minus that BOOTTIME, plus a 2-second margin, and at
+  least 1 second. It then re-derives the witness and requires a BOOTTIME of at
+  least 60 seconds, later than the first.
+- **Older records.** Capabilities and images without the field keep the
+  300-second witness byte for byte. These include ML054's capability.
+
+With the field, the closure records `same_boot_witness` and
+`witness_floor_ms = 60000`, and omits `five_minute_same_boot`. The host wire
+parser applies the same floor when it checks the witness and builds the permit. All other parts
+of this composition are unchanged, as listed under [Unchanged](#unchanged).
+
 ## Evidence and claims
 
 A completed run can claim:

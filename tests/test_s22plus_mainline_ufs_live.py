@@ -13,6 +13,7 @@ from unittest import mock
 
 import test_s22plus_mainline_download_ram as prior
 import s22plus_mainline_ufs_access_v1 as link
+import s22plus_mainline_ufs_image_v1 as ufs_image
 from mainline.s22plus_ufs_link_h0 import link_wire as wire
 
 raw=prior.raw
@@ -34,7 +35,7 @@ class Ml030WireTests(unittest.TestCase):
     def tearDownClass(cls):
         prior.DownloadWireTests.tearDownClass()
 
-    def run_case(self,case,version=1):
+    def run_case(self,case,version=1,floor=False):
         temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup)
         directory=Path(temp.name);folder=directory/('io-'+profile.SELECTION)
         fixture=self.helper.fixture;manifest=self.helper.manifest()
@@ -104,16 +105,21 @@ class Ml030WireTests(unittest.TestCase):
                         c.sendall(armed)
                     q=exact(c,168)
                     if not q:return
-                    n1=wire.HEADER.unpack_from(q)[3];t1=t0+301000
-                    self.assertGreaterEqual(clock()-start,300*10**9)
+                    n1=wire.HEADER.unpack_from(q)[3];t1=62000 if floor else t0+301000
+                    if floor:
+                        self.assertLess(t0,60000)
+                        self.assertGreaterEqual(clock()-start,(60000-t0)*10**6+2*10**9)
+                        self.assertLess(clock()-start,120*10**9)
+                    else:self.assertGreaterEqual(clock()-start,300*10**9)
                     if version in (6,7,8,9,10,11,12):
                         live=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,n1,boot,late=True)
                         if case=='wrong-live':live=live[:-1]+bytes([live[-1]^1])
                         c.sendall(live)
-                    c.sendall(wire.frame(b'G030WIT1',17,fixture.key,fixture.identity,fixture.nonce,n1,boot,t0,t1))
+                    floor_ms=60000 if floor else None
+                    c.sendall(wire.frame(b'G030WIT1',17,fixture.key,fixture.identity,fixture.nonce,n1,boot,t0,t1,floor_ms=floor_ms))
                     go=exact(c,168)
                     if not go:return
-                    observed.append('GO');self.assertEqual(go,wire.frame(b'G030GO01',18,fixture.key,fixture.identity,fixture.nonce,n1,boot,t0,t1))
+                    observed.append('GO');self.assertEqual(go,wire.frame(b'G030GO01',18,fixture.key,fixture.identity,fixture.nonce,n1,boot,t0,t1,floor_ms=floor_ms))
                     body=b'G030RES1'+go[8:wire.HEADER.size]
                     numbers=b'0 6 1073741824 1 6 1 8 1024 0 9 1 3 7 7 7 0 0 1 1\n'
                     if version>=2:numbers=numbers[:-1]+b' 132352 0\n'
@@ -188,6 +194,7 @@ class Ml030WireTests(unittest.TestCase):
                 (access,'configure',configure),(access,'require_host',lambda h:raw.require_success(h)),
                 (download.socket,'socket',Connected),(download.secrets,'token_bytes',mock.Mock(side_effect=[fixture.nonce,b'z'*32])),
                 (link,'report_version_for',lambda image:version),
+                (link,'witness_floor_for',lambda image:floor),(ufs_image,'witness_floor_for',lambda image:floor),
                 (link.time,'sleep',sleep)):
                 stack.enter_context(mock.patch.object(obj,name,value))
             for module in (link,download,attach,records,prior.owner):stack.enter_context(mock.patch.object(module,'clock',clock))
@@ -211,7 +218,13 @@ class Ml030WireTests(unittest.TestCase):
                                      'NO_PROOF' if case=='pre-effect-success' or completed_failure else 'UFS_LINK_COMPLETED')
             else:self.assertIsNotNone(error)
             independent=prior.session.link_fact(adapter,request,{'status':'NO_PROOF'})
-            self.assertTrue(independent['five_minute_same_boot'])
+            if floor:
+                self.assertNotIn('five_minute_same_boot',independent)
+                self.assertEqual((independent['same_boot_witness'],independent['witness_floor_ms']),(True,60000))
+                self.assertEqual(independent['ufs_witness']['uptime_ms'],62000)
+            else:
+                self.assertTrue(independent['five_minute_same_boot'])
+                self.assertNotIn('same_boot_witness',independent)
             if case in ('before-permit','intent-only','expired-at-permit','partial-result','malformed-result'):
                 self.assertNotIn('ufs_link_completed',independent)
             if case in ('success','bad-ack','expired-at-return'):
@@ -294,6 +307,8 @@ class Ml030WireTests(unittest.TestCase):
     def test_expiry_after_durable_return_intent(self):self.run_case('expired-at-return')
 
     def test_full_success_and_rederived_late_return(self):self.run_case('success')
+    def test_v12_witness_floor_success_at_62_seconds(self):self.run_case('success',version=12,floor=True)
+    def test_v12_witness_floor_wrong_live_blocks_permit(self):self.run_case('wrong-live',version=12,floor=True)
     def test_diagnostic_success_and_rederived_late_return(self):self.run_case('success',version=2)
     def test_stage2_schema_success_keeps_original_return_conditions(self):self.run_case('success',version=3)
     def test_actual_stage2_report_preserves_raw_and_stops_return(self):self.run_case('stage2-rejection',version=3)

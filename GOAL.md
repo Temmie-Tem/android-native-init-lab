@@ -210,6 +210,14 @@ capability record and candidate passed owner review. The ML054 task
 was `2db30bfb…`
 ([H0](docs/reports/S22PLUS_MAINLINE_UFS_ROUTE_H0_2026-11-27.md)).
 
+Next (operator roadmap, 2026-11-27): first a shorter wait, then UFS
+read/write and persistence across a reboot, then stability, then handover to
+the upstream driver. For step 1, the operator approved a
+[witness-floor variant](docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md#witness-floor-variant).
+It replaces the 300-second dwell with a guest BOOTTIME floor of 60 seconds.
+Its code, tests and contract text are on review before adoption, and no
+capability, candidate or run exists for it yet.
+
 ### UFS link series (shared V2 capability, one link attempt each)
 
 | Run | Module | Furthest point / first refusal | Report |

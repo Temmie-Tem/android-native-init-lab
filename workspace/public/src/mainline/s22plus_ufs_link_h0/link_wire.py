@@ -9,6 +9,7 @@ HEADER = struct.Struct("<8s32s32s32s16sQQ")
 RESULT_SIZE = HEADER.size + 12 + 256 + 32
 GAP_MS = 300000
 END_MS = 540000
+FLOOR_MS = 60000  # opt-in route-scope witness floor (guest BOOTTIME)
 RECOVERY_TRIGGER_MS = 555000
 RECOVERY_LAST_MS = 570000
 RECOVERY_MODE = 'S22PLUS_UFS_V6_CHILD_RESTART2_V1'
@@ -87,18 +88,21 @@ def tag(key, identity, kind, body):
     return hmac.digest(key, DOMAIN + identity + bytes([kind]) + body, "sha256")
 
 
-def frame(magic, kind, key, identity, first, second, boot, t0, t1):
+def frame(magic, kind, key, identity, first, second, boot, t0, t1, *, floor_ms=None):
     check(len(first) == len(second) == 32 and len(boot) == 16 and first != second and
           any(first) and any(second) and any(boot), "late identity fields")
-    check(0 < t0 < 120000 and (t1 == 0 or t0 + GAP_MS <= t1 < END_MS), "late uptime fields")
+    check(floor_ms is None or (type(floor_ms) is int and floor_ms == FLOOR_MS), "late witness floor")
+    later = (t0 + GAP_MS <= t1) if floor_ms is None else (floor_ms <= t1 and t0 < t1)
+    check(0 < t0 < 120000 and (t1 == 0 or (later and t1 < END_MS)), "late uptime fields")
     body = HEADER.pack(magic, identity, first, second, boot, t0, t1)
     return body + tag(key,identity,kind,body)
 
 
-def witness(raw, key, identity, first, second, boot, t0):
+def witness(raw, key, identity, first, second, boot, t0, *, floor_ms=None):
     check(len(raw) == HEADER.size+32, "incomplete late witness")
     t1 = HEADER.unpack_from(raw)[-1]
-    check(t1 > 0 and hmac.compare_digest(raw,frame(b"G030WIT1",17,key,identity,first,second,boot,t0,t1)),
+    check(t1 > 0 and hmac.compare_digest(raw,frame(b"G030WIT1",17,key,identity,first,second,boot,t0,t1,
+                                                   floor_ms=floor_ms)),
           "late witness authentication")
     return t1
 

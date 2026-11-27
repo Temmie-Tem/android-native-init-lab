@@ -733,6 +733,25 @@ permission to perform host-only work.
    action, the original one-operation grant, usable physical Download and
    final Android health remain. This admits neither unattended operation nor
    a claim of recovery from a hung kernel.
+   The operator adopted on 2026-11-27 one witness-floor variant of that UFS V13
+   route composition. Only an exact capability whose fixed inputs add
+   `witness_floor_ms = 60000` to the route composition may use it. Its candidate
+   embeds the reviewed rendering of the fixed V13 dwell, which differs only in
+   its two 300-second comparisons. In this variant the second challenge is
+   issued no earlier than the host gap of 60 seconds minus the first
+   response's guest BOOTTIME, plus 2 seconds, and never less than 1 second.
+   The first response must report a BOOTTIME below 120 seconds. Both the guest
+   and the host require that the second authenticated witness report a
+   BOOTTIME of at least 60 seconds and later than the first. All other
+   same-boot identity checks of the ML030 witness remain. The first-response
+   window is 120 seconds, the ceilings remain 540 seconds and the module budget
+   remains 15 seconds. There is one link attempt, and the module, timer child,
+   original-owner return, single original A, recovery and no-replay rules are
+   unchanged. Evidence from this variant records a same-boot witness at the
+   60-second floor, never a five-minute witness. Capabilities and images
+   without the field keep the 300-second witness byte for byte. It grants no
+   added hardware, storage or general effect and no unattended, retry or
+   replay capability.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

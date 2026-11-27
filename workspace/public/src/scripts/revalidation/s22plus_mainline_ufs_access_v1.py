@@ -12,7 +12,7 @@ import s22plus_mainline_download_access_v1 as download
 import s22plus_mainline_profile_v1 as profile
 from s22plus_native_records_v3 import Journal, clock, host_boot, pin, publish, read, require, verify
 from mainline.s22plus_ufs_link_h0 import link_wire as wire
-from s22plus_mainline_ufs_image_v1 import report_version_for
+from s22plus_mainline_ufs_image_v1 import report_version_for, witness_floor_for
 
 def _report_modes():
     """The single report-version declaration beside the module sources."""
@@ -32,6 +32,26 @@ def _automatic(version):
 
 LATE_NS=540_000_000_000
 GAP_NS=300_000_000_000
+# Witness floor (route capability only): the guest refuses a challenge before
+# BOOTTIME 60 s. The host waits until the first response's guest uptime plus the
+# host gap reaches the floor with a 2 s margin, and at least 1 s in any case.
+FLOOR_MS=60_000
+FLOOR_MARGIN_NS=2_000_000_000
+FLOOR_MIN_GAP_NS=1_000_000_000
+assert FLOOR_MS==wire.FLOOR_MS
+
+
+def floor_for(request):
+    """The wire witness floor for this image: None (300 s witness) or FLOOR_MS."""
+    return FLOOR_MS if witness_floor_for(request['N']) else None
+
+
+def witness_gap_ns(request,t0_ms):
+    """The host gap from sealing the first response to the late challenge."""
+    if not witness_floor_for(request['N']):
+        return GAP_NS
+    require(type(t0_ms) is int and 0<t0_ms<120_000,'witness floor first uptime')
+    return max(FLOOR_MIN_GAP_NS,(FLOOR_MS-t0_ms)*1_000_000+FLOOR_MARGIN_NS)
 RETURN_EVENT='ml030-return-intent'
 
 
@@ -102,7 +122,8 @@ def rederive_witness(adapter,request):
             completed==dict(intent=pin(folder/'witness-intent.json'),reply=pin(folder/'witness.capture.json'),
                             finished_ns=completed['finished_ns']) and
             first_done<=closed<read(verify(base['window']))['deadline_ns'] and
-            first_done+GAP_NS<=intent['requested_ns']<completed['finished_ns']<window['deadline_ns'],
+            first_done+witness_gap_ns(request,base['proof']['uptime_ms'])<=intent['requested_ns']<
+            completed['finished_ns']<window['deadline_ns'],
             'ML030 witness ordering or records')
     key,identity,n0,boot,t0=wire_identity(manifest,base)
     query=bytes_for(folder,'late-query',wire.HEADER.size+32)
@@ -110,7 +131,10 @@ def rederive_witness(adapter,request):
     n1=wire.HEADER.unpack_from(query)[3]
     require(query==wire.frame(b'G030ASK1',16,key,identity,n0,n1,boot,t0,0),'ML030 fresh challenge')
     reply=bytes_for(folder,'witness',wire.HEADER.size+32)
-    t1=wire.witness(reply,key,identity,n0,n1,boot,t0)
+    floor=floor_for(request)
+    t1=wire.witness(reply,key,identity,n0,n1,boot,t0,floor_ms=floor)
+    if floor is not None:
+        require(t1>=FLOOR_MS and t1>t0,'witness floor guest uptime')
     recovery={}
     if _automatic(report_version_for(request['N'])):
         recovery=dict(recovery_arm=arm_receipt(adapter,request,base),
@@ -134,7 +158,8 @@ def permit_intent(adapter,request):
             'ML030 permit intent binding')
     key,identity,n0,boot,t0=wire_identity(manifest,witness['base'])
     reply=bytes_for(folder,'witness',wire.HEADER.size+32);n1=wire.HEADER.unpack_from(reply)[3]
-    require(bytes_for(folder,'permit',wire.HEADER.size+32)==wire.frame(b'G030GO01',18,key,identity,n0,n1,boot,t0,witness['uptime_ms']),
+    require(bytes_for(folder,'permit',wire.HEADER.size+32)==wire.frame(b'G030GO01',18,key,identity,n0,n1,boot,t0,witness['uptime_ms'],
+                                                                    floor_ms=floor_for(request)),
             'ML030 permit bytes')
     rows=[r['data'] for r in Journal(adapter.directory/'journal').rows() if r['event']=='effect-intent' and
           r['data']['step']==profile.SELECTION]
@@ -225,7 +250,7 @@ def observe(adapter,request,guard,before_permit):
             publish(folder/'recovery-arm-complete.json',dict(capture=pin(armed.receipt_path),finished_ns=clock()))
             arm_receipt(adapter,request,base)
         closure=attach.close_issuance(adapter.directory,window_pin,guard=initial_guard)
-        ready=read(verify(base['base']))['finished_ns']+GAP_NS
+        ready=read(verify(base['base']))['finished_ns']+witness_gap_ns(request,base['proof']['uptime_ms'])
         require(ready<late['deadline_ns'],'ML030 witness cannot fit original window')
         while clock()<ready:
             time.sleep(min(1,max(0,(ready-clock())/1e9)))
@@ -245,7 +270,7 @@ def observe(adapter,request,guard,before_permit):
         reply=capture_frame(client,folder,'witness',wire.HEADER.size+32,late['deadline_ns'])
         publish(folder/'witness-complete.json',dict(intent=pin(folder/'witness-intent.json'),reply=pin(reply.receipt_path),finished_ns=clock()))
         witness=rederive_witness(adapter,request)
-        permit=wire.frame(b'G030GO01',18,key,identity,n0,n1,boot,t0,witness['uptime_ms'])
+        permit=wire.frame(b'G030GO01',18,key,identity,n0,n1,boot,t0,witness['uptime_ms'],floor_ms=floor_for(request))
         planned=raw.publish_captured_bytes(folder,'permit',stdout=permit,stderr=b'')
         def detail():
             value=dict(operation=pin(adapter.directory/'operation.json'),witness=witness,permit=pin(planned.receipt_path),

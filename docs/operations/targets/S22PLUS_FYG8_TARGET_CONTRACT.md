@@ -406,6 +406,12 @@ available as the fallback, and is asked to perform no action. Exact
 capability and candidate qualification, source review, current identity,
 usable recovery and final Android health apply. It grants nothing beyond
 V13 and the route write.
+This target also adopts the common witness-floor variant of that composition.
+It applies only to an exact capability whose fixed inputs carry
+`witness_floor_ms = 60000`. In this variant the second same-boot witness
+needs a guest BOOTTIME of at least 60 seconds instead of 300 seconds of added
+uptime. Every other route-composition condition, limit and requirement above
+is unchanged.
 
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive

@@ -26,6 +26,11 @@ SCHEMA = "s22plus-mainline-debian-ufs-link-ram-v1"
 # UFS V13 route composition: the adopted Stage 2 route observer, byte for byte.
 ROUTE_HEADER = "max77705-usb-route.h"
 ROUTE_HEADER_SHA256 = "6c5c3c1feb22fff799cc3cfa74322457e4cac82edbaa415c17b61c2c5edfe549"
+# Witness floor (route scope only): the second challenge and witness need guest
+# BOOTTIME of at least 60 s instead of 300 s after the first response.
+DWELL_HEADER = "dwell.h"
+DWELL_HEADER_SHA256 = "6d5238683288dba617d1210106675aa9a361bd6d098910352108ee31faad4590"
+WITNESS_FLOOR_MS = 60000
 
 
 def specification():
@@ -33,8 +38,9 @@ def specification():
             {"etc/inittab": 0o644, MODULE: 0o400})
 
 
-def observer_source(route=False):
-    require(type(route) is bool, "explicit route composition mode required")
+def observer_source(route=False, witness_floor=False):
+    require(type(route) is bool and type(witness_floor) is bool, "explicit route composition mode required")
+    require(route or not witness_floor, "the witness floor exists only in the route composition")
     code = (CANARY/"init.c").read_text()
     for anchor, addition in (("static int serve(void) {", '#include "dwell.h"\nstatic int serve(void) {'),
         ("    if(!error)error=transfer(client,fdt,fdt_size,1);",
@@ -49,7 +55,37 @@ def observer_source(route=False):
         code = code.replace(anchor, addition)
     if route:
         code = compose_route(code)
+    if witness_floor:
+        anchor = '#include "dwell.h"\n'
+        require(code.count(anchor) == 1, "dwell insertion point differs")
+        code = code.replace(anchor, "/* ---- rendered " + DWELL_HEADER + " ---- */\n" + dwell_header() +
+                            "/* ---- end of rendered " + DWELL_HEADER + " ---- */\n")
     return code
+
+
+DWELL_RENDERING = (
+    ("#define ML030_DWELL_MS 300000U\n",
+     "#define ML030_DWELL_MS 300000U\n"
+     "/* Witness floor composition: the 300 s dwell after the first response is\n"
+     " * replaced by an absolute guest BOOTTIME floor. */\n"
+     "#define ML030_FLOOR_MS " + str(WITNESS_FLOOR_MS) + "U\n"),
+    ("    if (now < t0 + ML030_DWELL_MS || now >= deadline) return ETIMEDOUT;\n",
+     "    if (now < ML030_FLOOR_MS || now <= t0 || now >= deadline) return ETIMEDOUT;\n"),
+    ("        ml030_u64(next + 216) < t0 + ML030_DWELL_MS || now_ms() >= deadline) return EPROTO;\n",
+     "        ml030_u64(next + 216) < ML030_FLOOR_MS || ml030_u64(next + 216) <= t0 ||\n"
+     "        now_ms() >= deadline) return EPROTO;\n"),
+)
+
+
+def dwell_header():
+    """The adopted dwell header, byte for byte, with its two 300 s comparisons
+    replaced by the 60 s BOOTTIME floor. Everything else is unchanged."""
+    require(digest(HERE/DWELL_HEADER) == DWELL_HEADER_SHA256, "dwell header differs")
+    text = (HERE/DWELL_HEADER).read_text()
+    for anchor, replacement in DWELL_RENDERING:
+        require(text.count(anchor) == 1, "dwell rendering point differs")
+        text = text.replace(anchor, replacement)
+    return text
 
 
 ROUTE_DISPATCH_ANCHOR = ("    uint64_t dispatch = mx_now();\n"
@@ -155,10 +191,12 @@ def compile_command(out, *, vm, destination=None, **modes):
     return list(map(str, cmd))
 
 
-def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=False):
+def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=False, witness_floor=False):
     require(type(pre_effect_return) is bool, "explicit observer return mode required")
     require(type(route) is bool and (not route or (pre_effect_return and not vm)),
             "route composition requires the board V13 observer")
+    require(type(witness_floor) is bool and (route or not witness_floor),
+            "the witness floor requires the route composition")
     kr = kernel_dir.resolve()
     out = out.resolve()
     require(all(p.is_relative_to(PRIVATE.resolve()) for p in (kr, component.resolve(), out)),
@@ -179,7 +217,7 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=Fals
             "module/kernel identity differs")
     out.mkdir(mode=0o700)
     packages, lock = debian.extract(PRIVATE/"outputs/s22plus-debian-bootstrap-h0-20260921-1/rootfs-d", out)
-    code = observer_source(route)
+    code = observer_source(route, witness_floor)
     (out/"observer.c").write_text(code)
     key = secrets.token_bytes(32)
     net_file = PRIVATE/"outputs/s22plus-mainline-ml028-rc-ssh-cycle-h0-20261105-1/network.json"
@@ -198,6 +236,8 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=Fals
         recipe['pre_effect_return'] = True
     if route:
         recipe['usb_route'] = True
+    if witness_floor:
+        recipe['witness_floor_ms'] = WITNESS_FLOOR_MS
     if hci_snapshot or hce_handoff:
         recipe['report_version'] = record['report_version']
     identity = hashlib.sha256(json.dumps(recipe,sort_keys=True,separators=(",",":")).encode()).digest()
@@ -232,6 +272,8 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=Fals
         manifest.update(report_version=record['report_version'], pre_effect_return=True)
     if route:
         manifest.update(usb_route=True)
+    if witness_floor:
+        manifest.update(witness_floor_ms=WITNESS_FLOOR_MS)
     (out/"result.json").write_text(json.dumps(manifest,indent=2)+"\n")
     (out/"producer.json").write_text(json.dumps(dict(compile_command=list(map(str,cmd)),
         recipe=recipe,seal=debian.pin(out/"seal.h"),provenance=provenance),indent=2)+"\n")
@@ -247,6 +289,7 @@ if __name__ == "__main__":
     cli.add_argument("--vm",action="store_true")
     cli.add_argument("--pre-effect-return",action="store_true")
     cli.add_argument("--route",action="store_true")
+    cli.add_argument("--witness-floor",action="store_true")
     args = cli.parse_args()
     print(build(args.kernel,args.component,args.out,vm=args.vm,pre_effect_return=args.pre_effect_return,
-                route=args.route)["status"])
+                route=args.route,witness_floor=args.witness_floor)["status"])

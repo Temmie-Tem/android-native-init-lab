@@ -26,6 +26,9 @@ CANDIDATE_FIELDS = {'schema','name','capability','capability_review','manifest',
                     'loader','package','loader_tests','entry_tests'}
 # The route scope adds exactly one fixed marker; its observer is the composed one.
 ROUTE_FIXED_FIELD = 'usb_route'
+# A route capability may also fix the 60 s guest-BOOTTIME witness floor.
+FLOOR_FIXED_FIELD = 'witness_floor_ms'
+FLOOR_MS = 60000
 LOADER_CONTRACT_FIELDS = ('configuration','source_commit','patch_sha256','entry_patch_sha256',
                           'source_ram_ranges','initial_abl_source_and_stub_overlap')
 IMAGE_FIELDS = {'schema','profile','namespace','version','run_id_hex','ap','member','key',
@@ -87,11 +90,19 @@ def route_scope(fixed):
     return fixed.get(ROUTE_FIXED_FIELD) is True
 
 
+def witness_floor(fixed):
+    """True only for the exact integer 60000 in a route capability."""
+    value=fixed.get(FLOOR_FIXED_FIELD)
+    return route_scope(fixed) and type(value) is int and value==FLOOR_MS
+
+
 def fixed_binding(cap):
     fixed = cap['fixed']
     route = cap.get('scope') == tasks.ROUTE_CAPABILITY_SCOPE
-    require(set(fixed)==FIXED_FIELDS|({ROUTE_FIXED_FIELD} if route else set()) and
+    floor=FLOOR_FIXED_FIELD in fixed
+    require(set(fixed)==FIXED_FIELDS|({ROUTE_FIXED_FIELD} if route else set())|({FLOOR_FIXED_FIELD} if floor else set()) and
             (not route or (route_scope(fixed) and fixed['report_version']==13)) and
+            (not floor or (route and witness_floor(fixed))) and
             type(fixed['report_version']) is int and
             4 <= fixed['report_version'] <= _report_modes().LATEST, 'v2 fixed capability fields or report mode')
     kernel=checked(fixed['kernel']);component=checked(fixed['component'])
@@ -155,11 +166,13 @@ def runtime_binding(candidate,fixed,component):
     from s22plus_mainline_ufs_image_v1 import _runtime
     manifest=checked(candidate['manifest']);producer=checked(candidate['producer'])
     folder=Path(manifest['initramfs']['path']).parent
-    route=route_scope(fixed)
+    route=route_scope(fixed);floor=witness_floor(fixed)
     require(set(manifest)=={'status','vm','candidate_id','key_path','network','port','inputs','init',
                 'initramfs','kernel_release','dtb','initrd_address','debian_ram','device_actions',
-                'physical_admitted','report_version','pre_effect_return'}|({'usb_route'} if route else set()) and
+                'physical_admitted','report_version','pre_effect_return'}|({'usb_route'} if route else set())|
+                ({FLOOR_FIXED_FIELD} if floor else set()) and
             (not route or manifest['usb_route'] is True) and
+            (not floor or (type(manifest[FLOOR_FIXED_FIELD]) is int and manifest[FLOOR_FIXED_FIELD]==FLOOR_MS)) and
             Path(candidate['manifest']['path'])==folder/'result.json' and
             Path(candidate['producer']['path'])==folder/'producer.json' and
             manifest.get('pre_effect_return') is True and manifest.get('report_version')==fixed['report_version'] and
@@ -175,6 +188,7 @@ def runtime_binding(candidate,fixed,component):
     declaration=dict(module=component['module_sha256'],archive=manifest['initramfs']['sha256'],
                      report_version=fixed['report_version'])
     if route:declaration['usb_route']=True
+    if floor:declaration[FLOOR_FIXED_FIELD]=FLOOR_MS
     value=_runtime(manifest,declaration)
     require(producer['provenance']['schema']=='s22plus-observer-build-inputs-v1' and
             producer['provenance']['fixed']==fixed['observer_build'], 'v2 observer toolchain changed')
@@ -235,7 +249,7 @@ def reproduce(candidate,manifest,producer,fixed,out):
     folder=Path(manifest['initramfs']['path']).parent
     key=Path(manifest['key_path']).read_bytes();ident=bytes.fromhex(manifest['candidate_id'])
     module=Path(manifest['debian_ram']['module']['path'])
-    require((folder/'observer.c').read_text()==builder.observer_source(route_scope(fixed)) and
+    require((folder/'observer.c').read_text()==builder.observer_source(route_scope(fixed),witness_floor(fixed)) and
             (folder/'seal.h').read_text()==builder.seal_text(ident,key,manifest['network'],module),
             'v2 generated source/seal differs')
     import report_modes

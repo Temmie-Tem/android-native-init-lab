@@ -199,8 +199,12 @@ def link_fact(adapter,request,result):
     try:
         from s22plus_mainline_ufs_access_v1 import rederive_witness, rederive_link
         witness=rederive_witness(adapter,request)
-        result.update(mainline_pid1=True,authenticated_usb=True,five_minute_same_boot=True,
-                      ufs_witness=witness)
+        from s22plus_mainline_ufs_image_v1 import witness_floor_for
+        floor=witness_floor_for(request['N'])
+        # A 60 s floor witness is a same-boot witness, never a five-minute one.
+        result.update(mainline_pid1=True,authenticated_usb=True,ufs_witness=witness)
+        result.update(dict(same_boot_witness=True,witness_floor_ms=60000) if floor else
+                      dict(five_minute_same_boot=True))
     except (ImportError,SyntaxError,ValueError,OSError,KeyError,TypeError,RawCaptureError) as error:
         result['ufs_witness_error']=dict(type=type(error).__name__,message=str(error)[:256])
         return result
