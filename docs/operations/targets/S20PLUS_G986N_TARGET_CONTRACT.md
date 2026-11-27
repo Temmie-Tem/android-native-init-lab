@@ -5243,3 +5243,22 @@ and terminal reporting with the preceding owner's durable raw boundaries.
 ## S20+ deferred-worker single incident recovery
 
 Only the [deferred-worker incident recovery](../S20PLUS_DEFERRED_WORKER_ONE_RUN_RECOVERY_2026-11-27.md) may identify a new incident endpoint for the named run and perform the first original rollback. Its exact runner, review, finite attended grant, no-replay, first-return and closure requirements apply.
+
+## S20+ current restored boot deferred-worker marker readback D0
+
+The current foreground task may use the independently reviewed
+`s20plus_g986n_deferred_readback_d0.py` once on the exact original Magisk boot
+of the closed deferred-worker run. Bind terminal SHA-256
+`5028689ab1c4201e2e9ebee8dafb5dff68e2d5340c788f681f1d84f76bd4468b`
+and final health `8251c1b3c2bb9159a0a5f75fadbb8cfaecfbb9716456afc06a4f6b9ac4fba6f1`,
+both completed transfers, clean baseline, missing first-return scan and the
+exact deferred-worker build nonce. Inherit the stock-direct read-only lease,
+owner exclusions and complete target/port/boot/root brackets. After initial
+health, reserve one read durably in s20plus-g986n-deferred-worker-readback-d0.
+Use the R4 shell and reader qualified for the candidate with their fixed
+procfs/BusyBox checks and boot bracket, 2,097,136-byte input plus sentinel,
+120 seconds and 96 combined output bytes. Retain digest receipts and decoded
+facts privately. A cut consumes the reservation. A boot mismatch stops the
+scan. A positive describes only the currently retained snapshot, with the
+R4 cohort and attribution limits. Keep the earlier observation gap intact.
+The scope ends on consumption or boot loss and grants no control or reboot.

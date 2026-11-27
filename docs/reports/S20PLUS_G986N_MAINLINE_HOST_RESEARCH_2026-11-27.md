@@ -159,3 +159,11 @@ Opus와 Gemini Carbon Medium은 이 결과와 실제 y2q 장치 이름의 인코
 같은 포트에 USB 제품명 `SAMSUNG_Android`가 다시 열거됐다. 22:06 KST에 기존 실행기의 420초 건강 확인이 `final resident health timed out`으로 종료됐다. 최종 루팅 확인과 터미널 기록은 없으며 가드는 이 회차에 남아 있다. 첫 복귀 표식은 미측정이다.
 
 운영자가 Android 화면을 보고한 뒤 기존 원복 실행기로 건강 확인을 재개했다. 22:29:43 KST에 Android 부팅 완료, Magisk 30.7, UID 0, SELinux Enforcing을 확인하고 가드를 해제했다. 후보와 원본 전송은 각각 1회다. 최종 판정은 `NO_PROOF_Y2Q_DEFERRED_WORKER_OR_FLUSH_RETURN_ORIGINAL_RETURNED`다. 첫 복귀 판독은 `observation_gap`으로 남았고 작업 장치와 첫 대기 반환은 미측정이다.
+
+## 11월 28일 같은 복귀 부팅의 R4 판독
+
+01:36 KST에 독립 검토를 통과한 읽기 전용 프로필로 한 번 판독했다. 판독 전후의 S20+ 식별값, 포트, 원본 Magisk 건강 상태 및 부팅 ID가 11월 27일 22:29 종료 기록과 일치했다. 2,097,136바이트 스냅샷에서 후보 고유 다이제스트가 일치하는 고정 식별값 앵커 9개, 무작위 부팅 식별값 앵커 0개, 오류 플래그 0을 회수했다. 이 앵커의 기록 지점은 초기 PID 네임스페이스의 커널 PID 1에서 `do_basic_setup()`을 호출하기 직전이다. 9개는 스냅샷에서의 출현 횟수다. 부팅 횟수나 마지막 시도를 특정할 수 없다.
+
+R4 판정은 `multiple_windows`였다. 작업 장치와 첫 대기 반환 여부는 미확인이다. 호스트에서 첫 대기 반환 비트가 있는 유효한 창을 하나 넣으면 PID 표본이 나왔고, 같은 창을 9회 넣으면 표본이 억제됐다. 실기에서는 창별 원시 바이트를 수집하지 않았다. 다음 호스트 검증은 여러 고정 식별값 창에서도 시도 간 순서나 인과관계를 부여하지 않고, 개별 인증 표식이 적어도 한 번 존재했는지 판별하는 것이다. 첫 복귀의 관측 공백은 유지된다.
+
+실기 판독 결과는 `workspace/private/runs/s20plus-g986n-deferred-worker-readback-d0/observation/result.json`(SHA-256 `abce42118bb6b43e1fc01a2c28e929f3ab34d50157e34b3bccb2c6eb92ab78b3`)에 있다. 실행 소스 및 권한 검토 입력 SHA-256은 `692b049875a315285989baa31e19150d42cabea0eb230247d4e8fef041995956`이다.
