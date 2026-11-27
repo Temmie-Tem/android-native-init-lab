@@ -216,9 +216,14 @@ the upstream driver. For step 1, the operator approved a
 [witness-floor variant](docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md#witness-floor-variant).
 It replaces the 300-second dwell with a guest BOOTTIME floor of 60 seconds.
 Code, tests and contract text were adopted in v70 (`003b997d56`) after
-review. Capability-3 (capability-2 plus `witness_floor_ms = 60000`) and its
-fresh candidate passed owner review. The ML055 task `8a17d259…` is prepared;
-it needs the operator's returned approval.
+review. **ML055 closed `NO_PROOF` / `ANDROID_CLOSED_HEALTHY`.** The floor
+admitted the same-boot witness at 62.8 s and sent the permit. The session
+took 230 s instead of about 9 minutes. The fixed V13 module, however, has
+its own 300-second boot-time floor and refused before any effect
+(`load_errno` 110).
+[ML055 run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md).
+Lowering the module's check needs a module change and the operator's
+approval.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
@@ -239,9 +244,10 @@ it needs the operator's returned approval.
 | ML047 | v12 | link poll IS `0x00000004` (UIC_ERROR) | [run](docs/reports/S22PLUS_MAINLINE_ML047_RUN_2026-11-11.md) |
 | ML051, ML052 | v13 | no USB first response in the window; module not reached | [ML051](docs/reports/S22PLUS_MAINLINE_ML051_V13_RUN_2026-11-19.md), [ML052](docs/reports/S22PLUS_MAINLINE_ML052_V13_RUN_2026-11-19.md) |
 | ML054 | v13 + route | **link completed**: result 0, HCS `0xf` | [run](docs/reports/S22PLUS_MAINLINE_ML054_UFS_ROUTE_RUN_2026-11-27.md) |
+| ML055 | v13 + route + 60 s floor | witness at 62.8 s; module refused (own 300 s floor, `ETIMEDOUT`), pre-effect | [run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md) |
 
 All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
-ML054 closed `PASS_MAINLINE_UFS_LINK`. The module source,
+ML054 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
 capability record and per-version scope are in
 [the V2 capability](docs/operations/S22PLUS_MAINLINE_UFS_CAPABILITY_V2.md).
 
