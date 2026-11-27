@@ -157,3 +157,5 @@ Opus와 Gemini Carbon Medium은 이 결과와 실제 y2q 장치 이름의 인코
 11월 27일 21:58:58 KST에 입회 승인으로 식별한 같은 포트의 S20+에 원본 Magisk AP 전송이 한 번 완료됐다. 전송 프로세스 종료도 확인됐다. 첫 Android 식별이 `return Android selection differs`로 중단돼 첫 복귀 표식의 관측 연속성이 끊겼다. 저장된 원본 전송 결과에서 같은 실행기의 건강 확인 경로를 재개했다. 후보와 원본 AP의 전송은 각각 한 번이다.
 
 같은 포트에 USB 제품명 `SAMSUNG_Android`가 다시 열거됐다. 22:06 KST에 기존 실행기의 420초 건강 확인이 `final resident health timed out`으로 종료됐다. 최종 루팅 확인과 터미널 기록은 없으며 가드는 이 회차에 남아 있다. 첫 복귀 표식은 미측정이다.
+
+운영자가 Android 화면을 보고한 뒤 기존 원복 실행기로 건강 확인을 재개했다. 22:29:43 KST에 Android 부팅 완료, Magisk 30.7, UID 0, SELinux Enforcing을 확인하고 가드를 해제했다. 후보와 원본 전송은 각각 1회다. 최종 판정은 `NO_PROOF_Y2Q_DEFERRED_WORKER_OR_FLUSH_RETURN_ORIGINAL_RETURNED`다. 첫 복귀 판독은 `observation_gap`으로 남았고 작업 장치와 첫 대기 반환은 미측정이다.
