@@ -27,7 +27,7 @@ operator was present and was asked to perform no action.
 | authenticated result sealed | 90.49 |
 
 The whole live session took 230 s from grant to Android ready. ML054's
-session took about 9 minutes.
+session took 424 s.
 
 Counts: 1 N, 1 original A and 3 controls. There was no host recovery step,
 no replug and no physical action. Final rooted Android health passed.

@@ -218,7 +218,7 @@ It replaces the 300-second dwell with a guest BOOTTIME floor of 60 seconds.
 Code, tests and contract text were adopted in v70 (`003b997d56`) after
 review. **ML055 closed `NO_PROOF` / `ANDROID_CLOSED_HEALTHY`.** The floor
 admitted the same-boot witness at 62.8 s and sent the permit. The session
-took 230 s instead of about 9 minutes. The fixed V13 module, however, has
+took 230 s instead of ML054's 424 s. The fixed V13 module, however, has
 its own 300-second boot-time floor and refused before any effect
 (`load_errno` 110).
 [ML055 run](docs/reports/S22PLUS_MAINLINE_ML055_UFS_FLOOR_RUN_2026-11-27.md).
