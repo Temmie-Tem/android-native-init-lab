@@ -215,8 +215,10 @@ read/write and persistence across a reboot, then stability, then handover to
 the upstream driver. For step 1, the operator approved a
 [witness-floor variant](docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md#witness-floor-variant).
 It replaces the 300-second dwell with a guest BOOTTIME floor of 60 seconds.
-Its code, tests and contract text are on review before adoption, and no
-capability, candidate or run exists for it yet.
+Code, tests and contract text were adopted in v70 (`003b997d56`) after
+review. Capability-3 (capability-2 plus `witness_floor_ms = 60000`) and its
+fresh candidate passed owner review. The ML055 task `8a17d259…` is prepared;
+it needs the operator's returned approval.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
