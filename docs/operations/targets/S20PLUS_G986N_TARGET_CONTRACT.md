@@ -5195,3 +5195,47 @@ do not prove a reset cause, boot count or last instruction. Keep retained
 PID 1 entry and independent live ACM proof distinct. A reporting gap or
 an intervening recovery boot cannot be promoted to an intact first-return
 scan. Require independent exact zero-finding review before activation.
+
+## S20+ y2q deferred worker and first flush under one attended approval
+
+For SM-G986N/y2q/y2qksx/G986NKSS8IYC2 only, the exact new runner
+`s20plus_g986n_deferred_worker_f1.py` admits one boot-only candidate AP
+`bbedac5d6934a2a924a287c5f027cd1a324fccb14f4ae36a26b7788cfab01d13`
+and the preceding consolidated profile's original Magisk boot-only AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Inherit the consolidated profile's exact original-root health and port,
+fresh boot/nonce bindings, archive and transfer validation, hazard registry,
+attended 900-second foreground admission, one initial ADB Download, one
+candidate transfer, 180 seconds of passive ACM observation, one machine-cued
+physical Download, one original transfer and first observed rooted Android
+return. A TWRP intervention or lost continuity preserves the observation gap.
+All previous candidates and grants remain consumed. Require an independent
+zero-finding review of the exact new closure before activation.
+
+Retain the original outer DTB and fresh build-bound RAM /init and ACM format.
+The candidate includes the qualified PSCI power-domain configuration and PC
+mode path, fixed idle-off boot arguments and the Image's 0x490000 runtime
+extent. The qualified 159-entry initcall table places deferred probe at 152.
+Keep the existing 256-byte no-map LOGM window, unchanged header, mapping,
+bounds, barriers, readback and signature-last publication. A single global
+PID 1 anchor unlocks the window after successful publication. In that window
+only, PID 1 owns +80/+120 and the single deferred work item owns +160/+200.
+Each producer alternates its two 40-byte slots. The per-kernel maximum is one
+80-byte anchor, 328 PID and 128 worker publication attempts, 240 distinct
+bytes and 21,976 byte stores. Provider hooks only observe existing PSCI,
+Command DB and RSC registration events in ordinary kernel memory. Worker
+hooks mark either side of the actual bus probe call and record its fixed-width
+device-name hash. No new transport, device query, storage or reboot operation.
+
+Bind the R4 scan to the original Magisk boot before and after reading, the
+reviewed shell/BusyBox, the fresh trial identity and the inherited capture
+limits. Require a clean baseline. Decode only complete digest-verified slots
+of a matching valid anchor. A shared random epoch groups survived records
+without proving they came from the final boot attempt. Without early entropy,
+each lane's positive sample has run-wide attribution only. Mixed or multiple
+windows, scan failure, signature saturation and interrupted capture cannot
+supply a positive worker or PID witness. A missing return does not prove a
+hang. A worker return does not establish probe success. The immutable
+first-return receipt, independently observed USB PID 1 response and original
+root health remain separate evidence. Preserve no-replay through recovery
+and terminal reporting with the preceding owner's durable raw boundaries.

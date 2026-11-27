@@ -131,3 +131,13 @@ Opus 5.5와 Carbon Medium 모두 반례를 검토하고 이전의 포괄적인 H
 Opus와 Gemini Carbon Medium은 이 결과와 실제 y2q 장치 이름의 인코딩을 확인한 뒤 **지금 보관된 자료로 실기 리셋 원인을 구분하는 조사와 이번 복귀 판독기 호스트 검증**을 마쳐도 된다고 각각 답했다. 실기에 적용하려면 새 형식을 복귀 실행기의 정식 최종 판정에 반영하고 그 변경을 검토해야 한다. 실제 재시도 장치, 첫 대기의 반환 여부, 사용자 공간과 USB·SSH는 다음 실기에서 판별할 사항이다.
 
 비공개 재현 자료는 `workspace/private/analysis/s20plus-y2q-recovery-path-h0-20261127/`에 있다. `evidence-index.json`의 SHA-256은 `8de012197f3479141852b193584bf1b3ef66f30219f0c81a770cbf6425ff6ee4`다. 이 인덱스에 실험 소스와 원시 영수증, 실패·중단 대조, 두 모델의 답변을 묶었다. 이번 연구의 실기 명령은 0회였다.
+
+## 새 후보의 실기 준비
+
+새 후보의 원복 실행기는 첫 복귀 부팅에서 보존한 원시 영수증을 다시 해석해 PID 1의 첫 대기 반환, 작업 스레드의 장치 식별값과 호출 전후, 사용자 공간 진입 및 USB 응답을 각각 표시한다. 고정 식별값만 있는 회차는 각 표본을 실험 전체에 귀속한다. 실제 시도 순서와 마지막 재부팅 원인은 미상으로 둔다. 후보 AP의 SHA-256은 `bbedac5d6934a2a924a287c5f027cd1a324fccb14f4ae36a26b7788cfab01d13`이다. 원본 Magisk AP는 이전에 원복을 검증한 `1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`다. 각각의 단일 boot 멤버를 독립적으로 풀어 두 이미지의 외부 삼성 DTB가 같은지 확인했다.
+
+새 AP에서 추출한 실제 커널과 램디스크로 QEMU 정상 입력 74건 및 거부 입력 23건을 재검증했다. 가상 부팅 네 번에서 첫 대기 반환과 `/init`의 사용자 모드 `getpid` 진입을 관측했다. 부팅별 식별값이 있는 둘째 회차에서는 이전 작업 기록이 제외됐고 고정 식별값 대조에서는 그 작업이 언제 발생했는지 구분할 수 없었다. 별도 가상 USB 대조에서 새 `/init`의 83바이트 ACM 배너를 수신했다.
+
+독립 검토에서 새 후보의 유효한 창과 다른 후보의 유효한 창이 함께 있으면 새 표본이 단독 창처럼 해석되는 경우를 찾아 수정했다. 두 입력 순서를 모두 검사했고, 실제 ARM64 Toybox와 Magisk BusyBox로 네 개의 보존 스냅샷과 세 가지 혼합 입력을 다시 판독했다. 실제 전송과 원복은 새 입회 승인을 사용하는 별도 실험이다. [실기 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-deferred-worker-and-first-flush-under-one-attended-approval)
+
+수정된 실행기는 독립 검토에서 미해결 발견 0건으로 `PASS_GO`를 받았다. 실제 활성·비활성 바이트를 묶은 검토 입력 SHA-256은 `70cf5de67754fd8f8a8366b9a3b13984ad3b0b04f12578becbb580de15419a25`다. 활성화 후 기존 실행기의 호스트 검증과 활성 상태 검증을 모두 통과했다. 비공개 증거는 `workspace/private/analysis/s20plus-y2q-deferred-worker-f1/`의 `qualification.json`, `review-v2/identity.json`, `owner-review.txt`에 있다.
