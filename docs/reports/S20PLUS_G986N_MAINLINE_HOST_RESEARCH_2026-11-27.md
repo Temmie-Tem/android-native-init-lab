@@ -141,3 +141,9 @@ Opus와 Gemini Carbon Medium은 이 결과와 실제 y2q 장치 이름의 인코
 독립 검토에서 새 후보의 유효한 창과 다른 후보의 유효한 창이 함께 있으면 새 표본이 단독 창처럼 해석되는 경우를 찾아 수정했다. 두 입력 순서를 모두 검사했고, 실제 ARM64 Toybox와 Magisk BusyBox로 네 개의 보존 스냅샷과 세 가지 혼합 입력을 다시 판독했다. 실제 전송과 원복은 새 입회 승인을 사용하는 별도 실험이다. [실기 범위](../operations/targets/S20PLUS_G986N_TARGET_CONTRACT.md#s20-y2q-deferred-worker-and-first-flush-under-one-attended-approval)
 
 수정된 실행기는 독립 검토에서 미해결 발견 0건으로 `PASS_GO`를 받았다. 실제 활성·비활성 바이트를 묶은 검토 입력 SHA-256은 `70cf5de67754fd8f8a8366b9a3b13984ad3b0b04f12578becbb580de15419a25`다. 활성화 후 기존 실행기의 호스트 검증과 활성 상태 검증을 모두 통과했다. 비공개 증거는 `workspace/private/analysis/s20plus-y2q-deferred-worker-f1/`의 `qualification.json`, `review-v2/identity.json`, `owner-review.txt`에 있다.
+
+## 실기 원복 관측 시간 초과
+
+11월 27일 20:52:52 KST에 후보 AP 전송이 한 번 완료됐다. 180초 동안 후보 ACM 응답은 관측되지 않았다. 실행기는 물리 Download 진입 신호를 출력했으나 당시 대화에는 조작 안내가 전달되지 않았다. 20:58:57 KST에 원복 관측기가 일치하는 엔드포인트 0개로 종료해 `physical-observation-miss.json`을 기록했다. 운영자는 이후 Download 화면이라고 보고했다. 원본 AP 전송 의도와 결과, 첫 복귀 부팅의 표식 및 최종 루팅 확인은 모두 기록되지 않았다. 이 회차의 관측은 소진됐고 원복은 미완료다.
+
+비공개 원자료는 `workspace/private/runs/s20plus-g986n-deferred-worker-f1/run-1795780019923307510/`의 `candidate-result.json`, `physical-observation-miss.json` 및 같은 번호의 ticket 디렉터리에 있는 `acm-evidence.json`이다.
