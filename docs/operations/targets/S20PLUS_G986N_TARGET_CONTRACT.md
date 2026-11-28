@@ -5346,3 +5346,20 @@ is present in one slot. Publish unordered presence and distinct return values.
 Log-derived observations require first-boot continuity and proven transfers.
 Candidate-time ACM evidence retains its independent completed-transfer and
 authenticated capture checks. Original rollback and final health remain mandatory.
+
+## S20+ same restored boot GPIO marker readback D0
+
+For the foreground SM-G986N/y2q/y2qksx/G986NKSS8IYC2 task, the independently
+reviewed and activated `s20plus_g986n_gpio_readback_d0.py` may make one
+current-boot read of the closed GPIO trial's original Magisk Android, bound
+to terminal `a5756875b5e74006493aa1337169257c4021255e7f3614d98163d6838045aec1`
+and final health `f48ca96698b5cb7089746aa7bc58b776ac384408fd2b0e680c4a63cb6f107aad`.
+Reuse the stock-direct D0 target lease, active-owner exclusions, full original
+root/port/serial and boot brackets, exclusive reservation after initial health,
+digest-only receipt and private derived results. A different boot stops the
+read before dispatch. A cut after reservation consumes it.
+Use only the preceding trial's exact GP2 shell, nonce, scan and parser, with
+2,097,136 input bytes plus one sentinel, 120 seconds and at most 8,288 combined
+output bytes. Report initial and worker GPIO events, distinct signed callback
+results and same-slot wait/outer return witnesses on this current boot. Keep
+the prior first-return gap, consumed transfers and trial ordering unknown.
