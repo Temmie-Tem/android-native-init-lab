@@ -18,7 +18,7 @@ completed (rc 0, step `DONE`) and found the ML060 pattern still on LBA
 | ML062 | v17-7 | 106.3 s | 112.9 s | 195.6 s | `1bad36fc…` |
 | ML063 | v17-8 | 105.9 s | 112.6 s | 195.1 s | `51fb6174…` |
 | ML064 | v17-9 | 93.1 s | 99.8 s | 181.9 s | `3309c3e4…` |
-| ML065 | v17-10 | 106.1 s | 112.7 s | 195.1 s | `c978afc5…` (terminal) / `b7fbdb61…` |
+| ML065 | v17-10 | 106.1 s | 112.7 s | 195.1 s | `b7fbdb61…` |
 
 Times are seconds from preflight. Each run had 1 N, 1 original A and 3
 controls.
@@ -40,8 +40,8 @@ held the written pattern across seven reboots after the write:
 - six mainline boots and one stock-Android read;
 - four Android returns in this series alone.
 
-No run in the series varied in its link or storage fields. Only ML064's
-permit came about 13 s earlier, because the host started it sooner.
+No run in the series varied in its link or storage fields. ML064's permit
+came about 13 s earlier than the others; that cause was not examined.
 
 ## Evidence
 
