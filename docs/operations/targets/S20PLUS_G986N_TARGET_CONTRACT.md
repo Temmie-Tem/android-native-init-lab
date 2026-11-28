@@ -5281,3 +5281,37 @@ Refuse invalid/overlapping, foreign, legacy or excess windows; ignore slots
 with mismatched digests. Report name candidates from the pinned dictionary.
 Keep host digest receipts and derived facts; no raw snapshot, trial ordering,
 same-attempt join, control, replay or change to the closed F1 verdict.
+
+## S20+ TLMM and first deferred flush attended trial
+
+On SM-G986N/y2q/G986NKSS8IYC2 only, one 900-second fresh attended admission
+may bind the boot-only TLMM candidate AP
+`c5ebf1301144415a1b67b5607d891de27f82cac092adab37b01513570f2b7aa8`
+and the physically demonstrated original resident Magisk AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+The owner is s20plus_g986n_tlmm_flush_f1.py. Inherit the deferred-worker
+owner's guarded stock health, calibrated original boot, port, serial, archive
+validation, private ticket, intent journals, lease, caged transfer, passive
+180-second candidate ACM window, one physical Download cue and observation,
+one original transfer, fresh original root health and first-return capture.
+Require independent zero-finding review and exact activation. An old
+consumed observation, candidate, grant or incident exception has no scope here.
+
+Preserve the qualified y2q DT, initcall order, idle-off command line, fixed
+256-byte RAM log window, 80-byte anchor and alternating 40-byte slots. Allow
+at most 32 publication attempts per producer and 3160 byte stores in total.
+Observe TLMM supplier checks, wake-domain lookup, first callback result and
+the first selected flush barrier/call/wait/return paths as qualified.
+Initial denotes pre-open PID 1; worker denotes the selected work item.
+No change to physical recovery, storage, reboots or target scope.
+
+Before candidate control require a complete clean baseline for this
+candidate. On a continuous first original Android return use the exact
+Magisk read-only procfs and same-boot checks, 2,097,136 bytes plus one
+sentinel, 120 seconds and 96 combined output bytes. Authenticate full TLMM
+anchors/slots and report unordered existential bit sets only. Report a
+completed barrier wait only from a single authenticated slot carrying all
+its open-call-path milestones (barrier, before-wait, after-wait and outer
+true return). Foreign/invalid TLMM windows or malformed evidence yield no
+positive claim. A prior boot or another slot cannot fill in a missing event.
+Preserve first-return gaps, earlier journals and all no-replay boundaries.
