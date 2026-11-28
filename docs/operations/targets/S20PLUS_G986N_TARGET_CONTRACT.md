@@ -5315,3 +5315,34 @@ its open-call-path milestones (barrier, before-wait, after-wait and outer
 true return). Foreign/invalid TLMM windows or malformed evidence yield no
 positive claim. A prior boot or another slot cannot fill in a missing event.
 Preserve first-return gaps, earlier journals and all no-replay boundaries.
+
+## S20+ post-wake GPIO registration attended trial
+
+For SM-G986N/y2q/y2qksx/G986NKSS8IYC2 only, the owner
+`s20plus_g986n_tlmm_gpio_f1.py` admits one boot-only candidate AP
+`70f61e5b5701b86bb3635ac31583708b1d70092c8824a0f0765f905134e5ef83`
+and the physically demonstrated original Magisk boot-only AP
+`1b33d098ea34b0396330cedf2e40c508704f1ba035b1f81e80a8526a637f1be2`.
+Inherit the preceding TLMM trial's target and original-root boot calibration,
+archive checks, reviewed activation, 900-second fresh attended admission,
+guard, one initial Download, one candidate, 180-second passive ACM observation,
+one cued physical Download on the original port, one original AP transfer and
+first observed original Android health. Keep all consumed candidates, grants,
+first-return gaps and no-replay checks. Require independent review and the
+matching active owner before ticket preparation.
+
+Keep the qualified DT, initcall order, LOGM geometry and per-producer budgets.
+The new Image observes GPIO registration checkpoints and the actual TLMM
+callback return at its platform caller. The single baseline and first-return
+Android reads keep the preceding same-boot, privilege, procfs, 2,097,136-byte
+input plus one sentinel and 120-second limits. Only the derived stdout limit
+changes to 8,288 bytes to represent both contexts' exact signed 16-bit return
+values from at most 256 windows and four slots per window. A successful
+read requires empty stderr. Require a clean complete candidate baseline
+before control. Authenticate this candidate's GP2 anchors and slots. Keep
+initial and selected-worker event sets separate. Accept wait completion,
+outer true return, or outer false return only when the respective full path
+is present in one slot. Publish unordered presence and distinct return values.
+Log-derived observations require first-boot continuity and proven transfers.
+Candidate-time ACM evidence retains its independent completed-transfer and
+authenticated capture checks. Original rollback and final health remain mandatory.
