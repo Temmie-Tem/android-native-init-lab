@@ -1,0 +1,440 @@
+--- a/include/linux/y2q-progress.h
++++ b/include/linux/y2q-progress.h
+@@ -1,8 +1,29 @@
++#ifndef _LINUX_Y2Q_PROGRESS_H
++#define _LINUX_Y2Q_PROGRESS_H
+ void y2q_progress(unsigned int bit);
+ void y2q_basic_anchor(void);
+ void y2q_trial_exec(void);
+ void y2q_trial_getpid(void);
+ 
+ struct device;
++struct fwnode_handle;
++struct work_struct;
++enum y2q_tlmm_event {
++	Y_LINK_PDC, Y_LINK_GIC, Y_LINK_OTHER, Y_LINK_DEFER, Y_LINK_PASS,
++	Y_AUTOPROBE, Y_INSERTED, Y_CALLBACK, Y_IRQ_OK, Y_IRQ_DEFER, Y_IRQ_ERROR,
++	Y_WAKE_FOUND, Y_WAKE_MISSING, Y_CALLBACK_RETURN, Y_BEFORE_BUS, Y_AFTER_BUS
++};
++enum y2q_flush_event {
++	Y_OPEN, Y_CALL, Y_NO_BARRIER, Y_BARRIER, Y_WAIT, Y_WAIT_DONE,
++	Y_RETURN_FALSE, Y_RETURN_TRUE, Y_WORK_EXIT, Y_PDC_READY
++};
++void y2q_note(struct device *, unsigned int);
++void y2q_supplier(struct device *, struct fwnode_handle *);
++void y2q_callback_result(struct device *, int);
++void y2q_open(struct work_struct *);
++void y2q_flush(struct work_struct *, unsigned int);
++void y2q_pdc_ready(void);
++void y2q_checkpoint(void);
+ void y2q_deferred_worker(struct device *, unsigned int);
+ void y2q_provider_progress(unsigned int,int);
++#endif
+--- a/drivers/base/core.c
++++ b/drivers/base/core.c
+@@ -8,6 +8,7 @@
+  * Copyright (c) 2006 Novell, Inc.
+  */
+ 
++#include <linux/y2q-progress.h>
+ #include <linux/acpi.h>
+ #include <linux/blkdev.h>
+ #include <linux/cleanup.h>
+@@ -1062,9 +1063,11 @@
+ 		if (sup_fw) {
+ 			if (dev_is_best_effort(dev))
+ 				fwnode_ret = -EAGAIN;
+-			else
++			else {
++				y2q_supplier(dev, sup_fw);
+ 				return dev_err_probe(dev, -EPROBE_DEFER,
+ 						     "wait for supplier %pfwf\n", sup_fw);
++			}
+ 		}
+ 	}
+ 
+@@ -1084,6 +1087,7 @@
+ 				continue;
+ 			}
+ 
++			y2q_supplier(dev, dev_fwnode(link->supplier));
+ 			device_links_missing_supplier(dev);
+ 			ret = dev_err_probe(dev, -EPROBE_DEFER,
+ 					    "supplier %s not ready\n", dev_name(link->supplier));
+@@ -1344,8 +1348,10 @@
+ 		WARN_ON(link->status != DL_STATE_DORMANT);
+ 		WRITE_ONCE(link->status, DL_STATE_AVAILABLE);
+ 
+-		if (device_link_test(link, DL_FLAG_AUTOPROBE_CONSUMER))
++		if (device_link_test(link, DL_FLAG_AUTOPROBE_CONSUMER)) {
++			y2q_note(link->consumer, Y_AUTOPROBE);
+ 			driver_deferred_probe_add(link->consumer);
++		}
+ 	}
+ 
+ 	if (defer_sync_state_count)
+--- a/kernel/workqueue.c
++++ b/kernel/workqueue.c
+@@ -25,6 +25,7 @@
+  * Please read Documentation/core-api/workqueue.rst for details.
+  */
+ 
++#include <linux/y2q-progress.h>
+ #include <linux/export.h>
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
+@@ -4234,8 +4235,11 @@
+ 	if (WARN_ON(!work->func))
+ 		return false;
+ 
+-	if (!start_flush_work(work, &barr, from_cancel))
++	if (!start_flush_work(work, &barr, from_cancel)) {
++		y2q_flush(work, Y_NO_BARRIER);
+ 		return false;
++	}
++	y2q_flush(work, Y_BARRIER);
+ 
+ 	/*
+ 	 * start_flush_work() returned %true. If @from_cancel is set, we know
+@@ -4270,7 +4274,9 @@
+ 		}
+ 	}
+ 
++	y2q_flush(work, Y_WAIT);
+ 	wait_for_completion(&barr.done);
++	y2q_flush(work, Y_WAIT_DONE);
+ 
+ out_destroy:
+ 	destroy_work_on_stack(&barr.work);
+--- a/drivers/pinctrl/qcom/pinctrl-msm.c
++++ b/drivers/pinctrl/qcom/pinctrl-msm.c
+@@ -4,6 +4,7 @@
+  * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/y2q-progress.h>
+ #include <linux/delay.h>
+ #include <linux/err.h>
+ #include <linux/gpio/driver.h>
+@@ -1410,6 +1411,7 @@
+ 		chip->irq.parent_domain = irq_find_matching_host(np,
+ 						 DOMAIN_BUS_WAKEUP);
+ 		of_node_put(np);
++		y2q_note(pctrl->dev, chip->irq.parent_domain ? Y_WAKE_FOUND : Y_WAKE_MISSING);
+ 		if (!chip->irq.parent_domain)
+ 			return -EPROBE_DEFER;
+ 		chip->irq.child_to_parent_hwirq = msm_gpio_wakeirq;
+@@ -1566,6 +1568,8 @@
+ 	msm_pinctrl_setup_pm_reset(pctrl);
+ 
+ 	pctrl->irq = platform_get_irq(pdev, 0);
++	y2q_note(&pdev->dev, pctrl->irq == -EPROBE_DEFER ? Y_IRQ_DEFER :
++		 (pctrl->irq < 0 ? Y_IRQ_ERROR : Y_IRQ_OK));
+ 	if (pctrl->irq < 0)
+ 		return pctrl->irq;
+ 
+--- a/drivers/pinctrl/qcom/pinctrl-sm8250.c
++++ b/drivers/pinctrl/qcom/pinctrl-sm8250.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/y2q-progress.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/platform_device.h>
+@@ -1350,7 +1351,12 @@
+ 
+ static int sm8250_pinctrl_probe(struct platform_device *pdev)
+ {
+-	return msm_pinctrl_probe(pdev, &sm8250_pinctrl);
++	int ret;
++
++	y2q_note(&pdev->dev, Y_CALLBACK);
++	ret = msm_pinctrl_probe(pdev, &sm8250_pinctrl);
++	y2q_callback_result(&pdev->dev, ret);
++	return ret;
+ }
+ 
+ static const struct of_device_id sm8250_pinctrl_of_match[] = {
+--- a/drivers/irqchip/qcom-pdc.c
++++ b/drivers/irqchip/qcom-pdc.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+  */
+ 
++#include <linux/y2q-progress.h>
+ #include <linux/err.h>
+ #include <linux/init.h>
+ #include <linux/interrupt.h>
+@@ -417,6 +418,7 @@
+ 	}
+ 
+ 	irq_domain_update_bus_token(pdc_domain, DOMAIN_BUS_WAKEUP);
++	y2q_pdc_ready();
+ 
+ 	return 0;
+ 
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -130,6 +130,7 @@
+ 		put_device(dev);
+ 	}
+ 	mutex_unlock(&deferred_probe_mutex);
++	y2q_flush(work, Y_WORK_EXIT);
+ }
+ static DECLARE_WORK(deferred_probe_work, deferred_probe_work_func);
+ 
+@@ -142,6 +143,7 @@
+ 	if (list_empty(&dev->p->deferred_probe)) {
+ 		dev_dbg(dev, "Added to deferred list\n");
+ 		list_add_tail(&dev->p->deferred_probe, &deferred_probe_pending_list);
++		y2q_note(dev, Y_INSERTED);
+ 	}
+ 	mutex_unlock(&deferred_probe_mutex);
+ }
+@@ -350,11 +352,16 @@
+ 	debugfs_create_file("devices_deferred", 0444, NULL, NULL,
+ 			    &deferred_devs_fops);
+ 
++	y2q_open(&deferred_probe_work);
+ 	driver_deferred_probe_enable = true;
+ 	driver_deferred_probe_trigger();
+ 	/* Sort as many dependencies as possible before exiting initcalls */
+ 	y2q_progress(308);
+-	flush_work(&deferred_probe_work);
++	y2q_flush(&deferred_probe_work, Y_CALL);
++	if (flush_work(&deferred_probe_work))
++		y2q_flush(&deferred_probe_work, Y_RETURN_TRUE);
++	else
++		y2q_flush(&deferred_probe_work, Y_RETURN_FALSE);
+ 	y2q_progress(309);
+ 	initcalls_done = true;
+ 
+@@ -626,6 +633,7 @@
+ 	}
+ 
+ 	link_ret = device_links_check_suppliers(dev);
++	y2q_note(dev, link_ret == -EPROBE_DEFER ? Y_LINK_DEFER : Y_LINK_PASS);
+ 	if (link_ret == -EPROBE_DEFER)
+ 		return link_ret;
+ 
+--- a/init/y2q-progress.c
++++ b/init/y2q-progress.c
+@@ -1,5 +1,7 @@
+ /* SPDX-License-Identifier: GPL-2.0-only */
+ /* Compiled only into the dedicated y2q RAM-boot candidate. All state is resident. */
++#include <linux/y2q-progress.h>
++#include <linux/workqueue.h>
+ #include <crypto/blake2s.h>
+ #include <linux/device.h>
+ #include <linux/timekeeping.h>
+@@ -31,15 +33,11 @@
+ /* PID 1 initializes this window before enabling the single deferred work item. */
+ static bool bound, anchor_attempted, exec_attempted, armed;
+ static u32 window_header[4];
+-struct lane {
+-	u32 seq, one, two;
+-};
+-static struct lane init_lane, retry_lane;
+ static bool recording;
++static u32 sequence[2];
++static atomic_t tlmm[2], callback_rc[2], progress;
++static struct work_struct *first_work;
+ static u8 instance[16];
+-static atomic_t provider_mask = ATOMIC_INIT(0);
+-static atomic_t db_result = ATOMIC_INIT(-32768);
+-static u32 init_steps, retry_step;
+ static struct path init_path;
+ 
+ static bool global_thread_one(void)
+@@ -154,70 +152,115 @@
+ 	return ok;
+ }
+ 
+-static noinline void emit_progress(struct lane *lane, bool worker)
+-{
+-	u32 frame[10] = {};
+-	u32 rc = (u16)atomic_read(&db_result);
+-	u32 state = worker ? retry_step : init_steps;
+-	unsigned int base = worker ? 160 : 80;
+-
+-	if (!smp_load_acquire(&recording) || lane->seq >= (worker ? 128 : 328))
+-		return;
+-	frame[0] = worker ? 0x32574c48 : 0x32504c48;
+-	frame[1] = ++lane->seq;
+-	frame[2] = lane->one;
+-	frame[3] = lane->two;
+-	frame[4] = ((state & 1023) << 21) |
+-		   ((atomic_read(&provider_mask) & 31) << 16) | rc;
+-	frame[5] = min_t(u64, div_u64(ktime_get_boottime_ns(), 1000000), U32_MAX);
++/* Mark under core locks using RAM only. The two sole publishing contexts
++ * use disjoint alternating slots at sleepable checkpoints. */
++static int lane(void)
++{
++	struct work_struct *work = READ_ONCE(first_work);
++
++	if (in_interrupt())
++		return -1;
++	if (work && current_work() == work)
++		return 1;
++	if (global_thread_one() && !work && !(atomic_read(&progress) & BIT(Y_OPEN)))
++		return 0;
++	return -1;
++}
++
++static bool target(struct device *dev)
++{
++	return !strcmp(dev_name(dev), "f100000.pinctrl") &&
++		of_device_is_compatible(dev->of_node, "qcom,sm8250-pinctrl");
++}
++
++void noinline y2q_note(struct device *dev, unsigned int bit)
++{
++	int i = lane();
++	if (i >= 0 && target(dev)) {
++		int was = atomic_fetch_or(BIT(bit), &tlmm[i]);
++
++		/* These call sites can sleep; core link/list hooks only latch bits. */
++		if (!(was & BIT(bit)) && bit >= Y_CALLBACK && bit <= Y_WAKE_MISSING)
++			y2q_checkpoint();
++	}
++}
++
++void y2q_supplier(struct device *dev, struct fwnode_handle *sup)
++{
++	struct device_node *np;
++	if (!target(dev))
++		return;
++	np = to_of_node(sup);
++	y2q_note(dev, of_device_is_compatible(np, "qcom,pdc") ? Y_LINK_PDC :
++		 of_device_is_compatible(np, "arm,gic-v3") ? Y_LINK_GIC : Y_LINK_OTHER);
++}
++
++void y2q_callback_result(struct device *dev, int ret)
++{
++	int i = lane();
++	if (i >= 0 && target(dev) && !atomic_cmpxchg(&callback_rc[i], 0, BIT(16) | (u16)ret)) {
++		y2q_checkpoint();
++	}
++}
++
++void noinline y2q_checkpoint(void)
++{
++	u32 frame[10] = {}, initial_rc, worker_rc;
++	int i = global_thread_one() ? 0 : 1;
++	struct work_struct *work = READ_ONCE(first_work);
++
++	if (!smp_load_acquire(&recording) || in_interrupt() ||
++	    (i && (!work || current_work() != work)) || sequence[i] >= 32)
++		return;
++	frame[0] = i ? 0x31574c54 : 0x31504c54;
++	frame[1] = ++sequence[i];
++	initial_rc = atomic_read(&callback_rc[0]);
++	worker_rc = atomic_read(&callback_rc[1]);
++	frame[2] = atomic_read(&tlmm[0]) | (initial_rc ? BIT(Y_CALLBACK_RETURN) : 0);
++	frame[3] = atomic_read(&tlmm[1]) | (worker_rc ? BIT(Y_CALLBACK_RETURN) : 0);
++	frame[4] = atomic_read(&progress);
++	frame[5] = ((u32)(u16)worker_rc << 16) | (u16)initial_rc;
+ 	blake2s((u8 *)frame + 24, (const u8 *)frame, instance, 16, 24, 16);
+-	y2q_write_slot(base + 40 * ((lane->seq - 1) & 1), (u8 *)frame);
+-}
+-
+-void noinline y2q_deferred_worker(struct device *dev, unsigned int phase)
+-{
+-	const char *name;
+-	u32 id = 2166136261U;
+-
+-	if (!smp_load_acquire(&recording) || retry_lane.seq >= 128 ||
+-	    in_interrupt() || !(current->flags & PF_WQ_WORKER))
+-		return;
+-	name = dev_name(dev);
+-	if (!name)
+-		return;
+-	while (*name) {
+-		id ^= (u8)*name++;
+-		id *= 16777619U;
+-	}
+-	retry_lane.one = id;
+-	if (phase == 2)
+-		retry_lane.two = id;
+-	retry_step = phase;
+-	emit_progress(&retry_lane, true);
+-}
+-
+-void noinline y2q_provider_progress(unsigned int phase, int rc)
+-{
+-	if (phase == 2)
+-		atomic_set(&db_result, rc);
+-	atomic_or(BIT(phase), &provider_mask);
+-}
+-
++	y2q_write_slot(80 + 80*i + 40*((frame[1]-1)&1), (u8 *)frame);
++}
++
++void y2q_open(struct work_struct *work)
++{
++	WRITE_ONCE(first_work, work);
++	atomic_or(BIT(Y_OPEN), &progress);
++	y2q_checkpoint();
++}
++
++void y2q_flush(struct work_struct *work, unsigned int bit)
++{
++	if (work != READ_ONCE(first_work) ||
++	    (bit == Y_WORK_EXIT ? current_work() != work : !global_thread_one()))
++		return;
++	if (bit == Y_RETURN_TRUE || bit == Y_RETURN_FALSE)
++		WRITE_ONCE(first_work, NULL);
++	if (!(atomic_fetch_or(BIT(bit), &progress) & BIT(bit)))
++		y2q_checkpoint();
++}
++
++void y2q_pdc_ready(void)
++{
++	atomic_or(BIT(Y_PDC_READY), &progress);
++}
++
++void y2q_deferred_worker(struct device *dev, unsigned int phase)
++{
++	if (lane() == 1 && target(dev)) {
++		unsigned int bit = phase == 1 ? Y_BEFORE_BUS : Y_AFTER_BUS;
++		if (!(atomic_fetch_or(BIT(bit), &tlmm[1]) & BIT(bit)))
++			y2q_checkpoint();
++	}
++}
++
++void y2q_provider_progress(unsigned int phase, int rc) {}
+ void noinline y2q_progress(unsigned int bit)
+ {
+-	if (!global_thread_one())
+-		return;
+-	if (bit >= 1024) {
+-		unsigned int next = (bit - 1024) / 2 + 1;
+-
+-		if (bit & 1)
+-			init_lane.two = next;
+-		else
+-			init_lane.one = next;
+-	} else if (bit >= 306 && bit < 316) {
+-		init_steps |= BIT(bit - 306);
+-	}
+-	emit_progress(&init_lane, false);
++	if (bit == 306 || bit == 309 || bit == 315)
++		y2q_checkpoint();
+ }
+ 
+ void noinline y2q_basic_anchor(void)
+@@ -229,10 +272,10 @@
+ 	anchor_attempted = true;
+ 	memcpy(frame + 8, y2q_nonce, 16);
+ 	if (rng_is_initialized()) {
+-		memcpy(frame, "H0EPOCH3", 8);
++		memcpy(frame, "TLEPOCH1", 8);
+ 		get_random_bytes(frame + 24, 16);
+ 	} else {
+-		memcpy(frame, "H0UNATR3", 8);
++		memcpy(frame, "TLFIXED1", 8);
+ 		memcpy(frame + 24, "RUN-LEVEL-ONLY!!", 16);
+ 	}
+ 	blake2s(instance, frame + 24, y2q_nonce, 16, 16, 16);
