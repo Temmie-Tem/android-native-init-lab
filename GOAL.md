@@ -289,6 +289,17 @@ consecutive UFS link completions, and ML059–ML065 are seven consecutive
 completed storage stages. **Roadmap step 3 is done**; next is step 4, the
 upstream driver.
 [ML062–ML065 series](docs/reports/S22PLUS_MAINLINE_ML062_ML065_UFS_STABILITY_PASS_2026-11-28.md).
+**Step 4 (upstream driver handover) is designed, and 4a and 4b are built.**
+The operator approved the design's four questions. 4a built the upstream
+`ufshcd`/`ufs-qcom`/QMP UFS PHY modules against the unchanged floor Image,
+plus the write gate, the overlay and the PHY render. 4b (report V18) is one
+composite module, loaded by the observer after the permit. Within a
+150-second budget it hands the controller to the upstream stack, then reads
+the GPT and the test block with direct I/O, read-only. A stop-or-park rule
+applies at shutdown. 4b was adopted in v76 (`f39092fb22`) after four Codex
+rounds. Capability-11 is owner-reviewed PASS_GO. ML066 is prepared and awaits
+a single-run approval.
+[4b H0](docs/reports/S22PLUS_MAINLINE_UFS_UPSTREAM_4B_H0_2026-11-28.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
