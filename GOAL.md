@@ -265,6 +265,16 @@ Test block LBA 62,305,152 reads as 4096 zeros. **Phase 2a is done.** Next is
 phase 2b: one FUA write to the test block. It needs its own closed raw-block
 exception and operator approval.
 [ML059 run](docs/reports/S22PLUS_MAINLINE_ML059_UFS_STORAGE_READ_PASS_2026-11-28.md).
+On 2026-11-28 the operator approved the UFS storage envelope, phase 2b
+(report V17: one FUA write of a fixed pattern to that block, only over zeros,
+then one readback), phase 2c (one rooted-Android read of the block), a single
+returned approval for a fixed attended series, and a one-round review rule.
+Adopted in v75 (`0fae3fa3af`) after one Codex review and six confirming
+rounds on the fixes. A new report version inside the envelope now needs only
+its code review, capability, owner review and run approval; UFS sources no
+longer restage the loader, SCM, MAX77705 and gateway receipts. Next: the
+persistence series (V17 write run → Android read → V17 run of a second
+candidate expecting `ALREADY_PRESENT`) under one series approval.
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
