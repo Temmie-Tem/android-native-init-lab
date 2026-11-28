@@ -1,0 +1,158 @@
+--- a/include/linux/y2q-progress.h
++++ b/include/linux/y2q-progress.h
+@@ -11,7 +11,9 @@
+ enum y2q_tlmm_event {
+ 	Y_LINK_PDC, Y_LINK_GIC, Y_LINK_OTHER, Y_LINK_DEFER, Y_LINK_PASS,
+ 	Y_AUTOPROBE, Y_INSERTED, Y_CALLBACK, Y_IRQ_OK, Y_IRQ_DEFER, Y_IRQ_ERROR,
+-	Y_WAKE_FOUND, Y_WAKE_MISSING, Y_CALLBACK_RETURN, Y_BEFORE_BUS, Y_AFTER_BUS
++	Y_WAKE_FOUND, Y_WAKE_MISSING, Y_CALLBACK_RETURN, Y_BEFORE_BUS, Y_AFTER_BUS,
++	Y_GPIO_ADD, Y_DIR_SCAN, Y_DIR_DONE, Y_OF_DONE, Y_IRQCHIP_ADD,
++	Y_IRQCHIP_OK, Y_GPIO_OK, Y_GPIO_ERR, Y_DRVDATA
+ };
+ enum y2q_flush_event {
+ 	Y_OPEN, Y_CALL, Y_NO_BARRIER, Y_BARRIER, Y_WAIT, Y_WAIT_DONE,
+--- a/init/y2q-progress.c
++++ b/init/y2q-progress.c
+@@ -169,7 +169,7 @@
+ 
+ static bool target(struct device *dev)
+ {
+-	return !strcmp(dev_name(dev), "f100000.pinctrl") &&
++	return dev && !strcmp(dev_name(dev), "f100000.pinctrl") &&
+ 		of_device_is_compatible(dev->of_node, "qcom,sm8250-pinctrl");
+ }
+ 
+@@ -180,7 +180,8 @@
+ 		int was = atomic_fetch_or(BIT(bit), &tlmm[i]);
+ 
+ 		/* These call sites can sleep; core link/list hooks only latch bits. */
+-		if (!(was & BIT(bit)) && bit >= Y_CALLBACK && bit <= Y_WAKE_MISSING)
++		if (!(was & BIT(bit)) && ((bit >= Y_CALLBACK && bit <= Y_WAKE_MISSING) ||
++					 bit >= Y_GPIO_ADD))
+ 			y2q_checkpoint();
+ 	}
+ }
+@@ -212,7 +213,7 @@
+ 	if (!smp_load_acquire(&recording) || in_interrupt() ||
+ 	    (i && (!work || current_work() != work)) || sequence[i] >= 32)
+ 		return;
+-	frame[0] = i ? 0x31574c54 : 0x31504c54;
++	frame[0] = i ? 0x32574c54 : 0x32504c54;
+ 	frame[1] = ++sequence[i];
+ 	initial_rc = atomic_read(&callback_rc[0]);
+ 	worker_rc = atomic_read(&callback_rc[1]);
+@@ -272,10 +273,10 @@
+ 	anchor_attempted = true;
+ 	memcpy(frame + 8, y2q_nonce, 16);
+ 	if (rng_is_initialized()) {
+-		memcpy(frame, "TLEPOCH1", 8);
++		memcpy(frame, "TLEPOCH2", 8);
+ 		get_random_bytes(frame + 24, 16);
+ 	} else {
+-		memcpy(frame, "TLFIXED1", 8);
++		memcpy(frame, "TLFIXED2", 8);
+ 		memcpy(frame + 24, "RUN-LEVEL-ONLY!!", 16);
+ 	}
+ 	blake2s(instance, frame + 24, y2q_nonce, 16, 16, 16);
+--- a/drivers/gpio/gpiolib.c
++++ b/drivers/gpio/gpiolib.c
+@@ -23,6 +23,7 @@
+ #include <linux/of.h>
+ #include <linux/pinctrl/consumer.h>
+ #include <linux/seq_file.h>
++#include <linux/y2q-progress.h>
+ #include <linux/slab.h>
+ #include <linux/srcu.h>
+ #include <linux/string.h>
+@@ -1156,6 +1157,7 @@
+ 	if (ret)
+ 		goto err_cleanup_desc_srcu;
+ 
++	y2q_note(gc->parent, Y_DIR_SCAN);
+ 	for (desc_index = 0; desc_index < gc->ngpio; desc_index++) {
+ 		struct gpio_desc *desc = &gdev->descs[desc_index];
+ 
+@@ -1176,10 +1178,12 @@
+ 				   &desc->flags, !gc->direction_input);
+ 	}
+ 
++	y2q_note(gc->parent, Y_DIR_DONE);
+ 	ret = of_gpiochip_add(gc);
+ 	if (ret)
+ 		goto err_free_valid_mask;
+ 
++	y2q_note(gc->parent, Y_OF_DONE);
+ 	ret = gpiochip_add_pin_ranges(gc);
+ 	if (ret)
+ 		goto err_remove_of_chip;
+@@ -1196,9 +1200,11 @@
+ 	if (ret)
+ 		goto err_remove_irqchip_mask;
+ 
++	y2q_note(gc->parent, Y_IRQCHIP_ADD);
+ 	ret = gpiochip_add_irqchip(gc, lock_key, request_key);
+ 	if (ret)
+ 		goto err_remove_irqchip_mask;
++	y2q_note(gc->parent, Y_IRQCHIP_OK);
+ 
+ 	/*
+ 	 * By first adding the chardev, and then adding the device,
+--- a/drivers/pinctrl/qcom/pinctrl-msm.c
++++ b/drivers/pinctrl/qcom/pinctrl-msm.c
+@@ -1440,7 +1440,9 @@
+ 	girq->parents[0] = pctrl->irq;
+ 	girq->init_valid_mask = msm_gpio_irq_init_valid_mask;
+ 
++	y2q_note(pctrl->dev, Y_GPIO_ADD);
+ 	ret = devm_gpiochip_add_data(pctrl->dev, &pctrl->chip, pctrl);
++	y2q_note(pctrl->dev, ret ? Y_GPIO_ERR : Y_GPIO_OK);
+ 	if (ret) {
+ 		dev_err(pctrl->dev, "Failed register gpiochip\n");
+ 		return ret;
+@@ -1600,6 +1602,7 @@
+ 		return ret;
+ 
+ 	platform_set_drvdata(pdev, pctrl);
++	y2q_note(&pdev->dev, Y_DRVDATA);
+ 
+ 	dev_dbg(&pdev->dev, "Probed Qualcomm pinctrl driver\n");
+ 
+--- a/drivers/pinctrl/qcom/pinctrl-sm8250.c
++++ b/drivers/pinctrl/qcom/pinctrl-sm8250.c
+@@ -1351,12 +1351,8 @@
+ 
+ static int sm8250_pinctrl_probe(struct platform_device *pdev)
+ {
+-	int ret;
+-
+ 	y2q_note(&pdev->dev, Y_CALLBACK);
+-	ret = msm_pinctrl_probe(pdev, &sm8250_pinctrl);
+-	y2q_callback_result(&pdev->dev, ret);
+-	return ret;
++	return msm_pinctrl_probe(pdev, &sm8250_pinctrl);
+ }
+ 
+ static const struct of_device_id sm8250_pinctrl_of_match[] = {
+--- a/drivers/base/platform.c
++++ b/drivers/base/platform.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/string.h>
++#include <linux/y2q-progress.h>
+ #include <linux/platform_device.h>
+ #include <linux/of_device.h>
+ #include <linux/of_irq.h>
+@@ -1401,8 +1402,11 @@
+ 	if (ret)
+ 		goto out;
+ 
+-	if (drv->probe)
++	if (drv->probe) {
+ 		ret = drv->probe(dev);
++		if (!strcmp(drv->driver.name, "sm8250-pinctrl"))
++			y2q_callback_result(_dev, ret);
++	}
+ 
+ out:
+ 	if (drv->prevent_deferred_probe && ret == -EPROBE_DEFER) {

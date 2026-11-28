@@ -249,3 +249,27 @@ H0 선행 대조는 공급자 차단/콜백 내부 보류/정상 반환, 배리�
 | 첫 deferred flush가 도달한 곳 | `opened`, `call`, `barrier`, `before_wait` | 배리어 설치와 `wait_for_completion(&barr.done)` 호출 직전까지 확인했다. 대기 직후와 바깥 반환 표식이 없어 대기 완료, 실제 수면 시간, 교착 여부는 미확정이다. |
 
 PDC 도메인 게시 표식(`pdc_published`)도 남았다. 여러 창에서 회수한 개별 사건의 시도 순서와 마지막 시도는 알 수 없다. 17:29:27에 실행기가 `OBSERVED_TLMM_INITIAL_PDC_DEFER_ORIGINAL_RETURNED`로 종료됐다. 후보와 원본 전송은 각각 1회였고 공유 가드는 해제됐다. 실행기 소스는 `45c5bc675c`, 비공개 증거는 `workspace/private/runs/s20plus-g986n-tlmm-flush-f1/run-1795854092652329526/`의 기준·복귀 판독, 전송 결과, 최종 건강 및 종료 기록에 있다.
+
+## 11월 28일 TLMM wakeup 도메인 이후의 GPIO 등록 경로
+
+실기에서 회수한 마지막 TLMM 드라이버 내부 표식은 `wake_found`다. 이 표식은 `irq_find_matching_host(..., DOMAIN_BUS_WAKEUP)`가 도메인을 찾았다는 뜻이다. 실기에 사용한 Linux 6.18 소스와 전달 DT에서 이후 경로를 추적했다.
+
+1. `msm_gpio_init()`은 PDC 도메인의 직접 wake IRQ 처리 여부를 조회해 해당 GPIO를 표시하고, 부모 IRQ 배열을 할당한 뒤 `devm_gpiochip_add_data()`를 호출한다. 부모 배열 할당이 실패하면 `-ENOMEM`으로 돌아간다.
+2. GPIO 코어의 `gpiochip_add_data_with_key()`는 칩과 라인 기술자, 유효 마스크를 마련한다. 라인 방향 초기화 루프는 유효 라인마다 `msm_gpio_get_direction()`을 통해 해당 타일의 제어 레지스터를 읽는다. SM8250의 GPIO 수는 181개이며 y2q DT에서 40–43번은 예약돼 있다. 후보는 기존 루프의 시작과 끝에서 한 번씩 관측한다.
+3. `of_gpiochip_add()`는 이 DT의 자기 TLMM을 가리키는 `gpio-ranges`를 해석하고 GPIO hog를 스캔한다. 이어 GPIO 코어가 IRQ 칩을 등록한다. 부모 도메인으로 계층형 IRQ 도메인을 만들고 부모 IRQ에 연결 핸들러를 설치한다. 초기화 상태에 따라 GPIO 장치 등록도 수행한다. 관리형 래퍼는 코어 등록 성공 뒤 해제 동작을 등록한다.
+4. 관리형 등록이 실패하면 반환 코드가 TLMM 호출자까지 전달된다. 성공하면 이 DT에서는 `gpio-ranges`가 있으므로 MSM의 수동 범위 추가 분기를 건너뛰고, `msm_pinctrl_probe()`가 드라이버 데이터를 저장한 후 0을 반환한다. 새 후보는 `platform_probe()`의 실제 `drv->probe(dev)` 호출 **직후**에 선택된 TLMM의 첫 콜백 반환값을 기록한다. 드라이버 코어의 후속 바인딩 성공은 별도 사건이다.
+
+### 관측 후보와 호스트 결과
+
+후보는 기존 240바이트 창 안에서 GPIO 등록 호출, 방향 루프 양끝, OF 처리 성공, IRQ 칩 등록 전후, 관리형 등록 성공·실패, 드라이버 데이터 저장을 구분한다. 선택된 워커의 콜백 반환값, 첫 `wait_for_completion(&barr.done)` 직후, 바깥 `flush_work()` 반환을 각각 판독한다. 대기 경로의 필수 비트는 인증된 한 슬롯에 함께 있어야 한다. 서로 다른 창에서 회수한 호출 순서나 같은 시도라는 관계는 복원하지 않는다.
+
+| 같은 ARM64 Image의 QEMU 대조 | 선택된 TLMM 워커에서 회수한 결과 | 첫 flush 결과 |
+| --- | --- | --- |
+| 정상 GPIO 등록 | 방향 루프와 OF 처리, IRQ 칩·GPIO 등록, 드라이버 데이터 저장을 거쳐 호출자에서 0을 회수 | 콜백 반환 직후에는 대기 완료 표식이 없었다. 실제 대기 반환 후 `__flush_work()` 안에서 잡은 RAM에는 대기 완료만 추가됐다. 바깥 호출 뒤에는 true 반환도 확인했다. |
+| 모델의 GPIO 범위가 pinctrl 공급자가 없는 노드를 참조 | wakeup 도메인 발견과 방향 루프 완료 후 OF 범위 처리에서 보류. 관리형 등록 실패와 호출자 반환값 `-517`을 회수 | 대기 완료와 바깥 true 반환을 각각 확인했다. |
+| 모델의 TLMM 주소만 변경 | 정확한 대상의 초기·워커 표식은 0개 | 첫 대기와 바깥 true 반환을 확인했다. 이 대조에서 대기를 유발한 개별 장치는 미확정이다. |
+| 모델에서 TLMM 비활성 | 정확한 대상의 초기·워커 표식은 0개 | 첫 호출이 배리어 없이 false를 반환했다. |
+
+QEMU 모델 변경은 기능 대조용 virt DT에만 적용했다. 배포 후보는 직전 실기 후보와 커널 설정, 보드 DT, 펌웨어 입력 6가지에서 캡처한 전달 DT 전체, initcall 173개의 순서 및 레벨 경계가 일치했다. 완성된 AP의 유일한 엔트리 `boot.img.lz4`를 풀어 테스트한 Image가 포함된 것을 확인했다. 동일 슬롯 내 모순, 분할 슬롯, 오래된 epoch와 손상 슬롯을 검사했고, RAM 캡처 11개 모두 240바이트 창 밖은 초기값과 일치했다. 호스트 독립 검토에서 지적한 대기 직후 중단 위치 및 모순 비트 판독을 수정해 재검증했다. 최초 DT 검사에 사용한 이전 스크립트는 `/chosen`에 idle-off 인수가 없는 구성을 기대해 중단됐다. 실기 선행 후보의 검사기로 6개 입력을 모두 검증하고 DT 바이트도 직접 비교했다. TLMM이 비활성인 대조는 첫 flush 뒤의 309 지점에서 판정해 두 번째 flush의 대기를 제외했다.
+
+호스트 전용 AP의 SHA-256은 `70f61e5b5701b86bb3635ac31583708b1d70092c8824a0f0765f905134e5ef83`이다. 비공개 `workspace/private/analysis/s20plus-y2q-tlmm-gpio-h0-20261128/`에 `packaged/AP.tar.md5`, 네 `qualified-*/`의 RAM 캡처 및 판독, `handoff-dt/`, `verification.json`(SHA-256 `d44343559a13141b4b83d7a1cb176963d94fbdba8c49eeb6fed2a0a2970ec663`)을 보존했다. 기기 명령은 0회다.
