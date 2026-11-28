@@ -35,10 +35,10 @@ controls.
 ## What this establishes
 
 Counting ML056–ML065, ten consecutive mainline runs completed the UFS link.
-ML059–ML065 are seven consecutive completed storage stages. The test block
-held the written pattern across seven reboots after the write:
-- six mainline boots and one stock-Android read;
-- four Android returns in this series alone.
+ML059–ML065 are seven consecutive completed storage stages. After ML060's
+write, five later mainline boots (ML061–ML065) and one stock-Android read
+found the pattern unchanged. The phone returned to original Android six
+times in between (after each of ML060–ML065).
 
 No run in the series varied in its link or storage fields. ML064's permit
 came about 13 s earlier than the others; that cause was not examined.
