@@ -267,6 +267,10 @@ static void fixture_wmb(void)
 		clock_ns = late_ring_at;
 }
 
+static int irq_disabled;
+#define local_irq_save(flags) do { (flags) = 1; irq_disabled++; } while (0)
+#define local_irq_restore(flags) do { (void)(flags); assert(irq_disabled == 1); irq_disabled--; } while (0)
+
 static u32 readl(const void *addr)
 {
 	unsigned offset = (unsigned)((const u8 *)addr - (const u8 *)hci);
@@ -284,11 +288,13 @@ static void writel(u32 value, void *addr)
 		return;                                   /* HCE never clears */
 	if (offset == REG_UTP_TRANSFER_REQ_DOOR_BELL) {
 		assert(value == 1 && !hci[offset / 4]);   /* one slot, never reused while busy */
+		assert(irq_disabled == 1);                /* rung only inside the checked section */
 		assert(hci[REG_UTP_TRANSFER_REQ_LIST_RUN_STOP / 4] == 1);
 	}
 	hci[offset / 4] = value;
 }
 
+#define writel_relaxed(value, addr) writel(value, addr)
 #include "waipio_hci.h"
 #include "ufs_storage.c"
 

@@ -101,20 +101,27 @@ static u64 within(const struct utp *u, u64 wait_ns)
 }
 
 /* Ring slot 0 once and wait until the absolute end for it to clear.
- * `reserve_ns` (the V17 write only) is stage budget that must still remain:
- * it is the last check, after the barrier, immediately before the doorbell.
- * Returns the UPIU type on OCS 0. */
+ * `reserve_ns` (the V17 write only) is stage budget that must still remain.
+ * The descriptor barrier comes first (dma_wmb() + writel_relaxed() is what
+ * writel() is); the reserve check and the doorbell store then form one
+ * section with local interrupts disabled, so nothing in this kernel runs
+ * between them. Returns the UPIU type on OCS 0. */
 static int ring(struct utp *u, u64 until, u64 reserve_ns)
 {
+	unsigned long irqflags;
 	u8 ocs;
 
 	until = min(until, u->deadline_ns);
 	if (ktime_get_boottime_ns() >= until || readl(u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL))
 		return -EBUSY;
 	dma_wmb();
-	if (reserve_ns && ktime_get_boottime_ns() + reserve_ns >= u->deadline_ns)
+	local_irq_save(irqflags);
+	if (reserve_ns && ktime_get_boottime_ns() + reserve_ns >= u->deadline_ns) {
+		local_irq_restore(irqflags);
 		return -EBUSY;
-	writel(1, u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL);
+	}
+	writel_relaxed(1, u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL);
+	local_irq_restore(irqflags);
 	while (readl(u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL) & 1) {
 		if (ktime_get_boottime_ns() >= until) {
 			u->out->flags |= G0Q_SF_UNCERTAIN;
