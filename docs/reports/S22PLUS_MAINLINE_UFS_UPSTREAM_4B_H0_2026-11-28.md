@@ -1,7 +1,9 @@
 # S22+ UFS upstream handover, phase 4b (H0): stage, report V18, adoption, ML066 preparation
 
-Status: **adopted (v76, `f39092fb22`); capability-11 frozen; ML066 prepared,
-not run.** Host-only, no device action. The operator approved the
+Status: **adopted (v76, `f39092fb22`); capability-11 frozen; ML066 run
+2026-11-29, `PASS_MAINLINE_UFS_LINK` / `ANDROID_CLOSED_HEALTHY`
+([ML066](S22PLUS_MAINLINE_ML066_UFS_UPSTREAM_HANDOVER_PASS_2026-11-29.md)).**
+This record itself is host-only. The operator approved the
 [step-4 design](S22PLUS_MAINLINE_UFS_UPSTREAM_DRIVER_DESIGN_H0_2026-11-28.md)
 on 2026-11-28 ("1~4 전부 승인할게, 4a부터 진행해") and asked for 4b
 ("이여서 진행해").

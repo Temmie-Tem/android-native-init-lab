@@ -297,9 +297,14 @@ composite module, loaded by the observer after the permit. Within a
 150-second budget it hands the controller to the upstream stack, then reads
 the GPT and the test block with direct I/O, read-only. A stop-or-park rule
 applies at shutdown. 4b was adopted in v76 (`f39092fb22`) after four Codex
-rounds. Capability-11 is owner-reviewed PASS_GO. ML066 is prepared and awaits
-a single-run approval.
+rounds. Capability-11 is owner-reviewed PASS_GO.
 [4b H0](docs/reports/S22PLUS_MAINLINE_UFS_UPSTREAM_4B_H0_2026-11-28.md).
+**ML066 (2026-11-29) closed `PASS_MAINLINE_UFS_LINK` / `ANDROID_CLOSED_HEALTHY`.**
+The upstream stack reached OPERATIONAL at HS-G4 ×2 with no link errors. It
+read the matching GPT and ML060's pattern through direct I/O. The gate
+refused only six attribute writes from the probe, and no writes were possible.
+4b is done; next is 4c (read-only `native_data` mount).
+[ML066](docs/reports/S22PLUS_MAINLINE_ML066_UFS_UPSTREAM_HANDOVER_PASS_2026-11-29.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
