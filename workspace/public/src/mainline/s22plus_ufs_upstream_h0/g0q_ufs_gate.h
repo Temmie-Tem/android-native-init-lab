@@ -70,43 +70,52 @@ static inline int g0q_gate_devman_allowed(const unsigned char *upiu)
 #include <linux/atomic.h>
 #include <linux/bitops.h>
 #include <linux/moduleparam.h>
+#include <linux/spinlock.h>
 
 #define G0Q_GATE_QUERY_LOG 8
 
+/* lock: each refusal's count, bitmap and log change together, and the snapshot sees them together. */
 static struct {
+	spinlock_t lock;
 	atomic_t scsi_allowed, scsi_refused, devman_allowed, devman_refused, query_logged;
 	unsigned long refused_ops[BITS_TO_LONGS(256)];
 	u16 refused_query[G0Q_GATE_QUERY_LOG];	/* query: opcode<<8 | idn; other UPIU: 0xff00 | type */
 	u32 caps_before, caps_after, ahit_disabled, wlun_rpm_kept;
-} g0q_gate;
+} g0q_gate = { .lock = __SPIN_LOCK_UNLOCKED(g0q_gate.lock) };
 
 static bool g0q_gate_scsi(struct ufs_hba *hba, struct scsi_cmnd *cmd)
 {
 	u8 lun = ufshcd_scsi_to_upiu_lun(cmd->device->lun);
+	unsigned long flags;
 
 	if (g0q_gate_scsi_allowed(cmd->cmnd, cmd->cmd_len, lun)) {
 		atomic_inc(&g0q_gate.scsi_allowed);
 		return true;
 	}
+	spin_lock_irqsave(&g0q_gate.lock, flags);
 	atomic_inc(&g0q_gate.scsi_refused);
 	set_bit(cmd->cmnd[0], g0q_gate.refused_ops);
+	spin_unlock_irqrestore(&g0q_gate.lock, flags);
 	return false;
 }
 
 static bool g0q_gate_devman(const u8 *upiu)
 {
+	unsigned long flags;
 	int slot;
 
 	if (g0q_gate_devman_allowed(upiu)) {
 		atomic_inc(&g0q_gate.devman_allowed);
 		return true;
 	}
+	spin_lock_irqsave(&g0q_gate.lock, flags);
 	atomic_inc(&g0q_gate.devman_refused);
 	slot = atomic_inc_return(&g0q_gate.query_logged) - 1;
 	if (slot < G0Q_GATE_QUERY_LOG)
 		g0q_gate.refused_query[slot] = upiu[0] == G0Q_GATE_UPIU_QUERY_REQ ?
 			(upiu[G0Q_GATE_QUERY_OPCODE] << 8) | upiu[G0Q_GATE_QUERY_IDN] :
 			0xff00 | upiu[0];
+	spin_unlock_irqrestore(&g0q_gate.lock, flags);
 	return false;
 }
 
@@ -144,6 +153,9 @@ static int g0q_gate_report(char *buf, const struct kernel_param *kp)
 void g0q_gate_snapshot(u32 out[G0Q_GATE_SNAPSHOT_WORDS]);
 void g0q_gate_snapshot(u32 out[G0Q_GATE_SNAPSHOT_WORDS])
 {
+	unsigned long flags;
+
+	spin_lock_irqsave(&g0q_gate.lock, flags);
 	out[0] = atomic_read(&g0q_gate.scsi_allowed);
 	out[1] = atomic_read(&g0q_gate.scsi_refused);
 	out[2] = atomic_read(&g0q_gate.devman_allowed);
@@ -157,6 +169,7 @@ void g0q_gate_snapshot(u32 out[G0Q_GATE_SNAPSHOT_WORDS])
 		out[9 + i] = (u32)bitmap_read(g0q_gate.refused_ops, i * 32, 32);
 	for (int i = 0; i < G0Q_GATE_QUERY_LOG; i++)
 		out[17 + i] = g0q_gate.refused_query[i];
+	spin_unlock_irqrestore(&g0q_gate.lock, flags);
 }
 
 static const struct kernel_param_ops g0q_gate_ops = { .get = g0q_gate_report };

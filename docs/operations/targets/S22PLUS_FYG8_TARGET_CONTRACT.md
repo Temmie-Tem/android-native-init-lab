@@ -416,13 +416,17 @@ the V13 module, instead of 300 seconds. Every other route-composition
 condition, limit and requirement above is unchanged.
 This target also adopts the common mainline UFS storage envelope of that
 witness-floor variant, for an exact floor capability with module report version
-14 or later. After the completed link, the module reads the device's capacity,
+14 to 17. After the completed link, the module reads the device's capacity,
 the primary GPT and the one test block at LBA 62,305,152 through its own fixed
 UTP commands. From report version 17 it writes the fixed pattern to that one
 block, only over zeros, and reads it back; it writes no other block. The
 target also adopts the common phase 2c Android read of that block and the
-common series approval for these steps. Every other witness-floor condition,
-limit and requirement above is unchanged.
+common series approval for these steps. It also adopts the common read-only
+upstream UFS handover (step 4b) for an exact floor capability with module
+report version 18: the upstream `ufshcd`, `ufs-qcom` and QMP UFS PHY drivers
+behind the compiled write gate, LU discovery and direct block-layer reads of
+LBAs 1–3 and LBA 62,305,152 of LU 0, with no write, mount or series step. Every other
+witness-floor condition, limit and requirement above is unchanged.
 
 The same policy's distinct `s22plus-mainline-debian-ssh-ram-v1` variant
 adds the exact packaged OpenSSH daemon/split executables and one noninteractive

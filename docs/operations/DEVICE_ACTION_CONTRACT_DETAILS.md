@@ -82,6 +82,9 @@ permission to perform host-only work.
    FUA WRITE(10) of one fixed 4096-byte pattern to LBA 62,305,152 of LU 0,
    which no partition covers, only over zeros. It permits no other block,
    LUN, pattern, opcode, partition or repeated write.
+   The separate S22+ mainline UFS upstream handover below permits the generic
+   UFS driver stack read-only behind a compiled write gate. It permits no
+   media, configuration or descriptor write and no mount.
    The separate exact S22+ installed-Debian exception below permits one fresh
    boot of that already completed root, its declared filesystem lifetime and
    one reviewed P399 boot-only normal restoration. It grants no installation,
@@ -307,7 +310,8 @@ permission to perform host-only work.
    absolute kernel budget covers new resource submission and command issue.
    A late completion can settle a previously triggered request. An uncertain
    slot retains its request storage and cannot be replayed or reused. The
-   generic UFS, PHY, ICE and SCSI drivers stay disabled. Media commands,
+   generic UFS, PHY, ICE and SCSI drivers stay disabled, except under the
+   upstream handover below. Media commands,
    fDeviceInit, LU discovery, partition access, media-backed filesystem activity and key
    operations are excluded. No use of another target or another UFS profile
    is delegated.
@@ -773,7 +777,7 @@ permission to perform host-only work.
    witness-floor variant (phase 2a), and on 2026-11-28 its one-block write
    (phase 2b), a read of that block by rooted Android (phase 2c) and this
    fixed envelope. Only an exact floor capability with module report version
-   14 or later may use the stage. Its module is the floor module with the
+   14 to 17 may use the stage. Its module is the floor module with the
    reviewed storage source added. Its late overlay also gives the link node
    the controller's own SMMU stream and coherency, so Linux attaches one DMA
    domain for that stream at probe. The stage runs only after this boot's
@@ -834,7 +838,8 @@ permission to perform host-only work.
    delegated, including WRITE(16), WRITE SAME, UNMAP, FORMAT UNIT, WRITE
    BUFFER and SYNCHRONIZE CACHE. Nor is any other query write, attribute or
    descriptor write, power-mode change, ICE or key operation, or generic
-   UFS, SCSI or block driver. The authenticated report adds the stage's
+   UFS, SCSI or block driver other than the upstream handover below. The
+   authenticated report adds the stage's
    outcome and digests. That outcome never changes the link result's return
    conditions, the Download and original-A path, recovery or no-replay rules.
 
@@ -852,7 +857,7 @@ permission to perform host-only work.
    and is never retried.
 
    Series approval: one exact returned approval may cover a fixed series of
-   at most four of these steps (version 17 or later runs and phase 2c reads),
+   at most four of these steps (version 17 runs and phase 2c reads),
    named with their exact images before approval; each run names a distinct
    qualified candidate and AP. Each step keeps its own
    prepared task or read, fresh readiness, attendance, recovery and
@@ -865,6 +870,62 @@ permission to perform host-only work.
    step's claim records when it was made, and only a claim made before
    expiry on the series' host boot opens its grant; a claimed step then runs
    and recovers under the single-step rules.
+
+   Upstream handover (step 4b): the operator adopted on 2026-11-28 a
+   read-only handover of the controller to the upstream Linux UFS driver
+   stack for that witness-floor variant. Only an exact floor capability with
+   module report version 18 may use it. The floor kernel Image, symbols and
+   transport are unchanged. Its module, loaded once by the authenticated
+   observer after the 60-second witness and permit, holds the upstream
+   `ufshcd` core with the reviewed write gate compiled in, `ufshcd-pltfrm`,
+   `ufs-qcom`, the QMP UFS PHY driver with the board's three tuned PHY table
+   values, and a fixed stage. It contains no fixed UTP stage and never opens
+   the private RPMh arena. The stage is admitted only at 60 seconds of
+   BOOTTIME or later and only when its 150-second budget ends before 525
+   seconds. It then registers the three drivers and applies one fixed late
+   overlay. The overlay adds one ordinary RPMh regulator device holding only
+   S12B (1.256 V), L6B (1.2 V), L7B (2.504 V) and L9B (1.2 V), each with
+   minimum equal to maximum, and sets the UFS host and PHY nodes `okay` with
+   those supplies and the existing L5B. Within the budget it waits for the
+   bound host and an openable LU 0 disk, then reads LBAs 1–3 and LBA
+   62,305,152 of LU 0 with direct I/O through the block layer, opened
+   read-only. It starts no step after the budget ends, and at that point the
+   report is fixed, whatever the stage reached; the module stays resident
+   until the return.
+   Delegated: upstream link startup, the HS gear change, LU discovery, SCSI
+   disks and block devices created after the permit, and ordinary regulator,
+   interconnect and clock votes for these fixed resources from any context
+   until the return. No rail voltage changes; L5B keeps its existing value.
+   The write gate sits at the core's two submission points. A SCSI command
+   other than TEST UNIT READY, REQUEST SENSE, INQUIRY, REPORT LUNS, READ
+   CAPACITY(10/16), MODE SENSE(6/10), READ(6/10/16) and SYNCHRONIZE
+   CACHE(10/16), or START STOP UNIT to the device W-LU only, completes as
+   CHECK CONDITION, ILLEGAL REQUEST without reaching the device. A device
+   management request other than NOP OUT, query read descriptor, attribute
+   or flag and set flag `fDeviceInit` is refused before it is sent. The gate
+   clears clock gating, clock scaling, WriteBooster, auto-BKOPS, aggressive
+   power collapse, runtime autosuspend, crypto and TX equalization, disables
+   auto-hibernate and keeps runtime PM forbidden on the W-LU. UIC DME link
+   attributes are not gated. The report carries the gate's counters and its
+   map of refused opcodes and queries.
+   At restart `sd` may send SYNCHRONIZE CACHE to its disks, and the W-LU
+   shutdown sends START STOP UNIT to the W-LU and turns the link off. Before
+   the host clocks can stop, and again in the host's own shutdown for a host
+   whose W-LU never existed (after a runtime resume), the controller's
+   request lists are stopped and HCE is cleared; if HCE does not read 0
+   within 1 second, or the resume fails, the controller's block reset is
+   asserted and the restart parks, as for the storage stage.
+   A probe, LU scan or shutdown that stalls can also hold the timer child's
+   restart, which waits for driver probing; the attended physical Download
+   is then the recovery. The run completes only with the pinned GPT and the
+   retained pattern at LBA 62,305,152.
+   Not delegated: any media write, any other query, attribute or descriptor
+   write, BSG, RPMB, ICE or key operation, TLMM or a reset GPIO, a mount,
+   userspace access to a block device, or series approval for version 18.
+   The stage's outcome never changes the link result's return conditions,
+   the Download and original-A path, recovery or no-replay rules. A new
+   report version inside these bounds needs one independent code review and
+   its own capability, owner review and run approval, but no contract change.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:

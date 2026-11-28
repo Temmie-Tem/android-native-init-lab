@@ -114,7 +114,7 @@ ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
 ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
 ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
 ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v19_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v20_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -164,12 +164,30 @@ def ufs_storage(image):
     return type(version) is int and version >= 14
 
 
+# Report V18 and later are the upstream-driver handover (step 4b): read-only, never a
+# phase 2b write, never a series step and never a phase 2c predecessor.
+UPSTREAM_HANDOVER_VERSION = 18
+# The V18 module's sources; its component receipt must carry exactly these digests, and the
+# closure check keeps them unchanged before start. Pinned only for a V18 capability.
+HANDOVER_SOURCES = tuple('workspace/public/src/mainline/s22plus_ufs_upstream_h0/'+name for name in
+    ('g0q_handover.c', 'g0q_ufs_gate.h', 'gate_render.py', 'phy_render.py', 'combine_render.py',
+     'upstream_overlay.py', 'handover_build.py'))
+
+
 def ufs_write(image):
-    """Metadata only: a storage capability fixing report version 17 or later."""
+    """Metadata only: a storage capability fixing a write-stage report version (V17)."""
     if not ufs_storage(image):
         return False
     version = read(verify(image['capability']))['fixed']['report_version']
-    return type(version) is int and version >= 17
+    return type(version) is int and 17 <= version < UPSTREAM_HANDOVER_VERSION
+
+
+def ufs_handover(image):
+    """Metadata only: a storage capability fixing the upstream-handover report (V18 or later)."""
+    if not ufs_storage(image):
+        return False
+    version = read(verify(image['capability']))['fixed']['report_version']
+    return type(version) is int and version >= UPSTREAM_HANDOVER_VERSION
 
 
 def ufs_route(image):
@@ -186,7 +204,7 @@ def selected_profile(image):
     require(False,'unselected mainline-project comparison profile')
 
 
-def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None,write=None):
+def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None,write=None,handover=None):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
@@ -260,13 +278,16 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=Non
             paths += list(STORAGE_SOURCES)
         if (ufs_write(image) if write is None else write):
             paths += list(WRITE_SOURCES)
+        if (ufs_handover(image) if handover is None else handover):
+            paths += list(HANDOVER_SOURCES)
     return tuple(root/path for path in sorted(set(paths)))
 
 
-def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None,write=None):
+def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None,write=None,handover=None):
     root=Path(root)
     return [dict(pin(path),path=str(path.relative_to(root)))
-            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route,storage=storage,write=write)]
+            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route,storage=storage,write=write,
+                                     handover=handover)]
 
 
 def loader_build_only(path):
@@ -324,7 +345,7 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
             # Guest build inputs are candidate admission only; the policy stays bound.
             if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD or
                              row['path'] in ROUTE_GUEST_SOURCES or row['path'] in STORAGE_SOURCES or
-                             row['path'] in WRITE_SOURCES):continue
+                             row['path'] in WRITE_SOURCES or row['path'] in HANDOVER_SOURCES):continue
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
     udc = image is not None and 'udc_observation' in image

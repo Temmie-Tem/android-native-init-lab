@@ -62,15 +62,24 @@ class CapabilityTests(unittest.TestCase):
                 self.bind(dict(self.cap,fixed=dict(report_version=version)))
                 self.assertIs(task.ufs_storage(self.image),expected)
 
-    def test_write_sources_join_only_v17_and_later_closures(self):
-        # V14-V16 capabilities keep their exact frozen source list (and recovery).
-        for version,expected in ((14,False),(16,False),(17,True),(18,True)):
+    def test_write_sources_join_only_the_v17_write_closure(self):
+        # V14-V16 capabilities keep their exact frozen source list (and recovery);
+        # the V18 upstream handover is read-only and never joins the write lane.
+        for version,expected in ((14,False),(16,False),(17,True),(18,False),(19,False)):
             with self.subTest(version=version):
                 self.bind(dict(self.cap,fixed=dict(report_version=version)))
                 self.assertIs(task.ufs_write(self.image),expected)
                 paths={str(p.relative_to(self.root)) for p in task.source_paths(self.root,image=self.image,route=False)}
                 self.assertEqual(set(task.WRITE_SOURCES)<=paths,expected)
                 self.assertLessEqual(set(task.STORAGE_SOURCES),paths)
+
+    def test_handover_sources_join_only_v18_closures(self):
+        for version,expected in ((17,False),(18,True)):
+            with self.subTest(version=version):
+                self.bind(dict(self.cap,fixed=dict(report_version=version)))
+                self.assertIs(task.ufs_handover(self.image),expected)
+                paths={str(p.relative_to(self.root)) for p in task.source_paths(self.root,image=self.image,route=False)}
+                self.assertEqual(set(task.HANDOVER_SOURCES)<=paths,expected)
 
     def test_two_candidate_declarations_preserve_review_and_source_identity(self):
         before=task.source_pins(self.root,image=self.image)

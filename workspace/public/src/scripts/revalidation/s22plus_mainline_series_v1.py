@@ -10,8 +10,8 @@ The series ends at its expiry, at a host reboot, or at the first step whose
 outcome is not admitted. It grants no step type, image or outcome it does not
 name, and no recovery, retry or replay beyond the single-step rules.
 
-Every mainline step names a distinct qualified UFS storage image of report V17
-or later (a distinct candidate and AP: a consumed AP is never reused). A READBACK
+Every mainline step names a distinct qualified UFS write-stage image (report
+V17; the V18 upstream handover is never a series step) (a distinct candidate and AP: a consumed AP is never reused). A READBACK
 mismatch or foreign content is not an admitted outcome, so it ends the series.
 """
 from pathlib import Path
@@ -47,13 +47,13 @@ def directory(root, series_pin):
 
 
 def write_image(image):
-    """A UFS storage image whose capability fixes report V17 or later (the write stage)."""
+    """A UFS storage image whose capability fixes the write-stage report V17."""
     import s22plus_mainline_task_v1 as mainline
     return mainline.ufs_write(image)
 
 
 def qualified(image_pin):
-    """A mainline series image: a UFS storage capability of report V17 or later."""
+    """A mainline series image: a UFS write-stage capability (report V17)."""
     image = read(verify(image_pin))
     return image if write_image(image) else None
 

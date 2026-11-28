@@ -222,7 +222,7 @@ reboot. The operator approved its [design](../reports/S22PLUS_MAINLINE_UFS_RW_DE
 and the read-only phase 2a on 2026-11-27.
 
 `ufs_storage.c` runs once after the completed link, inside the module's
-budget, only in report V14 or later on the floor route kernel and module. It uses
+budget, only in report V14 to V17 on the floor route kernel and module. It uses
 one transfer slot with a polled doorbell and no interrupt. Crypto stays
 disabled, the LUN is always 0, and every field is fixed:
 
@@ -394,7 +394,7 @@ series. The planned persistence series is:
 3. a V17 run of a second qualified candidate with its own AP (a consumed AP is
    never reused), which finds `ALREADY_PRESENT`.
 
-Every mainline step must name a distinct V17-or-later UFS storage image
+Every mainline step must name a distinct V17 UFS storage image
 (distinct candidate and AP).
 
 The approval text is
@@ -412,6 +412,81 @@ earlier step closed healthy by its own claimed subject, and the claim itself
 rechecks that order: the claimed task's `closed.json` with that task's grant, operation, terminal and the
 final health inside that operation, or the claimed read's `terminal.json` naming the series and step, with
 write outcome `WRITTEN` or `ALREADY_PRESENT` and Android read `PATTERN`.
+
+## Upstream handover (report V18, step 4b)
+
+Step 4 of the roadmap hands the controller to the upstream Linux driver
+stack. The operator approved its
+[design](../reports/S22PLUS_MAINLINE_UFS_UPSTREAM_DRIVER_DESIGN_H0_2026-11-28.md)
+("1~4 전부 승인할게, 4a부터 진행해", 2026-11-28); phase 4a is
+[done](../reports/S22PLUS_MAINLINE_UFS_UPSTREAM_4A_H0_2026-11-28.md). The
+common details state the bounds; this section states how V18 implements them.
+
+- **Kernel.** The floor Image `5139aab5…`, symbols and transport, unchanged.
+  The upstream drivers are external modules built against it.
+- **Module.** `handover_build.py` builds one composite `g0q_ml030.ko` (so the
+  observer's module and result paths are unchanged) from the pinned 7.2.11
+  sources: `ufshcd` with the gate (`gate_render.py`, `g0q_ufs_gate.h`),
+  `ufs-sysfs`, `ufs-mcq`, `ufs-txeq`, `ufs-debugfs`, `ufshcd-pltfrm`,
+  `ufs-qcom`, the QMP UFS PHY with the three g0q table values
+  (`phy_render.py`) and the stage `g0q_handover.c`. `combine_render.py`
+  turns each driver's module init into a registration call the stage makes.
+  The build refuses any compiler or modpost diagnostic and any import of
+  `qcom_scm_`, `qcom_ice_`, `blk_crypto_`, `g0q_rpmh_`, `g0q_icc_` or
+  `g0q_usb_`. Its receipt is the component record the capability binds.
+- **Stage.** Pre-effect refusals (board, the 60-second floor, a 150-second
+  budget that would end at or after 525 seconds, a second load) return an
+  error, so the module unloads with nothing registered. After admission the
+  module init registers the core, PHY and `ufs-qcom` drivers in that order
+  (init code runs only in init context); one worker thread then applies the
+  overlay (`upstream_overlay.py`, `d33d058e…` for route
+  DT `51b58a40…`) and polls every 50 ms for the bound host (taken under the
+  device lock once probe returned 0 and pinned by its SCSI host reference)
+  and an openable LU 0 disk; an open that fails before the disk's device
+  number is live is retried. It reads LBAs 1–3 and LBA 62,305,152 with
+  direct I/O (an `IOCB_DIRECT` request through `vfs_iocb_iter_read`),
+  samples the host again and publishes each step. It starts no overlay or
+  read after the budget ends. The module
+  init waits for the worker until the budget ends, then fixes the report
+  (rc `-ETIMEDOUT` at the step last published) and returns 0, staying
+  resident. It sets the module's asynchronous-probe flag so that loading
+  does not wait for the upstream LU scan. The stage calls no SCSI execute,
+  bio submission or write interface.
+- **Shutdown.** `combine_render.py` adds the storage stage's stop-or-park
+  rule to the W-LU shutdown, after its power-off and link-off attempt and
+  before the host clocks can stop: stop both request lists, clear HCE and
+  wait up to 1 second for it to read 0, otherwise assert `ufs-qcom`'s
+  `core_reset` and never return. A new `ufs-qcom` platform shutdown (after
+  the W-LU, before the SMMU) applies the same rule, after a runtime resume,
+  when the W-LU path did not already prove the stop; a failed resume parks.
+- **Gate counters.** Each refusal updates its count, opcode map and query
+  log under one lock, and the snapshot reads them under the same lock.
+- **Report V18.** 69 fields in a 1024-byte envelope, tag `0xf0300000`:
+  rc, step, tag, start and settle times, the three registration results
+  and the overlay result, the host state, four error-event counts (PA, DL,
+  link-startup failures, host resets), the power mode (gears, lanes, power
+  modes, HS rate), the device's spec version and manufacturer, the SCSI
+  device count, LU 0's block size and block count, the GPT read result and
+  digest, the block read result and digest, and 25 gate words (allowed and
+  refused counts, the capabilities before and after the clear, the
+  auto-hibernate and W-LU flags, the 256-bit refused-opcode map and the
+  first eight refused queries). Every step leaves the fields of later steps
+  at their initial values; the decoder checks that and every other producer
+  invariant.
+- **Host.** `link_wire.upstream_handover` decodes V18. A run completes when
+  the step is DONE with rc 0, the host is OPERATIONAL, LU 0 has 62,305,280
+  blocks of 4096 bytes, the GPT digest is `a0de4421…` and the test block
+  holds the retained pattern `1155097a…`. `ZERO` or `OTHER` is reported and
+  is not a completion. The return, the timer child, Download and original-A
+  paths are those of V17. A stalled probe, scan or shutdown can hold the
+  timer child's restart (it waits for driver probing); the attended physical
+  Download is then the recovery.
+- **Binding.** A V18 capability pins the seven `s22plus_ufs_upstream_h0`
+  sources in its closure. The candidate validator requires the component
+  receipt's source digests to equal them, the floor Image `5139aab5…` and
+  the overlay's baseline to be the capability's route DT.
+- **No write lane.** A V18 image is never a phase 2b write, never a series
+  step and never a predecessor that admits a phase 2c read.
 
 ## Evidence and claims
 

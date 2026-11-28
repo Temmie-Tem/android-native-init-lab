@@ -18,6 +18,8 @@ import s22plus_mainline_task_v1 as tasks
 from s22plus_native_records_v3 import pin, publish, read, require
 
 ROOT = profile.ROOT
+# The floor transport Image the V18 composite module is built against (handover_build.py).
+HANDOVER_FLOOR_IMAGE = '5139aab548d194bc078f1cfdcff5f8273eb7613a674c7e6f0ba6ae42d15c42a5'
 CANDIDATE_SCHEMA = 's22plus-mainline-ufs-candidate-v2'
 QUALIFICATION_SCHEMA = 's22plus-mainline-ufs-qualification-v2'
 FIXED_FIELDS = {'report_version','kernel','component','dtb','config','network','original_boot',
@@ -124,6 +126,12 @@ def fixed_binding(cap):
     if handover:
         # V18 checks its own 60 s floor and opens no kernel arena: floor route observer only.
         require(route and floor, 'v2 V18 handover module requires the witness-floor route scope')
+        # The module that runs is built from the reviewed sources, on the floor Image, with the
+        # overlay rendered for the capability's route DT.
+        sources={Path(rel).name: pin(ROOT/rel)['sha256'] for rel in tasks.HANDOVER_SOURCES}
+        require(component['source_sha256']==sources, 'v2 V18 component sources differ from the reviewed closure')
+        require(kernel['sha256']==HANDOVER_FLOOR_IMAGE and
+                component['overlay']['baseline_sha256']==fixed['dtb']['sha256'], 'v2 V18 floor Image or route DT differs')
     else:
         require(_boot_floor().component_floor(component, kernel) is floor, 'v2 module/kernel boot floor differs from the witness floor')
     artifact_pin(kernel['image'],kernel['sha256'],kernel['file_size'])

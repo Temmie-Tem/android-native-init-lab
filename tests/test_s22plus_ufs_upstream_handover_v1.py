@@ -23,14 +23,14 @@ def words(hexdigest):
     return [int.from_bytes(raw[i:i + 4], "big") for i in range(0, 32, 4)]
 
 
-GATE_OK = [180, 2, 40, 6, 6, 0x1ff, 0x0f, 1, 1] + [0, 0, 0, 0, 0, 0, 0, 0] + \
+GATE_OK = [180, 2, 40, 6, 6, 0x1ff, 0x1ff & ~w.GATE_CAPS_CLEARED, 1, 1] + [0, 0, 0, 0, 0, 0, 0, 0] + \
           [(4 << 8) | 0x0a, (4 << 8) | 0x03, (7 << 8) | 0x04, (4 << 8) | 0x0d, (4 << 8) | 0x0d, (4 << 8) | 0x30, 0, 0]
 GATE_OK[9 + 0x2a // 32] |= 1 << (0x2a % 32)          # one refused WRITE(10) attempt
 GATE_OK[9 + 0x1b // 32] |= 1 << (0x1b % 32)          # one START STOP UNIT to a normal LU
 
 
 def good(**overrides):
-    v = [0, 8, report_modes.tag(18), 64200, 1840, 0, 0, 0, 0, 1, 0, 0, 0, 0,
+    v = [0, 7, report_modes.tag(18), 64200, 1840, 0, 0, 0, 0, 1, 0, 0, 0, 0,
          4, 4, 2, 2, 1, 1, 2, 0x310, 0x1ce, 5, 4096, 62305280, 0, *words(w.HANDOVER_GPT_SHA256),
          0, *words(w.STORAGE_PATTERN_SHA256), *GATE_OK]
     for index, value in overrides.items():
@@ -88,9 +88,30 @@ class Decoder(unittest.TestCase):
         self.assertEqual(facts["gate"]["refused_queries"][0], dict(opcode=4, idn=0x0a))
         self.assertFalse(facts["gate"]["writes_possible"])
 
-    def test_zero_block_still_completes_but_reports_zero(self):
+    def test_zero_block_is_reported_but_not_completed(self):
         facts = decode(good(**{f"v{36 + i}": x for i, x in enumerate(words(hashlib.sha256(bytes(4096)).hexdigest()))}))
-        self.assertEqual((facts["status"], facts["block"]), ("UFS_LINK_COMPLETED", "ZERO"))
+        self.assertEqual((facts["status"], facts["block"]), ("NO_PROOF", "ZERO"))
+        self.assertTrue(facts["gpt_match"] and facts["recovery_return"])
+
+    def test_report_frozen_at_the_budget_during_the_block_read(self):
+        values = good(v0=-110, v1=6, v35=-115)
+        values[36:44] = [0] * 8
+        facts = decode(values)
+        self.assertEqual((facts["status"], facts["step"], facts["timed_out"], facts["block"]), ("NO_PROOF", "GPT", True, None))
+        self.assertTrue(facts["gpt_match"])
+
+    def test_reads_refused_after_the_budget(self):
+        values = good(v0=-110, v1=5, v26=-110, v35=-110)
+        values[27:35] = [0] * 8
+        values[36:44] = [0] * 8
+        facts = decode(values)
+        self.assertEqual((facts["step"], facts["gpt_errno"], facts["block_errno"], facts["block"]), ("LU0", 110, 110, None))
+
+    def test_gpt_failure_keeps_the_block_read(self):
+        values = good(v0=-5, v1=5, v26=-5)
+        values[27:35] = [0] * 8
+        facts = decode(values)
+        self.assertEqual((facts["step"], facts["gpt_errno"], facts["block"]), ("LU0", 5, "PATTERN"))
 
     def test_other_gpt_is_not_completed(self):
         facts = decode(good(v27=0x12345678))
@@ -100,13 +121,18 @@ class Decoder(unittest.TestCase):
 
     def test_probe_timeout_after_overlay(self):
         values = good(v0=-110, v1=3, v9=-1, v14=0, v15=0, v16=0, v17=0, v18=0, v19=0, v20=0, v21=0, v22=0,
-                      v23=0, v24=0, v25=0, v26=-115, v35=-115, v4=120000)
+                      v23=0, v24=0, v25=0, v26=-115, v35=-115, v4=149000)
         for i in list(range(27, 35)) + list(range(36, 44)):
             values[i] = 0
         values[44:69] = [0] * 25
         facts = decode(values)
         self.assertEqual((facts["status"], facts["step"], facts["operation_errno"]), ("NO_PROOF", "OVERLAY", 110))
         self.assertIsNone(facts["hba_state"])
+
+    def test_worker_thread_not_created(self):
+        values = [-12, 2, report_modes.tag(18), 64200] + [0] * 5 + [-1] + [0] * 16 + [-115] + [0] * 8 + \
+                 [-115] + [0] * 8 + [0] * 25
+        self.assertEqual(decode(values)["step"], "DRIVERS")
 
     def test_registration_failure(self):
         values = [-19, 1, report_modes.tag(18), 64200, 0, -12, -125, -125, 0, -1] + [0] * 16 + [-115] + [0] * 8 + \
@@ -125,7 +151,20 @@ class Decoder(unittest.TestCase):
                 ("query log beyond count", good(v48=1, v47=1)),
                 ("caps gained", good(v50=0x200)),
                 ("gate not applied", good(v51=0)),
-                ("range", good(v10=-1))):
+                ("range", good(v10=-1)),
+                ("start after the admission window", good(v3=375000)),
+                ("failed overlay past the overlay step", good(v8=-22)),
+                ("step beyond DONE", good(v1=8)),
+                ("caps the gate clears still set", good(v50=0x1ff)),
+                ("allowed READ FLAG logged as refused", good(v61=(5 << 8) | 0x0a)),
+                ("refused query slot wider than u16", good(v61=0x10000)),
+                ("LU0 fields while waiting for LU0", good(v0=-110, v1=4, v26=-115, v35=-115,
+                                                      **{f"v{i}": 0 for i in list(range(27, 35)) + list(range(36, 44))})),
+                ("block digest without a read", good(v35=-5)),
+                ("registration step without a failure", good(v0=-19, v1=1, v9=-1, v26=-115, v35=-115,
+                                                             **{f"v{i}": 0 for i in list(range(4, 9)) + list(range(10, 26)) + list(range(27, 35)) + list(range(36, 44))})),
+                ("frozen GPT failure with a finished block read", good(v0=-110, v1=5, v26=-5,
+                                                                       **{f"v{i}": 0 for i in range(27, 35)}))):
             with self.subTest(name), self.assertRaises(ValueError):
                 decode(values)
 
@@ -150,12 +189,31 @@ class CompositeRender(unittest.TestCase):
         self.assertIn("if (!g0q_gate_scsi(hba, cmd))", core)
         self.assertIn("QSERDES_V5_RX_GM_CAL, 0x0f", qmp)
 
+    def test_wlun_shutdown_proves_the_controller_stopped_or_parks(self):
+        import combine_render
+        core = combine_render.ufshcd((KERNEL / "drivers/ufs/core/ufshcd.c").read_text())
+        qcom = combine_render.ufs_qcom((KERNEL / "drivers/ufs/host/ufs-qcom.c").read_text())
+        body = core[core.index("static void ufshcd_wl_shutdown(struct scsi_device *sdev)"):]
+        body = body[:body.index("\n}\n")]
+        self.assertLess(body.index("__ufshcd_wl_suspend(hba, UFS_SHUTDOWN_PM);\n\tg0q_quiesce_or_park(hba);"),
+                        body.index("ufshcd_suspend(hba);"))
+        self.assertEqual(core.count("g0q_quiesce_or_park(hba);"), 2)   # W-LU shutdown and platform shutdown
+        self.assertIn("reset_control_assert(host->core_reset);\n\tfor (;;)", qcom)
+        self.assertIn("\t.remove = ufs_qcom_remove,\n\t.shutdown = g0q_ufs_qcom_shutdown,\n", qcom)
+        self.assertIn("WRITE_ONCE(g0q_quiesced, true);", core)
+        self.assertIn("if (pm_runtime_get_sync(hba->dev) < 0)\n\t\tg0q_ufs_qcom_park(hba);", core)
+
     def test_stage_never_opens_the_private_arena_or_writes(self):
         text = (UP / "g0q_handover.c").read_text()
         for banned in ("g0q_rpmh_begin", "g0q_rpmh_", "kernel_write", "BLK_OPEN_WRITE", "submit_bio",
                        "scsi_execute_cmd", "vfs_write"):
             self.assertNotIn(banned, text)
         self.assertIn("BLK_OPEN_READ", text)
+        self.assertIn("kiocb.ki_flags |= IOCB_DIRECT;", text)
+        self.assertLess(text.index("if (ktime_get_boottime_ns() >= until) {\n\t\tfree_pages"), text.index("n = vfs_iocb_iter_read("))
+        self.assertNotIn("kernel_read(", text)
+        self.assertIn("device_is_bound(&pdev->dev)", text)
+        self.assertIn("THIS_MODULE->async_probe_requested = true;", text)
 
 
 if __name__ == "__main__":

@@ -101,8 +101,7 @@ def read_block(root, series_pin, index, output, *, attended):
         closed = read(verify(pin(Path(earlier['closed']['path']))))
         task_pin = closed['task']
         task = read(verify(task_pin))
-        require(task_pin == earlier['subject'] and mainline.ufs_storage(task['N']) and
-                read(verify(task['N']['capability']))['fixed']['report_version'] >= 17,
+        require(task_pin == earlier['subject'] and mainline.ufs_write(task['N']),
                 'the preceding step is not a V17 storage task')
         # The reader is in that capability's closure; its sources must be unchanged.
         review = mainline.capability(root, image=task['N'])
