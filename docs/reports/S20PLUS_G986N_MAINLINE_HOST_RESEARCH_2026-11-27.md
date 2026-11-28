@@ -237,3 +237,15 @@ H0 선행 대조는 공급자 차단/콜백 내부 보류/정상 반환, 배리�
 11월 28일 17:21 KST에 TLMM 후보 AP `c5ebf130…`의 입회 토큰을 발급했다. 같은 포트의 원본 S20+ Android에서 부팅 완료, Magisk 30.7, UID 0, Enforcing과 기준 부팅 ID 일치를 확인했다. 후보 전송과 Download 전환은 승인 대기 상태다. 준비 당시 승인 만료는 17:36:33 KST다.
 
 원복 실행기는 현재 후보의 TLMM 초기/작업 문맥 비트와 콜백 결과 종류, 첫 flush의 배리어·대기·바깥 반환을 최대 96바이트 응답으로 구분한다. 서로 다른 슬롯의 비트를 합쳐 대기 완료를 판정하지 않는다. 여러 창의 개별 사건은 실행 전체에만 귀속하고, 첫 원복 부팅 연속성이 끊기면 관측 공백을 보존한다. 2,097,136바이트 가상 stock 스냅샷 네 가지(깨끗한 기준, 대기 완료, 대기 직전, 여러 창 혼합)와 ARM64 분할 슬롯 대조를 검증했다. 정상·중단 경로의 집중 테스트 5건과 호스트·활성 상태 검증이 통과했다. 독립 검토 입력 SHA-256은 `39c7a337af1482396de10c48363c93f798ac887f602017f6ddfdd3de607599ba`이며 미해결 지적은 0건이다. 비공개 검증 자료는 `workspace/private/analysis/s20plus-y2q-tlmm-flush-h0-20261128/physical-preparation/`에 있다.
+
+## 11월 28일 TLMM 실기 판독과 원본 복귀
+
+승인된 SM-G986N에서 17:23:26 KST에 후보 AP `c5ebf130…` 전송을 완료했다. 후보 전 기준 판독에서 이 후보의 창은 0개였다. 180초 관측 동안 USB ACM PID 1 표식은 없었다. 물리 Download 진입 후 17:28:30에 원본 Magisk AP `1b33d098…` 전송을 완료했다. 17:29:19에 처음 관측한 원복 Android에서 부팅 완료, Magisk 30.7, UID 0, SELinux Enforcing을 확인했다. 같은 부팅의 2,097,136바이트 판독에서 창 5개, 인증된 슬롯 20개, 무시된 슬롯 0개를 기록했다.
+
+| 실기에서 물은 내용 | 원복 후 회수한 표식 | 판정 |
+| --- | --- | --- |
+| 초기 PID 1에서 TLMM이 보류된 이유 | `supplier_pdc`, `link_defer`, `auto_request`, `queue_inserted` | 적어도 한 번은 드라이버 콜백 전 공급자 검사에서 PDC를 기다리며 보류됐다. 자동 재시도 요청과 큐 삽입도 관측했다. |
+| 선택된 워커에서 TLMM probe가 도달한 곳 | `before_bus`, `link_allowed`, `callback`, `irq_ok`, `wake_found` | `sm8250_pinctrl_probe()` 진입, 일반 IRQ 조회 성공, wakeup IRQ 도메인 발견을 관측했다. 콜백 반환 표식과 반환값은 회수되지 않았다. |
+| 첫 deferred flush가 도달한 곳 | `opened`, `call`, `barrier`, `before_wait` | 배리어 설치와 `wait_for_completion(&barr.done)` 호출 직전까지 확인했다. 대기 직후와 바깥 반환 표식이 없어 대기 완료, 실제 수면 시간, 교착 여부는 미확정이다. |
+
+PDC 도메인 게시 표식(`pdc_published`)도 남았다. 여러 창에서 회수한 개별 사건의 시도 순서와 마지막 시도는 알 수 없다. 17:29:27에 실행기가 `OBSERVED_TLMM_INITIAL_PDC_DEFER_ORIGINAL_RETURNED`로 종료됐다. 후보와 원본 전송은 각각 1회였고 공유 가드는 해제됐다. 실행기 소스는 `45c5bc675c`, 비공개 증거는 `workspace/private/runs/s20plus-g986n-tlmm-flush-f1/run-1795854092652329526/`의 기준·복귀 판독, 전송 결과, 최종 건강 및 종료 기록에 있다.
