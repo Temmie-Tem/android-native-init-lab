@@ -275,6 +275,13 @@ its code review, capability, owner review and run approval; UFS sources no
 longer restage the loader, SCM, MAX77705 and gateway receipts. Next: the
 persistence series (V17 write run → Android read → V17 run of a second
 candidate expecting `ALREADY_PRESENT`) under one series approval.
+**The persistence series ran on 2026-11-28 and every step closed healthy.**
+ML060 wrote the pattern once (FUA, GOOD) and the readback matched. Stock
+Android, after the return reboot, read the same block as the pattern.
+ML061, on a fresh mainline boot with a second candidate, found it already
+present and wrote nothing. These are the first mainline UFS writes, and they
+persist across reboot. **Roadmap step 2 is done**; next is step 3, stability.
+[ML060–ML061 series](docs/reports/S22PLUS_MAINLINE_ML060_ML061_UFS_PERSISTENCE_PASS_2026-11-28.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
@@ -300,6 +307,8 @@ candidate expecting `ALREADY_PRESENT`) under one series approval.
 | ML057 | V14 storage module + floor kernel + route + 60 s floor | link = ML056; storage stopped at TUR (`-EPROTO`: CHECK CONDITION with response Target Failure; first misread as EHS), no media read | [run](docs/reports/S22PLUS_MAINLINE_ML057_UFS_STORAGE_READ_RUN_2026-11-28.md) |
 | ML058 | V15 storage-header module + floor kernel + route + 60 s floor | link = ML056; same TUR stop, header word EHS 0, segment 20: response byte `0x01` confirmed | [run](docs/reports/S22PLUS_MAINLINE_ML058_UFS_STORAGE_HEADER_RUN_2026-11-28.md) |
 | ML059 | V16 response-byte module + floor kernel + route + 60 s floor | **storage stage completed**: capacity 62,305,280 blocks, GPT matches the live table, LBA 62,305,152 = zeros | [run](docs/reports/S22PLUS_MAINLINE_ML059_UFS_STORAGE_READ_PASS_2026-11-28.md) |
+| ML060 | V17 write module (capability-10, candidate a) | **one FUA write of the pattern, readback match** (`WRITTEN`); stock Android then read `PATTERN` | [series](docs/reports/S22PLUS_MAINLINE_ML060_ML061_UFS_PERSISTENCE_PASS_2026-11-28.md) |
+| ML061 | V17 write module (capability-10, candidate b) | pattern already present after reboot, no write (`ALREADY_PRESENT`) | [series](docs/reports/S22PLUS_MAINLINE_ML060_ML061_UFS_PERSISTENCE_PASS_2026-11-28.md) |
 
 All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
 ML054 and ML056–ML059 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
