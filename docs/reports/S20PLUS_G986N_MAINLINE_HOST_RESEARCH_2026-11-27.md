@@ -191,3 +191,23 @@ R4 판정은 `multiple_windows`였다. 작업 장치와 첫 대기 반환 여부
 장치 이름은 제한된 후보 사전에서 해시를 역대조한 결과다. 두 장치 표식의 상대 순서·동일 시도 여부, 드라이버 초기화 성공, 리셋 원인은 판정할 수 없다. 새 관측은 현재 복귀 부팅의 스냅샷에 귀속한다.
 
 독립 검토 입력 SHA-256은 `d3123f1013939f08a8d75a8bd2cc3256759a3ddf5e652cc350467dae3a7b8224`다. 호스트 테스트 5건과 ARM64 BusyBox 대조를 통과했다. `workspace/private/runs/s20plus-g986n-presence-readback-d0/observation/result.json`의 SHA-256은 `9b65772ba6d22368a72a39c6d5bb35690f947f7b3a7458c4c4ad51976e60bba4`다.
+
+## TLMM 재시도 원인 후보와 첫 flush 구간의 다음 실험
+
+11월 28일 호스트에서 실제 후보의 빌드 Image와 유니로더에 넘긴 Image의 SHA-256이 모두 `1219c5ab080ae32a1ec820777609b4eb53a1f5d822cc85ddfeda6fc2df61f73b`임을 확인했다. 보관된 `kernel-build/vmlinux`의 ARM64 호출 명령, `System.map`, 최종 설정과 보드 6종 호스트 인계의 합성 DTB를 대조했다. 여섯 출력 DTB는 동일했다(SHA-256 `0e2178c5b30baac8185c6be79d0175f3e9414a4fee132b5439f38c12cd76575e`). 이 DT는 모델링된 인계의 출력이며 후보 실행 당시 실물에서 읽어낸 FDT는 없다. 근거 파일은 `workspace/private/analysis/s20plus-y2q-deferred-worker-f1/`의 `candidate/linux-6.18/`, `candidate/kernel-build/`, `independent-h0/matrix-*/board-*/output.dtb`에 있다.
+
+**의존성과 등록 순서.** TLMM 노드 `/soc@0/pinctrl@f100000`의 compatible은 `qcom,sm8250-pinctrl`이다. 일반 요약 인터럽트는 루트에서 상속한 GICv3(phandle 1)의 SPI 208, level-high다. 별도의 `wakeup-parent`(phandle 117)는 `interrupt-controller@b220000`의 Qualcomm PDC IRQ 컨트롤러를 가리킨다. PDC의 인터럽트 부모도 같은 GIC이며, PDC에는 드라이버가 요구하는 세 셀씩 네 구간의 `qcom,pdc-ranges`가 있다. TLMM의 `gpio-ranges`는 자기 자신을 가리킨다. TLMM에 직접 지정된 clocks·power-domains 속성은 없다. PINCTRL_SM8250, PINCTRL_MSM, QCOM_PDC, ARM_GIC_V3는 모두 내장이다. 합성 부트 인자는 `rdinit=/init cpuidle.off=1`로 fw_devlink 기본 RPM 모드를 바꾸지 않는다.
+
+정규 initcall 표의 0부터 센 순번은 TLMM 드라이버 등록 **43**, 기본 OF 플랫폼 장치 생성 **47**, PDC 드라이버 등록 **113**, `deferred_probe_initcall` **152**다. 코어가 처음 TLMM을 매칭할 수 있는 시점에 PDC 장치는 아직 드라이버와 결합하지 않았을 가능성이 높다. 드라이버가 나중에 등록되더라도 `driver_deferred_probe_trigger()`는 활성화 전에는 즉시 반환하므로 첫 late flush에서 앞서 보류된 TLMM을 보는 것은 정상 진행과도 양립한다.
+
+| 경로 | 후보 코드에서 확인한 조건 | 실기 해석 |
+| --- | --- | --- |
+| 드라이버 호출 전 공급자 검사 | `drivers/of/property.c`가 wakeup-parent와 interrupts를 공급자 링크로 해석한다. `really_probe()`의 `device_links_check_suppliers()`는 미해결 fwnode 또는 준비되지 않은 관리 링크에서 -EPROBE_DEFER를 반환한다. | 가장 먼저 확인할 경로는 TLMM → PDC 링크다. 어떤 공급자가 실제로 보류를 일으켰는지는 기록되지 않았다. |
+| TLMM 콜백 내부 | `sm8250_pinctrl_probe → msm_pinctrl_probe`에서 먼저 `platform_get_irq(0) → of_irq_get`이 GIC 도메인을 요구한다. 이후 `msm_gpio_init`이 PDC의 `DOMAIN_BUS_WAKEUP` 검색 실패 시 -EPROBE_DEFER를 반환한다. PDC는 `qcom_pdc_init` 끝에서 도메인 토큰을 게시한다. | PDC가 늦거나 도메인이 준비되지 않은 경우와 GIC 조회 실패를 구분할 수 있다. GICv3는 초기 IRQ 경로여서 등록 순서만 보면 PDC 쪽이 우선이다. |
+| 공급자 결합에 의한 자동 재시도 | `device_links_driver_bound()`가 AUTOPROBE_CONSUMER 링크를 AVAILABLE로 바꿀 때도 `driver_deferred_probe_add(consumer)`를 호출할 수 있다. 등록 함수는 이미 목록에 있는 장치를 중복 추가하지 않는다. | 작업 목록에 있었다는 사실만으로 TLMM 콜백이 이전에 -517을 반환했다고 단정할 수 없다. |
+
+`drivers/base/dd.c`에서 워커 표식은 `bus_probe_device(dev)`의 바로 앞과 뒤다. 코어는 드라이버 내부 오류의 부호를 뒤집을 수 있어 대기열 추가 경로는 ±EPROBE_DEFER를 모두 처리한다. `bus_probe_device`는 void이며, 그 반환만으로 드라이버 바인딩 성공을 알 수 없다. 기존 첫 flush 표식 308과 309 사이에는 첫 `flush_work`가 있고 두 번째 호출은 310과 311 사이에 있다. 트리거가 308보다 먼저 워커를 큐에 넣으므로 기존 TLMM 워커 표식은 PID 1의 배리어 대기 진입을 입증하지 않는다. 9개 창의 서로 다른 장치 표식을 이어 붙일 수도 없다.
+
+**선택한 다음 실험.** 같은 DT·부트 인자·드라이버 순서를 유지한 관측 전용 후보 하나를 설계한다. (1) 정확한 TLMM 장치에서 최초 시도와 첫 트리거 후 재시도의 공급자 검사 결과를 구분하고, 보류 시 기존 오류 분기의 공급자(PDC/GIC/기타)를 기록한다. 공급자 결합에 의한 큐 추가 요청과 실제 신규 삽입을 구분한다. (2) TLMM 콜백 진입, 일반 IRQ 조회 결과, wakeup 도메인 검색의 성공/부재, 콜백 반환값과 PDC 도메인 게시 지점을 구분한다. (3) PID 1에서 첫 트리거 직전에 관측을 열고 첫 호출의 정확한 work 포인터에 한정하여 `start_flush_work`의 배리어 설치 여부, `wait_for_completion(&barr.done)` 직전·직후, 바깥 `flush_work` 반환과 bool 결과를 식별한다. 배리어 없이 빠르게 반환하는 경로도 별도로 기록한다. 해당 워커의 TLMM 호출 직후와 워커 루프 종료는 독립 사건으로 둔다.
+
+H0 선행 대조는 공급자 차단/콜백 내부 보류/정상 반환, 배리어 없는 반환/배리어 대기 완료를 각각 알려진 입력에서 구분하고, 다음 부팅의 오래된 슬롯 및 표식 유실을 섞어도 인과관계를 합성하지 않는 것이다. 누적 비트와 제한된 상태 코드로 생산자별 진행을 보존하고 기존 쓰기 범위·횟수 안에서 가능한지 먼저 검증한다. 이 자료에서 PDC 미준비가 확인되더라도 첫 대기 반환이 관측되면 조사 위치는 대기 이후로 이동한다. 대기 진입만 있고 반환 증거가 없으면 확인 범위는 대기 직전까지이며, TLMM 정지나 리셋 원인을 단정하지 않는다. 이번 작업은 설계 선택까지이며 새 후보 제작·기기 명령은 없었다.
