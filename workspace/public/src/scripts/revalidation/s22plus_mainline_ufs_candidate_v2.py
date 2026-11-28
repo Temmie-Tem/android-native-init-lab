@@ -115,12 +115,17 @@ def fixed_binding(cap):
             (fixed['report_version'] < 14 or (route and floor)) and
             4 <= fixed['report_version'] <= _report_modes().LATEST, 'v2 fixed capability fields or report mode')
     kernel=checked(fixed['kernel']);component=checked(fixed['component'])
-    require(component['status']=='BUILT_H0_COLD_LINK_COMPONENT' and
+    handover=fixed['report_version']>=_report_modes().FIRST['upstream_handover']
+    require(component['status']==('BUILT_H0_UPSTREAM_HANDOVER_COMPONENT' if handover else 'BUILT_H0_COLD_LINK_COMPONENT') and
             component['pre_effect_return'] is True and component['report_version']==fixed['report_version'] and
             component['physical_admitted'] is False and component['device_actions']==0 and
             component['selected_kernel']==kernel['sha256'] and
             component['transport']==kernel['transport_sha256'], 'v2 fixed module/kernel mismatch')
-    require(_boot_floor().component_floor(component, kernel) is floor, 'v2 module/kernel boot floor differs from the witness floor')
+    if handover:
+        # V18 checks its own 60 s floor and opens no kernel arena: floor route observer only.
+        require(route and floor, 'v2 V18 handover module requires the witness-floor route scope')
+    else:
+        require(_boot_floor().component_floor(component, kernel) is floor, 'v2 module/kernel boot floor differs from the witness floor')
     artifact_pin(kernel['image'],kernel['sha256'],kernel['file_size'])
     artifact_pin(component['module_path'],component['module_sha256'])
     for key in ('dtb','config','network','original_boot'):

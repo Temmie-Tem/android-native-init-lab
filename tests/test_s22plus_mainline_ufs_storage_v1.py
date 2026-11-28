@@ -776,7 +776,7 @@ class StorageWriteStageTest(unittest.TestCase):
 
     def test_v17_envelope_tag_and_fields(self):
         self.assertEqual(report_modes.FIELDS[17], 57)
-        self.assertEqual(report_modes.LATEST, 17)
+        self.assertGreaterEqual(report_modes.LATEST, 17)
         self.assertEqual(report_modes.ENVELOPE[17], 512)
         self.assertEqual(report_modes.tag(17), 0xf0200000)
         self.assertEqual(report_modes.defines(17)[-1], 'G0Q_STORAGE_WRITE')

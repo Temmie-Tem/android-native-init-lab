@@ -49,6 +49,7 @@ STORAGE_READ = report_modes.FIRST['storage_read']
 STORAGE_HEADER = report_modes.FIRST['storage_header']
 STORAGE_RESPONSE = report_modes.FIRST['storage_response']
 STORAGE_WRITE = report_modes.FIRST['storage_write']
+UPSTREAM_HANDOVER = report_modes.FIRST['upstream_handover']
 CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = (report_modes.FIRST[k] for k in
     ('cfg1_diagnostics', 'cfg1_ordered_selection', 'link_irq_diagnostics', 'upstream_link'))
 # UIC error-code registers 0x38..0x48 (ufshci.h). PA/DL are reported raw;
@@ -846,6 +847,82 @@ def link_irq_diagnostics(values, *, report_version=LINK_IRQ):
     return dict(link_irq=dict(branch='COMPLETION', raw=irq, unexpected_bits=0))
 
 
+# ---- V18: the composite upstream-driver handover (roadmap step 4b), its own 69-field report ----
+HANDOVER_STEPS = ('NONE', 'ADMITTED', 'DRIVERS', 'OVERLAY', 'HBA', 'LU0', 'GPT', 'BLOCK', 'DONE')
+HANDOVER_GPT_SHA256 = 'a0de44217c34309cf8397e5eccc771c647d06b07f6e889265491ece1f938c553'
+HANDOVER_LU0_BLOCKS = STORAGE_LAST_LBA + 1
+HANDOVER_HBA_STATES = ('RESET', 'OPERATIONAL', 'EH_SCHEDULED_NON_FATAL', 'EH_SCHEDULED_FATAL', 'ERROR')
+HANDOVER_EVENTS = ('pa_errors', 'dl_errors', 'link_startup_failures', 'host_resets')
+# g0q_ufs_gate.h: opcodes the gate always passes (0x9e and 0x1b pass only conditionally).
+GATE_ALLOWED_OPS = {0x00, 0x03, 0x12, 0xA0, 0x25, 0x1A, 0x5A, 0x08, 0x28, 0x88, 0x35, 0x91}
+
+
+def _words_digest(words):
+    return b''.join(w.to_bytes(4, 'big') for w in words).hex()
+
+
+def upstream_handover(values):
+    """Facts from a V18 report. Range and producer-invariant checks only; completion is decided by the caller."""
+    check(len(values) == REPORT_FIELDS[UPSTREAM_HANDOVER], 'V18 field count')
+    signed = (0, 5, 6, 7, 8, 26, 35)
+    check(all(-4095 <= values[i] <= 0 for i in signed) and -1 <= values[9] < len(HANDOVER_HBA_STATES) and
+          all(0 <= v < 1 << 32 for i, v in enumerate(values) if i not in signed + (9,)), 'V18 field range')
+    rc, step, tag_value, start_ms, settle_ms, core, phy, qcom, overlay, hba_state = values[:10]
+    events = values[10:14]
+    gear_rx, gear_tx, lane_rx, lane_tx, pwr_rx, pwr_tx, hs_rate = values[14:21]
+    spec, manufacturer, devices, block_size, blocks, gpt_rc = values[21:27]
+    gpt_words, block_rc, block_words = values[27:35], values[35], values[36:44]
+    gate = values[44:69]
+    check(tag_value == report_modes.tag(UPSTREAM_HANDOVER), 'V18 report tag')
+    check(step < len(HANDOVER_STEPS) and (rc == 0) == (step == 8), 'V18 step/rc')
+    check(step == 0 or FLOOR_MS <= start_ms < END_MS, 'V18 stage start outside the witness floor window')
+    check(step >= 1 or (rc and not any(values[3:9]) and hba_state == -1), 'V18 refusal before admission')
+    check(step < 2 or core == phy == qcom == 0, 'V18 driver registration')
+    check(step < 4 or overlay == 0, 'V18 overlay')
+    check((step >= 4) == (hba_state >= 0), 'V18 host sampled only after probe')
+    check(step >= 5 or (block_size == blocks == 0), 'V18 LU0 fields without LU0')
+    check((step >= 6) == (gpt_rc == 0 and any(gpt_words)), 'V18 GPT read')
+    check(gpt_rc == 0 or not any(gpt_words), 'V18 GPT digest without a read')
+    check(block_rc == 0 or not any(block_words), 'V18 block digest without a read')
+    check(step < 7 or block_rc == 0, 'V18 block read')
+    scsi_allowed, scsi_refused, devman_allowed, devman_refused, query_logged = gate[:5]
+    caps_before, caps_after, ahit_disabled, wlun_rpm_kept = gate[5:9]
+    refused_bitmap, refused_queries = gate[9:17], gate[17:25]
+    refused_ops = sorted(32 * w + b for w, word in enumerate(refused_bitmap) for b in range(32) if word >> b & 1)
+    check(query_logged == devman_refused and (scsi_refused == 0) == (not refused_ops), 'V18 gate counters')
+    check(not set(refused_ops) & GATE_ALLOWED_OPS, 'V18 gate refused an always-allowed opcode')
+    check(all(q == 0 for q in refused_queries[min(query_logged, 8):]), 'V18 gate query log')
+    check(caps_after & ~caps_before == 0 and ahit_disabled in (0, 1) and wlun_rpm_kept in (0, 1), 'V18 gate state')
+    check(step < 4 or (caps_before and ahit_disabled == 1), 'V18 gate not applied to the probed host')
+    gpt = _words_digest(gpt_words) if gpt_rc == 0 and step >= 6 else None
+    block = _words_digest(block_words) if step >= 7 else None
+    outcome = None if block is None else ('PATTERN' if block == STORAGE_PATTERN_SHA256 else
+                                         'ZERO' if block == hashlib.sha256(bytes(4096)).hexdigest() else 'OTHER')
+    return dict(
+        report='V18_UPSTREAM_HANDOVER', operation_errno=-rc, step=HANDOVER_STEPS[step],
+        start_ms=start_ms, settle_ms=settle_ms,
+        registration=dict(core_errno=-core, phy_errno=-phy, qcom_errno=-qcom), overlay_errno=-overlay,
+        hba_state=None if hba_state < 0 else HANDOVER_HBA_STATES[hba_state],
+        events=dict(zip(HANDOVER_EVENTS, events)),
+        power=dict(gear_rx=gear_rx, gear_tx=gear_tx, lane_rx=lane_rx, lane_tx=lane_tx,
+                   pwr_rx=pwr_rx, pwr_tx=pwr_tx, hs_rate=hs_rate),
+        device=dict(spec_version=spec, manufacturer=manufacturer, scsi_devices=devices),
+        lu0=dict(block_size=block_size, blocks=blocks), gpt_errno=-gpt_rc, gpt_sha256=gpt,
+        gpt_match=gpt == HANDOVER_GPT_SHA256, block_errno=-block_rc, block_sha256=block, block=outcome,
+        gate=dict(scsi_allowed=scsi_allowed, scsi_refused=scsi_refused, devman_allowed=devman_allowed,
+                  devman_refused=devman_refused, refused_opcodes=[f'0x{op:02x}' for op in refused_ops],
+                  refused_queries=[dict(opcode=q >> 8, idn=q & 0xff) if q < 0xff00 else dict(upiu_type=q & 0xff)
+                                   for q in refused_queries[:min(query_logged, 8)]],
+                  caps_before=caps_before, caps_after=caps_after, auto_hibernate_disabled=bool(ahit_disabled),
+                  wlun_runtime_pm_kept_forbidden=bool(wlun_rpm_kept), writes_possible=False))
+
+
+def upstream_completed(facts):
+    """V18 completion: every stage done, the probed host operational, LU0 exact and the pinned GPT read."""
+    return (facts['step'] == 'DONE' and facts['operation_errno'] == 0 and facts['hba_state'] == 'OPERATIONAL'
+            and facts['lu0'] == dict(block_size=4096, blocks=HANDOVER_LU0_BLOCKS) and facts['gpt_match'])
+
+
 def result(raw, verified_witness, key, identity, *, report_version=1):
     check(report_version in REPORT_FIELDS, 'unselected module report schema')
     check(len(raw) == result_size(report_version) and len(verified_witness) == HEADER.size+32,
@@ -868,6 +945,11 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
     check(re.fullmatch(pattern, numbers),
           "invalid module status line")
     values = list(map(int, numbers.split()))
+    if report_version >= UPSTREAM_HANDOVER:
+        facts = dict(upstream_handover(values), status='NO_PROOF', normal_return=False)
+        if upstream_completed(facts):
+            facts.update(status='UFS_LINK_COMPLETED', normal_return=True, control_nonce=hashlib.sha256(raw).digest())
+        return recovery_result(facts, raw, report_version)
     rc,stage,version,pcs,local,issued,before,irq,code,after,hce,count,claimed,triggered,acked,reclaimed,error,usb,release = values[:19]
     check(-(1<<31)<=rc<=0 and -(1<<31)<=error<=0 and all(0<=v<2**32 for v in
           (stage,version,pcs,local,issued,before,irq,code,after,hce,count,claimed,triggered,acked,reclaimed,usb,release))

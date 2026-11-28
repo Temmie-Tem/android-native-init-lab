@@ -31,6 +31,8 @@ ROUTE_HEADER_SHA256 = "6c5c3c1feb22fff799cc3cfa74322457e4cac82edbaa415c17b61c2c5
 DWELL_HEADER = "dwell.h"
 DWELL_HEADER_SHA256 = "6d5238683288dba617d1210106675aa9a361bd6d098910352108ee31faad4590"
 WITNESS_FLOOR_MS = 60000
+# Component record status of the V18 composite (s22plus_ufs_upstream_h0/handover_build.py).
+HANDOVER_STATUS = "BUILT_H0_UPSTREAM_HANDOVER_COMPONENT"
 
 
 def specification():
@@ -208,9 +210,15 @@ def build(kernel_dir, component, out, *, vm, pre_effect_return=False, route=Fals
     version = record.get('report_version', 3)
     require(record.get('pre_effect_return', False) is pre_effect_return and
             (not pre_effect_return or 4 <= version <= report_modes.LATEST), 'module/observer return mode differs')
-    import boot_floor
-    require(boot_floor.component_floor(record, kernel) is witness_floor,
-            "module/kernel boot floor must match the witness floor")
+    if pre_effect_return and version >= report_modes.FIRST['upstream_handover']:
+        # V18: the composite upstream handover module checks its own 60 s floor and never opens
+        # the kernel's RPMh arena, so only the floor route observer may carry it.
+        require(record.get('status') == HANDOVER_STATUS and route and witness_floor,
+                "the V18 handover module pairs only with the witness-floor route observer")
+    else:
+        import boot_floor
+        require(boot_floor.component_floor(record, kernel) is witness_floor,
+                "module/kernel boot floor must match the witness floor")
     selected = report_modes.modes(version if pre_effect_return else 3)
     hci_snapshot, hce_handoff = selected['hci_snapshot'], selected['hce_handoff']
     mod = Path(record["module_path"])

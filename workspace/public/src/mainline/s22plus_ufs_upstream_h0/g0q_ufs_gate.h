@@ -138,6 +138,27 @@ static int g0q_gate_report(char *buf, const struct kernel_param *kp)
 	return n + scnprintf(buf + n, PAGE_SIZE - n, "\n");
 }
 
+/* For the composite step-4b module: 5 counters, caps before/after, ahit, W-LU flag,
+ * 8 refused-opcode bitmap words, 8 refused-query slots. */
+#define G0Q_GATE_SNAPSHOT_WORDS 25
+void g0q_gate_snapshot(u32 out[G0Q_GATE_SNAPSHOT_WORDS]);
+void g0q_gate_snapshot(u32 out[G0Q_GATE_SNAPSHOT_WORDS])
+{
+	out[0] = atomic_read(&g0q_gate.scsi_allowed);
+	out[1] = atomic_read(&g0q_gate.scsi_refused);
+	out[2] = atomic_read(&g0q_gate.devman_allowed);
+	out[3] = atomic_read(&g0q_gate.devman_refused);
+	out[4] = atomic_read(&g0q_gate.query_logged);
+	out[5] = g0q_gate.caps_before;
+	out[6] = g0q_gate.caps_after;
+	out[7] = g0q_gate.ahit_disabled;
+	out[8] = g0q_gate.wlun_rpm_kept;
+	for (int i = 0; i < 8; i++)
+		out[9 + i] = (u32)bitmap_read(g0q_gate.refused_ops, i * 32, 32);
+	for (int i = 0; i < G0Q_GATE_QUERY_LOG; i++)
+		out[17 + i] = g0q_gate.refused_query[i];
+}
+
 static const struct kernel_param_ops g0q_gate_ops = { .get = g0q_gate_report };
 module_param_cb(g0q_gate, &g0q_gate_ops, NULL, 0444);
 MODULE_PARM_DESC(g0q_gate, "S22+ step-4 write gate counters (read-only)");

@@ -49,7 +49,15 @@
 #if defined(G0Q_STORAGE_WRITE) && !defined(G0Q_STORAGE_RESPONSE)
 #error "The one-block write stage requires the V16 response report"
 #endif
-#ifdef G0Q_STORAGE_WRITE
+#if defined(G0Q_UPSTREAM_HANDOVER) && !defined(G0Q_STORAGE_WRITE)
+#error "The V18 handover report extends the V17 observer chain"
+#endif
+#ifdef G0Q_UPSTREAM_HANDOVER
+/* V18 is the composite upstream-driver handover module's own 69-field report (1024-byte envelope). */
+#define G0Q_REPORT_TAG 0xf0300000U
+#define G0Q_REPORT_FIELDS 69
+#define G0Q_REPORT_BYTES 1024U
+#elif defined(G0Q_STORAGE_WRITE)
 /* V17 appends the write status and the readback's first digest word. */
 #define G0Q_REPORT_TAG 0xf0200000U
 #define G0Q_REPORT_FIELDS 57

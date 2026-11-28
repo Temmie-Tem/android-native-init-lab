@@ -5,7 +5,7 @@ branch; every mode from v6 on is cumulative. Builders, the guest observer,
 candidate reproduction and the host decoder derive their choices from here.
 """
 
-LATEST = 17
+LATEST = 18
 # (first report version, builder keyword, C define), in Kbuild/compiler order.
 CHAIN = (
     (6, 'hce_handoff', 'G0Q_HCE_HANDOFF'),
@@ -20,13 +20,16 @@ CHAIN = (
     (15, 'storage_header', 'G0Q_STORAGE_HEADER'),
     (16, 'storage_response', 'G0Q_STORAGE_RESPONSE'),
     (17, 'storage_write', 'G0Q_STORAGE_WRITE'),
+    # V18 (roadmap step 4b) is a different module: the composite upstream-driver handover.
+    # It joins the chain only for the observer's cumulative defines and envelope.
+    (18, 'upstream_handover', 'G0Q_UPSTREAM_HANDOVER'),
 )
 KEYWORDS = ('pre_effect_return', 'hci_snapshot', *(kw for _, kw, _ in CHAIN))
 # Decimal fields in each report version's status line (host decoder schema).
 FIELDS = {1: 19, 2: 21, 3: 23, 4: 23, 5: 30, 6: 30, 7: 30, 8: 30, 9: 30,
-          10: 33, 11: 33, 12: 33, 13: 38, 14: 54, 15: 55, 16: 55, 17: 57}
-# Report envelope in bytes; the storage fields (V14 on) need 512.
-ENVELOPE = {v: 512 if v >= 14 else 256 for v in FIELDS}
+          10: 33, 11: 33, 12: 33, 13: 38, 14: 54, 15: 55, 16: 55, 17: 57, 18: 69}
+# Report envelope in bytes; the storage fields (V14 on) need 512, the V18 handover report 1024.
+ENVELOPE = {v: 1024 if v >= 18 else 512 if v >= 14 else 256 for v in FIELDS}
 FIRST = {kw: first for first, kw, _ in CHAIN}
 
 
