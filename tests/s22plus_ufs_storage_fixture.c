@@ -24,7 +24,8 @@ typedef unsigned int gfp_t;
 #define max(x, y) ((x) > (y) ? (x) : (y))
 #define lower_32_bits(n) ((u32)(n))
 #define upper_32_bits(n) ((u32)((u64)(n) >> 32))
-#define dma_wmb() do { } while (0)
+static void fixture_wmb(void);
+#define dma_wmb() fixture_wmb()
 #define dma_rmb() do { } while (0)
 #define SHA256_DIGEST_SIZE 32
 enum {
@@ -253,6 +254,19 @@ static void complete(void)
 	utrd[8] = ocs;
 }
 
+/* "write-ring-late": the CPU stalls between the write's earlier checks and its
+ * doorbell, leaving less than the reserved second of stage budget. */
+static u64 late_ring_at;
+static void fixture_wmb(void)
+{
+	u8 *utrd = (u8 *)(uintptr_t)((u64)hci[REG_UTP_TRANSFER_REQ_LIST_BASE_H / 4] << 32 |
+				     hci[REG_UTP_TRANSFER_REQ_LIST_BASE_L / 4]);
+	u8 *ucd = (u8 *)(uintptr_t)get_unaligned_le64(utrd + 16);
+
+	if (is("write-ring-late") && ucd[0] == 0x01 && ucd[16] == 0x2a)
+		clock_ns = late_ring_at;
+}
+
 static u32 readl(const void *addr)
 {
 	unsigned offset = (unsigned)((const u8 *)addr - (const u8 *)hci);
@@ -299,6 +313,8 @@ int main(int argc, char **argv)
 	load(argv[3], block, sizeof(block));
 	link.hw.hci = hci;
 	link.hw.deadline_ns = (is("short-budget") ? 1500 : is("write-budget") ? 2600 : 15000) * NSEC_PER_MSEC;
+	/* 999 ms of stage budget left at the doorbell: one millisecond short of the reserve. */
+	late_ring_at = link.hw.deadline_ns - STORAGE_MARGIN_NS - 999 * NSEC_PER_MSEC;
 	if (is("no-iommu"))
 		dev.iommu = false;
 	link.link_issued = true;

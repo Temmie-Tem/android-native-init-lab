@@ -101,8 +101,10 @@ static u64 within(const struct utp *u, u64 wait_ns)
 }
 
 /* Ring slot 0 once and wait until the absolute end for it to clear.
+ * `reserve_ns` (the V17 write only) is stage budget that must still remain:
+ * it is the last check, after the barrier, immediately before the doorbell.
  * Returns the UPIU type on OCS 0. */
-static int ring(struct utp *u, u64 until)
+static int ring(struct utp *u, u64 until, u64 reserve_ns)
 {
 	u8 ocs;
 
@@ -110,6 +112,8 @@ static int ring(struct utp *u, u64 until)
 	if (ktime_get_boottime_ns() >= until || readl(u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL))
 		return -EBUSY;
 	dma_wmb();
+	if (reserve_ns && ktime_get_boottime_ns() + reserve_ns >= u->deadline_ns)
+		return -EBUSY;
 	writel(1, u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL);
 	while (readl(u->hci + REG_UTP_TRANSFER_REQ_DOOR_BELL) & 1) {
 		if (ktime_get_boottime_ns() >= until) {
@@ -149,7 +153,7 @@ static int nop_out(struct utp *u)
 
 	header(u, T_NOP_OUT, 0, 0);
 	prepare(u, DIR_NONE, 0);
-	type = ring(u, until);
+	type = ring(u, until, 0);
 	if (type < 0)
 		return type;
 	return type == T_NOP_IN && !u->ucd[UPIU + 6] ? 0 : -EPROTO;
@@ -163,7 +167,7 @@ static int query_flag(struct utp *u, u8 function, u8 opcode, u32 *value, u64 unt
 	u->ucd[12] = opcode;
 	u->ucd[13] = IDN_DEVICE_INIT;
 	prepare(u, DIR_NONE, 0);
-	type = ring(u, until);
+	type = ring(u, until, 0);
 	if (type < 0)
 		return type;
 	if (type != T_QUERY_RSP || u->ucd[UPIU + 6] || u->ucd[UPIU + 12] != opcode ||
@@ -185,10 +189,8 @@ static int scsi_until(struct utp *u, const u8 *cdb, unsigned int length, u32 byt
 	memcpy(u->ucd + 16, cdb, length);
 	prepare(u, bytes ? (out ? DIR_OUT : DIR_IN) : DIR_NONE, bytes);
 	/* The one write rings only while its own 500 ms wait and the readback's
-	 * 500 ms both still fit: checked last before the doorbell. */
-	if (out && expired(u, 1000 * NSEC_PER_MSEC))
-		return -EBUSY;
-	type = ring(u, until);
+	 * 500 ms both still fit: ring() checks that last, before the doorbell. */
+	type = ring(u, until, out ? 1000 * NSEC_PER_MSEC : 0);
 	if (type < 0)
 		return type;
 #ifdef G0Q_STORAGE_RESPONSE

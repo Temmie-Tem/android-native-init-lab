@@ -631,6 +631,15 @@ class StorageWriteStageTest(unittest.TestCase):
         self.assertIn('READ 62305152+1', trace)
         self.assertEqual(self.decode(values)['write']['outcome'], 'WRITE_BUDGET')
 
+    def test_a_stall_before_the_doorbell_sends_no_write(self):
+        # The reserve is the last check after the barrier: a CPU stall after the
+        # earlier checks still refuses the doorbell (-EBUSY), so nothing is sent.
+        values, trace, writes, medium = self.run_case('write-ring-late')
+        self.assertEqual((values[0], values[1], writes, values[5], values[17]), (-16, 11, 0, 0, 0))
+        self.assertNotIn('WRITE', trace)
+        self.assertEqual(medium, int.from_bytes(hashlib.sha256(bytes(4096)).digest()[:4], 'big'))
+        self.assertEqual(self.decode(values)['write']['outcome'], 'WRITE_REFUSED')
+
     def test_an_unanswered_write_is_uncertain_and_never_retried(self):
         values, trace, writes, medium = self.run_case('write-timeout')
         self.assertEqual((values[0], values[1], writes, values[5], values[17]), (-110, 11, 1, 0, 0))
@@ -666,7 +675,7 @@ class StorageWriteStageTest(unittest.TestCase):
         self.assertEqual(self.decode(values)['write']['outcome'], 'READBACK_FAILED')
 
     def test_every_producer_scenario_decodes(self):
-        for case, block in (('ok', 'zero'), ('ok', 'pattern'), ('ok', 'foreign'), ('write-budget', 'zero'),
+        for case, block in (('ok', 'zero'), ('ok', 'pattern'), ('ok', 'foreign'), ('write-budget', 'zero'), ('write-ring-late', 'zero'),
                             ('write-timeout', 'zero'), ('write-check', 'zero'), ('write-residual', 'zero'),
                             ('write-drop', 'zero'), ('readback-timeout', 'zero'), ('target-failure', 'zero'),
                             ('target-failure-twice', 'zero'), ('capacity', 'zero'), ('timeout-nop', 'zero'),
