@@ -282,6 +282,13 @@ ML061, on a fresh mainline boot with a second candidate, found it already
 present and wrote nothing. These are the first mainline UFS writes, and they
 persist across reboot. **Roadmap step 2 is done**; next is step 3, stability.
 [ML060–ML061 series](docs/reports/S22PLUS_MAINLINE_ML060_ML061_UFS_PERSISTENCE_PASS_2026-11-28.md).
+**The stability series (ML062–ML065) also closed four of four healthy.**
+Each run used a fresh candidate and found the pattern still present, with
+no write, no physical action and no recovery. ML056–ML065 are ten
+consecutive UFS link completions, and ML059–ML065 are seven consecutive
+completed storage stages. **Roadmap step 3 is done**; next is step 4, the
+upstream driver.
+[ML062–ML065 series](docs/reports/S22PLUS_MAINLINE_ML062_ML065_UFS_STABILITY_PASS_2026-11-28.md).
 
 ### UFS link series (shared V2 capability, one link attempt each)
 
@@ -309,6 +316,7 @@ persist across reboot. **Roadmap step 2 is done**; next is step 3, stability.
 | ML059 | V16 response-byte module + floor kernel + route + 60 s floor | **storage stage completed**: capacity 62,305,280 blocks, GPT matches the live table, LBA 62,305,152 = zeros | [run](docs/reports/S22PLUS_MAINLINE_ML059_UFS_STORAGE_READ_PASS_2026-11-28.md) |
 | ML060 | V17 write module (capability-10, candidate a) | **one FUA write of the pattern, readback match** (`WRITTEN`); stock Android then read `PATTERN` | [series](docs/reports/S22PLUS_MAINLINE_ML060_ML061_UFS_PERSISTENCE_PASS_2026-11-28.md) |
 | ML061 | V17 write module (capability-10, candidate b) | pattern already present after reboot, no write (`ALREADY_PRESENT`) | [series](docs/reports/S22PLUS_MAINLINE_ML060_ML061_UFS_PERSISTENCE_PASS_2026-11-28.md) |
+| ML062–ML065 | V17 write module (capability-10, candidates v17-7..10) | stability series: 4/4 healthy, pattern present each time, no write | [series](docs/reports/S22PLUS_MAINLINE_ML062_ML065_UFS_STABILITY_PASS_2026-11-28.md) |
 
 All closed `ANDROID_CLOSED_HEALTHY`. All through ML052 closed `NO_PROOF`;
 ML054 and ML056–ML059 closed `PASS_MAINLINE_UFS_LINK`; ML055 closed `NO_PROOF`. The module source,
