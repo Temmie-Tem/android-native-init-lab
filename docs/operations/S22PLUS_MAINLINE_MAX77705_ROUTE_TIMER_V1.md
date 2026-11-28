@@ -202,14 +202,18 @@ The v73 set adds the storage stage's response-header fix (report V15) of the UFS
 route composition. It changes nothing in this scope.
 The v74 set adds the storage stage's response-byte fix (report V16) of the UFS
 route composition. It changes nothing in this scope.
+The v75 set adds the UFS storage envelope with its one-block write (report V17),
+the phase 2c Android read and series approval. It moves the UFS decoder out of
+these shared receipts into each UFS capability's own closure, so later UFS
+report versions no longer restage them. It changes nothing in this scope.
 The branch selects six pending records under
 `workspace/public/src/device-action/bindings/`:
-- `s22plus_approved_terminal_persistent_v74_review.json`
-- `s22plus_loader_android_timing_v3_cue_v18_review.json`
-- `s22plus_mainline_scm_ordinary_cue_v19_review.json`
-- `s22plus_mainline_max77705_usb_v17_review.json`
-- `s22plus_mainline_max77705_route_v15_review.json`
-- `s22plus_mainline_max77705_route_timer_v14_review.json`
+- `s22plus_approved_terminal_persistent_v75_review.json`
+- `s22plus_loader_android_timing_v3_cue_v19_review.json`
+- `s22plus_mainline_scm_ordinary_cue_v20_review.json`
+- `s22plus_mainline_max77705_usb_v18_review.json`
+- `s22plus_mainline_max77705_route_v16_review.json`
+- `s22plus_mainline_max77705_route_timer_v15_review.json`
 
 After independent review of the exact bytes, publish in one squash on the
 operating HEAD:

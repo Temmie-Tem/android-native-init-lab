@@ -162,6 +162,17 @@ def traced_sources(pinned, entries, *, timed, lazy_entries, boards):
     return seen
 
 
+def _ufs_capability_only():
+    closure = {str(path.relative_to(ROOT)) for path in task.source_paths(
+        ROOT, image=dict(schema=task.IMAGE_V2), route=True, storage=True, write=True)}
+    ufs = {path for path in closure if path.startswith('workspace/public/src/mainline/s22plus_ufs_link_h0/') or
+           re.fullmatch(r'workspace/public/src/scripts/revalidation/s22plus_mainline_(ufs_[a-z_]+|series)_v[0-9]+\.py', path)}
+    return {ROOT/path for path in ufs}
+
+
+UFS_CAPABILITY_ONLY = _ufs_capability_only()
+
+
 class CueReviewTests(unittest.TestCase):
     def setUp(self):
         self.selector = json.loads((ROOT/terminal.SELECTOR).read_bytes())
@@ -194,6 +205,10 @@ class CueReviewTests(unittest.TestCase):
                 pinned = {ROOT/Path(row['path']).relative_to(self.deployment)
                           if Path(row['path']).is_absolute() else ROOT/row['path'] for row in rows}
                 missing = traced_sources(pinned, entries, timed=timed, lazy_entries=lazy_entries, boards=boards)-pinned
+                # The UFS host decoder and candidate validator are lazy UFS-image imports
+                # bound only by the UFS capability closure (never by these receipts), so a
+                # new report version re-reviews only that capability.
+                missing -= UFS_CAPABILITY_ONLY
                 self.assertEqual(sorted(str(path.relative_to(ROOT)) for path in missing), [])
 
     def copy_fixture_sources(self, root):

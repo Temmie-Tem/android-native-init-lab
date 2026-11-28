@@ -99,7 +99,7 @@ class Ml030WireTests(unittest.TestCase):
                 with listener.accept()[0] as c:
                     c.settimeout(3);q=exact(c,72);observed.append('W0');self.assertEqual(q[8:40],fixture.nonce)
                     c.sendall(response)
-                    if version in (6,7,8,9,10,11,12,13,14,15,16):
+                    if version in (6,7,8,9,10,11,12,13,14,15,16,17):
                         if case=='missing-arm':return
                         armed=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,fixture.nonce,boot)
                         if case=='wrong-arm':armed=armed[:-1]+bytes([armed[-1]^1])
@@ -112,7 +112,7 @@ class Ml030WireTests(unittest.TestCase):
                         self.assertGreaterEqual(clock()-start,(60000-t0)*10**6+2*10**9)
                         self.assertLess(clock()-start,120*10**9)
                     else:self.assertGreaterEqual(clock()-start,300*10**9)
-                    if version in (6,7,8,9,10,11,12,13,14,15,16):
+                    if version in (6,7,8,9,10,11,12,13,14,15,16,17):
                         live=wire.recovery_packet(fixture.key,fixture.identity,fixture.nonce,n1,boot,late=True)
                         if case=='wrong-live':live=live[:-1]+bytes([live[-1]^1])
                         c.sendall(live)
@@ -163,11 +163,11 @@ class Ml030WireTests(unittest.TestCase):
                         guest=compile_pre_effect(directory/'pre-effect-guest',guest=True,snapshot=version==5,handoff=version in (6,7,8,9,10,11,12),reset_config=version in (7,8,9,10,11,12),disabled_ucrdy=version in (8,9,10,11,12),stale_uccs_ack=version in (9,10,11,12),cfg1_diagnostics=version in (10,11,12),cfg1_ordered_selection=version in (11,12),link_irq_diagnostics=version==12)
                         gate=int(subprocess.check_output([guest],input=numbers,timeout=5))
                         self.assertEqual(gate==0,case!='pre-effect-stage2')
-                    if version in (13,14,15,16) and case=='success':
+                    if version in (13,14,15,16,17) and case=='success':
                         # ML056's actual V13 success line; V14/V15 swap the tag and append storage.
                         numbers=(b'0 6 1074003968 1 6 1 8 1028 0 15 1 11 2047 2047 2047 0 0 1 1 65536 0 '
                                  b'%d 4060088319 2113535 1 271 1024 0 0 0 1 469763372 469763372 1028 31 2147483664 0 0'
-                                 % {13: 0xd0000000, 14: 0xe0000000, 15: 0xf0000000, 16: 0xf0100000}[version])
+                                 % {13: 0xd0000000, 14: 0xe0000000, 15: 0xf0000000, 16: 0xf0100000, 17: 0xf0200000}[version])
                         if version==14:
                             digest=hashlib.sha256(bytes(4096)).digest()
                             numbers+=b' 0 10 %d 3 393472 %d 62305279 %d ' % (0b11111101111|1<<4|1<<11, 0x21<<24, 0xa0de4421)
@@ -178,6 +178,12 @@ class Ml030WireTests(unittest.TestCase):
                             numbers+=b' 0 10 %d 3 0 %d 62305279 %d ' % (0b11111101111|1<<11|1<<13|1<<14, 0x21<<24, 0xa0de4421)
                             numbers+=b' '.join(str(int.from_bytes(digest[i:i+4],'big')).encode() for i in range(0,32,4))
                             numbers+=b' 0'
+                        if version==17:
+                            # ML059's read stage, then one FUA write over zeros and a matching readback.
+                            digest=hashlib.sha256(bytes(4096)).digest()
+                            numbers+=b' 0 10 %d 3 %d %d 62305279 %d ' % (0b11111101111|1<<4|1<<11|1<<14|1<<15|1<<17|1<<18, 0x062900, 0x21<<24, 0xa0de4421)
+                            numbers+=b' '.join(str(int.from_bytes(digest[i:i+4],'big')).encode() for i in range(0,32,4))
+                            numbers+=b' 0 %d %d' % (0x21<<24, 0x1155097a)
                         if version==16:
                             # ML058's TUR answer: CHECK CONDITION + Target Failure, parsed UA, repeated, then GOOD.
                             digest=hashlib.sha256(bytes(4096)).digest()
@@ -239,8 +245,11 @@ class Ml030WireTests(unittest.TestCase):
                 with mock.patch.object(link,'host_boot',return_value='later-host'):
                     self.assertEqual(link.rederive_link(adapter,request)['result']['status'],
                                      'NO_PROOF' if case=='pre-effect-success' or completed_failure else 'UFS_LINK_COMPLETED')
-                if version in (14,15,16):
+                if version in (14,15,16,17):
                     storage=link.rederive_link(adapter,request)['result']['storage']
+                    if version==17:
+                        self.assertEqual(storage['write']['outcome'],'WRITTEN')
+                        self.assertTrue(storage['write']['readback_match'])
                     if version==15:
                         self.assertEqual(storage['response_header']['raw'],0)
                         self.assertIn('SENSE_UNPARSED',storage['flags'])
@@ -346,6 +355,7 @@ class Ml030WireTests(unittest.TestCase):
     def test_v14_storage_read_success_at_the_floor(self):self.run_case('success',version=14,floor=True)
     def test_v15_storage_header_success_at_the_floor(self):self.run_case('success',version=15,floor=True)
     def test_v16_target_failure_success_at_the_floor(self):self.run_case('success',version=16,floor=True)
+    def test_v17_write_success_at_the_floor(self):self.run_case('success',version=17,floor=True)
     def test_v12_witness_floor_wrong_live_blocks_permit(self):self.run_case('wrong-live',version=12,floor=True)
     def test_diagnostic_success_and_rederived_late_return(self):self.run_case('success',version=2)
     def test_stage2_schema_success_keeps_original_return_conditions(self):self.run_case('success',version=3)

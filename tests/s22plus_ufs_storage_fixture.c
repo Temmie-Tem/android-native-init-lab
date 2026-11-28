@@ -1,7 +1,7 @@
 /* Host model of one UFS device behind slot 0, driving the actual ufs_storage.c.
  * usage: fixture <case> <gpt-lba1-3.bin> <block.bin>
  * Prints the storage outcome and a command trace; aborts on any UPIU outside
- * the fixed read-only command set.
+ * the fixed read-only command set (with G0Q_STORAGE_WRITE, plus the one write).
  */
 #include <assert.h>
 #include <errno.h>
@@ -51,7 +51,10 @@ static void mdelay(unsigned ms) { (void)ms; exit(parked_reset && parked_reset->a
 static u32 hci[1024];
 static const char *scenario;
 static u8 gpt[3 * 4096], block[4096];
-static unsigned commands, allocations, init_reads, tur_count;
+static unsigned commands, allocations, init_reads, tur_count, block_reads;
+#ifdef G0Q_STORAGE_WRITE
+static unsigned writes;
+#endif
 static bool hold_doorbell;
 static char trace[4096];
 
@@ -145,6 +148,33 @@ static void complete(void)
 		const u8 *cdb = ucd + 16;
 		u32 expected = get_unaligned_be32(ucd + 12);
 		rsp[0] = 0x21;
+#ifdef G0Q_STORAGE_WRITE
+		if (cdb[0] == 0x2a) {                   /* V17: the one FUA write, test block only */
+			assert(expected == bytes && bytes == 4096 && direction == 1 && ucd[1] == 0x20);
+			assert(cdb[1] == 0x08 && get_unaligned_be32(cdb + 2) == 62305152 &&
+			       get_unaligned_be16(cdb + 7) == 1 && !cdb[6] && !cdb[9]);
+			assert(++writes == 1);               /* never a second write */
+			note("WRITE %u+%u;", 62305152, 1);
+			if (is("write-timeout"))
+				hold_doorbell = true;
+			if (is("write-check")) {
+				rsp[7] = 0x02;
+				put_unaligned_be16(2 + 18, rsp + 10);
+				put_unaligned_be16(18, rsp + 32);
+				rsp[34] = 0x70;
+				rsp[41] = 10;
+				rsp[36] = 0x3;               /* MEDIUM ERROR */
+				break;
+			}
+			if (is("write-residual")) {
+				put_unaligned_be32(4096, rsp + 12);
+				break;
+			}
+			if (!is("write-drop") && !is("write-timeout"))
+				memcpy(block, data, 4096);
+			break;
+		}
+#endif
 		assert(expected == bytes && (expected ? direction == 2 && ucd[1] == 0x40 : !direction && !ucd[1]));
 		if (cdb[0] == 0x00) {
 			note("TUR;", 0, 0);
@@ -198,6 +228,8 @@ static void complete(void)
 			assert((lba == 1 && count == 3) || (lba == 62305152 && count == 1));
 			assert(bytes == count * 4096U);
 			note("READ %u+%u;", lba, count);
+			if (lba == 62305152 && ++block_reads == 2 && is("readback-timeout"))
+				hold_doorbell = true;
 			if (lba == 1 && is("ocs"))
 				ocs = 0x2;
 			else if (lba == 62305152 && is("short-read"))
@@ -266,7 +298,7 @@ int main(int argc, char **argv)
 	load(argv[2], gpt, sizeof(gpt));
 	load(argv[3], block, sizeof(block));
 	link.hw.hci = hci;
-	link.hw.deadline_ns = (is("short-budget") ? 1500 : 15000) * NSEC_PER_MSEC;
+	link.hw.deadline_ns = (is("short-budget") ? 1500 : is("write-budget") ? 2600 : 15000) * NSEC_PER_MSEC;
 	if (is("no-iommu"))
 		dev.iommu = false;
 	link.link_issued = true;
@@ -293,6 +325,16 @@ int main(int argc, char **argv)
 #ifdef G0Q_STORAGE_HEADER
 	printf(" %u", out.rsp_header);
 #endif
+#ifdef G0Q_STORAGE_WRITE
+	printf(" %u %u", out.write_status, out.readback_word);
+#endif
 	printf("\n%u %u %u %d\n%s\n", commands, allocations, hci[REG_UTP_TRANSFER_REQ_DOOR_BELL / 4], started, trace);
+#ifdef G0Q_STORAGE_WRITE
+	{   /* the simulated medium after the run */
+		u8 digest[32];
+		sha256(block, sizeof(block), digest);
+		printf("%u %u\n", writes, get_unaligned_be32(digest));
+	}
+#endif
 	return 0;
 }

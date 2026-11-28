@@ -3,6 +3,8 @@
  * Commands: NOP OUT, query set/read flag fDeviceInit, TEST UNIT READY,
  * READ CAPACITY(16), READ(10) of LBAs 1-3 and of the one test block, on LU 0.
  * No write, no other opcode, no query write except fDeviceInit, no other LUN.
+ * Phase 2b (report V17, G0Q_STORAGE_WRITE) adds one WRITE(10) with FUA of the
+ * fixed pattern to the test block, only over zeros, and one READ(10) of it.
  */
 #ifndef G0Q_UFS_STORAGE_H
 #define G0Q_UFS_STORAGE_H
@@ -25,6 +27,10 @@
 enum g0q_storage_step {
 	G0Q_ST_ADMIT = 1, G0Q_ST_LIST, G0Q_ST_NOP, G0Q_ST_INIT_SET, G0Q_ST_INIT_POLL,
 	G0Q_ST_TUR, G0Q_ST_CAPACITY, G0Q_ST_GPT, G0Q_ST_BLOCK, G0Q_ST_DONE,
+#ifdef G0Q_STORAGE_WRITE
+	/* V17: stopped at the write decision or write, or at the readback. */
+	G0Q_ST_WRITE, G0Q_ST_READBACK,
+#endif
 };
 
 enum g0q_storage_flag {
@@ -42,7 +48,19 @@ enum g0q_storage_flag {
 	/* V16: a CHECK CONDITION carried response Target Failure (0x01). */
 	G0Q_SF_TARGET_FAILURE = 1U << 15,
 #endif
+#ifdef G0Q_STORAGE_WRITE
+	/* V17: the block already held the pattern (no write); the write completed
+	 * GOOD; the readback equals the pattern byte for byte. */
+	G0Q_SF_PATTERN_PRESENT = 1U << 16, G0Q_SF_WRITTEN = 1U << 17,
+	G0Q_SF_READBACK_MATCH = 1U << 18,
+#endif
 };
+
+#ifdef G0Q_STORAGE_WRITE
+/* The fixed pattern: 256 records of 16 bytes, each the ASCII "S22UFS2B", then
+ * the test LBA and the record index as little-endian u32 (SHA-256 1155097a...0d18). */
+#define G0Q_PATTERN_MAGIC "S22UFS2B"
+#endif
 
 struct g0q_storage {
 	int rc;
@@ -52,6 +70,11 @@ struct g0q_storage {
 	/* V15: header bytes 8-11 of the last response (Total EHS Length, Device
 	 * Information, Data Segment Length), big-endian as on the wire. */
 	u32 rsp_header;
+#endif
+#ifdef G0Q_STORAGE_WRITE
+	/* V17: the write's status word (as last_status) and the readback's first
+	 * SHA-256 word; both 0 when no write was sent. */
+	u32 write_status, readback_word;
 #endif
 };
 

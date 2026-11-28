@@ -36,6 +36,11 @@ def bundle(root,base,*,current=False,approval=False,recovery=False):
     require(previous['terminal_state']==terminal['terminal_state']=='ANDROID_CLOSED_HEALTHY' and
         terminal['research_closed'] is True and previous_task['target']==task['target'] and
         previous_task['A']==task['A'],'mainline predecessor target/Android closure differs')
+    import s22plus_mainline_series_v1 as series
+    if series.write_image(task['N']):
+        # A readback mismatch or foreign content stops every later V17 run, series or not.
+        require(series.write_outcome(terminal) not in series.STOP_WRITE,
+            'the preceding V17 run stopped on a mismatch or foreign content; no further write run')
     entry_pin=pin(root/ENTRY)
     if current:
         completed=False
@@ -47,11 +52,22 @@ def bundle(root,base,*,current=False,approval=False,recovery=False):
     approved=None
     if approval:
         approved=pin(base/'operator-approval.json');value=read(verify(approved))
-        require(set(value)=={'task','entry','preceding_closed','selected_returned_approval','actual_user_text','attended'} and
+        keys={'task','entry','preceding_closed','selected_returned_approval','actual_user_text','attended'}
+        require(set(value) in (keys,keys|{'series','step'}) and
             value['task']==task_pin and value['entry']==entry_pin and value['preceding_closed']==previous_pin and
             value['selected_returned_approval']==proposal['approval'] and value['attended'] is True and
             type(value['actual_user_text']) is str and 0<len(value['actual_user_text'].strip())<=4096,
             'actual finite attended mainline approval is absent or differs')
+        if 'series' in value:
+            # One returned series approval covers this exact task as its named step.
+            import s22plus_mainline_series_v1 as series
+            _,_,returned=series.bind_step(root,value['series'],value['step'],kind='mainline',task=task,
+                task_pin=task_pin,preceding_closed=previous_pin)
+            require(value['actual_user_text']==returned['actual_user_text'],'series approval text differs')
+        else:
+            # A series approval never stands in for a single-run approval.
+            require('MAINLINE SERIES' not in value['actual_user_text'].upper(),
+                'a series approval is not a single-run mainline approval')
     return dict(base=base,directory=directory,task=task_pin,task_value=task,entry=entry_pin,
         entry_args=['start',str(directory/'task.json')],review=declaration_pin,approval=approved,
         preceding_closed=previous_pin,namespace=selected.NAMESPACE,operation=selected.OPERATION)
@@ -76,8 +92,16 @@ def start(root,task_path):
     approved=read(verify(bound['approval']))
     publish(base/'mainline-entry-intent.json',dict(dispatch=pin(base/DISPATCH/'intent.json'),
         task=bound['task'],entry=bound['entry'],approval=bound['approval']))
+    if 'series' in approved:
+        # The step is consumed before its grant opens and never released: no grant
+        # exists outside a claim, and a failed grant leaves a claimed step unrun.
+        import s22plus_mainline_series_v1 as series
+        claimed=series.claim(root,approved['series'],approved['step'],subject=bound['task'],
+                     closed_path=task_path.parent/'closed.json')
+    else:
+        claimed=None
     grant=mainline.open_grant(root,task_path,returned_approval=approved['selected_returned_approval'],
-        operator_statement=approved['actual_user_text'])
+        operator_statement=approved['actual_user_text'],series_claim=claimed)
     publish(base/'opened-grant.json',dict(grant=grant,approval=bound['approval'],terminal_entry_point=bound['entry']))
     directory=prepare_operation(root,Path(grant['path']),operation=bound['operation'],
         adapter=Adapter(root,task_path.parent))

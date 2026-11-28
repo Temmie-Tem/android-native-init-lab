@@ -46,7 +46,15 @@
 #if defined(G0Q_STORAGE_RESPONSE) && !defined(G0Q_STORAGE_HEADER)
 #error "The response-byte storage report requires the V15 header report"
 #endif
-#ifdef G0Q_STORAGE_RESPONSE
+#if defined(G0Q_STORAGE_WRITE) && !defined(G0Q_STORAGE_RESPONSE)
+#error "The one-block write stage requires the V16 response report"
+#endif
+#ifdef G0Q_STORAGE_WRITE
+/* V17 appends the write status and the readback's first digest word. */
+#define G0Q_REPORT_TAG 0xf0200000U
+#define G0Q_REPORT_FIELDS 57
+#define G0Q_REPORT_BYTES 512U
+#elif defined(G0Q_STORAGE_RESPONSE)
 /* V16 keeps V15's fields; tags past v15 are 0xf plus the excess in bits 20-27. */
 #define G0Q_REPORT_TAG 0xf0100000U
 #define G0Q_REPORT_FIELDS 55

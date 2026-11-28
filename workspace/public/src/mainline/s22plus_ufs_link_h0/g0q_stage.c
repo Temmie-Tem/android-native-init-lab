@@ -102,6 +102,10 @@ static int report(char *buf, const struct kernel_param *kp)
 #ifdef G0Q_STORAGE_HEADER
 	size += scnprintf(buf + size, PAGE_SIZE - size, " %u", storage.rsp_header);
 #endif
+#ifdef G0Q_STORAGE_WRITE
+	size += scnprintf(buf + size, PAGE_SIZE - size, " %u %u", storage.write_status,
+		storage.readback_word);
+#endif
 	return size + scnprintf(buf + size, PAGE_SIZE - size, "\n");
 }
 static const struct kernel_param_ops report_ops = { .get = report };

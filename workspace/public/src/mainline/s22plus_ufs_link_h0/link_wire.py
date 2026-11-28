@@ -48,6 +48,7 @@ HANDOFF, RESET_CONFIG, DISABLED_UCRDY, STALE_ACK = (report_modes.FIRST[k] for k 
 STORAGE_READ = report_modes.FIRST['storage_read']
 STORAGE_HEADER = report_modes.FIRST['storage_header']
 STORAGE_RESPONSE = report_modes.FIRST['storage_response']
+STORAGE_WRITE = report_modes.FIRST['storage_write']
 CFG1, ORDERED_SELECTION, LINK_IRQ, UPSTREAM_LINK = (report_modes.FIRST[k] for k in
     ('cfg1_diagnostics', 'cfg1_ordered_selection', 'link_irq_diagnostics', 'upstream_link'))
 # UIC error-code registers 0x38..0x48 (ufshci.h). PA/DL are reported raw;
@@ -633,6 +634,157 @@ def storage_read(values, link_completed, header=False, target_failure=False):
                                      data_segment_length=rsp_header & 0xffff)) if header else {})))
 
 
+# V17: the fixed phase 2b pattern, as the module generates it.
+STORAGE_PATTERN = b''.join(b'S22UFS2B' + STORAGE_TEST_LBA.to_bytes(4, 'little') + i.to_bytes(4, 'little')
+                           for i in range(256))
+STORAGE_PATTERN_SHA256 = '1155097a861b1bdf671fc262e660197e2974599d89831fd1d32b20304e820d18'
+assert hashlib.sha256(STORAGE_PATTERN).hexdigest() == STORAGE_PATTERN_SHA256
+STORAGE_PATTERN_DIGEST = [int(STORAGE_PATTERN_SHA256[i:i + 8], 16) for i in range(0, 64, 8)]
+STORAGE_WRITE_STEPS = ('WRITE', 'READBACK')          # steps 11 and 12
+STORAGE_MAX_POLLS = 1499     # poll i starts >= i ms after the window opened, and only before 1,500 ms
+
+
+def _late_exchange(rc, status, flags, sense, rsp_header):
+    """A V17 stop from the one write or readback exchange that completed (OCS read),
+    exactly as ring() and scsi_until() produce it."""
+    ocs, response, scsi, upiu = status & 255, status >> 8 & 255, status >> 16 & 255, status >> 24
+    if rc == -5:      # OCS failure, or a RESPONSE whose SCSI status is neither GOOD nor CHECK CONDITION
+        check(ocs != 0 or (upiu == 0x21 and response == 0 and scsi not in (0, 2)),
+              'write-stage transfer error without its status')
+    elif rc == -71:   # OCS 0, but not a RESPONSE, or a response other than 0 (or 1 with CHECK CONDITION)
+        check(ocs == 0 and (upiu != 0x21 or (response != 0 and not (response == 1 and scsi == 2))),
+              'write-stage protocol refusal of a well-formed reply')
+    elif rc == -11:   # CHECK CONDITION, response 0 or Target Failure; sense reset, then parsed or not
+        check(status in (0x21020000, 0x21020100), 'write-stage CHECK CONDITION with another status')
+        check(status != 0x21020100 or flags & 1 << 15, 'write-stage target failure without its flag')
+        check(sense < 1 << 20, 'sense wider than its packed key, ASC and ASCQ')
+        if rsp_header >> 24:
+            check(flags & 1 << 13 and sense == 0, 'unparsed write-stage stop with a parsed sense')
+        else:
+            check(not sense or rsp_header & 0xffff >= 10, 'parsed write-stage sense without its data segment')
+    elif rc == -61:   # GOOD with a residual or under/overflow
+        check(status == 0x21 << 24, 'write-stage residual refusal without a GOOD response')
+    else:
+        check(False, 'write-stage stop with another rc')
+
+
+def storage_write(values, link_completed):
+    """V17: the read-only stage (V16 rules), then at most one FUA write of the fixed
+    pattern to the test block, only over zeros, and one readback.
+
+    Step 11 is a stop at the write decision or the write, step 12 at the readback.
+    Flags 16-18: PATTERN_PRESENT (already written, no write), WRITTEN (the write
+    completed GOOD), READBACK_MATCH. Fields 55-56: the write's status word (0 when
+    no write completed) and the readback's first SHA-256 word."""
+    rc, step, flags, sense, status = values[38], values[39], values[40], values[42], values[43]
+    write_status, readback = values[55], values[56]
+    PRESENT, WRITTEN, MATCH = 1 << 16, 1 << 17, 1 << 18
+    UA, BLOCK_ZERO, UNCERTAIN, UNPARSED, REPEAT, TF = 1 << 4, 1 << 11, 1 << 12, 1 << 13, 1 << 14, 1 << 15
+    check(0 <= step <= 12 and 0 <= flags < 1 << 19 and 0 <= write_status < 2**32 and 0 <= readback < 2**32,
+          'storage write field range')
+    good = 0x21 << 24
+    late = step in (11, 12)
+    rsp_header = values[54]
+    check(values[41] <= STORAGE_MAX_POLLS, 'device-init polls beyond the poll window')
+    core = list(values[:55])
+    if late:
+        # Steps 11-12 follow a completed block read: the read-only fields are those of a
+        # completed V16 stage. Only flags the stop itself sets are removed from that
+        # check (UNCERTAIN; TARGET_FAILURE and SENSE_UNPARSED of its own CHECK
+        # CONDITION); any other flag must still be justified by the read-only stage.
+        cleared = UNCERTAIN
+        if rc == -11:
+            # A first TUR left unparsed (REPEAT without UNIT ATTENTION) set SENSE_UNPARSED
+            # already; only otherwise did this stop's extra header set it.
+            first_unparsed = bool(flags & REPEAT) and not flags & UA
+            cleared |= (TF if status == 0x21020100 else 0) | (UNPARSED if rsp_header >> 24 and not first_unparsed else 0)
+            # The stop's CHECK CONDITION replaced the stage's sense.
+            core[42] = 0x060000 if flags & UA else 0
+        core[38], core[39], core[40], core[43] = 0, 10, flags & 0xffff & ~cleared, good
+    else:
+        # Before step 10 no write decision was reached; step 10 (DONE) is checked below.
+        check(step == 10 or not flags & (PRESENT | WRITTEN | MATCH) and write_status == 0 and readback == 0,
+              'write evidence before the write step')
+        core[40] = flags & 0xffff
+    result = storage_read(core, link_completed=link_completed, target_failure=True)
+    if result['storage'] is None:
+        check(not flags >> 16 and not write_status and not readback, 'write stage without a completed link')
+        return result
+    digest = values[46:54]
+    pattern_before = digest == STORAGE_PATTERN_DIGEST
+    if step == 10:
+        if flags & PRESENT:   # the block already held the pattern: nothing was sent
+            check(not flags & (WRITTEN | MATCH | BLOCK_ZERO) and pattern_before and
+                  write_status == 0 and readback == 0 and status == good, 'pattern-present outcome differs')
+            outcome = 'ALREADY_PRESENT'
+        else:                 # zeros, one GOOD write, a matching readback
+            check(flags & (BLOCK_ZERO | WRITTEN | MATCH) == BLOCK_ZERO | WRITTEN | MATCH and
+                  write_status == good and status == good and readback == STORAGE_PATTERN_DIGEST[0],
+                  'written outcome differs')
+            outcome = 'WRITTEN'
+    elif step == 11:
+        check(rc != 0 and not flags & (PRESENT | WRITTEN | MATCH) and readback == 0 and not pattern_before,
+              'write stop differs')
+        check(not flags & UNCERTAIN or rc == -110, 'uncertain write without a timeout')
+        if rc == -17:
+            # Foreign content, neither zeros nor the pattern: refused before any write.
+            check(not flags & BLOCK_ZERO and status == good and write_status == 0, 'foreign-content stop differs')
+            outcome = 'FOREIGN_CONTENT'
+        elif rc == -110 and status == good:
+            # Not enough budget left for the write and its readback: nothing was sent.
+            check(flags & BLOCK_ZERO and not flags & UNCERTAIN and write_status == 0, 'budget stop differs')
+            outcome = 'WRITE_BUDGET'
+        else:
+            # The write was attempted over zeros; the sample was reset to 0, then
+            # replaced only by the write's own completed exchange.
+            check(flags & BLOCK_ZERO and write_status == status, 'write stop without its sample')
+            if rc == -16:
+                check(status == 0, 'refused write with a status')
+                outcome = 'WRITE_REFUSED'      # the slot was busy or the end had passed: not rung
+            elif rc == -110:
+                check(status == 0, 'late write with a status')
+                # Uncertain: the slot never cleared. Late: it cleared after the end. In
+                # both the block may hold zeros or the pattern; nothing else was sent.
+                outcome = 'WRITE_UNCERTAIN' if flags & UNCERTAIN else 'WRITE_LATE'
+            else:
+                _late_exchange(rc, status, flags, sense, rsp_header)
+                outcome = 'WRITE_FAILED'
+    elif step == 12:
+        check(rc != 0 and flags & (WRITTEN | BLOCK_ZERO) == WRITTEN | BLOCK_ZERO and
+              not flags & (PRESENT | MATCH) and write_status == good, 'readback stop differs')
+        check(not flags & UNCERTAIN or rc == -110, 'uncertain readback without a timeout')
+        if rc == -84:
+            # Any content but the pattern; its first digest word may take any value.
+            check(status == good, 'readback mismatch without a GOOD read')
+            outcome = 'READBACK_MISMATCH'
+        else:
+            check(readback == 0, 'readback digest without a completed readback')
+            if rc in (-16, -110):
+                # Refused, late or uncertain: the sample stays the write's GOOD response.
+                check(status == good, 'readback refusal without the write sample')
+            else:
+                _late_exchange(rc, status, flags, sense, rsp_header)
+            outcome = 'READBACK_FAILED'
+    else:
+        outcome = 'NOT_REACHED'
+    out = dict(result['storage'], write=dict(
+        outcome=outcome, written=bool(flags & WRITTEN), pattern_present=bool(flags & PRESENT),
+        readback_match=bool(flags & MATCH), uncertain=late and bool(flags & UNCERTAIN),
+        status=write_status, readback_digest_word=readback,
+        pattern_sha256=STORAGE_PATTERN_SHA256))
+    if late:
+        out.update(rc=rc, step=STORAGE_WRITE_STEPS[step - 11], completed=False,
+                   flags=[name for i, name in enumerate(STORAGE_FLAGS + ('PATTERN_PRESENT', 'WRITTEN', 'READBACK_MATCH'))
+                          if flags >> i & 1],
+                   sense=dict(key=sense >> 16 & 15, asc=sense >> 8 & 255, ascq=sense & 255),
+                   last_status=dict(ocs=status & 255, response=status >> 8 & 255, scsi=status >> 16 & 255,
+                                    upiu=status >> 24))
+    else:
+        out['flags'] = [name for i, name in enumerate(STORAGE_FLAGS + ('PATTERN_PRESENT', 'WRITTEN', 'READBACK_MATCH'))
+                        if flags >> i & 1]
+    return dict(storage=out)
+
+
 def upstream_link(values):
     """V13: OR of all link-poll IS samples and the one-pass UEC prefix."""
     seen, mask, pa, dl, ntd = values[33:38]
@@ -759,7 +911,9 @@ def result(raw, verified_witness, key, identity, *, report_version=1):
         if report_version >= UPSTREAM_LINK:
             facts.update(upstream_link(values))
     storage = report_version >= STORAGE_READ
-    if storage:
+    if storage and report_version >= STORAGE_WRITE:
+        facts.update(storage_write(values, link_completed=rc == 0 and not pre_effect))
+    elif storage:
         facts.update(storage_read(values, link_completed=rc == 0 and not pre_effect,
                                   header=report_version >= STORAGE_HEADER,
                                   target_failure=report_version >= STORAGE_RESPONSE))

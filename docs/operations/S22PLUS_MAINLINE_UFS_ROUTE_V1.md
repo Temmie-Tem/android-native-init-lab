@@ -215,14 +215,14 @@ parser applies the same floor when it checks the witness and builds the
 permit. All other parts of this composition are unchanged, as listed under
 [Unchanged](#unchanged).
 
-## Read-only storage stage (phase 2a, reports V14 to V16)
+## Storage stage (phase 2a from report V14, phase 2b from V17)
 
 Step 2 of the operator's roadmap is UFS read/write and persistence across a
 reboot. The operator approved its [design](../reports/S22PLUS_MAINLINE_UFS_RW_DESIGN_H0_2026-11-27.md)
 and the read-only phase 2a on 2026-11-27.
 
 `ufs_storage.c` runs once after the completed link, inside the module's
-budget, only in report V14, V15 or V16 on the floor route kernel and module. It uses
+budget, only in report V14 or later on the floor route kernel and module. It uses
 one transfer slot with a polled doorbell and no interrupt. Crypto stays
 disabled, the LUN is always 0, and every field is fixed:
 
@@ -239,7 +239,7 @@ disabled, the LUN is always 0, and every field is fixed:
 
 Supporting changes:
 - **SMMU.** The late overlay's link node gains `iommus = <&apps_smmu 0xe0 0>`
-  and `dma-coherent` for V14 to V16 only. The kernel blocks unmatched SMMU
+  and `dma-coherent` for V14 and later only. The kernel blocks unmatched SMMU
   streams, so UTP DMA needs the controller's own stream.
 - **Report.** The V14 report appends 16 fields: the stage rc and step, flags,
   the `fDeviceInit` poll count, sense, the last transfer status, the capacity,
@@ -268,7 +268,9 @@ Supporting changes:
 
 The UTP sequence has a host device model (`tests/s22plus_ufs_storage_fixture.c`).
 It drives the actual source and rejects any command outside the set above,
-including any write opcode, another LUN or the crypto bit.
+including any other write opcode or shape, another LUN or the crypto bit. Only
+a V17 build (`G0Q_STORAGE_WRITE`) may send its one FUA write of the test block
+(below), at most once per run.
 
 ### Response header (report V15)
 
@@ -318,8 +320,98 @@ V15's 55 fields and envelope. Its tag is `0xf0100000`: tags through V15 are
 20–27, clear of the site (bits 0–15) and the certificate (bit 16). V16 adds
 no stage source change, so it shares V15's stage rendering.
 
-The persistence check by rooted Android belongs to phase 2c, after the one
-write of phase 2b. Phase 2b needs its own closed raw-block exception.
+### One-block write (report V17, phase 2b)
+
+The operator approved the phase 2b exception, phase 2c and the storage
+envelope in the common details on 2026-11-28 ("그렇게 하자, 2b 계약 승인하고
+V17 진행해 나머지도 한번에 승인할게"). ML059 (V16) read the test block as 4096
+zero bytes ([run](../reports/S22PLUS_MAINLINE_ML059_UFS_STORAGE_READ_PASS_2026-11-28.md)).
+
+V17 (`G0Q_STORAGE_WRITE`, cumulative on V16) adds two steps after the block
+read:
+1. **Write decision.** If the block already holds the fixed pattern, the
+   stage sets `PATTERN_PRESENT` and ends without a write. If it is not all
+   zeros, the stage stops with `-EEXIST` before any write. If less than
+   1 second of the stage budget remains, it stops with `-ETIMEDOUT` before
+   any write.
+2. **Write.** One WRITE(10) with FUA (`2a 08`, LBA 62,305,152, one block)
+   carries the module-generated pattern (`S22UFS2B`, LBA and record index,
+   256 records; SHA-256 `1155097a…0d18`). The status sample is cleared first,
+   so a write that never completes leaves it 0. The doorbell rings only while
+   a full second of the stage budget remains (checked last before the ring),
+   so the write keeps its full 500 ms wait and the readback its own 500 ms; a
+   later ring is refused (`-EBUSY`). On GOOD the stage sets `WRITTEN`.
+3. **Readback.** One READ(10) of the block. The report carries the first
+   SHA-256 word of the data read. A byte-exact match sets `READBACK_MATCH`;
+   anything else stops with `-EILSEQ`.
+
+Steps 11 (`WRITE`) and 12 (`READBACK`) name stops; a completed V17 stage
+still ends at step 10 (`DONE`). The report appends the write's status word
+and the readback word: 57 fields in the 512-byte envelope, tag `0xf0200000`.
+The host decoder (`link_wire.storage_write`) checks the read-only fields with
+the V16 rules and classifies the write as `WRITTEN`, `ALREADY_PRESENT`,
+`FOREIGN_CONTENT`, `WRITE_BUDGET`, `WRITE_REFUSED`, `WRITE_LATE`,
+`WRITE_UNCERTAIN`, `WRITE_FAILED`, `READBACK_MISMATCH` or `READBACK_FAILED`.
+Each late stop is decoded against the exchange that produced it: an OCS
+failure or another SCSI status (`-EIO`), a wrong reply type or response
+(`-EPROTO`, possibly with a zero status word), a CHECK CONDITION (`-EAGAIN`,
+response 0 or Target Failure, sense parsed or left unparsed with an extra
+header), or a residual (`-ENODATA`). A refused or late readback keeps the
+write's GOOD sample. Device-init polls are at most 1,499. A late or uncertain
+write establishes neither media state: the block may hold zeros or the
+pattern, and only a later block read decides. `READBACK_MISMATCH` and
+`FOREIGN_CONTENT` stop the lane: once any closed run records either, or a
+series block read finds `OTHER`, no V17 grant opens. The grant itself scans
+every closure, whichever predecessor a task names; a V17 task must live at
+`outputs/<run>/task-1` so its closure is in that scan. The device model sends at most one write per run and
+refuses any other write shape.
+
+### Android read (phase 2c)
+
+`s22plus_mainline_ufs_android_block_v1.py` reads the test block once on the
+healthy original Android that a V17 run returned to. It is in the storage
+capability's source closure, so the run's capability binds its bytes. Its one
+fixed root command checks the LU0 node (sysfs ancestry under `1d84000.ufshc`
+LUN 0, device number, 4096-byte blocks, 498,442,240 sectors). It also checks
+that every Android partition ends at or before sector 498,441,216, then
+reads exactly one block at LBA 62,305,152 with Toybox `dd`. The read sits
+between two rooted health brackets on the same boot. The read needs
+`--attended`, the same host boot and the before-bracket boot ID equal to the
+one that closure's final health proved. It is claimed and started within the
+series step time after the V17 closure (decided once, at start); it then runs
+under the ordinary 600-second D0 bound. A stopped read still records its
+block class in `stopped.json`, and `OTHER` there stops the lane too. Its
+output is fixed at `<series>/block-<step>`. Android's cold boot after the
+transfer leaves no cached copy of a block that no partition covers. The outcome is `PATTERN`, `ZERO`,
+`OTHER` or `NO_PROOF`.
+
+### Series approval
+
+`s22plus_mainline_series_v1.py` lets one exact returned approval cover a fixed
+series. The planned persistence series is:
+1. a V17 run of candidate 1 (write);
+2. the Android read;
+3. a V17 run of a second qualified candidate with its own AP (a consumed AP is
+   never reused), which finds `ALREADY_PRESENT`.
+
+Every mainline step must name a distinct V17-or-later UFS storage image
+(distinct candidate and AP).
+
+The approval text is
+`APPROVE S22PLUS MAINLINE SERIES V1 <series sha256> <n>steps <seconds>s attended`.
+Each mainline step is prepared as usual. Its `operator-approval.json` names
+the series and step and carries the series approval text. The connector
+binds the step's exact image and preceding closure. It claims the step once
+before the grant opens. Expiry is decided once, by the claim: it records the
+boot-clock time and host boot at which it was made and the approval text, and
+the grant opens under a series text only with a claim made before expiry for
+this task and image (the direct grant entry has none, so it refuses). A
+claimed step runs and recovers under the single-step rules, and its recovery
+needs neither later images nor the approval file. Later steps need every
+earlier step closed healthy by its own claimed subject, and the claim itself
+rechecks that order: the claimed task's `closed.json` with that task's grant, operation, terminal and the
+final health inside that operation, or the claimed read's `terminal.json` naming the series and step, with
+write outcome `WRITTEN` or `ALREADY_PRESENT` and Android read `PATTERN`.
 
 ## Evidence and claims
 
@@ -343,7 +435,8 @@ adopted (`c9c1b15ecb`, v67). Before any run:
 
 Each run then needs:
 - current D0;
-- one exact returned one-operation 1800-second approval;
+- one exact returned one-operation 1800-second approval, or one exact
+  returned series approval that names it;
 - the operator's attendance, with no action requested;
 - usable physical Download;
 - a validated prior healthy closure.

@@ -535,10 +535,242 @@ class StorageResponseStageTest(StorageHeaderStageTest):
 
     def test_v16_envelope_and_fields(self):
         self.assertEqual(report_modes.FIELDS[16], 55)
-        self.assertEqual(report_modes.LATEST, 16)
+        self.assertGreaterEqual(report_modes.LATEST, 16)
         self.assertEqual(wire.result_size(16), wire.result_size(15))
         self.assertEqual(report_modes.defines(16)[-3:], ['G0Q_STORAGE_READ', 'G0Q_STORAGE_HEADER', 'G0Q_STORAGE_RESPONSE'])
         self.assertEqual([report_modes.tag(v) for v in (4, 15, 16)], [0x40000000, 0xf0000000, 0xf0100000])
+
+
+
+class StorageWriteStageTest(unittest.TestCase):
+    """V17: the V16 stage, then one FUA write of the fixed pattern over zeros and its readback."""
+    DEFINES = ('-DG0Q_STORAGE_HEADER', '-DG0Q_STORAGE_RESPONSE', '-DG0Q_STORAGE_WRITE')
+    PRESENT, WRITTEN, MATCH = 1 << 16, 1 << 17, 1 << 18
+    UA, ZERO, UNCERTAIN, REPEAT, TF = 1 << 4, 1 << 11, 1 << 12, 1 << 14, 1 << 15
+    PATTERN_WORD = 0x1155097a
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        out = cls.out = Path(cls.tmp.name)
+        for header in HEADERS:
+            (out / header).parent.mkdir(parents=True, exist_ok=True)
+            (out / header).touch()
+        (out / 'linux/errno.h').write_text('#include_next <linux/errno.h>\n')
+        cls.table = out / 'gpt.bin'
+        cls.table.write_bytes(gpt())
+        cls.blocks = {}
+        for name, data in (('zero', bytes(4096)), ('pattern', wire.STORAGE_PATTERN),
+                           ('foreign', bytes(range(256)) * 16), ('near', wire.STORAGE_PATTERN[:4000] + b'X' + wire.STORAGE_PATTERN[4001:])):
+            cls.blocks[name] = out / f'{name}.bin'
+            cls.blocks[name].write_bytes(data)
+        (out / 'gpt.h').write_text(f'#define G0Q_GPT_SHA256 {c_digest(gpt())}\n')
+        cls.exe = out / 'fixture-v17'
+        subprocess.run(['cc', '-std=gnu11', '-O2', '-Wall', '-Wextra', '-Werror', '-Wno-unused-function',
+                        *cls.DEFINES, '-include', str(out / 'gpt.h'), '-I', str(out), '-I', str(SOURCE),
+                        str(ROOT / 'tests/s22plus_ufs_storage_fixture.c'), '-o', str(cls.exe)], check=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def run_case(self, case, block='zero'):
+        done = subprocess.run([str(self.exe), case, str(self.table), str(self.blocks[block])],
+                              check=True, capture_output=True, text=True)
+        fields, _, trace, medium = done.stdout.splitlines()
+        values = [int(v) for v in fields.split()]
+        self.assertEqual(len(values), 19)
+        writes, word = map(int, medium.split())
+        return values, trace, writes, word
+
+    def decode(self, values):
+        word = int.from_bytes(hashlib.sha256(gpt()).digest()[:4], 'big')
+        with mock.patch.object(wire, 'STORAGE_GPT_WORD', word):
+            return wire.storage_write([0] * 38 + values, link_completed=True)['storage']
+
+    def test_pattern_constant(self):
+        self.assertEqual(hashlib.sha256(wire.STORAGE_PATTERN).hexdigest(), wire.STORAGE_PATTERN_SHA256)
+        self.assertEqual(wire.STORAGE_PATTERN[:16], b'S22UFS2B' + struct.pack('<II', TEST_LBA, 0))
+        self.assertNotEqual(wire.STORAGE_PATTERN[:8], b'EFI PART')
+        header = (SOURCE / 'ufs_storage.h').read_text()
+        self.assertIn('"S22UFS2B"', header)
+        self.assertIn('1155097a', header)
+
+    def test_zero_block_is_written_once_and_read_back(self):
+        values, trace, writes, medium = self.run_case('ok')
+        self.assertEqual((values[0], values[1]), (0, 10))
+        self.assertEqual(values[2], DONE_FLAGS | self.UA | self.ZERO | self.REPEAT | self.WRITTEN | self.MATCH)
+        self.assertEqual((values[17], values[18]), (0x21000000, self.PATTERN_WORD))
+        self.assertEqual((writes, medium), (1, self.PATTERN_WORD))
+        self.assertTrue(trace.endswith('READ 62305152+1;WRITE 62305152+1;READ 62305152+1;'))
+        facts = self.decode(values)
+        self.assertEqual(facts['write']['outcome'], 'WRITTEN')
+        self.assertTrue(facts['completed'] and facts['block_zero'])
+
+    def test_a_block_holding_the_pattern_is_not_written_again(self):
+        values, trace, writes, medium = self.run_case('ok', block='pattern')
+        self.assertEqual((values[0], values[1], writes), (0, 10, 0))
+        self.assertTrue(values[2] & self.PRESENT and not values[2] & (self.WRITTEN | self.MATCH | self.ZERO))
+        self.assertNotIn('WRITE', trace)
+        self.assertEqual((values[17], values[18]), (0, 0))
+        self.assertEqual(self.decode(values)['write']['outcome'], 'ALREADY_PRESENT')
+        self.assertEqual(self.decode(values)['block_sha256'], wire.STORAGE_PATTERN_SHA256)
+
+    def test_foreign_content_is_never_written(self):
+        for block in ('foreign', 'near'):
+            with self.subTest(block=block):
+                values, trace, writes, _ = self.run_case('ok', block=block)
+                self.assertEqual((values[0], values[1], writes), (-17, 11, 0))
+                self.assertNotIn('WRITE', trace)
+                self.assertEqual(values[5], 0x21000000)
+                self.assertEqual(self.decode(values)['write']['outcome'], 'FOREIGN_CONTENT')
+
+    def test_too_little_budget_sends_no_write(self):
+        values, trace, writes, _ = self.run_case('write-budget')
+        self.assertEqual((values[0], values[1], writes), (-110, 11, 0))
+        self.assertIn('READ 62305152+1', trace)
+        self.assertEqual(self.decode(values)['write']['outcome'], 'WRITE_BUDGET')
+
+    def test_an_unanswered_write_is_uncertain_and_never_retried(self):
+        values, trace, writes, medium = self.run_case('write-timeout')
+        self.assertEqual((values[0], values[1], writes, values[5], values[17]), (-110, 11, 1, 0, 0))
+        self.assertTrue(values[2] & self.UNCERTAIN)
+        self.assertEqual(trace.count('WRITE'), 1)
+        self.assertTrue(trace.endswith('WRITE 62305152+1;'))
+        facts = self.decode(values)
+        self.assertEqual(facts['write']['outcome'], 'WRITE_UNCERTAIN')
+        self.assertTrue(facts['write']['uncertain'])
+
+    def test_a_failed_write_stops_without_readback(self):
+        for case, rc, status in (('write-check', -11, 0x21020000), ('write-residual', -61, 0x21000000)):
+            with self.subTest(case=case):
+                values, trace, writes, _ = self.run_case(case)
+                self.assertEqual((values[0], values[1], writes, values[5], values[17]), (rc, 11, 1, status, status))
+                self.assertTrue(trace.endswith('WRITE 62305152+1;'))
+                facts = self.decode(values)
+                self.assertEqual(facts['write']['outcome'], 'WRITE_FAILED')
+                if rc == -11:
+                    self.assertEqual(facts['sense']['key'], 3)
+
+    def test_a_readback_mismatch_is_reported(self):
+        values, trace, writes, medium = self.run_case('write-drop')
+        self.assertEqual((values[0], values[1], writes), (-84, 12, 1))
+        self.assertTrue(values[2] & self.WRITTEN and not values[2] & self.MATCH)
+        self.assertEqual(values[18], int.from_bytes(hashlib.sha256(bytes(4096)).digest()[:4], 'big'))
+        self.assertEqual(self.decode(values)['write']['outcome'], 'READBACK_MISMATCH')
+
+    def test_an_unanswered_readback_is_uncertain_after_the_write(self):
+        values, trace, writes, medium = self.run_case('readback-timeout')
+        self.assertEqual((values[0], values[1], writes, medium), (-110, 12, 1, self.PATTERN_WORD))
+        self.assertTrue(values[2] & self.UNCERTAIN and values[2] & self.WRITTEN)
+        self.assertEqual(self.decode(values)['write']['outcome'], 'READBACK_FAILED')
+
+    def test_every_producer_scenario_decodes(self):
+        for case, block in (('ok', 'zero'), ('ok', 'pattern'), ('ok', 'foreign'), ('write-budget', 'zero'),
+                            ('write-timeout', 'zero'), ('write-check', 'zero'), ('write-residual', 'zero'),
+                            ('write-drop', 'zero'), ('readback-timeout', 'zero'), ('target-failure', 'zero'),
+                            ('target-failure-twice', 'zero'), ('capacity', 'zero'), ('timeout-nop', 'zero'),
+                            ('ocs', 'zero'), ('short-read', 'zero'), ('ehs', 'zero'), ('no-iommu', 'zero'),
+                            ('short-budget', 'zero')):
+            with self.subTest(case=case, block=block):
+                self.decode(self.run_case(case, block)[0])
+
+    def test_the_write_follows_only_a_completed_read_stage(self):
+        # Any earlier stop sends no write: the fixture asserts at most one write and
+        # the trace shows none.
+        for case in ('capacity', 'target-failure-twice', 'short-read', 'ocs'):
+            with self.subTest(case=case):
+                values, trace, writes, _ = self.run_case(case)
+                self.assertEqual(writes, 0)
+                self.assertNotIn('WRITE', trace)
+                self.assertEqual(values[2] >> 16, 0)
+
+    def test_decoder_refuses_inconsistent_write_outcomes(self):
+        ok = self.run_case('ok')[0]
+        present = self.run_case('ok', block='pattern')[0]
+        foreign = self.run_case('ok', block='foreign')[0]
+        drop = self.run_case('write-drop')[0]
+        for values, message in (
+                (ok[:17] + [0x21000000, 0], 'written outcome differs'),
+                (ok[:2] + [ok[2] & ~self.MATCH] + ok[3:], 'written outcome differs'),
+                (ok[:17] + [0, self.PATTERN_WORD], 'written outcome differs'),
+                (present[:2] + [present[2] | self.WRITTEN] + present[3:], 'pattern-present outcome differs'),
+                (present[:17] + [0, self.PATTERN_WORD], 'pattern-present outcome differs'),
+                (ok[:2] + [ok[2] | self.PRESENT] + ok[3:], 'pattern-present outcome differs'),
+                (foreign[:17] + [0x21000000, 0], 'foreign-content stop differs'),
+                (drop[:2] + [drop[2] | self.MATCH] + drop[3:], 'readback stop differs'),
+                (drop[:17] + [0, drop[18]], 'readback stop differs'),
+                ([-17, 9] + foreign[2:], 'storage flags and step disagree'),
+                (ok[:2] + [ok[2] | 1 << 19] + ok[3:], 'storage write field range'),
+                ([-6, 8] + ok[2:3] + ok[3:17] + [0x21000000, 0], 'write evidence before the write step')):
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                self.decode(values)
+        # A completed V16 report is not a V17 completion: no write fields.
+        with self.assertRaises(ValueError):
+            self.decode(ok[:17] + [0, 0])
+
+    def test_late_stops_follow_the_exchange_that_produced_them(self):
+        """Steps 11-12 decode exactly the stops ring() and scsi_until() can emit."""
+        check = self.run_case('write-check')[0]
+        drop = self.run_case('write-drop')[0]
+        late = self.run_case('readback-timeout')[0]
+
+        ua_sense = self.run_case('ok')[0][4]
+
+        def write(rc, status, flags=None, sense=None, header=None):
+            v = list(check)
+            # Only a CHECK CONDITION stop replaces the stage's UNIT ATTENTION sense.
+            v[0], v[4], v[5], v[17] = rc, check[4] if rc == -11 else ua_sense, status, status
+            if flags is not None:
+                v[2] = flags
+            if sense is not None:
+                v[4] = sense
+            if header is not None:
+                v[16] = header
+            return v
+        no_ua = check[2] & ~(self.UA | self.REPEAT)
+        accepted = (
+            write(-71, 0),                       # OCS 0, a zero reply: not a RESPONSE
+            write(-71, 0x20000000),              # another UPIU type
+            write(-71, 0x21000100),              # response 1 without CHECK CONDITION
+            write(-5, 0x00000007),               # OCS failure, any reply bytes
+            write(-5, 0x21040000),               # RESPONSE with another SCSI status
+            write(-11, 0x21020100, flags=no_ua | self.TF, sense=0),       # its own target failure
+            write(-11, 0x21020000, flags=check[2] | 1 << 13, sense=0, header=1 << 24),  # unparsed: EHS
+            drop[:18] + [0],                     # a mismatch may hash to any first word
+            late[:5] + [0x21000000] + late[6:],  # a late readback keeps the write's sample
+            check[:3] + [1499] + check[4:],      # the last poll the window admits
+            # A first TUR left unparsed, then a write CHECK CONDITION with an extra header.
+            write(-11, 0x21020000, flags=no_ua | 1 << 13 | self.REPEAT, sense=0, header=0x01000014))
+        for values in accepted:
+            with self.subTest(values=values[:6]):
+                self.decode(values)
+        refused = (
+            (write(-71, 0x21020100), 'protocol refusal'),
+            (write(-71, 0x21000000), 'protocol refusal'),
+            (write(-5, 0x21000000), 'transfer error'),
+            (write(-5, 0x21010400), 'transfer error'),
+            (write(-61, 0x21020000), 'residual refusal'),
+            (write(-11, 0x21000000), 'CHECK CONDITION with another status'),
+            (write(-11, 0x21020000, flags=no_ua | self.TF, sense=0), 'target failure without a CHECK CONDITION'),
+            (write(-11, 0x21020000, sense=0x30000, header=1 << 24), 'unparsed'),
+            (write(-11, 0x21020000, sense=0x30000, header=9), 'data segment'),
+            (write(-11, 0x21020000, flags=check[2] | 1 << 13, sense=0, header=18), 'unparsed sense without its stop'),
+            (write(-34, 0x21000000), 'another rc'),
+            (late[:5] + [0] + late[6:], 'write sample'),
+            (drop[:5] + [0x21020000] + drop[6:], 'mismatch without a GOOD read'),
+            (late[:18] + [5], 'readback digest'),
+            (check[:3] + [1500] + check[4:], 'beyond the poll window'))
+        for values, message in refused:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                self.decode(values)
+
+    def test_v17_envelope_tag_and_fields(self):
+        self.assertEqual(report_modes.FIELDS[17], 57)
+        self.assertEqual(report_modes.LATEST, 17)
+        self.assertEqual(report_modes.ENVELOPE[17], 512)
+        self.assertEqual(report_modes.tag(17), 0xf0200000)
+        self.assertEqual(report_modes.defines(17)[-1], 'G0Q_STORAGE_WRITE')
 
 
 if __name__ == '__main__':

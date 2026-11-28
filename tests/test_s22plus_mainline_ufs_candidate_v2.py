@@ -39,6 +39,39 @@ class CapabilityTests(unittest.TestCase):
         self.image.update(capability=receipt,capability_review=review)
         return review
 
+    def test_ufs_decoder_is_bound_only_by_the_ufs_capability(self):
+        # A new report version changes only the UFS closure: never the other mainline
+        # review receipts or the gateway review.
+        sys.path.insert(0,str(ROOT/'workspace/public/src/scripts/host_tools'))
+        import s22plus_approved_terminal_tasks_v1 as backend
+        import s22plus_mainline_profile_v1 as profile
+        ufs={ROOT/'workspace/public/src/mainline/s22plus_ufs_link_h0'/name for name in
+             ('link_wire.py','report_modes.py','boot_floor.py','ufs_storage.c','ufs_storage.h')}
+        ufs.add(ROOT/'workspace/public/src/scripts/revalidation/s22plus_mainline_ufs_candidate_v2.py')
+        shared=set(task.source_paths(ROOT))|set(backend.review_sources(ROOT))
+        for schema in (profile.SCM_SCHEMA,profile.MX_SCHEMA,profile.MXR_SCHEMA):
+            shared|=set(task.source_paths(ROOT,image={'schema':schema},ordinary_cue=True))
+        shared|=set(task.source_paths(ROOT,image={'schema':profile.MXT_SCHEMA}))
+        self.assertFalse(ufs&shared)
+        closure=set(task.source_paths(ROOT,image=dict(schema=task.IMAGE_V2),storage=True,write=True))
+        self.assertLessEqual(ufs,closure)
+
+    def test_storage_admission_is_open_ended_from_report_v14(self):
+        for version,expected in ((13,False),(14,True),(17,True),(18,True),(14.0,False),(None,False)):
+            with self.subTest(version=version):
+                self.bind(dict(self.cap,fixed=dict(report_version=version)))
+                self.assertIs(task.ufs_storage(self.image),expected)
+
+    def test_write_sources_join_only_v17_and_later_closures(self):
+        # V14-V16 capabilities keep their exact frozen source list (and recovery).
+        for version,expected in ((14,False),(16,False),(17,True),(18,True)):
+            with self.subTest(version=version):
+                self.bind(dict(self.cap,fixed=dict(report_version=version)))
+                self.assertIs(task.ufs_write(self.image),expected)
+                paths={str(p.relative_to(self.root)) for p in task.source_paths(self.root,image=self.image,route=False)}
+                self.assertEqual(set(task.WRITE_SOURCES)<=paths,expected)
+                self.assertLessEqual(set(task.STORAGE_SOURCES),paths)
+
     def test_two_candidate_declarations_preserve_review_and_source_identity(self):
         before=task.source_pins(self.root,image=self.image)
         first=task.capability(self.root,image=self.image)

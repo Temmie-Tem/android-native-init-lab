@@ -114,7 +114,7 @@ ROUTE_CAPABILITY_SCOPE = 'S22PLUS_LATE_UFS_ROUTE_V1'
 ROUTE_CAPABILITY_POLICY = 'docs/operations/S22PLUS_MAINLINE_UFS_ROUTE_V1.md'
 ROUTE_GUEST_SOURCES = ('workspace/public/src/mainline/s22plus_canary_h0/max77705-usb-route.h',)
 ROUTE_SOURCES = (ROUTE_CAPABILITY_POLICY, *ROUTE_GUEST_SOURCES)
-LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v18_review.json'
+LOADER_CUE_REVIEW = 'workspace/public/src/device-action/bindings/s22plus_loader_android_timing_v3_cue_v19_review.json'
 ANDROID_STORAGE_SOURCE = 'workspace/public/src/scripts/revalidation/s22plus_native_android_storage_v1.py'
 # Historical policies do not authorize v2. The common/target boundaries remain
 # pinned, and adoption of the shared policy is separately checked at live use.
@@ -124,7 +124,7 @@ V2_RETIRED = {
      '_USB_ADMISSION_V1', '_BCM_ALIAS_V1')}
 V2_BUILD = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
     ('build_evidence.py', 'build_module.py', 'cold_phy_tables.py', 'late_overlay.py', 'late_rails.py',
-     'link_initramfs.py', 'report_modes.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'recovery.h', 'g0q_stage.c',
+     'link_initramfs.py', 'report_modes.py', 'link_wire.py', 'dwell.h', 'link-runtime.h', 'link-report.h', 'recovery.h', 'g0q_stage.c',
      'waipio_hci.c', 'waipio_hci.h', 'waipio_phy.c', 'waipio_phy.h', 'usb-admission.h', 'reset-pin.h',
      # The witness-floor pairing decision (shared V2 admission) and its rendered kernel input.
      'boot_floor.py', 'transport/authority.inc.c')) + tuple(
@@ -141,18 +141,35 @@ def candidate_v2(image):
     return image is not None and image.get('schema') == IMAGE_V2
 
 
-# The V14-V16 read-only storage stage; pinned only for a V14-V16 capability, so earlier
-# capabilities keep their exact source and recovery closure.
+# The UFS host decoder (link_wire.py, report_modes.py) and the candidate validator are
+# bound only by the UFS capability closure above, never by the other mainline or
+# gateway review receipts, so a new report version re-reviews only that capability.
+# The storage stage (report V14 and later); pinned only for such a capability, so
+# earlier capabilities keep their exact source and recovery closure.
 STORAGE_SOURCES = tuple('workspace/public/src/mainline/s22plus_ufs_link_h0/'+name for name in
     ('ufs_storage.c', 'ufs_storage.h'))
+# From report V17 only (the write stage): the fixed phase 2c rooted-Android block
+# read after a V17 series step, and the series rules it binds to. V14-V16
+# capabilities keep their exact source and recovery closure.
+WRITE_SOURCES = ('workspace/public/src/scripts/revalidation/s22plus_mainline_ufs_android_block_v1.py',
+                 'workspace/public/src/scripts/revalidation/s22plus_mainline_series_v1.py')
 
 
 def ufs_storage(image):
-    """Metadata only: the bound capability fixes report version 14, 15 or 16."""
+    """Metadata only: the bound capability fixes report version 14 or later."""
     if not (candidate_v2(image) and 'capability' in image):
         return False
     fixed = read(verify(image['capability'])).get('fixed')
-    return type(fixed) is dict and fixed.get('report_version') in (14, 15, 16)
+    version = fixed.get('report_version') if type(fixed) is dict else None
+    return type(version) is int and version >= 14
+
+
+def ufs_write(image):
+    """Metadata only: a storage capability fixing report version 17 or later."""
+    if not ufs_storage(image):
+        return False
+    version = read(verify(image['capability']))['fixed']['report_version']
+    return type(version) is int and version >= 17
 
 
 def ufs_route(image):
@@ -169,7 +186,7 @@ def selected_profile(image):
     require(False,'unselected mainline-project comparison profile')
 
 
-def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None):
+def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None,write=None):
     root=Path(root)
     paths=['workspace/public/src/scripts/revalidation/'+name+'.py' for name in MODULES]
     paths+=['workspace/public/src/scripts/analysis/s22plus_fyg8_p319_max77705_irq_dt_audit.py','AGENTS.md',tasks.DETAILS,tasks.TARGET_CONTRACT,profile.POLICY,tasks.PROFILE,
@@ -180,8 +197,6 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=Non
         'docs/operations/S22PLUS_MAINLINE_UFS_LINK_USB_ADMISSION_V1.md',
         'docs/operations/S22PLUS_MAINLINE_UFS_LINK_BCM_ALIAS_V1.md',
         'workspace/public/src/scripts/host_tools/s22plus_mainline_attach_cue_v1.py',
-        'workspace/public/src/mainline/s22plus_ufs_link_h0/link_wire.py',
-        'workspace/public/src/mainline/s22plus_ufs_link_h0/report_modes.py',
         'docs/operations/DEVICE_ACTION_PROCESS_V2.md','docs/operations/DEVICE_ACTION_RISK_TIERS.md',
         'workspace/public/src/mainline/s22plus_canary_h0/verify.py',
         'workspace/public/src/mainline/s22plus_canary_h0/debian_ram.py',
@@ -243,13 +258,15 @@ def source_paths(root,selected=profile,*,image=None,ordinary_cue=False,route=Non
             paths += list(ROUTE_SOURCES)
         if (ufs_storage(image) if storage is None else storage):
             paths += list(STORAGE_SOURCES)
+        if (ufs_write(image) if write is None else write):
+            paths += list(WRITE_SOURCES)
     return tuple(root/path for path in sorted(set(paths)))
 
 
-def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None):
+def source_pins(root,selected=profile,*,image=None,ordinary_cue=False,route=None,storage=None,write=None):
     root=Path(root)
     return [dict(pin(path),path=str(path.relative_to(root)))
-            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route,storage=storage)]
+            for path in source_paths(root,selected,image=image,ordinary_cue=ordinary_cue,route=route,storage=storage,write=write)]
 
 
 def loader_build_only(path):
@@ -306,7 +323,8 @@ def capability(root,*,recovery=False,selected=profile,image=None,ordinary_cue=Fa
         for row in cap['sources']:
             # Guest build inputs are candidate admission only; the policy stays bound.
             if recovery and (marker_only(row['path']) or row['path'] in V2_BUILD or
-                             row['path'] in ROUTE_GUEST_SOURCES or row['path'] in STORAGE_SOURCES):continue
+                             row['path'] in ROUTE_GUEST_SOURCES or row['path'] in STORAGE_SOURCES or
+                             row['path'] in WRITE_SOURCES):continue
             tasks.unchanged(dict(row,path=str(root/row['path'])))
         return receipt
     udc = image is not None and 'udc_observation' in image
@@ -529,13 +547,24 @@ def validate_readiness(task,receipt,task_receipt,*,fresh):
     return value
 
 
-def open_grant(root,task_path,*,returned_approval,operator_statement):
+def open_grant(root,task_path,*,returned_approval,operator_statement,series_claim=None):
     root=Path(root).resolve(strict=True);task_path=private_path(root,task_path)
     receipt=pin(task_path);task=read(task_path);validate_task(root,task,live=True)
     require(returned_approval==tasks.approval_text(task,receipt) and type(operator_statement) is str and
         0<len(operator_statement.strip())<=4096,'actual returned operator task grant is required')
+    import s22plus_mainline_series_v1 as series
+    if series_claim is not None or 'MAINLINE SERIES' in operator_statement.upper():
+        # A series approval opens a grant only for a task its series already claimed.
+        series.claimed_for(root,series_claim,receipt,operator_statement,task)
     with registry.target_session_lease(root):
         registry.require_no_f1_owner(root)
+        if ufs_write(task['N']):
+            # Every V17 task lives at outputs/<run>/task-1, where the lane scan finds its closure.
+            require(task_path.name=='task.json' and task_path.parent.name=='task-1' and
+                task_path.parent.parent.parent==root/'workspace/private/outputs','a V17 task lives at outputs/<run>/task-1')
+            # Any closed V17 run that stopped on a mismatch or foreign content stops the lane.
+            stopped=series.lane_stopped(root)
+            require(stopped is None,'a V17 run stopped on a mismatch or foreign content (%s); no further write run'%stopped)
         rows=Journal(task_path.parent/'journal').rows()
         require(rows and rows[-1]['event']=='readiness-complete','latest preapproval observation did not finish')
         ready=rows[-1]['data']['result'];validate_readiness(task,ready,receipt,fresh=True)

@@ -17,12 +17,14 @@ STAGE_FIELD = "stage_source_sha256"
 AUTHORITY_FIELD = "authority_source_sha256"
 
 STAGE = HERE/"g0q_stage.c"
-STAGE_SHA256 = "c03d59d02ccf2270662b82148ca39bb2521b9a627b6abdc042ea93dcd470f7d5"
+STAGE_SHA256 = "be336085a324036ca6160c267d94f62f98b5c6cd71060e45eec516674f4079c6"
 # The v71 (report V13) floor module was rendered from the earlier adopted g0q_stage.c;
 # its retained component and run keep that exact rendering.
 V13_STAGE_RENDERING = "397c9fe33cf7a419de64a2dc0f7c672478eca51d357e45d084d28e9d32994e64"
 # The v72 (report V14) storage module of ML057 likewise keeps its own rendering.
 V14_STAGE_RENDERING = "d3cf1f0001fec19d07d67b86ac88edad6e02a5d40ffdac8e813a175cda30adc2"
+# The v73/v74 (report V15, V16) modules of ML058 and ML059 keep theirs.
+V15_STAGE_RENDERING = "81a82d05a2a8e4cea3278a2f7e1b8b97bd40b0aac0cd81f1e29567af8f466491"
 STAGE_LINE = ("\tif (now < 300ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)\n",
               "\tif (now < 60ULL * NSEC_PER_SEC || now + 15ULL * NSEC_PER_SEC >= 540ULL * NSEC_PER_SEC)\n")
 
@@ -92,7 +94,8 @@ def component_floor(record, kernel):
         return False
     stage, authority = stage_source(), authority_source()
     version = record.get("report_version")
-    expected = {13: V13_STAGE_RENDERING, 14: V14_STAGE_RENDERING, 15: digest(stage), 16: digest(stage)}.get(version) if type(version) is int else None
+    expected = {13: V13_STAGE_RENDERING, 14: V14_STAGE_RENDERING, 15: V15_STAGE_RENDERING,
+                16: V15_STAGE_RENDERING, 17: digest(stage)}.get(version) if type(version) is int else None
     _require(keys == fields and type(record[FIELD]) is int and record[FIELD] == FLOOR_MS and
              expected is not None and record[STAGE_FIELD] == expected and
              record[AUTHORITY_FIELD] == digest(authority),

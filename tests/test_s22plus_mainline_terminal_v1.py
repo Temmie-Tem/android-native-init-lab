@@ -209,6 +209,73 @@ class EntryTests(unittest.TestCase):
         self.assertTrue((self.base/'mainline-entry-intent.json').exists());self.assertFalse((self.directory/'grant.json').exists())
         self.assertFalse(list(self.directory.glob('operation-*')))
 
+    def test_series_approval_binds_the_step_and_claims_it_once_before_the_grant(self):
+        import s22plus_mainline_series_v1 as series
+        bound=self.controller.bundle(str(self.base));text='APPROVE S22PLUS MAINLINE SERIES V1 fixture'
+        value=dict(task=bound['task'],entry=bound['entry'],preceding_closed=bound['preceding_closed'],
+            selected_returned_approval=records.read(self.directory/'proposal.json')['approval'],
+            actual_user_text=text,attended=True,series={'fixture':'series'},step=0)
+        save(self.base/'operator-approval.json',value)
+        with mock.patch.object(series,'bind_step',return_value=(None,None,dict(actual_user_text=text))) as bind:
+            self.controller.bundle(str(self.base),approval=True)
+            self.assertEqual(bind.call_args.kwargs['kind'],'mainline')
+            self.assertEqual(bind.call_args.kwargs['preceding_closed'],bound['preceding_closed'])
+        with mock.patch.object(series,'bind_step',return_value=(None,None,dict(actual_user_text=text+' other'))):
+            with self.assertRaisesRegex(ValueError,'series approval text differs'):
+                self.controller.bundle(str(self.base),approval=True)
+        with mock.patch.object(series,'bind_step',side_effect=ValueError('series step already claimed')):
+            with self.assertRaisesRegex(ValueError,'already claimed'):
+                self.controller.bundle(str(self.base),approval=True)
+        # Without its series binding, a series text is never a single-run approval.
+        value.pop('series');value.pop('step');save(self.base/'operator-approval.json',value)
+        with self.assertRaisesRegex(ValueError,'not a single-run mainline approval'):
+            self.controller.bundle(str(self.base),approval=True)
+
+    def test_no_v17_run_follows_a_mismatch_or_foreign_content(self):
+        import s22plus_mainline_series_v1 as series
+        for outcome in ('READBACK_MISMATCH','FOREIGN_CONTENT'):
+            with self.subTest(outcome=outcome),mock.patch.object(series,'write_image',return_value=True),\
+                    mock.patch.object(series,'write_outcome',return_value=outcome):
+                with self.assertRaisesRegex(ValueError,'no further write run'):
+                    self.controller.bundle(str(self.base))
+        for outcome in ('WRITTEN','ALREADY_PRESENT','WRITE_UNCERTAIN',None):
+            with self.subTest(outcome=outcome),mock.patch.object(series,'write_image',return_value=True),\
+                    mock.patch.object(series,'write_outcome',return_value=outcome):
+                self.controller.bundle(str(self.base))
+
+    def test_series_step_is_claimed_before_the_grant_and_the_operation(self):
+        import s22plus_mainline_series_v1 as series
+        from s22plus_native_session_v3 import Session
+        import s22plus_native_session_v3 as session
+        from s22plus_native_adapter_v3 import Adapter
+        calls=[];text='APPROVE S22PLUS MAINLINE SERIES V1 fixture'
+        bound=self.controller.bundle(str(self.base))
+        save(self.base/'operator-approval.json',dict(task=bound['task'],entry=bound['entry'],
+            preceding_closed=bound['preceding_closed'],selected_returned_approval=records.read(self.directory/'proposal.json')['approval'],
+            actual_user_text=text,attended=True,series={'fixture':'series'},step=1))
+        with mock.patch.object(series,'bind_step',return_value=(None,None,dict(actual_user_text=text))):
+            approved=self.controller.bundle(str(self.base),current=True,approval=True)
+        save(self.base/backend.DISPATCH/'intent.json',dict(task=approved['task'],entry=approved['entry'],
+            approval=approved['approval'],entry_review=approved['review'],bridge_review={'fixture':'bridge'},
+            command=['/usr/bin/python3',str(self.root/entry.ENTRY),'start',str(self.directory/'task.json')]))
+        def grant(*args,**kwargs):
+            calls.append('grant');self.assertEqual(kwargs['operator_statement'],text)
+            return save(self.directory/'grant.json',{'fixture':True})
+        def claim(root,series_pin,index,*,subject,closed_path):
+            calls.append(('claim',index,subject==bound['task'],closed_path==self.directory/'closed.json'))
+        def operation(*args,**kwargs):
+            calls.append('operation');path=self.directory/'operation-0001';path.mkdir();return path
+        with mock.patch.object(backend,'verify_bridge'),\
+             mock.patch.object(series,'bind_step',return_value=(None,None,dict(actual_user_text=text))),\
+             mock.patch.object(series,'claim',side_effect=claim),\
+             mock.patch.object(mainline,'open_grant',side_effect=grant),\
+             mock.patch.object(session,'prepare_operation',side_effect=operation),\
+             mock.patch.object(Adapter,'__init__',return_value=None),\
+             mock.patch.object(Session,'__init__',return_value=None),\
+             mock.patch.object(Session,'execute',autospec=True,return_value={'fixture':'done'}):
+            entry.start(self.root,self.directory/'task.json')
+        self.assertEqual(calls,[('claim',1,True,True),'grant','operation'])
+
     def test_wrong_dispatch_command_rejects_before_entry_or_grant(self):
         self.dispatch();path=self.base/backend.DISPATCH/'intent.json';value=records.read(path)
         value['command'][-1]=str(self.directory/'different.json');save(path,value)

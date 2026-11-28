@@ -98,6 +98,8 @@ def checked_file(root, receipt, *, maximum=4 * 1024 * 1024):
 
 
 # Runtime imports reached by the backend outside its common task source set.
+# The UFS decoder and candidate validator are bound by each UFS capability's own
+# closure and checked unchanged before its start, not by this review.
 BACKEND_RUNTIME_IMPORTS = (
     'mainline/s22plus_canary_h0/debian_ram.py',
     'mainline/s22plus_canary_h0/download_ram.py',
@@ -109,8 +111,6 @@ BACKEND_RUNTIME_IMPORTS = (
     'mainline/s22plus_canary_h0/service_ram.py',
     'mainline/s22plus_canary_h0/ssh_ram.py',
     'mainline/s22plus_udc_observation_h0/decode.py',
-    'mainline/s22plus_ufs_link_h0/link_wire.py',
-    'mainline/s22plus_ufs_link_h0/report_modes.py',
     'scripts/analysis/s22plus_journal_replay_tool_h0.py',
     'scripts/analysis/s22plus_native_ext4_h0.py',
     'scripts/analysis/s22plus_native_journal_recovery_h0.py',
@@ -130,7 +130,6 @@ BACKEND_RUNTIME_IMPORTS = (
     'scripts/revalidation/s22plus_debian_reboot_qualification_v1.py',
     'scripts/revalidation/s22plus_debian_usb_protocol_v1.py',
     'scripts/revalidation/s22plus_mainline_ufs_access_v1.py',
-    'scripts/revalidation/s22plus_mainline_ufs_candidate_v2.py',
     'scripts/revalidation/s22plus_mainline_ufs_image_v1.py',
     'scripts/revalidation/s22plus_native_android_storage_v1.py',
     'scripts/revalidation/s22plus_native_gpt_android_v1.py',
@@ -159,7 +158,8 @@ def review_sources(root):
         'workspace/public/src/scripts/revalidation/s22plus_debian_handoff_session_v1.py',
         'workspace/public/src/scripts/revalidation/s22plus_debian_autoboot_session_v1.py',
         'workspace/public/src/scripts/revalidation/consumed_candidate_registry_v1.py',
-        'workspace/public/src/scripts/host_tools/s22plus_mainline_terminal_v1.py')]
+        'workspace/public/src/scripts/host_tools/s22plus_mainline_terminal_v1.py',
+        'workspace/public/src/scripts/revalidation/s22plus_mainline_series_v1.py')]
     from s22plus_mainline_task_v1 import source_paths,loader_build_only,marker_only
     import s22plus_loader_android_profile_v1 as loader_android
     import s22plus_mainline_profile_v1 as mainline

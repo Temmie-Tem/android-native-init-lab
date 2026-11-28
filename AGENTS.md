@@ -31,7 +31,7 @@ activates it and all required live inputs are current. An unactivated policy
 edit remains H0 only.
 
 The incorporated details have SHA-256:
-`06ec0b4fec20ea90df49e6d47854e47930e51af932802526ea61f44fda3d59c7`.
+`fdaf9bcbc0cae2ccbf417cd79ccc0053af3f2613e7c11f9265b9ceb536a919cc`.
 Verify that digest with existing hash tooling when first reading details for a
 device action, or after their bytes change; reuse the verified unchanged input.
 A missing, unread applicable section or mismatched digest blocks that device
@@ -216,6 +216,14 @@ turn a possible rollback into an authorized and demonstrated recovery route.
   checks remain binding; this exemption never repins an earlier approval.
 - Review changed execution-critical closure and higher-precedence interactions;
   ignore unreachable legacy helpers.
+- An independent review is one round. It holds only for BLOCKING findings: a
+  device write, reset or recovery hazard; a wrongly admitted or misbound
+  artifact; an unusable run; a decoder that would accept a report the
+  producer cannot emit for a safety-relevant field, or reject one it can
+  emit; or anything beyond the approved scope. Every other finding is
+  recorded and never holds. After a hold, one confirming round checks only
+  the fixes to those findings. A new BLOCKING finding there is fixed and
+  confirmed the same way; other new findings are recorded.
 - An independent `PASS_GO` qualifies a capability, not a run. Reuse it across candidates,
   campaigns, manifests, qualifications, and ordinals while its named execution-critical hashes are unchanged and no new hazard or incident occurs. Fresh qualification and any runner binding still apply.
 - Bind review to hazard-relevant machinery and the selected authority. Separate

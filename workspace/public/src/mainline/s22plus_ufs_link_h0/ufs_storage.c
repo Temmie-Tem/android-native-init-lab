@@ -35,12 +35,14 @@
 #define T_RESPONSE 0x21
 #define T_QUERY_RSP 0x36
 #define FLAG_READ 0x40
+#define FLAG_WRITE 0x20
 #define Q_STD_READ 0x01
 #define Q_STD_WRITE 0x81
 #define Q_READ_FLAG 0x05
 #define Q_SET_FLAG 0x06
 #define IDN_DEVICE_INIT 0x01
 #define DIR_NONE 0
+#define DIR_OUT 1
 #define DIR_IN 2
 /* The stage ends this long before the module budget, so its outcome can never
  * turn the completed link into a budget timeout. */
@@ -76,7 +78,9 @@ static void prepare(struct utp *u, unsigned int direction, u32 bytes)
 	if (bytes) {
 		put_unaligned_le64(u->data_dma, u->ucd + 2 * UPIU);
 		put_unaligned_le32(bytes - 1, u->ucd + 2 * UPIU + 12);
-		memset(u->data, 0, DATA_BYTES);
+		/* A write's data is the caller's; only a read starts from zeros. */
+		if (direction == DIR_IN)
+			memset(u->data, 0, DATA_BYTES);
 	}
 }
 
@@ -170,16 +174,20 @@ static int query_flag(struct utp *u, u8 function, u8 opcode, u32 *value, u64 unt
 	return 0;
 }
 
-/* SCSI command on LU 0. A CHECK CONDITION records fixed-format sense. */
-static int scsi(struct utp *u, const u8 *cdb, unsigned int length, u32 bytes)
+/* SCSI command on LU 0. A CHECK CONDITION records fixed-format sense.
+ * Data moves in, except for the one V17 write, which moves the buffer out. */
+static int scsi_until(struct utp *u, const u8 *cdb, unsigned int length, u32 bytes, bool out, u64 until)
 {
-	u64 until = within(u, 500 * NSEC_PER_MSEC);
 	int type;
 
-	header(u, T_COMMAND, bytes ? FLAG_READ : 0, 0);
+	header(u, T_COMMAND, bytes ? (out ? FLAG_WRITE : FLAG_READ) : 0, 0);
 	put_unaligned_be32(bytes, u->ucd + 12);
 	memcpy(u->ucd + 16, cdb, length);
-	prepare(u, bytes ? DIR_IN : DIR_NONE, bytes);
+	prepare(u, bytes ? (out ? DIR_OUT : DIR_IN) : DIR_NONE, bytes);
+	/* The one write rings only while its own 500 ms wait and the readback's
+	 * 500 ms both still fit: checked last before the doorbell. */
+	if (out && expired(u, 1000 * NSEC_PER_MSEC))
+		return -EBUSY;
 	type = ring(u, until);
 	if (type < 0)
 		return type;
@@ -232,6 +240,11 @@ static int scsi(struct utp *u, const u8 *cdb, unsigned int length, u32 bytes)
 	return 0;
 }
 
+static int scsi(struct utp *u, const u8 *cdb, unsigned int length, u32 bytes)
+{
+	return scsi_until(u, cdb, length, bytes, false, within(u, 500 * NSEC_PER_MSEC));
+}
+
 static int read10(struct utp *u, u32 lba, u16 blocks)
 {
 	u8 cdb[10] = { 0x28 };
@@ -240,6 +253,74 @@ static int read10(struct utp *u, u32 lba, u16 blocks)
 	put_unaligned_be16(blocks, cdb + 7);
 	return scsi(u, cdb, sizeof(cdb), blocks * G0Q_BLOCK);
 }
+
+#ifdef G0Q_STORAGE_WRITE
+static void pattern_record(u8 *record, u32 index)
+{
+	memcpy(record, G0Q_PATTERN_MAGIC, 8);
+	put_unaligned_le32(G0Q_TEST_LBA, record + 8);
+	put_unaligned_le32(index, record + 12);
+}
+
+/* True when the 4096 bytes equal the fixed pattern exactly. */
+static bool is_pattern(const u8 *data)
+{
+	u8 record[16];
+
+	for (u32 i = 0; i < G0Q_BLOCK / 16; i++) {
+		pattern_record(record, i);
+		if (memcmp(data + 16 * i, record, 16))
+			return false;
+	}
+	return true;
+}
+
+/* Phase 2b, after the test block read: write the pattern only over zeros,
+ * then read it back. The one opcode, FUA bit, LBA, length and LUN are fixed. */
+static int write_block(struct utp *u)
+{
+	u8 cdb[10] = { 0x2a, 0x08 };          /* WRITE(10), FUA */
+	u8 digest[SHA256_DIGEST_SIZE];
+	struct g0q_storage *out = u->out;
+	int rc;
+
+	out->step = G0Q_ST_WRITE;
+	if (is_pattern(u->data)) {
+		out->flags |= G0Q_SF_PATTERN_PRESENT;
+		return 0;
+	}
+	/* Any content but zeros stops before the write. */
+	if (!(out->flags & G0Q_SF_BLOCK_ZERO))
+		return -EEXIST;
+	/* The write and its readback each wait up to 500 ms; both must fit. */
+	if (expired(u, 1000 * NSEC_PER_MSEC))
+		return -ETIMEDOUT;
+	for (u32 i = 0; i < G0Q_BLOCK / 16; i++)
+		pattern_record(u->data + 16 * i, i);
+	put_unaligned_be32(G0Q_TEST_LBA, cdb + 2);
+	put_unaligned_be16(1, cdb + 7);
+	/* The status sample from here on is the write's, or 0 if it never completed. */
+	out->last_status = 0;
+	/* scsi_until() rings only with a full second left (else -EBUSY), so the
+	 * write keeps its full 500 ms wait and the readback its own 500 ms. */
+	rc = scsi_until(u, cdb, sizeof(cdb), G0Q_BLOCK, true, within(u, 500 * NSEC_PER_MSEC));
+	out->write_status = out->last_status;
+	if (rc)
+		return rc;
+	out->flags |= G0Q_SF_WRITTEN;
+
+	out->step = G0Q_ST_READBACK;
+	rc = read10(u, G0Q_TEST_LBA, 1);
+	if (rc)
+		return rc;
+	sha256(u->data, G0Q_BLOCK, digest);
+	out->readback_word = get_unaligned_be32(digest);
+	if (!is_pattern(u->data))
+		return -EILSEQ;
+	out->flags |= G0Q_SF_READBACK_MATCH;
+	return 0;
+}
+#endif
 
 /* The test block lies past every GPT entry and inside the last usable LBA. */
 static bool range_ok(const u8 *gpt)
@@ -357,6 +438,11 @@ static int sequence(struct utp *u)
 		out->block_digest[i] = get_unaligned_be32(digest + 4 * i);
 	if (!memchr_inv(u->data, 0, G0Q_BLOCK))
 		out->flags |= G0Q_SF_BLOCK_ZERO;
+#ifdef G0Q_STORAGE_WRITE
+	rc = write_block(u);
+	if (rc)
+		return rc;
+#endif
 	out->step = G0Q_ST_DONE;
 	return 0;
 }

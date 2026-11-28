@@ -78,6 +78,10 @@ permission to perform host-only work.
    The separate exact S22+ Debian first-boot exception below permits one
    installation into that existing native_data filesystem and its declared
    Debian lifetime. It permits no format, repair, GPT change or Android stage.
+   The separate S22+ mainline UFS storage envelope below permits one fixed
+   FUA WRITE(10) of one fixed 4096-byte pattern to LBA 62,305,152 of LU 0,
+   which no partition covers, only over zeros. It permits no other block,
+   LUN, pattern, opcode, partition or repeated write.
    The separate exact S22+ installed-Debian exception below permits one fresh
    boot of that already completed root, its declared filesystem lifetime and
    one reviewed P399 boot-only normal restoration. It grants no installation,
@@ -765,47 +769,102 @@ permission to perform host-only work.
    without the field keep the 300-second witness, kernel and V13 module byte
    for byte. It grants no added hardware, storage or general effect and no
    unattended, retry or replay capability.
-   The operator adopted on 2026-11-27 one read-only storage stage (phase 2a)
-   for that witness-floor variant. Only an exact floor capability with module
-   report version 14, 15 or 16 may use it. Its module is the floor module with the
-   reviewed storage source added. Its late overlay also gives the link node the
-   controller's own SMMU stream and coherency, so Linux attaches one DMA
-   domain for that stream at probe. The stage runs only after this boot's one
-   completed link with Device Present. It runs in the same module and its
-   15-second budget. It programs one transfer request slot and starts that
-   list, with polled completion, no interrupt and crypto disabled. It then
-   sends, in order, only these commands to LU 0:
+   The operator adopted on 2026-11-27 one storage stage for that
+   witness-floor variant (phase 2a), and on 2026-11-28 its one-block write
+   (phase 2b), a read of that block by rooted Android (phase 2c) and this
+   fixed envelope. Only an exact floor capability with module report version
+   14 or later may use the stage. Its module is the floor module with the
+   reviewed storage source added. Its late overlay also gives the link node
+   the controller's own SMMU stream and coherency, so Linux attaches one DMA
+   domain for that stream at probe. The stage runs only after this boot's
+   one completed link with Device Present. It runs in the same module and
+   its 15-second budget. It programs one transfer request slot and starts
+   that list, with polled completion, no interrupt and crypto disabled.
+   Every command has fixed fields, and nothing comes from the host, observer
+   or report. Every report version sends exactly these commands, in this
+   fixed order and only to LU 0, and stops at the first step that fails;
+   versions before 17 end after the block read:
    - NOP OUT;
    - query set flag and read flag of `fDeviceInit`;
-   - TEST UNIT READY, repeated once only after a UNIT ATTENTION or, in
-     versions 15 and 16, after a CHECK CONDITION whose sense was not located
-     because the response declared an extra header segment;
+   - TEST UNIT READY, repeated at most once, and only after a UNIT ATTENTION
+     or a CHECK CONDITION whose sense could not be located;
    - READ CAPACITY(16);
    - READ(10) of LBAs 1–3 (the primary GPT);
-   - READ(10) of the one LBA 62,305,152 in LU0's unallocated tail.
+   - READ(10) of the one LBA 62,305,152 in LU0's unallocated tail;
+   - from report version 17: one WRITE(10) with FUA of exactly that one
+     block, carrying the fixed 4096-byte pattern compiled into the module
+     (SHA-256 `1155097a861b1bdf671fc262e660197e2974599d89831fd1d32b20304e820d18`:
+     256 records of the ASCII bytes `S22UFS2B`, the LBA and the record index,
+     each a little-endian 32-bit value), then one READ(10) of the same block.
 
-   A capacity or GPT mismatch stops the stage before the last read. So does
-   a GPT entry that covers that LBA. The stage needs the device's own SMMU
-   mapping before any DMA, and it ends 2 seconds before the module budget. A
-   slot that does not complete in time is uncertain: it is never cleared,
-   reused or retried, and the stage stops. At restart, before the SMMU
-   shuts down, the link driver's shutdown stops the transfer list. If a slot
-   is still outstanding, it clears HCE and waits up to 1 second for HCE to
-   read 0. If HCE does not read 0, it asserts the controller's own block
-   reset and parks the restart, so the SMMU never stops translating under a
-   possibly live slot. The attended physical Download is then the recovery.
-   Version 15 changes only how responses are read: an extra header segment no
-   longer stops the stage, the sense bytes of such a response are never
-   guessed, and the report adds the last response's header bytes 8–11.
-   Version 16 also accepts a SCSI response whose response field is Target
-   Failure (`0x01`) only together with CHECK CONDITION, and parses its sense
-   as before; GOOD still requires response 0.
-   No write, other opcode, other query write, attribute or descriptor write,
-   other LUN, power-mode change, ICE or key operation, or generic UFS, SCSI or
-   block driver is delegated. The authenticated report adds the stage's
+   A capacity or GPT mismatch stops the stage before the block read. So does
+   a GPT entry that covers that LBA. The write is sent only after the block
+   read completed with GOOD and returned 4096 zero bytes, and only if the
+   full budget for the write and its readback remains when checked last
+   before its doorbell; a write that then completes late is late or
+   uncertain like any other command. A block that already holds
+   the pattern is not written again. Any other content stops the stage before
+   the write. Nothing restores the block; the pattern stays. A late or
+   uncertain write establishes neither state: the block may hold zeros or
+   the pattern, and only a later block read decides. A readback other than
+   the pattern, or any later content other than zeros or the pattern, stops
+   this lane for review and is never repaired: it ends any series at once,
+   no version 17 grant opens after any such closure or phase 2c read, and a
+   further write run needs a reviewed change and a new single-run approval.
+
+   The stage needs the device's own SMMU mapping before any DMA, and it ends
+   2 seconds before the module budget. A slot that does not complete in time
+   is uncertain: it is never cleared, reused or retried, and the stage stops.
+   At restart, before the SMMU shuts down, the link driver's shutdown stops
+   the transfer list. If a slot is still outstanding, it clears HCE and waits
+   up to 1 second for HCE to read 0. If HCE does not read 0, it asserts the
+   controller's own block reset and parks the restart, so the SMMU never
+   stops translating under a possibly live slot. The attended physical
+   Download is then the recovery.
+
+   Within these bounds, how a report version reads responses, which fields
+   it reports and how the host decodes them belong to the reviewed code and
+   the [route policy](S22PLUS_MAINLINE_UFS_ROUTE_V1.md). A new report version
+   inside this envelope needs one independent code review and its own
+   capability, owner review and run approval, but no contract change. Any
+   command, field, block, LUN, pattern or rule outside it needs a contract
+   change.
+
+   No other write, block, LUN or pattern is delegated. No other opcode is
+   delegated, including WRITE(16), WRITE SAME, UNMAP, FORMAT UNIT, WRITE
+   BUFFER and SYNCHRONIZE CACHE. Nor is any other query write, attribute or
+   descriptor write, power-mode change, ICE or key operation, or generic
+   UFS, SCSI or block driver. The authenticated report adds the stage's
    outcome and digests. That outcome never changes the link result's return
    conditions, the Download and original-A path, recovery or no-replay rules.
-   It grants no media write; a write needs its own closed exception.
+
+   Phase 2c: after a version 17 run returns to healthy original Android, one
+   fixed read-only D0 may read that block once by root, attended, on the
+   same host boot, started within the step time after that run's closure
+   (decided once, when the read is claimed), and only on
+   the Android boot its final health proved. The reader is bound by the
+   run's capability. It checks the existing LU0 node's sysfs
+   ancestry, device number, 4096-byte blocks and exact size, and that every
+   Android partition ends before the block. It then reads exactly those 4096
+   bytes and records their SHA-256, between two rooted health brackets on
+   the same boot. It accepts no caller path, offset or length, opens nothing
+   writable, creates no node or mount, loads no module, changes no boot mode
+   and is never retried.
+
+   Series approval: one exact returned approval may cover a fixed series of
+   at most four of these steps (version 17 or later runs and phase 2c reads),
+   named with their exact images before approval; each run names a distinct
+   qualified candidate and AP. Each step keeps its own
+   prepared task or read, fresh readiness, attendance, recovery and
+   final-health rules. A step starts only after every earlier step closed
+   healthy, by its own claimed task or read, with an admitted outcome. It is
+   claimed once, before its grant opens, and never replayed; a series
+   approval opens a grant only through that claim.
+   The series ends at its expiry (at most 24 hours), at a host reboot, or at
+   the first step that is not admitted. Expiry is decided once per step: a
+   step's claim records when it was made, and only a claim made before
+   expiry on the series' host boot opens its grant; a claimed step then runs
+   and recovers under the single-step rules.
    One narrow S20+ classic-fastboot census exception may be activated only by
    the exact S20+ target contract. It permits the SHA-pinned official Google
    `fastboot` tool to send exactly four fixed read-only requests, in this order:
